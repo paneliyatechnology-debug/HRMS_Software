@@ -1,10 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { LeaveRequest, LeaveStatus, LeaveType } from '../common/types.js';
+import { EventsGateway } from '../events/events.gateway.js';
 
 @Injectable()
 export class LeavesService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
+  ) {}
 
   findAll(params?: { employeeId?: string; status?: string; departmentId?: string }) {
     let list = [...this.db.leaveRequests];
@@ -103,6 +107,16 @@ export class LeavesService {
     });
 
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitNotification({
+        title: 'New Leave Request',
+        message: `${employee.firstName} ${employee.lastName} requested ${diffDays} day(s) of ${data.leaveType}.`,
+        type: 'warning',
+        module: 'leave',
+      });
+    }
+
     return newRequest;
   }
 
@@ -159,6 +173,15 @@ export class LeavesService {
     });
 
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitLeaveUpdate({
+        id: request.id,
+        employeeName: request.employeeName,
+        status: 'Approved',
+      });
+    }
+
     return request;
   }
 
@@ -180,6 +203,15 @@ export class LeavesService {
     );
 
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitLeaveUpdate({
+        id: request.id,
+        employeeName: request.employeeName,
+        status: 'Rejected',
+      });
+    }
+
     return request;
   }
 }

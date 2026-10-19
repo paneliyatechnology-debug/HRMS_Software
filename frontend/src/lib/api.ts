@@ -188,6 +188,14 @@ export const api = {
     );
   },
 
+  async syncBiometricAttendance(logs: any[]) {
+    return fetchWithFallback<any>(
+      '/attendance/biometric-sync',
+      { method: 'POST', body: JSON.stringify({ logs }) },
+      { status: 'success', syncedRecords: logs.length }
+    );
+  },
+
   // Leaves
   async getLeaves(params?: { employeeId?: string; status?: string }) {
     const query = new URLSearchParams();
@@ -316,5 +324,40 @@ export const api = {
   // Settings
   async getSettings() {
     return fetchWithFallback<any>('/settings');
+  },
+
+  // Documents
+  async getDocuments(employeeId?: string) {
+    const query = employeeId ? `?employeeId=${employeeId}` : '';
+    return fetchWithFallback<any[]>(`/documents${query}`, undefined, []);
+  },
+
+  async uploadDocumentFile(formData: FormData) {
+    try {
+      const res = await fetch(`${API_BASE}/documents/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed with status ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend upload fallback:', err);
+      return {
+        id: `doc-${Date.now()}`,
+        title: formData.get('title') || 'Uploaded Document',
+        category: formData.get('category') || 'Other',
+        fileUrl: '/docs/sample.pdf',
+        fileSize: '1.2 MB',
+        uploadDate: new Date().toISOString().split('T')[0],
+        verificationStatus: 'Pending',
+      };
+    }
+  },
+
+  async verifyDocument(id: string, status: 'Verified' | 'Rejected') {
+    return fetchWithFallback<any>(`/documents/${id}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, verifiedBy: 'HR Admin' }),
+    });
   },
 };

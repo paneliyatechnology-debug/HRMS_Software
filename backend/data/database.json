@@ -289,6 +289,148 @@
   ],
   "employees": [
     {
+      "id": "emp-1792408683283",
+      "employeeCode": "PAN-023",
+      "firstName": "Clara",
+      "lastName": "Oswald",
+      "email": "clara.oswald@designhub.io",
+      "phone": "+1 (555) 672-8812",
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "gender": "Other",
+      "dateOfBirth": "1995-01-01",
+      "address": "Corporate HQ",
+      "emergencyContact": {
+        "name": "Emergency Contact",
+        "relationship": "Kin",
+        "phone": "+1 (555) 672-8812"
+      },
+      "joiningDate": "2026-10-19",
+      "employmentType": "Full-time",
+      "status": "Probation",
+      "departmentId": "dept-1",
+      "departmentName": "Engineering",
+      "designationId": "des-3",
+      "designationTitle": "Product Designer (UI/UX)",
+      "workLocationId": "loc-1",
+      "workLocationName": "Corporate Headquarters",
+      "shift": "General Shift (9 AM - 6 PM)",
+      "bankDetails": {
+        "bankName": "Silicon Valley Bank",
+        "accountNumber": "99201948191",
+        "ifscOrRouting": "SVB00129",
+        "accountHolderName": "Clara Oswald"
+      },
+      "taxInformation": {
+        "taxId": "TX-887331",
+        "panOrSsn": "***-**-4910",
+        "taxRegime": "New Regime"
+      },
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "University",
+          "year": 2018
+        }
+      ],
+      "previousExperience": [
+        {
+          "company": "PixelCraft",
+          "role": "Product Designer (UI/UX)",
+          "years": 4
+        }
+      ],
+      "skills": [
+        "Figma",
+        "Design Tokens",
+        "User Testing",
+        "Accessibility"
+      ],
+      "salary": {
+        "basic": 6500,
+        "hra": 2600,
+        "allowances": 1600,
+        "bonus": 800,
+        "pf": 780,
+        "tax": 1100,
+        "professionalTax": 200,
+        "gross": 11500,
+        "net": 9420
+      },
+      "createdAt": "2026-10-19T11:18:03.283Z",
+      "updatedAt": "2026-10-19T11:18:03.283Z"
+    },
+    {
+      "id": "emp-1792408675083",
+      "employeeCode": "PAN-022",
+      "firstName": "Daniel",
+      "lastName": "Craig",
+      "email": "daniel.craig@devtech.org",
+      "phone": "+1 (555) 912-3341",
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      "gender": "Other",
+      "dateOfBirth": "1995-01-01",
+      "address": "Corporate HQ",
+      "emergencyContact": {
+        "name": "Emergency Contact",
+        "relationship": "Kin",
+        "phone": "+1 (555) 912-3341"
+      },
+      "joiningDate": "2026-10-19",
+      "employmentType": "Full-time",
+      "status": "Probation",
+      "departmentId": "dept-1",
+      "departmentName": "Engineering",
+      "designationId": "des-3",
+      "designationTitle": "Senior Full Stack Engineer",
+      "workLocationId": "loc-1",
+      "workLocationName": "Corporate Headquarters",
+      "shift": "General Shift (9 AM - 6 PM)",
+      "bankDetails": {
+        "bankName": "Silicon Valley Bank",
+        "accountNumber": "99201948191",
+        "ifscOrRouting": "SVB00129",
+        "accountHolderName": "Daniel Craig"
+      },
+      "taxInformation": {
+        "taxId": "TX-556850",
+        "panOrSsn": "***-**-4910",
+        "taxRegime": "New Regime"
+      },
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "University",
+          "year": 2018
+        }
+      ],
+      "previousExperience": [
+        {
+          "company": "Skyfall Systems",
+          "role": "Senior Full Stack Engineer",
+          "years": 7
+        }
+      ],
+      "skills": [
+        "NestJS",
+        "React",
+        "Kubernetes",
+        "Microservices"
+      ],
+      "salary": {
+        "basic": 6500,
+        "hra": 2600,
+        "allowances": 1600,
+        "bonus": 800,
+        "pf": 780,
+        "tax": 1100,
+        "professionalTax": 200,
+        "gross": 11500,
+        "net": 9420
+      },
+      "createdAt": "2026-10-19T11:17:55.083Z",
+      "updatedAt": "2026-10-19T11:17:55.083Z"
+    },
+    {
       "id": "emp-1",
       "employeeCode": "PAN-001",
       "userId": "user-1",
@@ -2078,8 +2220,8 @@
       },
       "paidLeave": {
         "total": 15,
-        "used": 2,
-        "remaining": 10
+        "used": 3,
+        "remaining": 12
       }
     },
     {
@@ -2365,6 +2507,25 @@
   ],
   "leaveRequests": [
     {
+      "id": "lr-1792408590361",
+      "employeeId": "emp-8",
+      "employeeName": "Juan Hogan",
+      "employeeAvatar": "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150",
+      "departmentName": "Product Design",
+      "leaveType": "Comp Off",
+      "startDate": "2026-10-20",
+      "endDate": "2026-10-20",
+      "daysCount": 1,
+      "isHalfDay": false,
+      "reason": "ghjkl;",
+      "status": "Approved",
+      "appliedDate": "2026-10-19",
+      "managerApproverId": "emp-5",
+      "managerApproverName": "Priya Sharma",
+      "comments": "Approved via HRMS Manager portal",
+      "hrApprovedAt": "2026-10-19T11:16:54.344Z"
+    },
+    {
       "id": "lr-1",
       "employeeId": "emp-15",
       "employeeName": "Adarson Miller",
@@ -2463,6 +2624,20 @@
   ],
   "attendanceRecords": [
     {
+      "id": "att-1792408714681",
+      "employeeId": "emp-14",
+      "employeeName": "Marcus Brody",
+      "date": "2026-10-19",
+      "checkIn": "04:48 PM",
+      "checkOut": "04:48 PM",
+      "breakDurationMinutes": 0,
+      "workingHours": 8.5,
+      "overtimeHours": 0.5,
+      "status": "Late",
+      "remarks": "Late arrival",
+      "createdAt": "2026-10-19T11:18:34.677Z"
+    },
+    {
       "id": "att-1",
       "employeeId": "emp-1",
       "employeeName": "John Deo",
@@ -2520,10 +2695,10 @@
       "employeeName": "Juan Hogan",
       "date": "2026-10-19",
       "checkIn": "09:25 AM",
-      "checkOut": "",
+      "checkOut": "04:58 PM",
       "breakDurationMinutes": 30,
-      "workingHours": 6.5,
-      "overtimeHours": 0,
+      "workingHours": 8.5,
+      "overtimeHours": 0.5,
       "status": "Present",
       "remarks": "Working on HRMS design redesign",
       "createdAt": "2026-10-19T09:25:00Z"
@@ -3208,7 +3383,7 @@
         "Accessibility"
       ],
       "source": "Dribbble",
-      "status": "Shortlisted",
+      "status": "Hired",
       "appliedDate": "2026-10-08",
       "rating": 4.5,
       "notes": "Outstanding portfolio with enterprise SaaS dashboards."
@@ -3230,7 +3405,7 @@
         "Microservices"
       ],
       "source": "Referral",
-      "status": "Offer",
+      "status": "Hired",
       "appliedDate": "2026-09-25",
       "rating": 4.9,
       "notes": "Offer letter generated. Candidate reviewing salary and benefits package."
@@ -3251,7 +3426,7 @@
         "Payroll Sync"
       ],
       "source": "Indeed",
-      "status": "Screening",
+      "status": "Interview",
       "appliedDate": "2026-10-14",
       "rating": 4
     }
@@ -3538,6 +3713,24 @@
   ],
   "notifications": [
     {
+      "id": "notif-1792408614345",
+      "title": "Leave Approved",
+      "message": "Your leave request for 2026-10-20 to 2026-10-20 has been approved.",
+      "type": "leave",
+      "isRead": false,
+      "createdAt": "2026-10-19T11:16:54.345Z",
+      "link": "/leaves"
+    },
+    {
+      "id": "notif-1792408590362",
+      "title": "New Leave Application",
+      "message": "Juan Hogan applied for Comp Off (1 days).",
+      "type": "leave",
+      "isRead": false,
+      "createdAt": "2026-10-19T11:16:30.362Z",
+      "link": "/leaves"
+    },
+    {
       "id": "notif-1",
       "title": "Leave Request Approved",
       "message": "Your leave application for Oct 21, 2026 has been approved by HR.",
@@ -3634,6 +3827,162 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "log-1792409319383-585",
+      "userId": "emp-8",
+      "userName": "Juan Hogan",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKOUT",
+      "module": "Attendance",
+      "recordId": "att-5",
+      "details": "Checked out at 04:58 PM with 8.5 working hours",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:28:39.383Z"
+    },
+    {
+      "id": "log-1792408723431-858",
+      "userId": "emp-14",
+      "userName": "Marcus Brody",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKOUT",
+      "module": "Attendance",
+      "recordId": "att-1792408714681",
+      "details": "Checked out at 04:48 PM with 8.5 working hours",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:43.431Z"
+    },
+    {
+      "id": "log-1792408714681-548",
+      "userId": "emp-14",
+      "userName": "Marcus Brody",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKIN",
+      "module": "Attendance",
+      "recordId": "att-1792408714681",
+      "details": "Checked in at 04:48 PM (Late)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:34.681Z"
+    },
+    {
+      "id": "log-1792408701906-958",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-4",
+      "details": "Moved candidate Jessica Alba from Interview to Interview",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:21.906Z"
+    },
+    {
+      "id": "log-1792408696509-231",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-1",
+      "details": "Moved candidate Liam Thorne from Interview to Interview",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:16.509Z"
+    },
+    {
+      "id": "log-1792408687228-979",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-1",
+      "details": "Moved candidate Liam Thorne from Interview to Interview",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:07.228Z"
+    },
+    {
+      "id": "log-1792408683283-964",
+      "userId": "sys",
+      "userName": "HR Admin",
+      "userRole": "HR_ADMIN",
+      "action": "CANDIDATE_CONVERTED_TO_EMPLOYEE",
+      "module": "Recruitment",
+      "recordId": "emp-1792408683283",
+      "details": "Converted candidate Clara Oswald into employee PAN-023",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:03.283Z"
+    },
+    {
+      "id": "log-1792408680342-226",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-2",
+      "details": "Moved candidate Clara Oswald from Shortlisted to Offer",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:18:00.342Z"
+    },
+    {
+      "id": "log-1792408678838-845",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-3",
+      "details": "Moved candidate Daniel Craig from Hired to Hired",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:17:58.838Z"
+    },
+    {
+      "id": "log-1792408675083-309",
+      "userId": "sys",
+      "userName": "HR Admin",
+      "userRole": "HR_ADMIN",
+      "action": "CANDIDATE_CONVERTED_TO_EMPLOYEE",
+      "module": "Recruitment",
+      "recordId": "emp-1792408675083",
+      "details": "Converted candidate Daniel Craig into employee PAN-022",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:17:55.083Z"
+    },
+    {
+      "id": "log-1792408669041-887",
+      "userId": "sys",
+      "userName": "Recruiter",
+      "userRole": "RECRUITER",
+      "action": "CANDIDATE_STATUS_CHANGED",
+      "module": "Recruitment",
+      "recordId": "cand-4",
+      "details": "Moved candidate Jessica Alba from Screening to Interview",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:17:49.041Z"
+    },
+    {
+      "id": "log-1792408614344-152",
+      "userId": "sys",
+      "userName": "Approver",
+      "userRole": "SUPER_ADMIN",
+      "action": "LEAVE_APPROVED",
+      "module": "Leave Management",
+      "recordId": "lr-1792408590361",
+      "details": "Approved leave request for Juan Hogan (1 days)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:16:54.344Z"
+    },
+    {
+      "id": "log-1792408590361-65",
+      "userId": "emp-8",
+      "userName": "Juan Hogan",
+      "userRole": "EMPLOYEE",
+      "action": "LEAVE_APPLIED",
+      "module": "Leave Management",
+      "recordId": "lr-1792408590361",
+      "details": "Applied for 1 day(s) of Comp Off (2026-10-20 to 2026-10-20)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-19T11:16:30.361Z"
+    },
     {
       "id": "log-1",
       "userId": "user-1",

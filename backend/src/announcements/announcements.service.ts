@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { Announcement } from '../common/types.js';
+import { EventsGateway } from '../events/events.gateway.js';
 
 @Injectable()
 export class AnnouncementsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
+  ) {}
 
   findAll() {
     return this.db.announcements;
@@ -23,6 +27,14 @@ export class AnnouncementsService {
 
     this.db.announcements.unshift(newAnc);
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitAnnouncement({
+        title: newAnc.title,
+        content: newAnc.content,
+      });
+    }
+
     return newAnc;
   }
 }

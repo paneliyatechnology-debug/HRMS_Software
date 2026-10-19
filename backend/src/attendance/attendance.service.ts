@@ -1,10 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AttendanceRecord, AttendanceStatus } from '../common/types.js';
+import { EventsGateway } from '../events/events.gateway.js';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
+  ) {}
 
   findAll(params?: { employeeId?: string; date?: string; departmentId?: string }) {
     let list = [...this.db.attendanceRecords];
@@ -98,6 +102,17 @@ export class AttendanceService {
     );
 
     this.db.persist();
+
+    // Real-time WebSocket event
+    if (this.eventsGateway) {
+      this.eventsGateway.emitAttendancePunch({
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        time: timeStr,
+        status: record.status,
+      });
+    }
+
     return record;
   }
 
@@ -138,6 +153,16 @@ export class AttendanceService {
     );
 
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitNotification({
+        title: 'Attendance Punch Out',
+        message: `${record.employeeName} completed work shift at ${timeStr}.`,
+        type: 'info',
+        module: 'attendance',
+      });
+    }
+
     return record;
   }
 
@@ -180,5 +205,76 @@ export class AttendanceService {
 
     this.db.persist();
     return newRecord;
+  }
+
+  /**
+   * Biometric hardware machine sync (ZKTeco / eSSL device webhook)
+   */
+  syncBiometricLogs(
+    logs: Array<{
+      deviceId: string;
+      employeeCode: string;
+      punchTime: string;
+      type?: 'IN' | 'OUT';
+    }>,
+  ) {
+    let syncedCount = 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const log of logs) {
+      const emp = this.db.employees.find(
+        (e) => e.employeeCode.toLowerCase() === log.employeeCode.toLowerCase()
+      );
+      if (!emp) continue;
+
+      const punchDate = log.punchTime.split('T')[0] || today;
+      const punchTimeOnly = log.punchTime.includes('T')
+        ? log.punchTime.split('T')[1].slice(0, 5)
+        : log.punchTime;
+
+      let existing = this.db.attendanceRecords.find(
+        (a) => a.employeeId === emp.id && a.date === punchDate
+      );
+
+      if (!existing) {
+        existing = {
+          id: `att-bio-${Date.now()}-${syncedCount}`,
+          employeeId: emp.id,
+          employeeName: `${emp.firstName} ${emp.lastName}`,
+          date: punchDate,
+          checkIn: punchTimeOnly,
+          checkOut: '',
+          breakDurationMinutes: 30,
+          workingHours: 8.0,
+          overtimeHours: 0,
+          status: AttendanceStatus.PRESENT,
+          remarks: `Synced via Biometric Device (${log.deviceId})`,
+          createdAt: new Date().toISOString(),
+        };
+        this.db.attendanceRecords.unshift(existing);
+        syncedCount++;
+      } else if (!existing.checkOut && log.type === 'OUT') {
+        existing.checkOut = punchTimeOnly;
+        existing.remarks += ` | Biometric Out (${log.deviceId})`;
+        syncedCount++;
+      }
+    }
+
+    this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitNotification({
+        title: 'Biometric Machine Synced',
+        message: `Successfully processed ${syncedCount} punch records from biometric hardware.`,
+        type: 'success',
+        module: 'attendance',
+      });
+    }
+
+    return {
+      status: 'success',
+      syncedRecords: syncedCount,
+      timestamp: new Date().toISOString(),
+    };
   }
 }

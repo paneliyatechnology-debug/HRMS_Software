@@ -176,7 +176,27 @@ export class DatabaseService implements OnModuleInit {
     this.auditLogs = [...initialAuditLogs];
   }
 
+  private persistTimeout: any = null;
+  private isPersisting = false;
+
   public persist() {
+    if (this.persistTimeout) {
+      clearTimeout(this.persistTimeout);
+    }
+
+    this.persistTimeout = setTimeout(() => {
+      this.executeAtomicPersist();
+    }, 40);
+  }
+
+  private executeAtomicPersist() {
+    if (this.isPersisting) {
+      // Re-queue if already in progress
+      this.persistTimeout = setTimeout(() => this.executeAtomicPersist(), 30);
+      return;
+    }
+
+    this.isPersisting = true;
     try {
       const data: DatabaseSchema = {
         locations: this.locations,
@@ -202,9 +222,14 @@ export class DatabaseService implements OnModuleInit {
         documents: this.documents,
         auditLogs: this.auditLogs,
       };
-      fs.writeFileSync(this.dbFilePath, JSON.stringify(data, null, 2), 'utf8');
+
+      const tempPath = `${this.dbFilePath}.tmp-${Date.now()}`;
+      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(tempPath, this.dbFilePath);
     } catch (err) {
       this.logger.error('Failed to persist database file', err);
+    } finally {
+      this.isPersisting = false;
     }
   }
 

@@ -1,10 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { PayrollRecord } from '../common/types.js';
+import { EventsGateway } from '../events/events.gateway.js';
 
 @Injectable()
 export class PayrollService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Optional() private readonly eventsGateway?: EventsGateway,
+  ) {}
 
   findAll(params?: { month?: string; status?: string; employeeId?: string }) {
     let list = [...this.db.payrollRecords];
@@ -130,6 +134,16 @@ export class PayrollService {
     );
 
     this.db.persist();
+
+    if (this.eventsGateway) {
+      this.eventsGateway.emitNotification({
+        title: 'Payroll Generated',
+        message: `Monthly payroll run for ${payrollMonth} completed (${createdCount} payslips processed).`,
+        type: 'success',
+        module: 'payroll',
+      });
+    }
+
     return {
       success: true,
       month: payrollMonth,

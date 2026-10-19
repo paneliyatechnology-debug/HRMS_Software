@@ -51,4 +51,21 @@ export class AttendanceController {
   ) {
     return this.attendanceService.manualEntry(body);
   }
+
+  @Post('biometric-sync')
+  @ApiOperation({ summary: 'Biometric hardware machine sync (ZKTeco / eSSL device webhook)' })
+  biometricSync(
+    @Body()
+    body: {
+      deviceId?: string;
+      logs: Array<{
+        deviceId: string;
+        employeeCode: string;
+        punchTime: string;
+        type?: 'IN' | 'OUT';
+      }>;
+    },
+  ) {
+    return this.attendanceService.syncBiometricLogs(body.logs || []);
+  }
 }

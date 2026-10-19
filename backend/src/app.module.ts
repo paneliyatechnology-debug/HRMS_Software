@@ -18,9 +18,11 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { EventsModule } from './events/events.module.js';
 
 @Module({
   imports: [
+    EventsModule,
     DatabaseModule,
     AuthModule,
     EmployeesModule,
