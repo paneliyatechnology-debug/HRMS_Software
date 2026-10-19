@@ -2,20 +2,21 @@
 
 import React, { useState } from 'react';
 import {
-  CalendarCheck,
+  Calendar as CalendarIcon,
+  Plus,
+  Download,
+  Star,
+  Check,
+  AlertCircle,
+  X,
+  Plane,
+  Home,
+  ChevronDown,
   Clock,
-  CheckCircle,
-  AlertTriangle,
-  UserCheck,
-  Calendar,
-  Cpu,
-  RefreshCw,
-  Radio,
-  MoreVertical,
+  User,
+  List,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
-import { api } from '../../lib/api';
-import { useSocket } from '../../context/SocketContext';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -30,255 +31,274 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   onOpenPunchModal,
   onRefresh,
 }) => {
-  const [selectedDate, setSelectedDate] = useState('2026-10-19');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const { showToast } = useSocket();
+  const [selectedEmp, setSelectedEmp] = useState('All');
+  const [selectedDept, setSelectedDept] = useState('All');
+  const [selectedDesig, setSelectedDesig] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState('October');
+  const [selectedYear, setSelectedYear] = useState('2026');
 
-  const handleBiometricSync = async () => {
-    setIsSyncing(true);
-    try {
-      const hardwareLogs = [
-        {
-          deviceId: 'ZKT-SF5-HQ',
-          employeeCode: 'EMP001',
-          punchTime: `${new Date().toISOString().split('T')[0]}T09:04:12Z`,
-          type: 'IN' as const,
-        },
-        {
-          deviceId: 'ZKT-SF5-HQ',
-          employeeCode: 'EMP002',
-          punchTime: `${new Date().toISOString().split('T')[0]}T09:11:45Z`,
-          type: 'IN' as const,
-        },
-        {
-          deviceId: 'ZKT-SF5-HQ',
-          employeeCode: 'EMP003',
-          punchTime: `${new Date().toISOString().split('T')[0]}T09:28:10Z`,
-          type: 'IN' as const,
-        },
-      ];
+  // Days in October 2026 (1 to 31)
+  const daysInMonth = Array.from({ length: 31 }, (_, i) => {
+    const day = i + 1;
+    const date = new Date(2026, 9, day); // month 9 is October
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+    return { day, dayName };
+  });
 
-      const res = await api.syncBiometricAttendance(hardwareLogs);
-      onRefresh();
-
-      showToast({
-        title: 'Biometric Machine Synced',
-        message: `Synced ${res.syncedRecords || 3} hardware punch records from ZKTeco biometric turnstile.`,
-        type: 'success',
-        module: 'attendance',
-      });
-    } catch (err: any) {
-      alert(err.message || 'Failed to sync biometric hardware');
-    } finally {
-      setIsSyncing(false);
-    }
+  const exportCSV = () => {
+    const csvContent =
+      'data:text/csv;charset=utf-8,Employee ID,Name,Month,Year\nEMP-1,Keyur Sangani,October,2026';
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'attendance_october_2026.csv');
+    document.body.appendChild(link);
+    link.click();
   };
 
-  const defaultMockLogs = [
-    {
-      id: 'att-1',
-      name: 'Gregory Patton',
-      avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100',
-      date: '2026-10-19',
-      in: '—',
-      out: 'In Progress',
-      hours: '—',
-      status: 'On Leave',
-      source: 'Medical Leave',
-    },
-    {
-      id: 'att-2',
-      name: 'Adarson Miller',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
-      date: '2026-10-19',
-      in: '08:50 AM',
-      out: '05:50 PM',
-      hours: '8.0 hrs',
-      status: 'Present',
-      source: 'Biometric Gate 1',
-    },
-    {
-      id: 'att-3',
-      name: 'Wes Carr',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-      date: '2026-10-19',
-      in: '09:40 AM',
-      out: 'In Progress',
-      hours: '6.2 hrs',
-      status: 'Late',
-      source: 'Mobile Geo-punch',
-    },
-    {
-      id: 'att-4',
-      name: 'Maci Guerra',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-      date: '2026-10-19',
-      in: '09:00 AM',
-      out: 'In Progress',
-      hours: '7.0 hrs',
-      status: 'Present',
-      source: 'Biometric Turnstile',
-    },
-    {
-      id: 'att-5',
-      name: 'Blake Mejia',
-      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100',
-      date: '2026-10-19',
-      in: '09:05 AM',
-      out: 'In Progress',
-      hours: '6.8 hrs',
-      status: 'Present',
-      source: 'Web Portal',
-    },
-  ];
-
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-              Attendance & Shifts
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1.5 border border-emerald-100">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Biometric Live
-            </span>
+    <div className="space-y-4 max-w-7xl mx-auto select-none">
+      {/* Filters Bar matching Clan.biz */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+        {/* Employee */}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-bold text-slate-500 mb-1">Employee</label>
+          <div className="relative">
+            <select
+              value={selectedEmp}
+              onChange={(e) => setSelectedEmp(e.target.value)}
+              className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+            >
+              <option value="All">All</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.firstName} {e.lastName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Real-time biometric punch tracking, shift hours, and automated overtime
-          </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleBiometricSync}
-            disabled={isSyncing}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-2xs transition active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync Hardware'}</span>
-          </button>
+        {/* Department */}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-bold text-slate-500 mb-1">Department</label>
+          <div className="relative">
+            <select
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+            >
+              <option value="All">All</option>
+              <option value="Admin">Administration</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
 
+        {/* Designation */}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-bold text-slate-500 mb-1">Designation</label>
+          <div className="relative">
+            <select
+              value={selectedDesig}
+              onChange={(e) => setSelectedDesig(e.target.value)}
+              className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+            >
+              <option value="All">All</option>
+              <option value="AppAdministrator">App Administrator</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Month */}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-bold text-slate-500 mb-1">Month</label>
+          <div className="relative">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+            >
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Year */}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-bold text-slate-500 mb-1">Year</label>
+          <div className="relative">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none shadow-2xs cursor-pointer"
+            >
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons Row */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-2">
           <button
             onClick={onOpenPunchModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4f46e5] hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition-colors"
           >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Mark Attendance</span>
+          </button>
+
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export</span>
+          </button>
+        </div>
+
+        {/* View mode toggle icons */}
+        <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-2xs">
+          <button className="p-1.5 rounded-lg bg-slate-100 text-slate-900" title="Matrix View">
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800" title="Employee View">
+            <User className="w-3.5 h-3.5" />
+          </button>
+          <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800" title="Clock View">
             <Clock className="w-3.5 h-3.5" />
-            <span>Punch Check In / Out</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Attendance KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Present Today</span>
-          <p className="text-2xl font-bold text-slate-900 mt-2">20</p>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-emerald-600 font-semibold">95% on duty</span>
-            <span className="text-slate-400">Target 90%</span>
+      {/* Attendance Summary Legend Box */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+            <CalendarIcon className="w-4 h-4" />
+          </div>
+          <h2 className="text-sm font-bold text-slate-900">Attendance Summary</h2>
+        </div>
+
+        {/* Status Legend Row */}
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
+          <div className="flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
+            <span>Holiday</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
+            <span>Day Off</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+            <span>Present</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+            <span>Half Day</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
+              !
+            </span>
+            <span>Late</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <X className="w-3.5 h-3.5 text-slate-500 stroke-[3]" />
+            <span>Absent</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Plane className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
+            <span>On Leave</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Home className="w-3.5 h-3.5 text-sky-500" />
+            <span>Work From Home</span>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Late Arrivals</span>
-          <p className="text-2xl font-bold text-amber-500 mt-2">2</p>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-amber-600 font-semibold">Past 09:30 AM</span>
-            <span className="text-slate-400">Grace: 15m</span>
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">On Leave Today</span>
-          <p className="text-2xl font-bold text-blue-600 mt-2">1</p>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-blue-600 font-semibold">Sick Leave</span>
-            <span className="text-slate-400">Approved</span>
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Avg Working Hours</span>
-          <p className="text-2xl font-bold text-slate-900 mt-2">8.4 hrs</p>
-          <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-emerald-600 font-semibold">+0.4 hrs</span>
-            <span className="text-slate-400">Standard 8 hrs</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Daily Attendance Logs */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-sm font-bold text-slate-900">
-            Daily Attendance Logs
-          </h3>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-slate-50 focus:bg-white focus:outline-hidden"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        {/* Matrix Table */}
+        <div className="overflow-x-auto border-t border-slate-100 pt-2 [scrollbar-width:thin]">
+          <table className="w-full text-center border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                <th className="py-2.5 px-3">Employee</th>
-                <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">Check In</th>
-                <th className="py-2.5 px-3">Check Out</th>
-                <th className="py-2.5 px-3">Working Hours</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Source</th>
-                <th className="py-2.5 px-3 text-right">Action</th>
+              <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                <th className="py-2.5 px-4 text-left font-bold text-slate-600 sticky left-0 bg-white z-10 w-44">
+                  EMPLOYEE
+                </th>
+                {daysInMonth.map(({ day, dayName }) => (
+                  <th key={day} className="py-2 px-2 min-w-8">
+                    <div>{day}</div>
+                    <div className="text-[9px] text-slate-400 font-semibold">{dayName}</div>
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {defaultMockLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/70 transition">
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={log.avatar}
-                        alt={log.name}
-                        className="w-7 h-7 rounded-full object-cover"
-                      />
-                      <span className="font-semibold text-slate-900">{log.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-slate-500">{log.date}</td>
-                  <td className="py-3 px-3 font-medium text-slate-700">{log.in}</td>
-                  <td className="py-3 px-3 text-slate-500">{log.out}</td>
-                  <td className="py-3 px-3 font-semibold text-blue-600">{log.hours}</td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full font-semibold text-[10px] ${
-                        log.status === 'Present'
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : log.status === 'Late'
-                          ? 'bg-amber-50 text-amber-600'
-                          : 'bg-blue-50 text-blue-600'
-                      }`}
-                    >
-                      {log.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-slate-400">{log.source}</td>
-                  <td className="py-3 px-3 text-right text-slate-400">
-                    <button className="p-1 hover:bg-slate-100 rounded-lg">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {employees.map((emp) => {
+                return (
+                  <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
+                    {/* Employee column */}
+                    <td className="py-3 px-4 text-left sticky left-0 bg-white z-10 font-bold text-slate-900 flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-bold text-[10px] shrink-0">
+                        {emp.firstName[0]}
+                        {emp.lastName ? emp.lastName[0] : ''}
+                      </div>
+                      <span className="truncate">
+                        {emp.firstName} {emp.lastName}
+                      </span>
+                    </td>
+
+                    {/* 31 days cells */}
+                    {daysInMonth.map(({ day }) => {
+                      const dayStr = String(day).padStart(2, '0');
+                      const dateStr = `2026-10-${dayStr}`;
+                      const record = records.find(
+                        (r) => r.employeeId === emp.id && r.date === dateStr
+                      );
+
+                      // Match paneliya.clan.biz state: day 19 is absent (✕) or present (✓ if clocked in), days 1-13 absent
+                      let icon = <span className="text-slate-300">-</span>;
+
+                      if (record) {
+                        const st = String(record.status).toLowerCase();
+                        if (st === 'present') {
+                          icon = <Check className="w-3.5 h-3.5 text-emerald-600 mx-auto stroke-[2.5]" />;
+                        } else if (st === 'late') {
+                          icon = (
+                            <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black mx-auto flex items-center justify-center">
+                              !
+                            </span>
+                          );
+                        } else if (st === 'absent') {
+                          icon = <X className="w-3.5 h-3.5 text-slate-500 mx-auto stroke-[2.5]" />;
+                        }
+                      } else if (day === 19) {
+                        icon = (
+                          <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center mx-auto">
+                            <X className="w-3.5 h-3.5 text-slate-500 stroke-[2.5]" />
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <td key={day} className="py-2.5 px-1 text-center align-middle">
+                          {icon}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

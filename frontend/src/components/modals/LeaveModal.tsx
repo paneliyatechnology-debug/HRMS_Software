@@ -39,7 +39,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setError('');
     try {
       await api.applyLeave({
-        employeeId: user.employeeId || 'emp-8',
+        employeeId: user.employeeId || 'emp-1',
         leaveType,
         startDate,
         endDate,

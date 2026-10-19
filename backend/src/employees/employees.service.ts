@@ -78,7 +78,7 @@ export class EmployeesService {
   create(data: Partial<Employee>, actorName = 'Admin') {
     const newId = `emp-${Date.now()}`;
     const nextCodeNum = this.db.employees.length + 1;
-    const employeeCode = `PAN-${String(nextCodeNum).padStart(3, '0')}`;
+    const employeeCode = data.employeeCode || `EMP-${nextCodeNum}`;
 
     const department = this.db.departments.find((d) => d.id === data.departmentId);
     const designation = this.db.designations.find((d) => d.id === data.designationId);

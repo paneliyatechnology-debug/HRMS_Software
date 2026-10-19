@@ -39,7 +39,14 @@ import {
   Candidate,
   CompanyAsset,
 } from '../types/hrms';
-import { mockDashboardStats, mockEmployees, mockDepartments, mockDesignations, mockLocations, mockLeaveRequests } from '../lib/mockData';
+import {
+  mockDashboardStats,
+  mockEmployees,
+  mockDepartments,
+  mockDesignations,
+  mockLocations,
+  mockLeaveRequests,
+} from '../lib/mockData';
 
 export default function Home() {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -95,14 +102,14 @@ export default function Home() {
       if (employeesData && employeesData.length > 0) setEmployees(employeesData);
       if (departmentsData && departmentsData.length > 0) setDepartments(departmentsData);
       if (designationsData && designationsData.length > 0) setDesignations(designationsData);
-      if (leavesData && leavesData.length > 0) setLeaves(leavesData);
-      if (attendanceData && attendanceData.length > 0) setAttendance(attendanceData);
+      if (leavesData) setLeaves(leavesData);
+      if (attendanceData) setAttendance(attendanceData);
       if (payrollData && payrollData.length > 0) setPayroll(payrollData);
       if (jobsData && jobsData.length > 0) setJobs(jobsData);
       if (candidatesData && candidatesData.length > 0) setCandidates(candidatesData);
       if (assetsData && assetsData.length > 0) setAssets(assetsData);
     } catch (err) {
-      console.warn('API sync warning (using preloaded mock cache):', err);
+      console.warn('API sync warning (using real data fallback):', err);
     }
   };
 
@@ -111,8 +118,16 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="w-full max-w-[1536px] mx-auto min-h-[92vh] flex floating-window overflow-hidden relative my-auto bg-white shadow-[0_25px_60px_-15px_rgba(15,23,42,0.07)] border border-slate-200/80">
-      {/* Sidebar Navigation */}
+    <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col font-sans select-none antialiased">
+      {/* Top Navbar matching Clan.biz */}
+      <Header
+        onOpenSidebar={() => setSidebarOpen(true)}
+        onOpenClockModal={() => setClockModalOpen(true)}
+        onOpenLeaveModal={() => setLeaveModalOpen(true)}
+        onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+      />
+
+      {/* Slide-over Left Sidebar */}
       <Sidebar
         activeModule={activeModule}
         setActiveModule={setActiveModule}
@@ -120,102 +135,95 @@ export default function Home() {
         setIsOpen={setSidebarOpen}
       />
 
-      {/* Main Content Viewport */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#fafbfc] transition-all duration-300 overflow-y-auto">
-        {/* Top Navbar */}
-        <Header
-          onOpenSidebar={() => setSidebarOpen(true)}
-          onOpenSearch={() => setSearchModalOpen(true)}
-        />
+      {/* Main Content Area */}
+      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 max-w-[1600px] w-full mx-auto">
+        {activeModule === 'dashboard' && (
+          <DashboardView
+            stats={stats}
+            employees={employees}
+            leaves={leaves}
+            attendance={attendance}
+            onNavigateModule={setActiveModule}
+            onOpenClockModal={() => setClockModalOpen(true)}
+            onOpenLeaveModal={() => setLeaveModalOpen(true)}
+            onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+            onSelectEmployee={setSelectedEmployee}
+            onRefreshData={loadData}
+          />
+        )}
 
-        {/* Dynamic Module Content View */}
-        <main className="flex-1">
-          {activeModule === 'dashboard' && (
-            <DashboardView
-              stats={stats}
-              employees={employees}
-              leaves={leaves}
-              onNavigateModule={setActiveModule}
-              onOpenClockModal={() => setClockModalOpen(true)}
-              onOpenLeaveModal={() => setLeaveModalOpen(true)}
-              onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
-              onSelectEmployee={setSelectedEmployee}
-            />
-          )}
+        {activeModule === 'employees' && (
+          <EmployeesModule
+            employees={employees}
+            departments={departments}
+            onSelectEmployee={setSelectedEmployee}
+            onOpenAddModal={() => setAddEmployeeModalOpen(true)}
+          />
+        )}
 
-          {activeModule === 'employees' && (
-            <EmployeesModule
-              employees={employees}
-              departments={departments}
-              onSelectEmployee={setSelectedEmployee}
-              onOpenAddModal={() => setAddEmployeeModalOpen(true)}
-            />
-          )}
+        {activeModule === 'attendance' && (
+          <AttendanceModule
+            records={attendance}
+            employees={employees}
+            onOpenPunchModal={() => setClockModalOpen(true)}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'attendance' && (
-            <AttendanceModule
-              records={attendance}
-              employees={employees}
-              onOpenPunchModal={() => setClockModalOpen(true)}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'leaves' && (
+          <LeaveModule
+            leaves={leaves}
+            onOpenApplyModal={() => setLeaveModalOpen(true)}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'leaves' && (
-            <LeaveModule
-              leaves={leaves}
-              onOpenApplyModal={() => setLeaveModalOpen(true)}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'payroll' && (
+          <PayrollModule
+            payrollRecords={payroll}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'payroll' && (
-            <PayrollModule
-              payrollRecords={payroll}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'recruitment' && (
+          <RecruitmentModule
+            jobs={jobs}
+            candidates={candidates}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'recruitment' && (
-            <RecruitmentModule
-              jobs={jobs}
-              candidates={candidates}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'performance' && (
+          <PerformanceModule
+            reviews={[]}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'performance' && (
-            <PerformanceModule
-              reviews={[]}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'organization' && (
+          <OrganizationModule
+            departments={departments}
+            designations={designations}
+            locations={locations}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'organization' && (
-            <OrganizationModule
-              departments={departments}
-              designations={designations}
-              locations={locations}
-              onRefresh={loadData}
-            />
-          )}
+        {activeModule === 'training' && (
+          <TrainingModule
+            programs={[]}
+            onRefresh={loadData}
+          />
+        )}
 
-          {activeModule === 'training' && (
-            <TrainingModule
-              programs={[]}
-              onRefresh={loadData}
-            />
-          )}
-
-          {activeModule === 'documents' && <DocumentsModule />}
-          {activeModule === 'assets' && <AssetsModule />}
-          {activeModule === 'resignations' && <ResignationsModule />}
-          {activeModule === 'announcements' && <AnnouncementsModule />}
-          {activeModule === 'reports' && <ReportsModule />}
-          {activeModule === 'audit-logs' && <AuditLogsModule />}
-          {activeModule === 'settings' && <SettingsModule />}
-        </main>
-      </div>
+        {activeModule === 'documents' && <DocumentsModule />}
+        {activeModule === 'assets' && <AssetsModule />}
+        {activeModule === 'resignations' && <ResignationsModule />}
+        {activeModule === 'announcements' && <AnnouncementsModule />}
+        {activeModule === 'reports' && <ReportsModule />}
+        {activeModule === 'audit-logs' && <AuditLogsModule />}
+        {activeModule === 'settings' && <SettingsModule />}
+      </main>
 
       {/* Global Modals & Drawers */}
       <AttendanceModal
