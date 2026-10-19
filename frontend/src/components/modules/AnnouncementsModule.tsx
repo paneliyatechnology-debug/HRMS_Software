@@ -36,22 +36,23 @@ export const AnnouncementsModule: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Company Notice Board & Bulletins
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+            Company Notice Board
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-0.5">
             Official organizational broadcasts, town hall updates, and department circulars
           </p>
         </div>
 
         <button
           onClick={() => alert('New announcement publisher opening...')}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
         >
-          <Plus className="w-4 h-4" /> Create Announcement
+          <Plus className="w-3.5 h-3.5" />
+          <span>New Bulletin</span>
         </button>
       </div>
 
@@ -59,11 +60,11 @@ export const AnnouncementsModule: React.FC = () => {
         {announcements.map((anc) => (
           <div
             key={anc.id}
-            className="p-6 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-3"
+            className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs space-y-3"
           >
             <div className="flex items-center justify-between">
               <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
                   anc.priority === 'High'
                     ? 'bg-rose-50 text-rose-600'
                     : anc.priority === 'Medium'
@@ -73,20 +74,20 @@ export const AnnouncementsModule: React.FC = () => {
               >
                 {anc.priority} Priority
               </span>
-              <span className="text-xs text-slate-400 flex items-center gap-1">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" /> Published on {anc.publishDate}
               </span>
             </div>
 
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-slate-900">
               {anc.title}
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               {anc.content}
             </p>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
-              <span>Author: <strong className="text-slate-700 dark:text-slate-200">{anc.authorName}</strong></span>
+            <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-400">
+              <span>Author: <strong className="text-slate-700">{anc.authorName}</strong></span>
               <span className="font-semibold text-blue-600">Audience: {anc.targetAudience}</span>
             </div>
           </div>

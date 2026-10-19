@@ -44,40 +44,40 @@ export const SettingsModule: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Enterprise System Settings
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+            Settings & Permissions
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Configure company legal entity parameters, working hours, leave policies, and RBAC matrix
+          <p className="text-xs text-slate-400 mt-0.5">
+            Configure company legal entity parameters, working hours, and RBAC matrix
           </p>
         </div>
 
         {savedMessage && (
-          <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-xs flex items-center gap-1.5 animate-in fade-in">
-            <Check className="w-4 h-4" /> Settings Saved Successfully
+          <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold text-xs flex items-center gap-1.5 border border-emerald-100">
+            <Check className="w-3.5 h-3.5" /> Changes Saved Successfully
           </span>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 text-xs font-bold overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-semibold overflow-x-auto">
         {[
           { id: 'company', label: 'Company Profile' },
           { id: 'schedule', label: 'Working Hours & Shifts' },
           { id: 'leaves', label: 'Leave Policies' },
-          { id: 'rbac', label: 'Role & Permissions Matrix (RBAC)' },
+          { id: 'rbac', label: 'Role Permissions (RBAC)' },
         ].map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id as any)}
-            className={`px-4 py-2 rounded-xl transition ${
+            className={`px-3.5 py-1.5 rounded-full transition ${
               activeTab === t.id
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-blue-50 text-blue-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             {t.label}
@@ -87,61 +87,61 @@ export const SettingsModule: React.FC = () => {
 
       {/* Tab 1: Company Profile */}
       {activeTab === 'company' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-4 max-w-2xl">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Organization Identity</h3>
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
+          <h3 className="text-sm font-bold text-slate-900">Organization Identity</h3>
 
           <div className="space-y-3 text-xs">
             <div>
-              <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Company Name</label>
+              <label className="block font-medium mb-1 text-slate-700">Company Name</label>
               <input
                 type="text"
                 value={companyData.name}
                 onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
             <div>
-              <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Corporate Tagline</label>
+              <label className="block font-medium mb-1 text-slate-700">Corporate Tagline</label>
               <input
                 type="text"
                 value={companyData.tagline}
                 onChange={(e) => setCompanyData({ ...companyData, tagline: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Federal Tax EIN</label>
+                <label className="block font-medium mb-1 text-slate-700">Federal Tax EIN</label>
                 <input
                   type="text"
                   value={companyData.taxId}
                   onChange={(e) => setCompanyData({ ...companyData, taxId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Currency</label>
+                <label className="block font-medium mb-1 text-slate-700">Currency</label>
                 <input
                   type="text"
                   value={companyData.currency}
                   onChange={(e) => setCompanyData({ ...companyData, currency: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
             </div>
             <div>
-              <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Headquarters Address</label>
+              <label className="block font-medium mb-1 text-slate-700">Headquarters Address</label>
               <input
                 type="text"
                 value={companyData.address}
                 onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <button
               onClick={handleSave}
-              className="mt-3 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
             >
               Save Company Settings
             </button>
@@ -151,33 +151,33 @@ export const SettingsModule: React.FC = () => {
 
       {/* Tab 2: Working Hours */}
       {activeTab === 'schedule' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-4 max-w-2xl">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Shift & Attendance Rules</h3>
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
+          <h3 className="text-sm font-bold text-slate-900">Shift & Attendance Rules</h3>
 
           <div className="space-y-3 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold mb-1">Standard Daily Working Hours</label>
+                <label className="block font-medium mb-1 text-slate-700">Standard Daily Working Hours</label>
                 <input
                   type="number"
                   value={scheduleData.workingHoursPerDay}
                   onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden"
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1">Grace Period (Minutes)</label>
+                <label className="block font-medium mb-1 text-slate-700">Grace Period (Minutes)</label>
                 <input
                   type="number"
                   value={scheduleData.gracePeriodMinutes}
                   onChange={(e) => setScheduleData({ ...scheduleData, gracePeriodMinutes: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden"
                 />
               </div>
             </div>
             <button
               onClick={handleSave}
-              className="mt-3 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
             >
               Save Attendance Rules
             </button>
@@ -187,20 +187,20 @@ export const SettingsModule: React.FC = () => {
 
       {/* Tab 3: Leave Policies */}
       {activeTab === 'leaves' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-4 max-w-2xl">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Annual Leave Entitlements</h3>
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
+          <h3 className="text-sm font-bold text-slate-900">Annual Leave Entitlements</h3>
           <div className="grid grid-cols-3 gap-3 text-xs">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 text-center">
-              <span className="text-slate-400 block font-bold">Casual Leave</span>
-              <span className="text-xl font-black text-blue-600">12 Days / Year</span>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+              <span className="text-slate-400 block font-semibold">Casual Leave</span>
+              <span className="text-lg font-bold text-blue-600 mt-1 block">12 Days / Year</span>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 text-center">
-              <span className="text-slate-400 block font-bold">Sick Leave</span>
-              <span className="text-xl font-black text-emerald-600">10 Days / Year</span>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+              <span className="text-slate-400 block font-semibold">Sick Leave</span>
+              <span className="text-lg font-bold text-emerald-600 mt-1 block">10 Days / Year</span>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 text-center">
-              <span className="text-slate-400 block font-bold">Paid / Annual</span>
-              <span className="text-xl font-black text-purple-600">15 Days / Year</span>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+              <span className="text-slate-400 block font-semibold">Paid / Annual</span>
+              <span className="text-lg font-bold text-purple-600 mt-1 block">15 Days / Year</span>
             </div>
           </div>
         </div>
@@ -208,46 +208,46 @@ export const SettingsModule: React.FC = () => {
 
       {/* Tab 4: RBAC Permissions Matrix */}
       {activeTab === 'rbac' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-xs p-6">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">
             Role-Based Access Control (RBAC) Permission Matrix
           </h3>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-700">
-                <tr>
-                  <th className="py-3 px-4">Feature / Permission</th>
-                  <th className="py-3 px-4 text-center">Super Admin</th>
-                  <th className="py-3 px-4 text-center">HR Admin</th>
-                  <th className="py-3 px-4 text-center">Manager</th>
-                  <th className="py-3 px-4 text-center">Employee</th>
-                  <th className="py-3 px-4 text-center">Recruiter</th>
-                  <th className="py-3 px-4 text-center">Finance</th>
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-semibold">
+                  <th className="py-2.5 px-3">Feature / Permission</th>
+                  <th className="py-2.5 px-3 text-center">Super Admin</th>
+                  <th className="py-2.5 px-3 text-center">HR Admin</th>
+                  <th className="py-2.5 px-3 text-center">Manager</th>
+                  <th className="py-2.5 px-3 text-center">Employee</th>
+                  <th className="py-2.5 px-3 text-center">Recruiter</th>
+                  <th className="py-2.5 px-3 text-center">Finance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              <tbody className="divide-y divide-slate-50">
                 {rbacMatrix.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition">
-                    <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
+                  <tr key={i} className="hover:bg-slate-50/70 transition">
+                    <td className="py-2.5 px-3 font-semibold text-slate-800">
                       {row.module}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       <Check className="w-4 h-4 text-emerald-600 mx-auto" />
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       {row.hrAdmin ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       {row.manager ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       {row.employee ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       {row.recruiter ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       {row.finance ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
                     </td>
                   </tr>

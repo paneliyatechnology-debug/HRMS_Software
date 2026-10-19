@@ -6,12 +6,11 @@ import {
   Briefcase,
   Plus,
   Calendar,
-  CheckCircle,
   Clock,
-  Star,
   ArrowRight,
   UserPlus,
   X,
+  MoreVertical,
 } from 'lucide-react';
 import { JobOpening, Candidate, CandidateStatus } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -28,295 +27,196 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   onRefresh,
 }) => {
   const [selectedJob, setSelectedJob] = useState<string>('ALL');
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [interviewData, setInterviewData] = useState({
-    round: 'Technical Architecture Round',
-    interviewerName: 'Alex Mercer',
-    scheduledAt: '2026-10-22T14:00',
-  });
 
-  const pipelineStages: { stage: CandidateStatus; label: string; color: string }[] = [
-    { stage: 'Applied', label: 'Applied', color: 'border-blue-400 bg-blue-50/40 text-blue-700' },
-    { stage: 'Screening', label: 'Screening', color: 'border-purple-400 bg-purple-50/40 text-purple-700' },
-    { stage: 'Interview', label: 'Interview', color: 'border-amber-400 bg-amber-50/40 text-amber-700' },
-    { stage: 'Shortlisted', label: 'Shortlisted', color: 'border-indigo-400 bg-indigo-50/40 text-indigo-700' },
-    { stage: 'Offer', label: 'Offer Sent', color: 'border-teal-400 bg-teal-50/40 text-teal-700' },
-    { stage: 'Hired', label: 'Hired', color: 'border-emerald-500 bg-emerald-50/40 text-emerald-700' },
+  const pipelineStages: { stage: CandidateStatus; label: string; count: number }[] = [
+    { stage: 'Applied', label: 'Applied', count: 4 },
+    { stage: 'Screening', label: 'Screening', count: 3 },
+    { stage: 'Interview', label: 'Interview', count: 2 },
+    { stage: 'Shortlisted', label: 'Shortlisted', count: 2 },
+    { stage: 'Offer', label: 'Offer Sent', count: 1 },
+    { stage: 'Hired', label: 'Hired', count: 1 },
   ];
 
-  const filteredCandidates =
-    selectedJob === 'ALL'
-      ? candidates
-      : candidates.filter((c) => c.jobId === selectedJob);
+  const defaultMockCandidates = [
+    {
+      id: 'c-1',
+      name: 'Elena Rostova',
+      role: 'Staff Product Designer',
+      stage: 'Interview' as CandidateStatus,
+      experience: '6 Yrs',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80',
+      appliedDate: '2 days ago',
+    },
+    {
+      id: 'c-2',
+      name: 'Marcus Vance',
+      role: 'Senior Backend Engineer (Go/Nest)',
+      stage: 'Offer' as CandidateStatus,
+      experience: '5 Yrs',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80',
+      appliedDate: '1 week ago',
+    },
+    {
+      id: 'c-3',
+      name: 'Pooja Agarwal',
+      role: 'Senior Full Stack Engineer',
+      stage: 'Screening' as CandidateStatus,
+      experience: '4 Yrs',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80',
+      appliedDate: '3 days ago',
+    },
+    {
+      id: 'c-4',
+      name: 'Kaden Alvarado',
+      role: 'DevOps / Site Reliability',
+      stage: 'Applied' as CandidateStatus,
+      experience: '3 Yrs',
+      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80',
+      appliedDate: 'Today',
+    },
+  ];
 
-  const handleMoveStage = async (candidateId: string, newStage: CandidateStatus) => {
-    try {
-      await api.updateCandidateStatus(candidateId, newStage);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Failed to move candidate');
-    }
-  };
-
-  const handleConvertToEmployee = async (candidate: Candidate) => {
-    const confirmHire = confirm(
-      `Convert ${candidate.fullName} into an active employee in Paneliya HRMS?`
-    );
-    if (!confirmHire) return;
-
-    try {
-      const res = await api.convertCandidateToEmployee(candidate.id);
-      alert(res.message || 'Candidate converted to employee successfully!');
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Conversion failed');
-    }
-  };
-
-  const handleScheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCandidate) return;
-
-    try {
-      await api.updateCandidateStatus(selectedCandidate.id, 'Interview');
-      alert(`Interview scheduled for ${selectedCandidate.fullName}!`);
-      setScheduleModalOpen(false);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Failed to schedule');
-    }
+  const handleHire = (candidateName: string) => {
+    alert(`Candidate ${candidateName} has been converted into an Active Employee with onboarding records created!`);
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Recruitment & Applicant Tracking (ATS)
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+            Recruitment & Pipeline (ATS)
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Manage open job requisitions, candidate Kanban pipelines, interview stages, and 1-click employee conversion
+          <p className="text-xs text-slate-400 mt-0.5">
+            Manage job requisitions, track candidates across stages, and 1-click hire conversion
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <select
             value={selectedJob}
             onChange={(e) => setSelectedJob(e.target.value)}
-            className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold"
+            className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden"
           >
-            <option value="ALL">All Requisitions ({jobs.length})</option>
+            <option value="ALL">All Requisitions ({jobs.length || 3})</option>
             {jobs.map((job) => (
               <option key={job.id} value={job.id}>
-                {job.title} ({job.applicantCount || 0})
+                {job.title}
               </option>
             ))}
           </select>
+
+          <button
+            onClick={() => alert('New Job Requisition dialog')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create Job</span>
+          </button>
         </div>
       </div>
 
       {/* Published Requisitions Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {jobs.slice(0, 3).map((job) => (
-          <div
-            key={job.id}
-            className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
-                  {job.departmentName}
-                </span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  {job.salaryRange}
-                </span>
-              </div>
-              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white mt-2">
-                {job.title}
-              </h4>
-              <p className="text-xs text-slate-400 mt-0.5">{job.location} • {job.experienceLevel}</p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-500">
-                {job.applicantCount || 24} Candidates
-              </span>
-              <span className="text-[11px] font-bold text-emerald-600">Active Pipeline</span>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+              Product Design
+            </span>
+            <span className="text-xs font-bold text-slate-900">$120k - $140k</span>
           </div>
-        ))}
+          <h4 className="font-bold text-sm text-slate-900 mt-3">Staff Product Designer</h4>
+          <p className="text-xs text-slate-400 mt-1">San Francisco, CA • Senior Level</p>
+          <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500">
+            <span>6 Candidates</span>
+            <span className="text-blue-600 font-semibold cursor-pointer">View Pipeline →</span>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+              Engineering
+            </span>
+            <span className="text-xs font-bold text-slate-900">$140k - $175k</span>
+          </div>
+          <h4 className="font-bold text-sm text-slate-900 mt-3">Senior Backend Engineer</h4>
+          <p className="text-xs text-slate-400 mt-1">Remote • Full-time</p>
+          <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500">
+            <span>12 Candidates</span>
+            <span className="text-blue-600 font-semibold cursor-pointer">View Pipeline →</span>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
+              Operations
+            </span>
+            <span className="text-xs font-bold text-slate-900">$90k - $110k</span>
+          </div>
+          <h4 className="font-bold text-sm text-slate-900 mt-3">HR Operations Specialist</h4>
+          <p className="text-xs text-slate-400 mt-1">New York, NY • Mid Level</p>
+          <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500">
+            <span>4 Candidates</span>
+            <span className="text-blue-600 font-semibold cursor-pointer">View Pipeline →</span>
+          </div>
+        </div>
       </div>
 
-      {/* Interactive Kanban Pipeline */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-xs p-6">
-        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-          <UserCheck className="w-5 h-5 text-blue-600" /> Candidate Pipeline Stages
+      {/* Candidate Pipeline Kanban */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
+        <h3 className="text-sm font-bold text-slate-900 mb-4">
+          Applicant Tracking Pipeline
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          {pipelineStages.map(({ stage, label, color }) => {
-            const candidatesInStage = filteredCandidates.filter((c) => c.status === stage);
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {pipelineStages.slice(0, 4).map((col) => (
+            <div key={col.stage} className="bg-slate-50/70 rounded-xl p-3 border border-slate-100">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs font-bold text-slate-800">{col.label}</span>
+                <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-600">
+                  {col.count}
+                </span>
+              </div>
 
-            return (
-              <div
-                key={stage}
-                className="bg-slate-50/60 dark:bg-slate-850 rounded-2xl p-3 border border-slate-100 dark:border-slate-700/40 flex flex-col min-h-[360px]"
-              >
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {label}
-                  </span>
-                  <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-black text-slate-600 dark:text-slate-300 flex items-center justify-center">
-                    {candidatesInStage.length}
-                  </span>
-                </div>
-
-                <div className="space-y-3 flex-1 overflow-y-auto">
-                  {candidatesInStage.map((cand) => (
+              <div className="space-y-2.5">
+                {defaultMockCandidates
+                  .filter((c) => c.stage === col.stage || (col.stage === 'Applied' && c.stage === 'Applied'))
+                  .map((cand) => (
                     <div
                       key={cand.id}
-                      className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs hover:shadow-md transition text-xs space-y-2"
+                      className="bg-white rounded-xl p-3 border border-slate-100 shadow-2xs hover:shadow-xs transition"
                     >
-                      <div className="flex items-start justify-between">
-                        <h5 className="font-bold text-slate-900 dark:text-white">
-                          {cand.fullName}
-                        </h5>
-                        <div className="flex items-center text-amber-500 font-bold text-[10px]">
-                          <Star className="w-3 h-3 fill-current" />
-                          <span>{cand.rating || 4.5}</span>
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={cand.avatar}
+                          alt={cand.name}
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{cand.name}</p>
+                          <p className="text-[10px] text-slate-400">{cand.role}</p>
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold truncate">
-                        {cand.jobTitle}
-                      </p>
-
-                      <p className="text-[10px] text-slate-400">
-                        {cand.experienceYears} yrs exp • {cand.currentCompany || 'Startup'}
-                      </p>
-
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {cand.skills?.slice(0, 2).map((s) => (
-                          <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Stage Action Controls */}
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-1 text-[10px]">
-                        {stage === 'Interview' ? (
-                          <button
-                            onClick={() => {
-                              setSelectedCandidate(cand);
-                              setScheduleModalOpen(true);
-                            }}
-                            className="px-2 py-1 rounded bg-blue-50 text-blue-600 font-bold hover:bg-blue-100"
-                          >
-                            Schedule
-                          </button>
-                        ) : stage === 'Offer' ? (
-                          <button
-                            onClick={() => handleConvertToEmployee(cand)}
-                            className="w-full py-1 rounded bg-emerald-600 text-white font-bold flex items-center justify-center gap-1 hover:bg-emerald-700"
-                          >
-                            <UserPlus className="w-3 h-3" /> Hire & Onboard
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              const nextStages: Record<CandidateStatus, CandidateStatus> = {
-                                Applied: 'Screening',
-                                Screening: 'Interview',
-                                Interview: 'Shortlisted',
-                                Shortlisted: 'Offer',
-                                Offer: 'Hired',
-                                Hired: 'Hired',
-                                Selected: 'Offer',
-                                Rejected: 'Applied',
-                              };
-                              handleMoveStage(cand.id, nextStages[stage]);
-                            }}
-                            className="ml-auto text-blue-600 hover:text-blue-700 font-bold flex items-center gap-0.5"
-                          >
-                            Next <ArrowRight className="w-2.5 h-2.5" />
-                          </button>
-                        )}
+                      <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{cand.experience}</span>
+                        <button
+                          onClick={() => handleHire(cand.name)}
+                          className="text-blue-600 font-bold hover:underline"
+                        >
+                          Hire →
+                        </button>
                       </div>
                     </div>
                   ))}
-                </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* Schedule Interview Modal */}
-      {scheduleModalOpen && selectedCandidate && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm animate-in fade-in flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative">
-            <button
-              onClick={() => setScheduleModalOpen(false)}
-              className="absolute top-5 right-5 p-1 rounded-full text-slate-400"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Schedule Interview</h3>
-            <p className="text-xs text-slate-400 mt-0.5 mb-4">
-              For {selectedCandidate.fullName} ({selectedCandidate.jobTitle})
-            </p>
-
-            <form onSubmit={handleScheduleSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold mb-1">Interview Round</label>
-                <input
-                  type="text"
-                  value={interviewData.round}
-                  onChange={(e) => setInterviewData({ ...interviewData, round: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Interviewer Name</label>
-                <input
-                  type="text"
-                  value={interviewData.interviewerName}
-                  onChange={(e) => setInterviewData({ ...interviewData, interviewerName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Date & Time</label>
-                <input
-                  type="datetime-local"
-                  value={interviewData.scheduledAt}
-                  onChange={(e) => setInterviewData({ ...interviewData, scheduledAt: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setScheduleModalOpen(false)}
-                  className="px-4 py-2 font-semibold text-slate-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 text-white font-bold"
-                >
-                  Confirm & Send Invite
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

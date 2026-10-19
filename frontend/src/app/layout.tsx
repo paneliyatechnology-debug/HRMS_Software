@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} h-full light`}>
-      <body className="min-h-full flex flex-col font-sans bg-[#f4f6fa] text-slate-900 selection:bg-blue-600 selection:text-white">
+      <body className="min-h-screen bg-[#eceff3] text-slate-900 selection:bg-slate-900 selection:text-white p-2 sm:p-4 lg:p-6 flex flex-col">
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>

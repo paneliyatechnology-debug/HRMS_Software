@@ -117,44 +117,45 @@ export const DocumentsModule: React.FC = () => {
   });
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Document Repository & Compliance
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              Document Compliance & Vault
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1 border border-emerald-100">
               <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Secure employee documentation, tax filings, legal agreements, and HR verification audits
+          <p className="text-xs text-slate-400 mt-0.5">
+            Secure employee documentation, tax filings, identity records, and HR verification audits
           </p>
         </div>
 
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/25 transition active:scale-95"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
         >
-          <UploadCloud className="w-4 h-4" /> Upload Document
+          <UploadCloud className="w-3.5 h-3.5" />
+          <span>Upload Document</span>
         </button>
       </div>
 
       {/* Main Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-xs p-6">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
         {/* Filters & Search */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-1.5">
             {['ALL', 'Identity', 'Tax', 'Offer Letter', 'Education', 'Other'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition ${
+                className={`px-3 py-1 rounded-full font-semibold text-xs transition ${
                   category === cat
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    ? 'bg-blue-50 text-blue-600 font-bold'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 {cat}
@@ -163,13 +164,13 @@ export const DocumentsModule: React.FC = () => {
           </div>
 
           <div className="relative min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by title or employee..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+              className="w-full pl-9 pr-4 py-1.5 text-xs rounded-full border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
             />
           </div>
         </div>
@@ -177,23 +178,23 @@ export const DocumentsModule: React.FC = () => {
         {/* Documents Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-700">
-              <tr>
-                <th className="py-3 px-4">Document Title</th>
-                <th className="py-3 px-4">Employee</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">File Size</th>
-                <th className="py-3 px-4">Upload Date</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400 font-semibold">
+                <th className="py-2.5 px-3">Document Title</th>
+                <th className="py-2.5 px-3">Employee</th>
+                <th className="py-2.5 px-3">Category</th>
+                <th className="py-2.5 px-3">File Size</th>
+                <th className="py-2.5 px-3">Upload Date</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <tbody className="divide-y divide-slate-50">
               {filtered.map((doc) => (
-                <tr key={doc.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4" />
+                <tr key={doc.id} className="hover:bg-slate-50/70 transition">
+                  <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <FileText className="w-3.5 h-3.5" />
                     </div>
                     <div>
                       <span className="block leading-tight">{doc.title}</span>
@@ -202,56 +203,51 @@ export const DocumentsModule: React.FC = () => {
                       </span>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
+                  <td className="py-3 px-3 font-medium text-slate-700">
                     {doc.employeeName}
                   </td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                  <td className="py-3 px-3">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold">
                       {doc.category}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                  <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">
                     {doc.fileSize}
                   </td>
-                  <td className="py-3.5 px-4 text-slate-500">{doc.uploadDate}</td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3 px-3 text-slate-400">{doc.uploadDate}</td>
+                  <td className="py-3 px-3">
                     <span
-                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1 w-fit ${
+                      className={`px-2 py-0.5 rounded-full font-semibold text-[10px] flex items-center gap-1 w-fit ${
                         doc.verificationStatus === 'Verified'
-                          ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
-                          : doc.verificationStatus === 'Rejected'
-                          ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400'
-                          : 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : doc.verificationStatus === 'Pending'
+                          ? 'bg-amber-50 text-amber-600'
+                          : 'bg-rose-50 text-rose-600'
                       }`}
                     >
-                      {doc.verificationStatus === 'Verified' ? (
-                        <CheckCircle className="w-3 h-3" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3" />
-                      )}
+                      {doc.verificationStatus === 'Verified' && <CheckCircle className="w-3 h-3" />}
                       {doc.verificationStatus}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="py-3 px-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {doc.verificationStatus === 'Pending' && (
-                        <button
-                          onClick={() => handleVerify(doc.id, 'Verified')}
-                          className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold transition"
-                          title="Verify Document"
-                        >
-                          Verify
-                        </button>
-                      )}
                       <a
                         href={doc.fileUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition inline-flex items-center gap-1 font-bold"
-                        title="Download / View"
+                        className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                        title="View / Download"
                       >
                         <Download className="w-3.5 h-3.5" />
                       </a>
+                      {doc.verificationStatus === 'Pending' && (
+                        <button
+                          onClick={() => handleVerify(doc.id, 'Verified')}
+                          className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[10px]"
+                        >
+                          Verify
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

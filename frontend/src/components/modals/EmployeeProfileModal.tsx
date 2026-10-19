@@ -58,12 +58,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm animate-in fade-in flex items-center justify-center p-4 cursor-pointer"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full h-[90vh] shadow-2xl flex flex-col border border-slate-100 dark:border-slate-800 overflow-hidden cursor-default">
+      <div className="bg-white rounded-3xl max-w-4xl w-full h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default">
         {/* Header Profile Hero */}
-        <div className="p-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white relative">
+        <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition"
+            className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -72,24 +72,24 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             <img
               src={employee.avatarUrl}
               alt={employee.firstName}
-              className="w-20 h-20 rounded-2xl object-cover ring-4 ring-white/30 shadow-lg"
+              className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100 shadow-2xs"
             />
             <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-black">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold tracking-tight">
                   {employee.firstName} {employee.lastName}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600">
                   {employee.employeeCode}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-400 text-emerald-950 text-xs font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-semibold">
                   {employee.status}
                 </span>
               </div>
-              <p className="text-blue-100 text-sm font-medium mt-1">
+              <p className="text-slate-500 text-xs font-medium mt-0.5">
                 {employee.designationTitle} • {employee.departmentName}
               </p>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-blue-200 mt-2">
+              <div className="flex flex-wrap items-center gap-3.5 text-xs text-slate-400 mt-2">
                 <span className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5" /> {employee.email}
                 </span>
@@ -105,17 +105,17 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </div>
 
         {/* Horizontal Navigation Tabs */}
-        <div className="flex items-center border-b border-slate-100 dark:border-slate-800 px-6 bg-slate-50 dark:bg-slate-850 overflow-x-auto scrollbar-none">
+        <div className="flex items-center border-b border-slate-100 px-6 bg-slate-50/60 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-3 px-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all ${
+                className={`py-2.5 px-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${
                   isActive
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 {tab.label}

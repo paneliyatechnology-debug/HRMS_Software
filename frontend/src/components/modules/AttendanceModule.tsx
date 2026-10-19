@@ -8,11 +8,10 @@ import {
   AlertTriangle,
   UserCheck,
   Calendar,
-  Filter,
   Cpu,
   RefreshCw,
-  Wifi,
   Radio,
+  MoreVertical,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -38,7 +37,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleBiometricSync = async () => {
     setIsSyncing(true);
     try {
-      // Simulate hardware logs from physical ZKTeco terminal
       const hardwareLogs = [
         {
           deviceId: 'ZKT-SF5-HQ',
@@ -76,160 +74,208 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   };
 
+  const defaultMockLogs = [
+    {
+      id: 'att-1',
+      name: 'Gregory Patton',
+      avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100',
+      date: '2026-10-19',
+      in: '—',
+      out: 'In Progress',
+      hours: '—',
+      status: 'On Leave',
+      source: 'Medical Leave',
+    },
+    {
+      id: 'att-2',
+      name: 'Adarson Miller',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
+      date: '2026-10-19',
+      in: '08:50 AM',
+      out: '05:50 PM',
+      hours: '8.0 hrs',
+      status: 'Present',
+      source: 'Biometric Gate 1',
+    },
+    {
+      id: 'att-3',
+      name: 'Wes Carr',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      date: '2026-10-19',
+      in: '09:40 AM',
+      out: 'In Progress',
+      hours: '6.2 hrs',
+      status: 'Late',
+      source: 'Mobile Geo-punch',
+    },
+    {
+      id: 'att-4',
+      name: 'Maci Guerra',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+      date: '2026-10-19',
+      in: '09:00 AM',
+      out: 'In Progress',
+      hours: '7.0 hrs',
+      status: 'Present',
+      source: 'Biometric Turnstile',
+    },
+    {
+      id: 'att-5',
+      name: 'Blake Mejia',
+      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100',
+      date: '2026-10-19',
+      in: '09:05 AM',
+      out: 'In Progress',
+      hours: '6.8 hrs',
+      status: 'Present',
+      source: 'Web Portal',
+    },
+  ];
+
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Attendance & Shift Management
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              Attendance & Shifts
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5">
-              <Radio className="w-3 h-3 text-emerald-500 animate-pulse" /> Biometric Sync Active
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1.5 border border-emerald-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Biometric Live
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time biometric punch tracking, working duration, overtime, and monthly attendance calendar
+          <p className="text-xs text-slate-400 mt-0.5">
+            Real-time biometric punch tracking, shift hours, and automated overtime
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleBiometricSync}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs shadow-xs border border-slate-700 transition active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-2xs transition active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing Terminals...' : 'Sync Biometric Hardware'}
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Hardware'}</span>
           </button>
 
           <button
             onClick={onOpenPunchModal}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/25 active:scale-95 transition"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
           >
-            <Clock className="w-4 h-4" /> Punch Check In / Out
+            <Clock className="w-3.5 h-3.5" />
+            <span>Punch Check In / Out</span>
           </button>
         </div>
       </div>
 
-      {/* Hardware Terminal Status Widget */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 text-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-            <Cpu className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900">ZKTeco SpeedFace-V5L Turnstile [HQ Gate 1 & 2]</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold">
-                Online • Ping 14ms
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Protocol: TCP/IP Webhook • IP: 192.168.1.240 • Firmware: v4.2.1-Enterprise
-            </p>
+      {/* 4 Attendance KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-400">Present Today</span>
+          <p className="text-2xl font-bold text-slate-900 mt-2">20</p>
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-emerald-600 font-semibold">95% on duty</span>
+            <span className="text-slate-400">Target 90%</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
-          <div className="text-right">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Today's Hardware Punches</span>
-            <span className="text-sm font-bold text-slate-900">18 Recorded</span>
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-400">Late Arrivals</span>
+          <p className="text-2xl font-bold text-amber-500 mt-2">2</p>
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-amber-600 font-semibold">Past 09:30 AM</span>
+            <span className="text-slate-400">Grace: 15m</span>
           </div>
-          <div className="h-8 w-px bg-slate-200" />
-          <div className="text-right">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Last Sync</span>
-            <span className="text-sm font-bold text-emerald-600">Just Now</span>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-400">On Leave Today</span>
+          <p className="text-2xl font-bold text-blue-600 mt-2">1</p>
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-blue-600 font-semibold">Sick Leave</span>
+            <span className="text-slate-400">Approved</span>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
+          <span className="text-xs font-semibold text-slate-400">Avg Working Hours</span>
+          <p className="text-2xl font-bold text-slate-900 mt-2">8.4 hrs</p>
+          <div className="mt-2 flex items-center justify-between text-[11px]">
+            <span className="text-emerald-600 font-semibold">+0.4 hrs</span>
+            <span className="text-slate-400">Standard 8 hrs</span>
           </div>
         </div>
       </div>
 
-      {/* Attendance Summary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs">
-          <span className="text-slate-400 text-xs font-bold uppercase">Present Today</span>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">20 Employees</p>
-          <span className="text-[11px] text-emerald-600 font-bold">95% of active shifts</span>
-        </div>
-        <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs">
-          <span className="text-slate-400 text-xs font-bold uppercase">Late Arrivals</span>
-          <p className="text-2xl font-black text-amber-500 mt-1">2 Employees</p>
-          <span className="text-[11px] text-slate-400">Past 09:30 AM grace period</span>
-        </div>
-        <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs">
-          <span className="text-slate-400 text-xs font-bold uppercase">On Leave Today</span>
-          <p className="text-2xl font-black text-blue-600 mt-1">1 Employee</p>
-          <span className="text-[11px] text-slate-400">Approved Sick Leave</span>
-        </div>
-        <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 shadow-xs">
-          <span className="text-slate-400 text-xs font-bold uppercase">Avg Working Hours</span>
-          <p className="text-2xl font-black text-purple-600 mt-1">8.4 Hours</p>
-          <span className="text-[11px] text-slate-400">Target: 8.0 hrs/day</span>
-        </div>
-      </div>
-
-      {/* Attendance Logs Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-xs p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <CalendarCheck className="w-5 h-5 text-blue-600" /> Daily Attendance Logs
+      {/* Daily Attendance Logs */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-sm font-bold text-slate-900">
+            Daily Attendance Logs
           </h3>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2">
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-semibold"
+              className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-slate-50 focus:bg-white focus:outline-hidden"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-700">
-              <tr>
-                <th className="py-3 px-4">Employee</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Check In</th>
-                <th className="py-3 px-4">Check Out</th>
-                <th className="py-3 px-4">Working Hours</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Remarks / Device Source</th>
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400 font-semibold">
+                <th className="py-2.5 px-3">Employee</th>
+                <th className="py-2.5 px-3">Date</th>
+                <th className="py-2.5 px-3">Check In</th>
+                <th className="py-2.5 px-3">Check Out</th>
+                <th className="py-2.5 px-3">Working Hours</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Source</th>
+                <th className="py-2.5 px-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {records.map((rec) => (
-                <tr key={rec.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                    {rec.employeeName || 'Employee'}
+            <tbody className="divide-y divide-slate-50">
+              {defaultMockLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-slate-50/70 transition">
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={log.avatar}
+                        alt={log.name}
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                      <span className="font-semibold text-slate-900">{log.name}</span>
+                    </div>
                   </td>
-                  <td className="py-3.5 px-4 text-slate-500">{rec.date}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
-                    {rec.checkIn || '—'}
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
-                    {rec.checkOut || 'In Progress'}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-blue-600">
-                    {rec.workingHours ? `${rec.workingHours} hrs` : '—'}
-                  </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3 px-3 text-slate-500">{log.date}</td>
+                  <td className="py-3 px-3 font-medium text-slate-700">{log.in}</td>
+                  <td className="py-3 px-3 text-slate-500">{log.out}</td>
+                  <td className="py-3 px-3 font-semibold text-blue-600">{log.hours}</td>
+                  <td className="py-3 px-3">
                     <span
-                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
-                        rec.status === 'Present'
+                      className={`px-2 py-0.5 rounded-full font-semibold text-[10px] ${
+                        log.status === 'Present'
                           ? 'bg-emerald-50 text-emerald-600'
-                          : rec.status === 'Late'
+                          : log.status === 'Late'
                           ? 'bg-amber-50 text-amber-600'
                           : 'bg-blue-50 text-blue-600'
                       }`}
                     >
-                      {rec.status}
+                      {log.status}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-slate-400 font-medium">
-                    {rec.remarks || 'Standard Shift'}
+                  <td className="py-3 px-3 text-slate-400">{log.source}</td>
+                  <td className="py-3 px-3 text-right text-slate-400">
+                    <button className="p-1 hover:bg-slate-100 rounded-lg">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

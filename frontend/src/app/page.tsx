@@ -111,7 +111,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex bg-[#f4f6fa] text-slate-900">
+    <div className="w-full max-w-[1536px] mx-auto min-h-[92vh] flex floating-window overflow-hidden relative my-auto bg-white shadow-[0_25px_60px_-15px_rgba(15,23,42,0.07)] border border-slate-200/80">
       {/* Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
@@ -121,7 +121,7 @@ export default function Home() {
       />
 
       {/* Main Content Viewport */}
-      <div className="flex-1 flex flex-col lg:pl-64 min-w-0 transition-all duration-300">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#fafbfc] transition-all duration-300 overflow-y-auto">
         {/* Top Navbar */}
         <Header
           onOpenSidebar={() => setSidebarOpen(true)}
@@ -129,7 +129,7 @@ export default function Home() {
         />
 
         {/* Dynamic Module Content View */}
-        <main className="flex-1 pb-16">
+        <main className="flex-1">
           {activeModule === 'dashboard' && (
             <DashboardView
               stats={stats}
