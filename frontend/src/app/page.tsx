@@ -111,7 +111,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc] dark:bg-slate-950">
+    <div className="min-h-screen flex bg-[#f4f6fa] text-slate-900">
       {/* Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
