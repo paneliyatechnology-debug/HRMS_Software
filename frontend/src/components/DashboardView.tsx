@@ -107,42 +107,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Quick Action Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-3xl p-6 shadow-xl shadow-blue-500/10">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
-            Enterprise Management
-          </span>
-          <h3 className="text-xl font-bold mt-2">Welcome to Paneliya HRMS</h3>
-          <p className="text-blue-100 text-xs mt-1 max-w-lg">
-            Manage your workforce lifecycle, attendance, payroll, leave requests, and recruiting in real time.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onOpenClockModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-xs hover:bg-blue-50 transition shadow-sm active:scale-95"
-          >
-            <Clock className="w-4 h-4 text-blue-600" />
-            Check In / Check Out
-          </button>
-          <button
-            onClick={onOpenLeaveModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/40 hover:bg-blue-500/60 text-white font-bold text-xs transition border border-white/20 active:scale-95"
-          >
-            <Calendar className="w-4 h-4" />
-            Apply Leave
-          </button>
-          <button
-            onClick={onOpenAddEmployeeModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/40 hover:bg-blue-500/60 text-white font-bold text-xs transition border border-white/20 active:scale-95"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Add Employee
-          </button>
-        </div>
-      </div>
-
       {/* 4 TOP KPI CARDS MATCHING MOCKUP */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Total Employee */}

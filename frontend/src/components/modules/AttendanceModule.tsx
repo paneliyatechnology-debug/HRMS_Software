@@ -114,33 +114,33 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       </div>
 
       {/* Hardware Terminal Status Widget */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/50 text-white shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 text-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
             <Cpu className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold">ZKTeco SpeedFace-V5L Turnstile [HQ Gate 1 & 2]</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+              <span className="text-sm font-bold text-slate-900">ZKTeco SpeedFace-V5L Turnstile [HQ Gate 1 & 2]</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold">
                 Online • Ping 14ms
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Protocol: TCP/IP Webhook • IP: 192.168.1.240 • Firmware: v4.2.1-Enterprise
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-semibold text-slate-300">
+        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
           <div className="text-right">
             <span className="text-slate-400 block text-[10px] uppercase font-bold">Today's Hardware Punches</span>
-            <span className="text-sm font-bold text-white">18 Recorded</span>
+            <span className="text-sm font-bold text-slate-900">18 Recorded</span>
           </div>
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-slate-200" />
           <div className="text-right">
             <span className="text-slate-400 block text-[10px] uppercase font-bold">Last Sync</span>
-            <span className="text-sm font-bold text-emerald-400">Just Now</span>
+            <span className="text-sm font-bold text-emerald-600">Just Now</span>
           </div>
         </div>
       </div>

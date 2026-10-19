@@ -47,17 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'payroll', label: 'Payroll', icon: CreditCard, permission: 'PROCESS_PAYROLL' },
     { id: 'recruitment', label: 'Recruitment', icon: UserCheck, permission: 'MANAGE_RECRUITMENT', badge: '3' },
     { id: 'performance', label: 'Performance', icon: TrendingUp },
-    { id: 'organization', label: 'Organization', icon: Building2 },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
   ];
 
-  const supportMenuItems = [
+  const supportMenuItems: { id: string; label: string; icon: any; permission?: string }[] = [
     { id: 'announcements', label: 'Notice Board', icon: Bell },
-    { id: 'training', label: 'Training', icon: GraduationCap },
     { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'assets', label: 'Assets', icon: HardDrive, permission: 'MANAGE_ASSETS' },
-    { id: 'resignations', label: 'Exit Management', icon: LogOut },
-    { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, permission: 'VIEW_AUDIT_LOGS' },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
