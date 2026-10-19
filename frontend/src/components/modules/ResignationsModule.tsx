@@ -56,10 +56,10 @@ export const ResignationsModule: React.FC = () => {
     <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Resignation & Exit Management
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Notice period tracking, multi-department clearances, exit interview surveys, and relieving letter generation
           </p>
         </div>
@@ -69,14 +69,14 @@ export const ResignationsModule: React.FC = () => {
         {resignations.map((res) => (
           <div
             key={res.id}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-5"
+            className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
                   {res.status}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-2">
+                <h3 className="text-lg font-bold text-slate-900 mt-2">
                   {res.employeeName} ({res.employeeCode})
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -86,7 +86,7 @@ export const ResignationsModule: React.FC = () => {
 
               <div className="text-right">
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Last Working Day</span>
-                <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                <span className="text-base font-extrabold text-slate-900">
                   {res.lastWorkingDay}
                 </span>
                 <span className="text-xs text-blue-600 block">Notice: {res.noticePeriodDays} Days</span>
@@ -94,8 +94,8 @@ export const ResignationsModule: React.FC = () => {
             </div>
 
             {/* Reason */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 text-xs text-slate-600 dark:text-slate-300">
-              <span className="font-bold block text-slate-800 dark:text-slate-200 mb-0.5">Stated Exit Reason:</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 text-xs text-slate-600">
+              <span className="font-bold block text-slate-800 mb-0.5">Stated Exit Reason:</span>
               <p>{res.reason}</p>
             </div>
 
@@ -118,8 +118,8 @@ export const ResignationsModule: React.FC = () => {
                       onClick={() => toggleClearance(res.id, key)}
                       className={`p-3 rounded-2xl border text-left transition flex items-center justify-between ${
                         done
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-300'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 text-slate-600 dark:text-slate-400'
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
                       }`}
                     >
                       <span className="text-xs font-bold">{label}</span>
@@ -136,9 +136,9 @@ export const ResignationsModule: React.FC = () => {
 
             {/* Relieving Letter action if clearance done */}
             {res.status === 'Completed' && (
-              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
                 <div>
-                  <h5 className="font-bold text-emerald-800 dark:text-emerald-300 text-xs">
+                  <h5 className="font-bold text-emerald-800 text-xs">
                     Clearance Completed Successfully
                   </h5>
                   <p className="text-[11px] text-emerald-700/80">Employee marked as Resigned.</p>

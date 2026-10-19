@@ -8,12 +8,6 @@ import {
   Info,
   ChevronDown,
   MoreVertical,
-  Clock,
-  PlusCircle,
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Employee, LeaveRequest } from '../types/hrms';
@@ -106,24 +100,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const displayEmployees = employees.length > 0 ? employees.slice(0, 6) : [];
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto select-none">
       {/* 4 TOP KPI CARDS MATCHING MOCKUP */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Total Employee */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700/60 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-500">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <span>Total Employee</span>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
               <ArrowUpRight className="w-3 h-3" />
               {kpis.totalEmployees.growth}
             </span>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">
               {kpis.totalEmployees.value}
             </h3>
           </div>
@@ -146,20 +140,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Card 2: Today's Present */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700/60 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-500">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <span>Today&apos;s Present</span>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
               <ArrowUpRight className="w-3 h-3" />
               {kpis.todaysPresent.percentage}
             </span>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">
               {kpis.todaysPresent.count}
             </h3>
           </div>
@@ -167,8 +161,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Mini purple bars chart matching mockup */}
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-end gap-1 h-6">
-              <span className="w-1.5 h-2 bg-purple-200 dark:bg-purple-900 rounded-full"></span>
-              <span className="w-1.5 h-3.5 bg-purple-300 dark:bg-purple-800 rounded-full"></span>
+              <span className="w-1.5 h-2 bg-purple-200 rounded-full"></span>
+              <span className="w-1.5 h-3.5 bg-purple-300 rounded-full"></span>
               <span className="w-1.5 h-5 bg-purple-600 rounded-full"></span>
               <span className="w-1.5 h-3 bg-purple-400 rounded-full"></span>
             </div>
@@ -179,20 +173,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Card 3: Total Expense */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700/60 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-500">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <span>Total Expense</span>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
               <ArrowDownRight className="w-3 h-3" />
               20%
             </span>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">
               {kpis.totalExpense.value}
             </h3>
           </div>
@@ -215,27 +209,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Card 4: Total Payrolls */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700/60 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-500">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <span>Total Payrolls</span>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
               <ArrowUpRight className="w-3 h-3" />
               {kpis.totalPayrolls.growth}
             </span>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">
               {kpis.totalPayrolls.value}
             </h3>
           </div>
 
           {/* Blue progress bar matching mockup */}
           <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="flex-1 h-2.5 bg-blue-100 dark:bg-blue-950 rounded-full overflow-hidden">
+            <div className="flex-1 h-2.5 bg-blue-100 rounded-full overflow-hidden">
               <div className="h-full bg-blue-600 rounded-full w-3/4" />
             </div>
             <span className="text-[11px] font-medium text-slate-400 shrink-0">
@@ -248,10 +242,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* MID SECTION: Performance Overview (Left) + Leave Application (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (Span 2): Performance Overview Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs">
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 Performance Overview
               </h3>
               <Info className="w-3.5 h-3.5 text-slate-400" />
@@ -260,14 +254,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-5 text-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                <span className="text-slate-600 dark:text-slate-300 font-medium">Income</span>
+                <span className="text-slate-600 font-medium">Income</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                <span className="text-slate-600 dark:text-slate-300 font-medium">Expense</span>
+                <span className="text-slate-600 font-medium">Expense</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold cursor-pointer text-xs">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer text-xs">
                 <span>This Year</span>
                 <ChevronDown className="w-3 h-3 text-slate-400" />
               </div>
@@ -277,30 +271,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Bar Chart Area */}
           <div className="relative pt-6">
             {/* Tooltip Card for May matching mockup */}
-            <div className="absolute top-0 left-[35%] z-20 bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-xl border border-slate-100 dark:border-slate-700 pointer-events-none transform -translate-x-1/2">
-              <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 mb-1">
+            <div className="absolute top-0 left-[35%] z-20 bg-white rounded-2xl p-3 shadow-xl border border-slate-100 pointer-events-none transform -translate-x-1/2">
+              <p className="text-[11px] font-bold text-slate-800 mb-1">
                 May 2025
               </p>
               <div className="space-y-1 text-[11px]">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">$2602.02</span>
+                  <span className="font-semibold text-slate-700">$2602.02</span>
                   <span className="text-emerald-500 font-bold">+10%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">$1814.17</span>
+                  <span className="font-semibold text-slate-700">$1814.17</span>
                   <span className="text-emerald-500 font-bold">+20%</span>
                 </div>
               </div>
             </div>
 
             {/* Grid Lines with Percentages */}
-            <div className="h-56 flex flex-col justify-between text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-700/60 pb-2">
+            <div className="h-56 flex flex-col justify-between text-[11px] text-slate-400 border-b border-slate-100 pb-2">
               {['500%', '400%', '300%', '200%', '100%', '0%'].map((pct) => (
                 <div key={pct} className="flex items-center gap-4 w-full">
                   <span className="w-8 shrink-0">{pct}</span>
-                  <div className="flex-1 border-b border-dashed border-slate-100 dark:border-slate-800" />
+                  <div className="flex-1 border-b border-dashed border-slate-100" />
                 </div>
               ))}
             </div>
@@ -318,7 +312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       className={`w-6 rounded-t-xl transition-all duration-300 ${
                         m.active || selectedMonthHover === m.name
                           ? 'bg-blue-600 shadow-md shadow-blue-500/30'
-                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200'
+                          : 'bg-slate-100 hover:bg-slate-200'
                       }`}
                       style={{ height: `${m.h1}%` }}
                     />
@@ -339,33 +333,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Right Column (Span 1): Leave Application */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base font-bold text-slate-900">
                   Leave Application
                 </h3>
                 <Info className="w-3.5 h-3.5 text-slate-400" />
               </div>
-              <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium cursor-pointer">
+              <div className="flex items-center gap-1 text-xs text-slate-500 font-medium cursor-pointer">
                 <span>This Month</span>
                 <ChevronDown className="w-3 h-3" />
               </div>
             </div>
 
             {/* Leave list matching mockup */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <div className="divide-y divide-slate-50">
               {recentLeaveApps.map((req) => (
                 <div key={req.id} className="py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <img
                       src={req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80'}
                       alt={req.employeeName}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-700"
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100"
                     />
                     <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-white">
+                      <h4 className="text-xs font-bold text-slate-800">
                         {req.employeeName}
                       </h4>
                       <p className="text-[11px] text-slate-400 truncate max-w-[130px]">
@@ -377,10 +371,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span
                     className={`text-[11px] px-3 py-1 rounded-full font-bold ${
                       req.status === 'Approved'
-                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800'
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50'
                         : req.status === 'Pending'
-                        ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800'
-                        : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800'
+                        ? 'bg-amber-50 text-amber-600 border border-amber-200/50'
+                        : 'bg-rose-50 text-rose-600 border border-rose-200/50'
                     }`}
                   >
                     {req.status}
@@ -392,7 +386,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <button
             onClick={() => onNavigateModule('leaves')}
-            className="w-full mt-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-xs transition"
+            className="w-full mt-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
           >
             View All Leave Requests
           </button>
@@ -402,17 +396,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* BOTTOM SECTION: Employee Status (Left) + Employee List (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Employee Status */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs">
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 Employee Status
               </h3>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <button
               onClick={() => onNavigateModule('employees')}
-              className="text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+              className="text-xs font-semibold text-slate-500 hover:text-blue-600"
             >
               View All
             </button>
@@ -421,7 +415,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Big metric */}
           <div className="mt-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">42</span>
+              <span className="text-3xl font-black text-slate-900">42</span>
               <span className="text-xs font-medium text-slate-400">Total Employee & Staff</span>
             </div>
 
@@ -441,13 +435,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div key={item.label} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2.5">
                   <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-                  <span className="text-slate-600 dark:text-slate-300 font-medium">
+                  <span className="text-slate-600 font-medium">
                     {item.label}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-4 text-slate-500">
                   <span>{item.count}</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 w-8 text-right">
+                  <span className="font-semibold text-slate-800 w-8 text-right">
                     {item.pct}
                   </span>
                 </div>
@@ -457,17 +451,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Right (Span 2): Employee List Table */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs">
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 Employee List
               </h3>
               <Info className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <button
               onClick={() => onNavigateModule('employees')}
-              className="text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+              className="text-xs font-semibold text-slate-500 hover:text-blue-600"
             >
               View All
             </button>
@@ -477,7 +471,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700/60 text-slate-400 font-semibold">
+                <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                   <th className="py-2.5 pr-2 w-8">
                     <input type="checkbox" className="rounded text-blue-600" />
                   </th>
@@ -488,12 +482,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
+              <tbody className="divide-y divide-slate-50">
                 {displayEmployees.map((emp) => (
                   <tr
                     key={emp.id}
                     onClick={() => onSelectEmployee(emp)}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group"
+                    className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
                   >
                     <td className="py-3 pr-2" onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" className="rounded text-blue-600" />
@@ -505,27 +499,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           alt={emp.firstName}
                           className="w-7 h-7 rounded-full object-cover"
                         />
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
+                        <span className="font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
                           {emp.firstName} {emp.lastName}
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
+                    <td className="py-3 px-3 text-slate-500">
                       {emp.designationTitle}
                     </td>
-                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
+                    <td className="py-3 px-3 text-slate-500">
                       {emp.departmentName}
                     </td>
                     <td className="py-3 px-3">
                       <span
                         className={`font-semibold ${
                           emp.employmentType === 'Full-time'
-                            ? 'text-blue-600 dark:text-blue-400'
+                            ? 'text-blue-600'
                             : emp.employmentType === 'Remote'
-                            ? 'text-amber-600 dark:text-amber-400'
+                            ? 'text-amber-600'
                             : emp.employmentType === 'Part-time'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-purple-600 dark:text-purple-400'
+                            ? 'text-emerald-600'
+                            : 'text-purple-600'
                         }`}
                       >
                         {emp.employmentType}
@@ -537,7 +531,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           e.stopPropagation();
                           onSelectEmployee(emp);
                         }}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                        className="p-1 hover:bg-slate-100 rounded-lg"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>

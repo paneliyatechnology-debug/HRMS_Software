@@ -21,10 +21,10 @@ export const ReportsModule: React.FC = () => {
     <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Executive Analytics & Reports
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Data insights on headcount growth, department payroll costs, attendance ratios, and attrition trends
           </p>
         </div>
@@ -38,7 +38,7 @@ export const ReportsModule: React.FC = () => {
           </button>
           <button
             onClick={() => window.print()}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
             title="Print Report"
           >
             <Printer className="w-4 h-4" />
@@ -61,7 +61,7 @@ export const ReportsModule: React.FC = () => {
             className={`px-4 py-2 rounded-xl whitespace-nowrap transition ${
               reportType === t.id
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700 hover:bg-slate-50'
+                : 'bg-white text-slate-600 border border-slate-100 hover:bg-slate-50'
             }`}
           >
             {t.label}
@@ -70,9 +70,9 @@ export const ReportsModule: React.FC = () => {
       </div>
 
       {/* Main Report Table Container */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-xs p-6 space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-blue-600" />
             {reportType.toUpperCase()} Statistical Breakdown (H2 2026)
           </h3>
@@ -81,7 +81,7 @@ export const ReportsModule: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-700">
+            <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
               <tr>
                 <th className="py-3 px-4">Department</th>
                 <th className="py-3 px-4">Headcount</th>
@@ -91,7 +91,7 @@ export const ReportsModule: React.FC = () => {
                 <th className="py-3 px-4">Turnover %</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+            <tbody className="divide-y divide-slate-100">
               {[
                 { dept: 'Engineering', count: 8, ratio: '96.2%', cost: '$98,400', budget: '$1,200,000', turn: '1.2%' },
                 { dept: 'Product Design', count: 5, ratio: '94.8%', cost: '$58,200', budget: '$720,000', turn: '0.0%' },
@@ -100,11 +100,11 @@ export const ReportsModule: React.FC = () => {
                 { dept: 'Sales & Business Dev', count: 4, ratio: '95.1%', cost: '$46,000', budget: '$600,000', turn: '2.5%' },
                 { dept: 'Finance & Operations', count: 3, ratio: '98.0%', cost: '$36,800', budget: '$450,000', turn: '0.0%' },
               ].map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{row.dept}</td>
+                <tr key={i} className="hover:bg-slate-50/70 transition">
+                  <td className="py-3.5 px-4 font-bold text-slate-900">{row.dept}</td>
                   <td className="py-3.5 px-4 font-semibold text-blue-600">{row.count} Staff</td>
                   <td className="py-3.5 px-4 font-semibold text-emerald-600">{row.ratio}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">{row.cost}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-700">{row.cost}</td>
                   <td className="py-3.5 px-4 text-slate-500">{row.budget}</td>
                   <td className="py-3.5 px-4 text-slate-500">{row.turn}</td>
                 </tr>

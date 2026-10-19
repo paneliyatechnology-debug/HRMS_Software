@@ -69,10 +69,10 @@ export const AssetsModule: React.FC = () => {
     <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Company Hardware & Asset Management
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Track hardware allocation, serial numbers, warranty terms, and IT return clearance
           </p>
         </div>
@@ -89,11 +89,11 @@ export const AssetsModule: React.FC = () => {
         {assets.map((asset) => (
           <div
             key={asset.id}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700/60 shadow-xs flex flex-col justify-between"
+            className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                   {asset.assetCode}
                 </span>
                 <span
@@ -107,20 +107,20 @@ export const AssetsModule: React.FC = () => {
                 </span>
               </div>
 
-              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white mt-3">
+              <h4 className="font-extrabold text-sm text-slate-900 mt-3">
                 {asset.name}
               </h4>
               <p className="text-[11px] text-slate-400 mt-0.5 font-mono">SN: {asset.serialNumber}</p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-700/50 text-xs">
+            <div className="mt-5 pt-3 border-t border-slate-100 text-xs">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-[11px]">Condition:</span>
                 <span className="font-bold text-emerald-600">{asset.condition}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 text-[11px]">Assigned to:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">
+                <span className="font-bold text-slate-800">
                   {asset.assignedToEmployeeName || 'Unassigned (In IT Store)'}
                 </span>
               </div>
@@ -128,7 +128,7 @@ export const AssetsModule: React.FC = () => {
               {asset.status === 'Assigned' && (
                 <button
                   onClick={() => handleReturn(asset.id)}
-                  className="w-full mt-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center justify-center gap-1"
+                  className="w-full mt-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center justify-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" /> Process Return
                 </button>

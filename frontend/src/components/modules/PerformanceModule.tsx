@@ -62,15 +62,15 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ reviews, o
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Performance Management & OKRs
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Goal tracking, quarterly appraisal cycles, self-assessment ratings, and manager 360-degree feedback
           </p>
         </div>
 
-        <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+        <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-xs">
           Cycle: Q3-Q4 2026 Active
         </span>
       </div>
@@ -80,11 +80,11 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ reviews, o
         {displayReviews.map((rev) => (
           <div
             key={rev.id}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs space-y-4"
+            className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4"
           >
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                <h3 className="font-extrabold text-base text-slate-900">
                   {rev.employeeName}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">Manager: {rev.managerName}</p>
@@ -104,10 +104,10 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ reviews, o
                 {rev.goals.map((g, idx) => (
                   <div key={idx} className="space-y-1 text-xs">
                     <div className="flex items-center justify-between font-semibold">
-                      <span className="text-slate-700 dark:text-slate-300">{g.title}</span>
+                      <span className="text-slate-700">{g.title}</span>
                       <span className="text-blue-600 font-bold">{g.progress}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                       <div
                         className="h-full bg-blue-600 rounded-full transition-all"
                         style={{ width: `${g.progress}%` }}
@@ -120,8 +120,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ reviews, o
 
             {/* Feedback box */}
             {rev.managerFeedback && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 text-xs text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700/40">
-                <span className="font-bold block text-slate-800 dark:text-slate-200 mb-1">
+              <div className="p-3.5 rounded-2xl bg-slate-50 text-xs text-slate-600 border border-slate-100">
+                <span className="font-bold block text-slate-800 mb-1">
                   Manager Appraisal Recommendation:
                 </span>
                 <p>{rev.managerFeedback}</p>

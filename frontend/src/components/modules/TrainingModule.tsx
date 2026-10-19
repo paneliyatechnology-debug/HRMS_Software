@@ -54,10 +54,10 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs }) => {
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
             Learning & Development
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Skill development courses, compliance certifications, training programs, and employee progress
           </p>
         </div>
@@ -75,11 +75,11 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs }) => {
         {displayPrograms.map((prog) => (
           <div
             key={prog.id}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-xs flex flex-col justify-between"
+            className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
                   {prog.status}
                 </span>
                 <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
@@ -87,26 +87,26 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs }) => {
                 </span>
               </div>
 
-              <h3 className="font-extrabold text-base text-slate-900 dark:text-white mt-3">
+              <h3 className="font-extrabold text-base text-slate-900 mt-3">
                 {prog.title}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                 {prog.description}
               </p>
 
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {prog.skillsCovered.map((s) => (
-                  <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600">
                     {s}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Instructor</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{prog.trainerName}</span>
+                <span className="font-semibold text-slate-800">{prog.trainerName}</span>
               </div>
               <span className="font-bold text-blue-600 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" /> {prog.enrolledCount} Enrolled

@@ -20,34 +20,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    // Force default to clean light mode as requested by user
-    const saved = localStorage.getItem('hrms_theme');
-    if (saved === 'dark') {
-      // If user had manually selected dark previously, let's reset to light as requested
-      localStorage.setItem('hrms_theme', 'light');
-    }
+    localStorage.setItem('hrms_theme', 'light');
     document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
     setIsDark(false);
   }, []);
 
   const setLight = () => {
     setIsDark(false);
     document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
     localStorage.setItem('hrms_theme', 'light');
   };
 
   const setDark = () => {
-    setIsDark(true);
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('hrms_theme', 'dark');
+    // Keep light mode as default per user request
+    setLight();
   };
 
   const toggleTheme = () => {
-    if (isDark) {
-      setLight();
-    } else {
-      setDark();
-    }
+    setLight();
   };
 
   return (

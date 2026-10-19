@@ -125,30 +125,30 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </div>
 
         {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-700 dark:text-slate-300">
+        <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-700">
           {/* 1. Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Employment Type</span>
-                  <p className="text-base font-bold text-slate-900 dark:text-white mt-1">{employee.employmentType}</p>
+                  <p className="text-base font-bold text-slate-900 mt-1">{employee.employmentType}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-slate-800 border border-emerald-100 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Joining Date</span>
-                  <p className="text-base font-bold text-slate-900 dark:text-white mt-1">{employee.joiningDate}</p>
+                  <p className="text-base font-bold text-slate-900 mt-1">{employee.joiningDate}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-slate-800 border border-purple-100 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Net Monthly Salary</span>
-                  <p className="text-base font-bold text-slate-900 dark:text-white mt-1">${employee.salary.net.toLocaleString()}</p>
+                  <p className="text-base font-bold text-slate-900 mt-1">${employee.salary.net.toLocaleString()}</p>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-2">Core Skills & Competencies</h4>
+                <h4 className="font-bold text-slate-900 text-sm mb-2">Core Skills & Competencies</h4>
                 <div className="flex flex-wrap gap-2">
                   {employee.skills.map((skill) => (
-                    <span key={skill} className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs">
+                    <span key={skill} className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs">
                       {skill}
                     </span>
                   ))}
@@ -160,21 +160,21 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 2. Personal Information */}
           {activeTab === 'personal' && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Date of Birth</span>
-                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{employee.dateOfBirth}</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{employee.dateOfBirth}</p>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Gender</span>
-                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{employee.gender}</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{employee.gender}</p>
               </div>
-              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Address</span>
-                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{employee.address}</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{employee.address}</p>
               </div>
-              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Emergency Contact</span>
-                <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">
+                <p className="text-sm font-bold text-slate-900 mt-1">
                   {employee.emergencyContact.name} ({employee.emergencyContact.relationship}) — {employee.emergencyContact.phone}
                 </p>
               </div>
@@ -185,13 +185,13 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'employment' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                   <span className="text-[10px] font-bold uppercase text-slate-400">Reporting Manager</span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{employee.reportingManagerName || 'Executive Leadership'}</p>
+                  <p className="text-sm font-bold text-slate-900 mt-1">{employee.reportingManagerName || 'Executive Leadership'}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                   <span className="text-[10px] font-bold uppercase text-slate-400">Assigned Shift</span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{employee.shift}</p>
+                  <p className="text-sm font-bold text-slate-900 mt-1">{employee.shift}</p>
                 </div>
               </div>
             </div>
@@ -201,9 +201,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'attendance' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-500">Recent attendance punch entries for current cycle:</p>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-slate-900 dark:text-white">Oct 19, 2026</span>
+                  <span className="font-bold text-slate-900">Oct 19, 2026</span>
                   <span className="text-slate-400 ml-2">08:55 AM — 06:05 PM</span>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">Present (8.5 hrs)</span>
@@ -215,15 +215,15 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'leave' && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950 text-center">
+                <div className="p-3 rounded-xl bg-blue-50 text-center">
                   <span className="text-slate-400 text-[10px] uppercase font-bold">Casual Leave</span>
                   <p className="text-lg font-black text-blue-600 mt-1">10 Left</p>
                 </div>
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-center">
+                <div className="p-3 rounded-xl bg-emerald-50 text-center">
                   <span className="text-slate-400 text-[10px] uppercase font-bold">Sick Leave</span>
                   <p className="text-lg font-black text-emerald-600 mt-1">9 Left</p>
                 </div>
-                <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950 text-center">
+                <div className="p-3 rounded-xl bg-purple-50 text-center">
                   <span className="text-slate-400 text-[10px] uppercase font-bold">Paid / Annual</span>
                   <p className="text-lg font-black text-purple-600 mt-1">12 Left</p>
                 </div>
@@ -234,8 +234,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 6. Payroll */}
           {activeTab === 'payroll' && (
             <div className="space-y-3">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                <h4 className="font-bold text-slate-900 dark:text-white mb-2">Salary Structure Breakdown</h4>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2">Salary Structure Breakdown</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <span className="text-slate-500">Basic Salary:</span>
                   <span className="font-bold">${employee.salary.basic.toLocaleString()}</span>
@@ -255,7 +255,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 7. Documents */}
           {activeTab === 'documents' && (
             <div className="space-y-2">
-              <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
                 <div>
                   <h5 className="font-bold">Passport & Identity Document.pdf</h5>
                   <span className="text-[11px] text-slate-400">Verified by HR • 2.4 MB</span>
@@ -269,10 +269,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           {/* 8. Performance */}
           {activeTab === 'performance' && (
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <span className="text-xs font-bold text-slate-500">Q3-Q4 Performance Appraisal</span>
               <p className="text-lg font-black text-amber-500 mt-1">★ 4.8 / 5.0 (Exceeds Expectations)</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
+              <p className="text-xs text-slate-600 mt-2">
                 &ldquo;Outstanding initiative in design and engineering collaboration with high product velocity.&rdquo;
               </p>
             </div>
@@ -280,7 +280,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           {/* 9. Training */}
           {activeTab === 'training' && (
-            <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
               <div>
                 <h5 className="font-bold">Enterprise Cybersecurity & Data Privacy Standards</h5>
                 <span className="text-[11px] text-slate-400">Progress: 100% Completed</span>
@@ -291,7 +291,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           {/* 10. Assets */}
           {activeTab === 'assets' && (
-            <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
               <div>
                 <h5 className="font-bold">MacBook Pro 16&quot; M3 Max (36GB, 1TB)</h5>
                 <span className="text-[11px] text-slate-400">Tag: AST-MBP-001 • Condition: Excellent</span>
@@ -303,10 +303,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 11. Activity History */}
           {activeTab === 'activity' && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
                 <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
                 <div>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">User Profile Authenticated</p>
+                  <p className="font-semibold text-slate-800">User Profile Authenticated</p>
                   <span className="text-[10px] text-slate-400">Oct 19, 2026 at 08:55 AM (Office Geofence)</span>
                 </div>
               </div>
