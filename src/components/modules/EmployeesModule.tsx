@@ -98,7 +98,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
           <button
             onClick={onOpenAddModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg liquid-metal-dark text-white font-bold text-xs sm:text-sm shadow-2xs transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add Employee</span>

@@ -134,8 +134,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col font-sans select-none antialiased">
-      {/* Top Navbar matching Clan.biz with Liquid Metal Portal Switcher */}
+    <div className="h-screen w-full bg-slate-50 flex flex-col font-sans antialiased overflow-hidden">
+      {/* Top Navbar */}
       <Header
         onOpenSidebar={() => setSidebarOpen(true)}
         onOpenClockModal={() => setClockModalOpen(true)}
@@ -148,20 +148,21 @@ export default function Home() {
         pendingLeavesCount={pendingLeavesCount}
       />
 
-      {/* Slide-over Left Sidebar */}
-      <Sidebar
-        activeModule={activeModule}
-        setActiveModule={setActiveModule}
-        isOpen={sidebarOpen}
-        setIsOpen={setSidebarOpen}
-        onSelectSubTab={setSubTab}
-        portalMode={portalMode}
-        onTogglePortal={handleTogglePortal}
-        pendingLeavesCount={pendingLeavesCount}
-      />
+      {/* Main Workspace: Left Sidebar + Scrollable Viewport */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar
+          activeModule={activeModule}
+          setActiveModule={setActiveModule}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+          onSelectSubTab={setSubTab}
+          portalMode={portalMode}
+          onTogglePortal={handleTogglePortal}
+          pendingLeavesCount={pendingLeavesCount}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 max-w-[1600px] w-full mx-auto">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full [scrollbar-width:thin]">
+          <div className="max-w-[1600px] mx-auto">
         {activeModule === 'dashboard' && (
           <DashboardView
             stats={stats}
@@ -264,7 +265,9 @@ export default function Home() {
         {activeModule === 'reports' && <ReportsModule />}
         {activeModule === 'audit-logs' && <AuditLogsModule />}
         {activeModule === 'settings' && <SettingsModule />}
-      </main>
+          </div>
+        </main>
+      </div>
 
       {/* Global Modals & Drawers */}
       <AttendanceModal

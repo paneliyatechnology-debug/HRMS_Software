@@ -267,20 +267,20 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       <button
                         onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType)}
                         disabled={isProcessing}
-                        className="flex-1 py-2 px-3 rounded-xl liquid-metal-emerald text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all hover:scale-[1.01]"
+                        className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 disabled:opacity-50"
                         title="Approve employee leave request"
                       >
-                        <Check className="w-4 h-4 stroke-[3]" />
+                        <Check className="w-4 h-4 stroke-[2.5]" />
                         <span>{isProcessing ? 'Processing...' : 'Approve'}</span>
                       </button>
 
                       <button
                         onClick={() => handleOpenRejectModal(leave)}
                         disabled={isProcessing}
-                        className="flex-1 py-2 px-3 rounded-xl liquid-metal-rose text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all hover:scale-[1.01]"
+                        className="flex-1 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                         title="Reject employee leave request"
                       >
-                        <X className="w-4 h-4 stroke-[3]" />
+                        <X className="w-4 h-4 stroke-[2.5]" />
                         <span>Reject</span>
                       </button>
                     </div>
@@ -309,7 +309,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
             <button
               onClick={onOpenApplyModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl liquid-metal-indigo text-white font-bold text-xs sm:text-sm shadow-2xs transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>+ Apply for Leave</span>
@@ -421,7 +421,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           {portalMode === 'admin' && (
             <button
               onClick={onOpenApplyModal}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-2xs"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Apply</span>
@@ -430,7 +430,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 liquid-metal-chrome text-slate-700 font-bold text-xs shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs"
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -535,19 +535,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                   handleApprove(leave.id, leave.employeeName, leave.leaveType)
                                 }
                                 disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg liquid-metal-emerald text-white font-bold text-xs flex items-center gap-1 shadow-2xs hover:scale-105 transition-transform"
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50"
                                 title="Approve Request"
                               >
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                                 <span>Approve</span>
                               </button>
                               <button
                                 onClick={() => handleOpenRejectModal(leave)}
                                 disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg liquid-metal-rose text-white font-bold text-xs flex items-center gap-1 shadow-2xs hover:scale-105 transition-transform"
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
                                 title="Reject Request"
                               >
-                                <X className="w-3.5 h-3.5 stroke-[3]" />
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
                                 <span>Reject</span>
                               </button>
                             </div>
@@ -619,7 +619,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               <button
                 onClick={handleConfirmReject}
                 disabled={processingId === rejectingLeave.id}
-                className="px-4 py-1.5 rounded-lg liquid-metal-rose text-white text-xs font-bold shadow-2xs"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs active:scale-95"
               >
                 {processingId === rejectingLeave.id ? 'Rejecting...' : 'Confirm Rejection'}
               </button>

@@ -5,8 +5,6 @@ import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { SocketProvider } from '../context/SocketContext';
 
-import { LiquidMetalEffect } from '../components/LiquidMetalEffect';
-
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
@@ -24,11 +22,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} h-full light`}>
-      <body className="min-h-screen bg-[#eceff3] text-slate-900 selection:bg-slate-900 selection:text-white p-2 sm:p-4 lg:p-6 flex flex-col">
+      <body className="h-full bg-slate-50 text-slate-900 selection:bg-indigo-600 selection:text-white m-0 p-0 antialiased font-sans">
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>
-              <LiquidMetalEffect />
               {children}
             </SocketProvider>
           </AuthProvider>

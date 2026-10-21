@@ -10,6 +10,7 @@ interface AuthContextType {
   switchRole: (newRole: Role) => void;
   hasPermission: (action: string) => boolean;
   allUsers: User[];
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setUser(matched);
     localStorage.setItem('hrms_current_role', newRole);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('hrms_current_role');
+    setUser(mockUsers[0]);
   };
 
   const hasPermission = (action: string): boolean => {
@@ -69,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchRole,
         hasPermission,
         allUsers: mockUsers,
+        logout,
       }}
     >
       {children}

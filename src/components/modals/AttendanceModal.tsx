@@ -172,7 +172,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             <button
               onClick={handleCheckIn}
               disabled={loading}
-              className="w-full py-3 rounded-xl liquid-metal-indigo text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
+              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50"
             >
               <Play className="w-4 h-4 fill-current" />
               Check In Now
@@ -181,10 +181,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setIsOnBreak(!isOnBreak)}
-                className={`py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
+                className={`py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all active:scale-95 ${
                   isOnBreak
-                    ? 'liquid-metal-amber text-white'
-                    : 'liquid-metal-chrome text-slate-800'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                 }`}
               >
                 <Coffee className="w-4 h-4" />
@@ -193,7 +193,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               <button
                 onClick={handleCheckOut}
                 disabled={loading}
-                className="py-3 rounded-xl liquid-metal-dark text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
+                className="py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50"
               >
                 <Square className="w-4 h-4 fill-current" />
                 Check Out

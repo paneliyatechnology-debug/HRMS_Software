@@ -1,53 +1,28 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme="dark-never"], [data-theme="dark-never"] *));
+@layer base {
+  :root {
+    --bg-page: #f8fafc;
+    --surface: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+  }
 
-:root {
-  --canvas-bg: #eceff3;
-  --surface: #ffffff;
-  --surface-subtle: #f8fafc;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border-light: #e2e8f0;
-  --border-subtle: #f1f5f9;
-  --primary: #0f172a;
-  --primary-hover: #1e293b;
-}
-
-html {
-  color-scheme: light;
-  background-color: var(--canvas-bg);
-}
-
-body {
-  background-color: var(--canvas-bg);
-  color: var(--text-main);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
-}
-
-/* Floating Window Canvas (Dribbble / Figma Mockup style) */
-.floating-window {
-  background: #ffffff;
-  border-radius: 2rem;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 20px 50px -12px rgba(15, 23, 42, 0.08), 0 4px 16px -2px rgba(15, 23, 42, 0.03);
-}
-
-@media (min-width: 1024px) {
-  .floating-window {
-    border-radius: 2.5rem;
+  html, body {
+    height: 100%;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Sleek Minimalist Custom Scrollbar */
+/* Minimalist Clean Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -61,200 +36,110 @@ body {
 }
 
 /* Card utilities */
-.card-minimal {
+.card-clean {
   background-color: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 1.5rem;
-  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.02), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.15s ease-in-out;
 }
 
-.card-minimal:hover {
-  border-color: #e2e8f0;
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+.card-clean:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
 }
 
-/* =========================================================================
-   LIQUID METAL BUTTON DESIGN SYSTEM
-   ========================================================================= */
-
-button {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.22s ease,
-              filter 0.2s ease,
-              background 0.25s ease;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+/* Standard Simple Button Styles */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #4f46e5;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.25);
+}
+.btn-primary:hover {
+  background-color: #4338ca;
+  box-shadow: 0 4px 8px -2px rgba(79, 70, 229, 0.35);
+}
+.btn-primary:active {
+  transform: scale(0.98);
 }
 
-/* Metallic top-rim specular highlight and soft liquid shadow */
-button:not(.no-liquid) {
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.18),
-    0 2px 6px -1px rgba(15, 23, 42, 0.08),
-    0 1px 2px -0.5px rgba(15, 23, 42, 0.04);
+.btn-success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #10b981;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(16, 185, 129, 0.25);
+}
+.btn-success:hover {
+  background-color: #059669;
+  box-shadow: 0 4px 8px -2px rgba(16, 185, 129, 0.35);
+}
+.btn-success:active {
+  transform: scale(0.98);
 }
 
-/* Fluid mercury gloss sweep reflection on hover */
-button:not(.no-liquid)::before {
-  content: "";
-  position: absolute;
-  inset: -100%;
-  background: linear-gradient(
-    115deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.18) 46%,
-    rgba(255, 255, 255, 0.6) 50%,
-    rgba(255, 255, 255, 0.18) 54%,
-    transparent 65%
-  );
-  transform: translateX(-120%) rotate(25deg);
-  transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-  z-index: 1;
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(239, 68, 68, 0.25);
+}
+.btn-danger:hover {
+  background-color: #dc2626;
+  box-shadow: 0 4px 8px -2px rgba(239, 68, 68, 0.35);
+}
+.btn-danger:active {
+  transform: scale(0.98);
 }
 
-button:not(.no-liquid):hover::before {
-  transform: translateX(120%) rotate(25deg);
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #ffffff;
+  color: #334155;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
-
-button:not(.no-liquid):hover {
-  filter: brightness(1.03) contrast(1.02);
-  box-shadow: 
-    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.22),
-    0 6px 14px -3px rgba(15, 23, 42, 0.12),
-    0 2px 4px -1px rgba(15, 23, 42, 0.06);
+.btn-secondary:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
-
-/* Liquid compression & tactile fluid bounce on click */
-button:not(.no-liquid):active,
-button.liquid-metal-active {
-  transform: scale(0.955) translateY(1.5px);
-  filter: brightness(1.08) contrast(1.05);
-  box-shadow: 
-    inset 0 2.5px 5px 0 rgba(0, 0, 0, 0.35),
-    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.5),
-    0 1px 2px 0 rgba(15, 23, 42, 0.15);
-}
-
-/* =========================================================================
-   DYNAMIC LIQUID METAL RIPPLE BLOBS (ON-CLICK SPREAD)
-   ========================================================================= */
-
-.liquid-metal-blob {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 44% 56% 65% 35% / 48% 46% 54% 52%;
-  background: radial-gradient(
-    circle at 35% 35%,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(226, 232, 240, 0.75) 30%,
-    rgba(148, 163, 184, 0.45) 55%,
-    rgba(99, 102, 241, 0.15) 75%,
-    transparent 100%
-  );
-  transform: translate(-50%, -50%) scale(0) rotate(0deg);
-  animation: liquidBlobExpand 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  mix-blend-mode: overlay;
-  z-index: 2;
-  filter: blur(0.5px);
-}
-
-.liquid-metal-ring {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 
-    0 0 12px 1px rgba(255, 255, 255, 0.7),
-    inset 0 0 8px 1px rgba(255, 255, 255, 0.5);
-  transform: translate(-50%, -50%) scale(0);
-  animation: liquidRingWave 0.6s cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
-  z-index: 3;
-}
-
-@keyframes liquidBlobExpand {
-  0% {
-    transform: translate(-50%, -50%) scale(0) rotate(0deg);
-    opacity: 0.95;
-    border-radius: 44% 56% 65% 35% / 48% 46% 54% 52%;
-  }
-  45% {
-    border-radius: 62% 38% 48% 52% / 54% 60% 40% 46%;
-    opacity: 0.85;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1) rotate(60deg);
-    opacity: 0;
-    border-radius: 50%;
-  }
-}
-
-@keyframes liquidRingWave {
-  0% {
-    transform: translate(-50%, -50%) scale(0.05);
-    opacity: 0.95;
-    border-width: 2px;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.35);
-    opacity: 0;
-    border-width: 0.5px;
-  }
-}
-
-/* =========================================================================
-   SPECIAL LIQUID METAL SURFACE GRADIENTS
-   ========================================================================= */
-
-/* Liquid Chrome Mercury */
-.liquid-metal-chrome {
-  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 22%, #e2e8f0 55%, #cbd5e1 100%) !important;
-  color: #0f172a !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 
-    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1.5px 2px 0 rgba(100, 116, 139, 0.35),
-    0 4px 12px -2px rgba(15, 23, 42, 0.12) !important;
-}
-
-/* Liquid Dark Titanium / Obsidian */
-.liquid-metal-dark {
-  background: linear-gradient(180deg, #334155 0%, #1e293b 35%, #0f172a 100%) !important;
-  color: #ffffff !important;
-  border: 1px solid #475569 !important;
-  box-shadow: 
-    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.5),
-    0 4px 14px -2px rgba(15, 23, 42, 0.25) !important;
-}
-
-/* Liquid Electric Indigo / Cobalt */
-.liquid-metal-indigo {
-  background: linear-gradient(180deg, #6366f1 0%, #4f46e5 40%, #4338ca 100%) !important;
-  color: #ffffff !important;
-  border: 1px solid #818cf8 !important;
-  box-shadow: 
-    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 3px 0 rgba(30, 27, 75, 0.4),
-    0 4px 14px -2px rgba(79, 70, 229, 0.35) !important;
-}
-
-/* Liquid Molten Amber / Gold */
-.liquid-metal-amber {
-  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 40%, #d97706 100%) !important;
-  color: #ffffff !important;
-  border: 1px solid #fde68a !important;
-  box-shadow: 
-    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -2px 3px 0 rgba(120, 53, 15, 0.4),
-    0 4px 14px -2px rgba(245, 158, 11, 0.35) !important;
+.btn-secondary:active {
+  transform: scale(0.98);
 }

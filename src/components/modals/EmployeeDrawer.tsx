@@ -385,7 +385,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           {step > 1 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className="flex items-center gap-1 px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 liquid-metal-chrome rounded-xl transition-all"
+              className="flex items-center gap-1 px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all"
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
@@ -402,7 +402,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 }
                 setStep((s) => s + 1);
               }}
-              className="flex items-center gap-1 px-5 py-2.5 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-md transition-all"
+              className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
             >
               Next Step <ChevronRight className="w-4 h-4" />
             </button>
@@ -410,7 +410,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl liquid-metal-dark text-white font-bold text-xs shadow-md transition-all"
+              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
               {loading ? 'Creating Employee...' : 'Complete & Onboard'}
