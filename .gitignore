@@ -9,6 +9,7 @@ lerna-debug.log*
 
 # Dependencies
 node_modules/
+backend/
 backend/node_modules/
 frontend/node_modules/
 

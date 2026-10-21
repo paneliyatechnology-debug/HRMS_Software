@@ -23,7 +23,7 @@ import {
   Resignation,
 } from '../types/hrms';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
   try {
