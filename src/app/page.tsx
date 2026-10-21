@@ -26,6 +26,8 @@ import { LeaveModal } from '../components/modals/LeaveModal';
 import { EmployeeDrawer } from '../components/modals/EmployeeDrawer';
 import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal';
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
+import { LoginPage } from '../components/auth/LoginPage';
+import { useAuth } from '../context/AuthContext';
 
 import { api } from '../lib/api';
 import {
@@ -50,10 +52,10 @@ import {
 } from '../lib/mockData';
 
 export default function Home() {
+  const { isAuthenticated, portalMode, setPortalMode } = useAuth();
   const [activeModule, setActiveModule] = useState('dashboard');
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [portalMode, setPortalMode] = useState<'employee' | 'admin'>('admin');
 
   // Data state
   const [stats, setStats] = useState<any>(mockDashboardStats);
@@ -132,6 +134,10 @@ export default function Home() {
   useEffect(() => {
     loadData();
   }, []);
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="h-screen w-full bg-slate-50 flex flex-col font-sans antialiased overflow-hidden">

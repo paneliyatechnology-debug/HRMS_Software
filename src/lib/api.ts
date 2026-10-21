@@ -360,4 +360,29 @@ export const api = {
       body: JSON.stringify({ status, verifiedBy: 'HR Admin' }),
     });
   },
+
+  // Authentication
+  async login(email: string, password?: string) {
+    return fetchWithFallback<any>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      },
+      {
+        accessToken: `jwt_fallback_${Date.now()}`,
+        user: mockUsers[0],
+      }
+    );
+  },
+
+  async getProfile(token?: string) {
+    return fetchWithFallback<any>(
+      '/auth/me',
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+      mockUsers[0]
+    );
+  },
 };
