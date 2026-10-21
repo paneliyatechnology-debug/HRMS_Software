@@ -8,7 +8,6 @@ import {
   User,
   Settings,
   LogOut,
-  Shield,
   Clock,
   Calendar,
   UserPlus,
@@ -67,42 +66,6 @@ export const Header: React.FC<HeaderProps> = ({
               Workforce Portal
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Center: Understated Portal Switcher */}
-      <div className="flex items-center">
-        <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
-          <button
-            onClick={() => onTogglePortal && onTogglePortal('employee')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-              portalMode === 'employee'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <User className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Employee Portal</span>
-            <span className="sm:hidden">Employee</span>
-          </button>
-
-          <button
-            onClick={() => onTogglePortal && onTogglePortal('admin')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-              portalMode === 'admin'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">HR Admin</span>
-            <span className="sm:hidden">Admin</span>
-            {pendingLeavesCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-slate-900 text-white text-[10px] font-semibold">
-                {pendingLeavesCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
