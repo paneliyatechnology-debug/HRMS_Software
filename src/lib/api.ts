@@ -23,6 +23,18 @@ import {
   Resignation,
 } from '../types/hrms';
 
+import {
+  getAllAttendanceRecords,
+  performCheckIn,
+  performCheckOut,
+} from './attendanceService';
+import {
+  getAllLeaves,
+  applyForLeave,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+} from './leaveService';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
@@ -129,62 +141,31 @@ export const api = {
 
   // Attendance
   async getAttendance(params?: { employeeId?: string; date?: string; departmentId?: string }) {
-    const query = new URLSearchParams();
-    if (params?.employeeId) query.set('employeeId', params.employeeId);
-    if (params?.date) query.set('date', params.date);
-
-    return fetchWithFallback<AttendanceRecord[]>('/attendance?' + query.toString(), undefined, [
-      {
-        id: 'att-1',
-        employeeId: 'emp-8',
-        employeeName: 'Juan Hogan',
-        date: new Date().toISOString().split('T')[0],
-        checkIn: '09:15 AM',
-        checkOut: '06:05 PM',
-        breakDurationMinutes: 45,
-        workingHours: 8.5,
-        overtimeHours: 0.5,
-        status: 'Present',
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    const localRecords = getAllAttendanceRecords();
+    return fetchWithFallback<AttendanceRecord[]>('/attendance', undefined, localRecords);
   },
 
-  async checkIn(employeeId: string, remarks?: string) {
+  async checkIn(employeeId: string, remarks?: string, employeeMeta?: any) {
+    const res = performCheckIn({
+      id: employeeId,
+      firstName: employeeMeta?.firstName || 'Employee',
+      lastName: employeeMeta?.lastName || '',
+      employeeCode: employeeMeta?.employeeCode || employeeId,
+      departmentName: employeeMeta?.departmentName || 'General',
+    });
     return fetchWithFallback<AttendanceRecord>(
       '/attendance/check-in',
       { method: 'POST', body: JSON.stringify({ employeeId, remarks }) },
-      {
-        id: `att-${Date.now()}`,
-        employeeId,
-        date: new Date().toISOString().split('T')[0],
-        checkIn: '09:00 AM',
-        checkOut: '',
-        breakDurationMinutes: 0,
-        workingHours: 0,
-        overtimeHours: 0,
-        status: 'Present',
-        createdAt: new Date().toISOString(),
-      }
+      res.record!
     );
   },
 
   async checkOut(employeeId: string, remarks?: string) {
+    const res = performCheckOut(employeeId);
     return fetchWithFallback<AttendanceRecord>(
       '/attendance/check-out',
       { method: 'POST', body: JSON.stringify({ employeeId, remarks }) },
-      {
-        id: `att-${Date.now()}`,
-        employeeId,
-        date: new Date().toISOString().split('T')[0],
-        checkIn: '09:00 AM',
-        checkOut: '06:00 PM',
-        breakDurationMinutes: 45,
-        workingHours: 8.5,
-        overtimeHours: 0.5,
-        status: 'Present',
-        createdAt: new Date().toISOString(),
-      }
+      res.record!
     );
   },
 
@@ -198,47 +179,34 @@ export const api = {
 
   // Leaves
   async getLeaves(params?: { employeeId?: string; status?: string }) {
-    const query = new URLSearchParams();
-    if (params?.employeeId) query.set('employeeId', params.employeeId);
-    if (params?.status) query.set('status', params.status);
-
-    return fetchWithFallback<LeaveRequest[]>('/leaves?' + query.toString(), undefined, mockLeaveRequests);
+    const localLeaves = getAllLeaves();
+    return fetchWithFallback<LeaveRequest[]>('/leaves', undefined, localLeaves);
   },
 
   async applyLeave(data: any) {
+    const newLeave = applyForLeave(data);
     return fetchWithFallback<LeaveRequest>(
       '/leaves/apply',
       { method: 'POST', body: JSON.stringify(data) },
-      {
-        id: `lr-${Date.now()}`,
-        employeeId: data.employeeId,
-        employeeName: 'John Deo',
-        departmentName: 'Engineering',
-        leaveType: data.leaveType,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        daysCount: 1,
-        isHalfDay: false,
-        reason: data.reason,
-        status: 'Pending',
-        appliedDate: new Date().toISOString().split('T')[0],
-      }
+      newLeave
     );
   },
 
-  async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'Approver', comments?: string) {
+  async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'Admin', comments?: string) {
+    const res = approveLeaveRequest(id, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/approve`,
       { method: 'PUT', body: JSON.stringify({ role, approverName, comments }) },
-      { id, status: 'Approved' } as any
+      res.leave || ({ id, status: 'Approved' } as any)
     );
   },
 
-  async rejectLeave(id: string, approverName = 'Approver', reason?: string) {
+  async rejectLeave(id: string, approverName = 'Admin', reason?: string) {
+    const res = rejectLeaveRequest(id, reason, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/reject`,
       { method: 'PUT', body: JSON.stringify({ approverName, reason }) },
-      { id, status: 'Rejected' } as any
+      res.leave || ({ id, status: 'Rejected' } as any)
     );
   },
 

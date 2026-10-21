@@ -52,23 +52,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
-  const approvedLeaves = leaves.filter((l) => l.status === 'Approved');
-  const rejectedLeaves = leaves.filter((l) => l.status === 'Rejected');
+  const myId = user.employeeId || 'emp-2';
+  const myFirstName = (user.firstName || '').toLowerCase();
+
+  const relevantLeaves =
+    portalMode === 'employee'
+      ? leaves.filter(
+          (l) =>
+            l.employeeId === myId ||
+            (myFirstName && l.employeeName?.toLowerCase().includes(myFirstName))
+        )
+      : leaves;
+
+  const pendingLeaves = relevantLeaves.filter((l) => l.status === 'Pending');
+  const approvedLeaves = relevantLeaves.filter((l) => l.status === 'Approved');
+  const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
 
   // Filter leaves according to current portal & filters
-  const displayedLeaves = leaves.filter((l) => {
-    // In employee mode, if not admin, show their leaves (for demo, if user is Keyur or matches email)
-    if (portalMode === 'employee') {
-      const isMyLeave =
-        l.employeeId === 'emp-1' ||
-        l.employeeName?.toLowerCase().includes('keyur');
-      // If none match, show all to prevent empty screen in demo, but prioritize personal
-      if (!isMyLeave && leaves.some((item) => item.employeeId === 'emp-1')) {
-        return false;
-      }
-    }
-
+  const displayedLeaves = relevantLeaves.filter((l) => {
     const matchesSearch =
       l.employeeName?.toLowerCase().includes(search.toLowerCase()) ||
       l.reason?.toLowerCase().includes(search.toLowerCase()) ||
@@ -374,7 +375,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => {
             const count =
               tab === 'All'
-                ? leaves.length
+                ? relevantLeaves.length
                 : tab === 'Pending'
                 ? pendingLeaves.length
                 : tab === 'Approved'

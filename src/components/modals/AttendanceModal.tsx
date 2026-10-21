@@ -1,9 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Play, Square, Coffee, CheckCircle, MapPin } from 'lucide-react';
-import { api } from '../../lib/api';
+import { X, Clock, Play, Square, Coffee, CheckCircle, MapPin, Pause } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  checkEmployeePunchEligibility,
+  performCheckIn,
+  performTakeBreak,
+  performResumeWork,
+  performCheckOut,
+  formatSecondsToHMS,
+  formatSecondsToWords,
+  getLiveActiveSeconds,
+  getLiveBreakSeconds,
+} from '../../lib/attendanceService';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -13,86 +23,90 @@ interface AttendanceModalProps {
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user } = useAuth();
+  const currentEmpId = user.employeeId || 'emp-2';
+
   const [time, setTime] = useState<Date | null>(null);
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [checkInTime, setCheckInTime] = useState<string | null>(null);
-  const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
-  const [isOnBreak, setIsOnBreak] = useState(false);
-  const [breakSeconds, setBreakSeconds] = useState(0);
+  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));
+  const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
+  const [liveBreakWords, setLiveBreakWords] = useState('0s');
   const [loading, setLoading] = useState(false);
-  const [remarks, setRemarks] = useState('');
 
-  // Live ticking clock
+  // Live ticking clock and punch state
   useEffect(() => {
-    setTime(new Date());
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!isOpen) return;
 
-  // Break timer
-  useEffect(() => {
-    let interval: any;
-    if (isOnBreak) {
-      interval = setInterval(() => setBreakSeconds((s) => s + 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isOnBreak]);
+    const tick = () => {
+      setTime(new Date());
+      const eligibility = checkEmployeePunchEligibility(currentEmpId);
+      setPunchState(eligibility);
 
-  // Load current punch status
-  useEffect(() => {
-    if (isOpen && user.employeeId) {
-      fetchStatus();
-    }
-  }, [isOpen, user.employeeId]);
-
-  const fetchStatus = async () => {
-    try {
-      const res = await api.getAttendance({ employeeId: user.employeeId });
-      const today = new Date().toISOString().split('T')[0];
-      const todayRec = res.find((r) => r.date === today);
-      if (todayRec) {
-        setIsCheckedIn(Boolean(todayRec.checkIn));
-        setCheckInTime(todayRec.checkIn);
-        setCheckOutTime(todayRec.checkOut || null);
+      if (eligibility.record) {
+        const active = getLiveActiveSeconds(eligibility.record);
+        const brk = getLiveBreakSeconds(eligibility.record);
+        setLiveWorkedHMS(formatSecondsToHMS(active));
+        setLiveBreakWords(formatSecondsToWords(brk));
+      } else {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
       }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    };
 
-  const handleCheckIn = async () => {
-    setLoading(true);
-    try {
-      await api.checkIn(user.employeeId || 'emp-1', remarks);
-      setIsCheckedIn(true);
-      setCheckInTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Check in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCheckOut = async () => {
-    setLoading(true);
-    try {
-      await api.checkOut(user.employeeId || 'emp-1', remarks);
-      setCheckOutTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'Check out failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen, currentEmpId]);
 
   if (!isOpen) return null;
 
-  const formatSeconds = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const handleCheckIn = () => {
+    setLoading(true);
+    try {
+      const res = performCheckIn({
+        id: currentEmpId,
+        firstName: user.firstName || 'Employee',
+        lastName: user.lastName || '',
+        employeeCode: user.employeeId || 'EMP-2',
+      });
+      if (!res.success) {
+        alert(res.message);
+      } else {
+        onRefresh();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTakeBreak = () => {
+    setLoading(true);
+    try {
+      const res = performTakeBreak(currentEmpId);
+      if (!res.success) alert(res.message);
+      onRefresh();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResumeWork = () => {
+    setLoading(true);
+    try {
+      const res = performResumeWork(currentEmpId);
+      if (!res.success) alert(res.message);
+      onRefresh();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckOut = () => {
+    setLoading(true);
+    try {
+      const res = performCheckOut(currentEmpId);
+      onRefresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,116 +116,146 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in cursor-pointer"
     >
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-100 shadow-2xl relative cursor-default">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl relative cursor-default">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+          className="absolute top-5 right-5 p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center pt-2 pb-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center shadow-inner mb-3">
-            <Clock className="w-7 h-7" />
+        <div className="text-center pt-1 pb-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-900 mx-auto flex items-center justify-center mb-2.5">
+            <Clock className="w-6 h-6 text-slate-700" />
           </div>
-          <h3 className="text-xl font-bold text-slate-900">Attendance Punch Clock</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Attendance Punch Clock</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Record working hours & break tracking
+            Live shift tracking, timer & break management
           </p>
         </div>
 
-        {/* Digital Clock */}
-        <div className="bg-slate-50 rounded-2xl p-5 text-center border border-slate-100 my-4">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Current Time</p>
-          <div className="text-3xl font-mono font-extrabold text-slate-900 tracking-wider mt-1">
-            {time ? time.toLocaleTimeString('en-US') : '09:00:00 AM'}
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {time ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Monday, October 19, 2026'}
+        {/* Digital Clock & Timer Display */}
+        <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-200/80 my-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            {punchState.status === 'working'
+              ? 'Active Shift Timer'
+              : punchState.status === 'on_break'
+              ? 'Timer Paused (On Break)'
+              : punchState.status === 'completed'
+              ? 'Today’s Finalized Shift'
+              : 'Current Time'}
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-600 font-semibold mt-3">
+          <div className="text-3xl font-mono font-bold text-slate-900 tracking-wider mt-1">
+            {punchState.status === 'working' || punchState.status === 'on_break'
+              ? liveWorkedHMS
+              : punchState.status === 'completed'
+              ? formatSecondsToWords(punchState.record?.activeSeconds || 0)
+              : time
+              ? time.toLocaleTimeString('en-US')
+              : '09:00:00 AM'}
+          </div>
+
+          <p className="text-xs text-slate-500 mt-1">
+            {punchState.status === 'on_break'
+              ? `Break time: ${liveBreakWords}`
+              : time
+              ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+              : 'October 21, 2026'}
+          </p>
+
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-600 font-medium mt-2">
             <MapPin className="w-3.5 h-3.5" />
-            <span>Office Geofence: HQ Verified (100 Silicon Vista Blvd)</span>
+            <span>HQ Office Verified (Surat HQ)</span>
           </div>
         </div>
 
         {/* Punch Status info */}
         <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Checked In</span>
-            <span className="font-bold text-slate-800 text-sm">
-              {checkInTime || 'Not punched'}
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+            <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked In</span>
+            <span className="font-semibold text-slate-800 text-sm">
+              {punchState.record?.checkIn || 'Not punched'}
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Checked Out</span>
-            <span className="font-bold text-slate-800 text-sm">
-              {checkOutTime || (isCheckedIn ? 'In Progress' : '—')}
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+            <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked Out</span>
+            <span className="font-semibold text-slate-800 text-sm">
+              {punchState.record?.checkOut || (punchState.status === 'working' ? 'In Progress' : '—')}
             </span>
           </div>
-        </div>
-
-        {/* Remarks Input */}
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-slate-600 mb-1">
-            Work Notes / Remarks (Optional)
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Working on HRMS modules, client sync..."
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-          />
         </div>
 
         {/* Action Buttons */}
         <div className="space-y-2">
-          {!isCheckedIn ? (
+          {punchState.status === 'not_started' && (
             <button
               onClick={handleCheckIn}
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               <Play className="w-4 h-4 fill-current" />
-              Check In Now
+              <span>Check In Now</span>
             </button>
-          ) : !checkOutTime ? (
-            <div className="grid grid-cols-2 gap-3">
+          )}
+
+          {punchState.status === 'working' && (
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => setIsOnBreak(!isOnBreak)}
-                className={`py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all active:scale-95 ${
-                  isOnBreak
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600'
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                }`}
+                onClick={handleTakeBreak}
+                disabled={loading}
+                className="py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
-                <Coffee className="w-4 h-4" />
-                {isOnBreak ? `Resume (${formatSeconds(breakSeconds)})` : 'Take Break'}
+                <Coffee className="w-3.5 h-3.5" />
+                <span>Take Break</span>
               </button>
               <button
                 onClick={handleCheckOut}
                 disabled={loading}
-                className="py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                className="py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
-                <Square className="w-4 h-4 fill-current" />
-                Check Out
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Check Out</span>
               </button>
             </div>
-          ) : (
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+          )}
+
+          {punchState.status === 'on_break' && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleResumeWork}
+                disabled={loading}
+                className="py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Resume Work</span>
+              </button>
+              <button
+                onClick={handleCheckOut}
+                disabled={loading}
+                className="py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Check Out</span>
+              </button>
+            </div>
+          )}
+
+          {punchState.status === 'completed' && (
+            <div className="p-3 rounded-lg bg-slate-100 border border-slate-200 text-center">
               <CheckCircle className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-xs font-bold text-emerald-700">
+              <p className="text-xs font-semibold text-slate-800">
                 Attendance Completed for Today!
               </p>
-              <p className="text-[11px] text-emerald-600/80">Total 8.5 hours recorded</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Next check-in available tomorrow
+              </p>
             </div>
           )}
 
           <button
             onClick={onClose}
-            className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+            className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition"
           >
             Close
           </button>

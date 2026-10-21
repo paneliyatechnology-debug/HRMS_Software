@@ -62,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const isActive = activeModule === id;
     return (
       <button
+        id={`nav-item-${id}`}
         onClick={() => handleNav(id)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
           isActive

@@ -17,13 +17,24 @@ import {
   List,
   CalendarDays,
   ShieldCheck,
+  Coffee,
+  Pause,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
+import {
+  getAllAttendanceRecords,
+  getTodayRecordForEmployee,
+  getLiveActiveSeconds,
+  getLiveBreakSeconds,
+  formatSecondsToWords,
+  formatSecondsToHMS,
+  getTodayDateString,
+} from '../../lib/attendanceService';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
   employees: Employee[];
-  initialTab?: 'summary' | 'roster' | 'holidays';
+  initialTab?: 'today' | 'summary' | 'roster' | 'holidays';
   onOpenPunchModal: () => void;
   onRefresh: () => void;
 }
@@ -31,16 +42,31 @@ interface AttendanceModuleProps {
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   records,
   employees,
-  initialTab = 'summary',
+  initialTab = 'today',
   onOpenPunchModal,
   onRefresh,
 }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'roster' | 'holidays'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedDesig, setSelectedDesig] = useState('All');
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [selectedYear, setSelectedYear] = useState('2026');
+  const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+
+  useEffect(() => {
+    const update = () => {
+      setLiveRecords(getAllAttendanceRecords());
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    const handleUpdate = () => update();
+    window.addEventListener('hrms_attendance_updated', handleUpdate);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('hrms_attendance_updated', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialTab) {
@@ -107,22 +133,32 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200/60 shadow-2xs text-xs font-bold">
+        <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
           <button
-            onClick={() => setActiveTab('summary')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all ${
-              activeTab === 'summary'
-                ? 'bg-white text-indigo-700 shadow-xs'
+            onClick={() => setActiveTab('today')}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              activeTab === 'today'
+                ? 'bg-white text-slate-900 font-semibold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Attendance Summary
+            Today's Live Tracker
+          </button>
+          <button
+            onClick={() => setActiveTab('summary')}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              activeTab === 'summary'
+                ? 'bg-white text-slate-900 font-semibold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Monthly Summary
           </button>
           <button
             onClick={() => setActiveTab('roster')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all ${
+            className={`px-3 py-1.5 rounded-md transition-colors ${
               activeTab === 'roster'
-                ? 'bg-white text-indigo-700 shadow-xs'
+                ? 'bg-white text-slate-900 font-semibold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -130,9 +166,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('holidays')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all ${
+            className={`px-3 py-1.5 rounded-md transition-colors ${
               activeTab === 'holidays'
-                ? 'bg-white text-indigo-700 shadow-xs'
+                ? 'bg-white text-slate-900 font-semibold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -177,6 +213,159 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         )}
       </div>
+
+      {/* TAB: Today's Live Attendance & Break Tracker */}
+      {activeTab === 'today' && (() => {
+        const todayDate = getTodayDateString();
+        const todayRecords = liveRecords.filter((r) => r.date === todayDate);
+        const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
+        const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
+        const completedCount = todayRecords.filter((r) => r.isCompleted).length;
+
+        return (
+          <div className="space-y-4">
+            {/* KPI Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
+                <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
+                <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {workingCount}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
+                <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
+                  <Pause className="w-3.5 h-3.5 text-amber-600" />
+                  {onBreakCount}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
+                <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-slate-600" />
+                  {completedCount}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
+              </div>
+            </div>
+
+            {/* Live Table */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Today's Live Workforce Shift Log</h3>
+                  <p className="text-xs text-slate-500">Live work timers and break intervals updating every second</p>
+                </div>
+                <button
+                  onClick={onOpenPunchModal}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors"
+                >
+                  Clock In / Out
+                </button>
+              </div>
+
+              <div className="overflow-x-auto w-full [scrollbar-width:thin]">
+                <table className="w-full text-left text-xs min-w-[700px]">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                      <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                      <th className="py-2.5 px-4 font-medium">CHECK IN</th>
+                      <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
+                      <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                      <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                      <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {employees.map((emp) => {
+                      const rec = getTodayRecordForEmployee(emp.id);
+                      const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
+                      const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                      const isDone = rec && rec.isCompleted;
+
+                      const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                      const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+
+                      return (
+                        <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center shrink-0">
+                              {emp.firstName?.[0] || 'E'}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900">{emp.firstName} {emp.lastName}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
+                          <td className="py-3 px-4 font-mono text-slate-700">
+                            {rec?.checkIn || <span className="text-slate-400">—</span>}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-700">
+                            {rec?.checkOut || (isWorking ? <span className="text-emerald-600 font-medium">Working...</span> : <span className="text-slate-400">—</span>)}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                            {rec ? (
+                              <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                                {formatSecondsToHMS(liveSecs)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-600">
+                            {breakSecs > 0 ? (
+                              <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                {formatSecondsToWords(breakSecs)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">0s</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {isWorking ? (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Working
+                              </span>
+                            ) : isOnBreak ? (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                <Pause className="w-3 h-3 text-amber-600" />
+                                On Break
+                              </span>
+                            ) : isDone ? (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                <Check className="w-3 h-3 text-slate-600" />
+                                Completed
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                Not Punched
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* TAB 1: Attendance Summary (31-day October 2026 Matrix) */}
       {activeTab === 'summary' && (

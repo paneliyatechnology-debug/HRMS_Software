@@ -169,6 +169,8 @@ export interface AttendanceRecord {
   id: string;
   employeeId: string;
   employeeName?: string;
+  employeeCode?: string;
+  departmentName?: string;
   date: string;
   checkIn: string;
   checkOut?: string;
@@ -178,6 +180,12 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   remarks?: string;
   createdAt: string;
+  activeSeconds?: number;
+  breakSeconds?: number;
+  isOnBreak?: boolean;
+  isCompleted?: boolean;
+  lastActiveTimestamp?: number;
+  lastBreakTimestamp?: number;
 }
 
 export interface LeaveRequest {
@@ -198,6 +206,7 @@ export interface LeaveRequest {
   managerApproverName?: string;
   managerApprovedAt?: string;
   hrApproverId?: string;
+  hrApproverName?: string;
   hrApprovedAt?: string;
   comments?: string;
 }

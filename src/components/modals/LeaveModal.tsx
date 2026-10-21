@@ -38,15 +38,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setLoading(true);
     setError('');
     try {
+      const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
       await api.applyLeave({
-        employeeId: user.employeeId || 'emp-1',
+        employeeId: user.employeeId || 'emp-2',
+        employeeName: empName || 'Employee',
+        departmentName: (user as any).departmentName || 'Engineering',
         leaveType,
         startDate,
         endDate,
         isHalfDay,
         reason,
       });
-      alert('Leave application submitted successfully!');
       onRefresh();
       onClose();
     } catch (err: any) {
@@ -96,6 +98,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               Leave Type
             </label>
             <select
+              id="leave-type-select"
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as LeaveType)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
@@ -116,6 +119,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 Start Date
               </label>
               <input
+                id="leave-start-date"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -128,6 +132,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 End Date
               </label>
               <input
+                id="leave-end-date"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -155,6 +160,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               Reason for Leave
             </label>
             <textarea
+              id="leave-reason-textarea"
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -173,6 +179,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               Cancel
             </button>
             <button
+              id="btn-submit-leave"
               type="submit"
               disabled={loading}
               className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"
