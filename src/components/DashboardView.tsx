@@ -32,7 +32,6 @@ interface DashboardViewProps {
   onSelectEmployee: (emp: Employee) => void;
   onRefreshData?: () => void;
   portalMode?: 'employee' | 'admin';
-  onTogglePortal?: (mode: 'employee' | 'admin') => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -47,12 +46,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectEmployee,
   onRefreshData,
   portalMode = 'admin',
-  onTogglePortal,
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
-  const [activeTab, setActiveTab] = useState<'my' | 'hr'>(portalMode === 'admin' ? 'hr' : 'my');
-
   // Live clock
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDateString, setCurrentDateString] = useState<string>('');
@@ -71,14 +67,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (portalMode === 'admin') {
-      setActiveTab('hr');
-    } else {
-      setActiveTab('my');
-    }
-  }, [portalMode]);
 
   // Attendance state
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -184,38 +172,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
-            {activeTab === 'hr' ? 'HR Overview' : 'My Workspace'}
+            {portalMode === 'admin' ? 'HR Overview' : 'My Workspace'}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">{currentDateString}</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
-            <button
-              onClick={() => setActiveTab('hr')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'hr'
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              HR Admin
-            </button>
-            <button
-              onClick={() => setActiveTab('my')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'my'
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Self-Service
-            </button>
-          </div>
-        </div>
       </div>
 
-      {activeTab === 'hr' ? (
+      {portalMode === 'admin' ? (
         /* ============================================================== */
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */

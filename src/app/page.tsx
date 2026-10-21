@@ -79,16 +79,15 @@ export default function Home() {
 
   const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
 
-  const handleTogglePortal = (newMode: 'employee' | 'admin') => {
-    setPortalMode(newMode);
-    if (newMode === 'employee') {
-      // In employee mode, restrict to employee views
-      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements'];
+  // Strict role guard: prevent employees from accessing admin-only views
+  useEffect(() => {
+    if (portalMode === 'employee') {
+      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements', 'settings'];
       if (!allowedInEmployee.includes(activeModule)) {
         setActiveModule('dashboard');
       }
     }
-  };
+  }, [portalMode, activeModule]);
 
   const loadData = async () => {
     try {
@@ -160,7 +159,6 @@ export default function Home() {
         onOpenProfile={() => setSelectedEmployee(employees[0] || mockEmployees[0])}
         onNavigateSettings={() => setActiveModule('settings')}
         portalMode={portalMode}
-        onTogglePortal={handleTogglePortal}
         pendingLeavesCount={pendingLeavesCount}
       />
 
@@ -173,7 +171,6 @@ export default function Home() {
           setIsOpen={setSidebarOpen}
           onSelectSubTab={setSubTab}
           portalMode={portalMode}
-          onTogglePortal={handleTogglePortal}
           pendingLeavesCount={pendingLeavesCount}
         />
 
@@ -194,7 +191,6 @@ export default function Home() {
             onSelectEmployee={setSelectedEmployee}
             onRefreshData={loadData}
             portalMode={portalMode}
-            onTogglePortal={handleTogglePortal}
           />
         )}
 

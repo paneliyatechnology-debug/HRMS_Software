@@ -23,7 +23,6 @@ interface HeaderProps {
   onOpenProfile?: () => void;
   onNavigateSettings?: () => void;
   portalMode?: 'employee' | 'admin';
-  onTogglePortal?: (mode: 'employee' | 'admin') => void;
   pendingLeavesCount?: number;
 }
 
@@ -35,7 +34,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onNavigateSettings,
   portalMode = 'admin',
-  onTogglePortal,
   pendingLeavesCount = 0,
 }) => {
   const { user, logout } = useAuth();

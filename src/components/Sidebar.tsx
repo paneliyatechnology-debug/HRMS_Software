@@ -27,7 +27,6 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   onSelectSubTab?: (subTab: string) => void;
   portalMode?: 'employee' | 'admin';
-  onTogglePortal?: (mode: 'employee' | 'admin') => void;
   pendingLeavesCount?: number;
 }
 
@@ -38,7 +37,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   onSelectSubTab,
   portalMode = 'admin',
-  onTogglePortal,
   pendingLeavesCount = 0,
 }) => {
   const { user, logout } = useAuth();
