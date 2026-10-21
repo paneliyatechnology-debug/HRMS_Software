@@ -52,7 +52,7 @@ import {
 } from '../lib/mockData';
 
 export default function Home() {
-  const { isAuthenticated, portalMode, setPortalMode } = useAuth();
+  const { isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
   const [activeModule, setActiveModule] = useState('dashboard');
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -132,8 +132,18 @@ export default function Home() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />;

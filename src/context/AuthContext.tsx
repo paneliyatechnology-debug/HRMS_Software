@@ -11,6 +11,7 @@ interface AuthContextType {
   portalMode: 'admin' | 'employee';
   setPortalMode: (mode: 'admin' | 'employee') => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
   loginAsAdmin: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   loginAsEmployee: (codeOrEmail: string, passwordOrPin?: string) => Promise<{ success: boolean; message?: string }>;
   switchRole: (newRole: Role) => void;
@@ -24,7 +25,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User>(mockUsers[0]);
   const [portalMode, setPortalModeState] = useState<'admin' | 'employee'>('admin');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // default true or check localStorage
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false); // strictly false by default, requires login
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     try {
@@ -33,26 +35,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedPortal = localStorage.getItem('hrms_portal_mode') as 'admin' | 'employee' | null;
       const storedUserData = localStorage.getItem('hrms_auth_user');
 
-      if (storedAuth !== null) {
-        setIsAuthenticated(storedAuth === 'true');
-      }
-
-      if (savedPortal) {
-        setPortalModeState(savedPortal);
-      }
-
-      if (storedUserData) {
-        try {
-          setUser(JSON.parse(storedUserData));
-        } catch {
-          // ignore
+      if (storedAuth === 'true') {
+        setIsAuthenticated(true);
+        if (savedPortal) {
+          setPortalModeState(savedPortal);
         }
-      } else if (savedRole) {
-        const matched = mockUsers.find((u) => u.role === savedRole);
-        if (matched) setUser(matched);
+        if (storedUserData) {
+          try {
+            setUser(JSON.parse(storedUserData));
+          } catch {
+            // ignore
+          }
+        } else if (savedRole) {
+          const matched = mockUsers.find((u) => u.role === savedRole);
+          if (matched) setUser(matched);
+        }
+      } else {
+        setIsAuthenticated(false);
       }
     } catch (e) {
       console.warn('Auth restoration error:', e);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -185,8 +190,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setIsAuthenticated(false);
+    setUser(mockUsers[0]);
     localStorage.removeItem('hrms_is_authenticated');
     localStorage.removeItem('hrms_current_role');
+    localStorage.removeItem('hrms_portal_mode');
     localStorage.removeItem('hrms_auth_user');
   };
 
@@ -221,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         portalMode,
         setPortalMode,
         isAuthenticated,
+        isLoading,
         loginAsAdmin,
         loginAsEmployee,
         switchRole,

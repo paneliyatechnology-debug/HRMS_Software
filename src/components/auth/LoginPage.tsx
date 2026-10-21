@@ -18,12 +18,12 @@ export const LoginPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'admin' | 'employee'>('admin');
 
   // Form states
-  const [adminIdentifier, setAdminIdentifier] = useState('keyur.sangani1234@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('123456789');
+  const [adminIdentifier, setAdminIdentifier] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
-  const [empIdentifier, setEmpIdentifier] = useState('EMP-2');
-  const [empPassword, setEmpPassword] = useState('123456');
+  const [empIdentifier, setEmpIdentifier] = useState('');
+  const [empPassword, setEmpPassword] = useState('');
   const [showEmpPassword, setShowEmpPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -136,7 +136,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={adminIdentifier}
                     onChange={(e) => setAdminIdentifier(e.target.value)}
-                    placeholder="name@company.com"
+                    placeholder="Email or phone (e.g. 6352486893)"
                     className="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
@@ -207,7 +207,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={empIdentifier}
                     onChange={(e) => setEmpIdentifier(e.target.value)}
-                    placeholder="e.g. EMP-2 or name@company.com"
+                    placeholder="e.g. EMP-1, EMP-2, or employee email"
                     className="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
