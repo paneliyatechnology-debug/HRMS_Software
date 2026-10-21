@@ -13,6 +13,7 @@ import {
   List,
   Info,
   Check,
+  Filter,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
@@ -156,10 +157,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           {/* Filters icon button */}
           <button
             onClick={() => alert('Filter panel')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
           >
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
             <span>Filters</span>
-            <span className="text-[10px]">⚲</span>
           </button>
 
           {/* View Mode Controls */}
@@ -243,7 +244,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-bold text-xs ring-1 ring-slate-200 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center justify-center shrink-0">
                           {emp.firstName[0]}
                           {emp.lastName ? emp.lastName[0] : ''}
                         </div>

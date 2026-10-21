@@ -76,7 +76,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100 shadow-2xs"
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-black text-xl ring-2 ring-slate-100 shadow-2xs">
+              <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 font-semibold text-lg shadow-xs">
                 {employee.firstName?.[0] || 'K'}{employee.lastName?.[0] || 'S'}
               </div>
             )}
@@ -276,8 +276,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 8. Performance */}
           {activeTab === 'performance' && (
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-xs font-bold text-slate-500">Q3-Q4 Performance Appraisal</span>
-              <p className="text-lg font-black text-amber-500 mt-1">★ 4.8 / 5.0 (Exceeds Expectations)</p>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Q3-Q4 Performance Appraisal</span>
+              <p className="text-base font-semibold text-slate-900 mt-1">Score: 4.8 / 5.0 &mdash; Exceeds Expectations</p>
               <p className="text-xs text-slate-600 mt-2">
                 &ldquo;Outstanding initiative in design and engineering collaboration with high product velocity.&rdquo;
               </p>

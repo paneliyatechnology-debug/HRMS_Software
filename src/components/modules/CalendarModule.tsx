@@ -251,14 +251,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 {/* Event Tags inside Day cell */}
                 <div className="space-y-1 mt-1 text-[10px]">
                   {item.holiday && (
-                    <div className="truncate px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold border border-amber-200/60">
-                      ★ {item.holiday}
+                    <div className="truncate px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium border border-amber-200/60">
+                      {item.holiday}
                     </div>
                   )}
 
                   {item.leave && (
-                    <div className="truncate px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 font-semibold border border-sky-200/60">
-                      ✈ {item.leave.leaveType}
+                    <div className="truncate px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 font-medium border border-sky-200/60">
+                      {item.leave.leaveType}
                     </div>
                   )}
 
@@ -306,8 +306,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
             <div className="flex items-center gap-2">
               {selectedDayInfo.holiday && (
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                  ★ Public Holiday: {selectedDayInfo.holiday}
+                <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800">
+                  Holiday: {selectedDayInfo.holiday}
                 </span>
               )}
               {selectedDayInfo.attendance && (

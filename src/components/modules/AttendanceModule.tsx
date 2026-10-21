@@ -244,7 +244,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Employee column */}
                       <td className="py-3 px-4 text-left sticky left-0 bg-white z-10 font-bold text-slate-900 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-bold text-[10px] shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center shrink-0">
                           {emp.firstName[0]}
                           {emp.lastName ? emp.lastName[0] : ''}
                         </div>
@@ -339,7 +339,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 {employees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-slate-50/70">
                     <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-bold text-[10px]">
+                      <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center">
                         {emp.firstName[0]}
                         {emp.lastName ? emp.lastName[0] : ''}
                       </div>

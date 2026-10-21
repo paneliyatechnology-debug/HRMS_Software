@@ -219,7 +219,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Card Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-600 flex items-center justify-center text-white font-black text-xs ring-2 ring-white shadow-2xs">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs">
                             {leave.employeeName?.[0] || 'E'}
                           </div>
                           <div>
@@ -449,7 +449,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             {displayedLeaves.length})
           </span>
           <span className="text-[11px] text-slate-400">
-            {portalMode === 'admin' ? '🛡️ Admin Controls Active' : '👤 Read-only Status'}
+            {portalMode === 'admin' ? 'Admin controls enabled' : 'Personal records'}
           </span>
         </div>
 
