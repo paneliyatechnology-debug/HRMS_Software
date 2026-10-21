@@ -21,6 +21,7 @@ import {
   PerformanceReview,
   TrainingProgram,
   Resignation,
+  Announcement,
 } from '../types/hrms';
 
 import {
@@ -34,6 +35,18 @@ import {
   approveLeaveRequest,
   rejectLeaveRequest,
 } from './leaveService';
+import {
+  getAllEmployees,
+  addEmployee,
+  removeEmployee,
+  updateEmployee as updateEmployeeRecord,
+} from './employeeService';
+import {
+  getAllAnnouncements,
+  sendNotice,
+  deleteNotice,
+  getNoticesForEmployee,
+} from './announcementService';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -72,15 +85,17 @@ export const api = {
     if (params?.status) query.set('status', params.status);
     if (params?.employmentType) query.set('employmentType', params.employmentType);
 
+    const localEmployees = getAllEmployees();
     return fetchWithFallback<Employee[]>(
       `/employees?${query.toString()}`,
       undefined,
-      mockEmployees
+      localEmployees
     );
   },
 
   async getEmployeeById(id: string) {
-    const fallback = mockEmployees.find((e) => e.id === id || e.employeeCode === id) || mockEmployees[0];
+    const all = getAllEmployees();
+    const fallback = all.find((e) => e.id === id || e.employeeCode === id) || all[0];
     return fetchWithFallback<any>(`/employees/${id}`, undefined, {
       ...fallback,
       tabsData: {
@@ -102,18 +117,29 @@ export const api = {
   },
 
   async createEmployee(data: Partial<Employee>) {
+    const newEmp = addEmployee(data);
     return fetchWithFallback<Employee>(
       '/employees',
       { method: 'POST', body: JSON.stringify(data) },
-      { ...mockEmployees[0], id: `emp-${Date.now()}`, ...data } as Employee
+      newEmp
     );
   },
 
   async updateEmployee(id: string, data: Partial<Employee>) {
+    const updated = updateEmployeeRecord(id, data);
     return fetchWithFallback<Employee>(
       `/employees/${id}`,
       { method: 'PUT', body: JSON.stringify(data) },
-      { ...mockEmployees[0], id, ...data } as Employee
+      (updated || { ...mockEmployees[0], id, ...data }) as Employee
+    );
+  },
+
+  async deleteEmployee(id: string) {
+    const res = removeEmployee(id);
+    return fetchWithFallback<{ success: boolean; message: string }>(
+      `/employees/${id}`,
+      { method: 'DELETE' },
+      res
     );
   },
 
@@ -351,6 +377,42 @@ export const api = {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       },
       mockUsers[0]
+    );
+  },
+
+  // Announcements & Notices
+  async getAnnouncements(employeeId?: string, departmentName?: string) {
+    const local = employeeId
+      ? getNoticesForEmployee(employeeId, departmentName)
+      : getAllAnnouncements();
+    return fetchWithFallback<Announcement[]>('/announcements', undefined, local);
+  },
+
+  async createAnnouncement(data: {
+    title: string;
+    content: string;
+    targetAudience: 'All' | 'Department' | 'Individual';
+    targetEmployeeId?: string;
+    targetEmployeeName?: string;
+    departmentName?: string;
+    priority?: 'Low' | 'Medium' | 'High' | 'Urgent';
+    authorName?: string;
+    authorRole?: string;
+  }) {
+    const notice = sendNotice(data);
+    return fetchWithFallback<Announcement>(
+      '/announcements',
+      { method: 'POST', body: JSON.stringify(data) },
+      notice
+    );
+  },
+
+  async deleteAnnouncement(id: string) {
+    const res = deleteNotice(id);
+    return fetchWithFallback<{ success: boolean }>(
+      `/announcements/${id}`,
+      { method: 'DELETE' },
+      res
     );
   },
 };

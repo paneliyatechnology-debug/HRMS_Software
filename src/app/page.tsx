@@ -133,6 +133,13 @@ export default function Home() {
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
+      const handleUpdate = () => loadData();
+      window.addEventListener('hrms_employees_updated', handleUpdate);
+      window.addEventListener('hrms_announcements_updated', handleUpdate);
+      return () => {
+        window.removeEventListener('hrms_employees_updated', handleUpdate);
+        window.removeEventListener('hrms_announcements_updated', handleUpdate);
+      };
     }
   }, [isAuthenticated]);
 
@@ -209,6 +216,8 @@ export default function Home() {
             departments={departments}
             onSelectEmployee={setSelectedEmployee}
             onOpenAddModal={() => setAddEmployeeModalOpen(true)}
+            onRefresh={loadData}
+            portalMode={portalMode}
           />
         )}
 
@@ -273,7 +282,9 @@ export default function Home() {
         {activeModule === 'documents' && <DocumentsModule />}
         {activeModule === 'assets' && <AssetsModule />}
         {activeModule === 'resignations' && <ResignationsModule />}
-        {activeModule === 'announcements' && <AnnouncementsModule />}
+        {activeModule === 'announcements' && (
+          <AnnouncementsModule employees={employees} portalMode={portalMode} />
+        )}
         {activeModule === 'reports' && <ReportsModule />}
         {activeModule === 'audit-logs' && <AuditLogsModule />}
         {activeModule === 'settings' && <SettingsModule />}

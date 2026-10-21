@@ -18,6 +18,9 @@ import {
   Play,
   Square,
   Pause,
+  Trash2,
+  Bell,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -183,6 +186,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       });
     } finally {
       setProcessingLeaveId(null);
+    }
+  };
+
+  // Admin Staff Management state
+  const [removingEmpDashboard, setRemovingEmpDashboard] = useState<Employee | null>(null);
+  const [removeEmpLoading, setRemoveEmpLoading] = useState(false);
+
+  const [noticeTargetEmpDashboard, setNoticeTargetEmpDashboard] = useState<Employee | null>(null);
+  const [dashNoticeTitle, setDashNoticeTitle] = useState('');
+  const [dashNoticeContent, setDashNoticeContent] = useState('');
+  const [dashNoticePriority, setDashNoticePriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
+  const [dashNoticeLoading, setDashNoticeLoading] = useState(false);
+
+  const handleConfirmRemoveEmpDashboard = async () => {
+    if (!removingEmpDashboard) return;
+    setRemoveEmpLoading(true);
+    try {
+      const res = await api.deleteEmployee(removingEmpDashboard.id);
+      if (res.success) {
+        showToast({
+          type: 'success',
+          title: 'Employee Removed',
+          message: res.message || `${removingEmpDashboard.firstName} ${removingEmpDashboard.lastName} removed from staff.`,
+        });
+        setRemovingEmpDashboard(null);
+        if (onRefreshData) onRefreshData();
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Remove Failed',
+          message: res.message || 'Could not remove employee.',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err.message || 'Failed to remove employee.',
+      });
+    } finally {
+      setRemoveEmpLoading(false);
+    }
+  };
+
+  const handleOpenNoticeModalDashboard = (emp: Employee) => {
+    setNoticeTargetEmpDashboard(emp);
+    setDashNoticeTitle(`Notice for ${emp.firstName} ${emp.lastName}`);
+    setDashNoticeContent('');
+    setDashNoticePriority('Medium');
+  };
+
+  const handleConfirmSendNoticeDashboard = async () => {
+    if (!noticeTargetEmpDashboard) return;
+    if (!dashNoticeTitle.trim() || !dashNoticeContent.trim()) {
+      showToast({
+        type: 'warning',
+        title: 'Incomplete Notice',
+        message: 'Please provide both notice title and message body.',
+      });
+      return;
+    }
+
+    setDashNoticeLoading(true);
+    try {
+      await api.createAnnouncement({
+        title: dashNoticeTitle.trim(),
+        content: dashNoticeContent.trim(),
+        targetAudience: 'Individual',
+        targetEmployeeId: noticeTargetEmpDashboard.id,
+        targetEmployeeName: `${noticeTargetEmpDashboard.firstName} ${noticeTargetEmpDashboard.lastName}`,
+        departmentName: noticeTargetEmpDashboard.departmentName,
+        priority: dashNoticePriority,
+        authorName: `${user.firstName || 'Keyur'} ${user.lastName || 'Sangani'} (HR & Admin)`,
+        authorRole: 'Administration',
+      });
+
+      showToast({
+        type: 'success',
+        title: 'Notice Sent',
+        message: `Notice dispatched to ${noticeTargetEmpDashboard.firstName} ${noticeTargetEmpDashboard.lastName}.`,
+      });
+      setNoticeTargetEmpDashboard(null);
+      setDashNoticeTitle('');
+      setDashNoticeContent('');
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Send Failed',
+        message: err.message || 'Could not send notice.',
+      });
+    } finally {
+      setDashNoticeLoading(false);
     }
   };
 
@@ -530,9 +626,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <span className="text-slate-600 hover:text-slate-900 font-medium">
-                            View
-                          </span>
+                          <div
+                            className="flex items-center justify-end gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              id={`btn-dash-notice-${emp.id}`}
+                              onClick={() => handleOpenNoticeModalDashboard(emp)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                              title="Send notice to employee"
+                            >
+                              <Bell className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Notice</span>
+                            </button>
+
+                            {emp.email !== user.email && emp.firstName !== 'Keyur' && (
+                              <button
+                                id={`btn-dash-remove-${emp.id}`}
+                                onClick={() => setRemovingEmpDashboard(emp)}
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                                title="Remove employee from staff"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Remove</span>
+                              </button>
+                            )}
+
+                            <span className="text-slate-500 hover:text-slate-900 font-medium px-1.5">
+                              View
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -876,6 +999,156 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs disabled:opacity-50"
               >
                 {processingLeaveId === rejectModalData.id ? 'Saving...' : 'Confirm Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern In-App Remove Employee Confirmation Modal (Dashboard) */}
+      {removingEmpDashboard && (
+        <div
+          id="dashboard-remove-employee-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRemovingEmpDashboard(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Remove Employee?</h3>
+                <p className="text-xs text-slate-500">Staff roster modification</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove <strong className="text-slate-900">{removingEmpDashboard.firstName} {removingEmpDashboard.lastName}</strong> ({removingEmpDashboard.employeeCode}) from the staff roster?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-dash-remove-emp"
+                type="button"
+                onClick={() => setRemovingEmpDashboard(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-dash-remove-emp"
+                type="button"
+                onClick={handleConfirmRemoveEmpDashboard}
+                disabled={removeEmpLoading}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+              >
+                {removeEmpLoading ? 'Removing...' : 'Confirm Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern In-App Send Notice Modal (Dashboard) */}
+      {noticeTargetEmpDashboard && (
+        <div
+          id="dashboard-send-notice-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setNoticeTargetEmpDashboard(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Send Notice to {noticeTargetEmpDashboard.firstName} {noticeTargetEmpDashboard.lastName}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {noticeTargetEmpDashboard.employeeCode} &bull; {noticeTargetEmpDashboard.departmentName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNoticeTargetEmpDashboard(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Notice Subject / Title
+                </label>
+                <input
+                  id="input-dash-notice-title"
+                  type="text"
+                  value={dashNoticeTitle}
+                  onChange={(e) => setDashNoticeTitle(e.target.value)}
+                  placeholder="e.g. Schedule Update, Urgent Task, HR Note..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Urgency / Priority
+                </label>
+                <select
+                  id="select-dash-notice-priority"
+                  value={dashNoticePriority}
+                  onChange={(e) => setDashNoticePriority(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none"
+                >
+                  <option value="Low">Low Priority</option>
+                  <option value="Medium">Medium Priority</option>
+                  <option value="High">High Priority</option>
+                  <option value="Urgent">Urgent / Important Notice</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Notice Content
+                </label>
+                <textarea
+                  id="textarea-dash-notice-content"
+                  rows={4}
+                  value={dashNoticeContent}
+                  onChange={(e) => setDashNoticeContent(e.target.value)}
+                  placeholder="Type the message for the employee..."
+                  className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-dash-send-notice"
+                type="button"
+                onClick={() => setNoticeTargetEmpDashboard(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-dash-send-notice"
+                type="button"
+                onClick={handleConfirmSendNoticeDashboard}
+                disabled={dashNoticeLoading}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{dashNoticeLoading ? 'Sending...' : 'Send Notice'}</span>
               </button>
             </div>
           </div>

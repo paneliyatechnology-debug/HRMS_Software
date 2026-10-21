@@ -14,15 +14,24 @@ import {
   Info,
   Check,
   Filter,
+  Trash2,
+  Bell,
+  X,
+  AlertCircle,
+  Send,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { api } from '../../lib/api';
 
 interface EmployeesModuleProps {
   employees: Employee[];
   departments: Department[];
   onSelectEmployee: (emp: Employee) => void;
   onOpenAddModal: () => void;
+  onRefresh?: () => void;
+  portalMode?: 'employee' | 'admin';
 }
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
@@ -30,12 +39,26 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   departments,
   onSelectEmployee,
   onOpenAddModal,
+  onRefresh,
+  portalMode = 'admin',
 }) => {
   const { user } = useAuth();
+  const { showToast } = useSocket();
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('Active');
   const [selectedJoining, setSelectedJoining] = useState('Any');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  // State for removing employee
+  const [removingEmp, setRemovingEmp] = useState<Employee | null>(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
+
+  // State for sending notice to employee
+  const [noticeTargetEmp, setNoticeTargetEmp] = useState<Employee | null>(null);
+  const [noticeTitle, setNoticeTitle] = useState('');
+  const [noticeContent, setNoticeContent] = useState('');
+  const [noticePriority, setNoticePriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
+  const [noticeLoading, setNoticeLoading] = useState(false);
 
   const filtered = employees.filter((emp) => {
     const matchesSearch =
@@ -61,6 +84,93 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setSelectedRows((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
+  };
+
+  const handleOpenRemoveModal = (emp: Employee) => {
+    setRemovingEmp(emp);
+  };
+
+  const handleConfirmRemoveEmployee = async () => {
+    if (!removingEmp) return;
+    setRemoveLoading(true);
+    try {
+      const res = await api.deleteEmployee(removingEmp.id);
+      if (res.success) {
+        showToast({
+          type: 'success',
+          title: 'Employee Removed',
+          message: res.message || `${removingEmp.firstName} ${removingEmp.lastName} removed from staff.`,
+        });
+        setRemovingEmp(null);
+        if (onRefresh) onRefresh();
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Remove Failed',
+          message: res.message || 'Could not remove employee.',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err.message || 'Failed to remove employee.',
+      });
+    } finally {
+      setRemoveLoading(false);
+    }
+  };
+
+  const handleOpenNoticeModal = (emp: Employee) => {
+    setNoticeTargetEmp(emp);
+    setNoticeTitle(`Official Circular for ${emp.firstName} ${emp.lastName}`);
+    setNoticeContent('');
+    setNoticePriority('Medium');
+  };
+
+  const handleConfirmSendNotice = async () => {
+    if (!noticeTargetEmp) return;
+    if (!noticeTitle.trim() || !noticeContent.trim()) {
+      showToast({
+        type: 'warning',
+        title: 'Incomplete Notice',
+        message: 'Please provide both notice title and content.',
+      });
+      return;
+    }
+
+    setNoticeLoading(true);
+    try {
+      await api.createAnnouncement({
+        title: noticeTitle.trim(),
+        content: noticeContent.trim(),
+        targetAudience: 'Individual',
+        targetEmployeeId: noticeTargetEmp.id,
+        targetEmployeeName: `${noticeTargetEmp.firstName} ${noticeTargetEmp.lastName}`,
+        departmentName: noticeTargetEmp.departmentName,
+        priority: noticePriority,
+        authorName: `${user.firstName || 'Keyur'} ${user.lastName || 'Sangani'} (HR & Admin)`,
+        authorRole: 'Administration',
+      });
+
+      showToast({
+        type: 'success',
+        title: 'Notice Sent',
+        message: `Notice dispatched to ${noticeTargetEmp.firstName} ${noticeTargetEmp.lastName}.`,
+      });
+      setNoticeTargetEmp(null);
+      setNoticeTitle('');
+      setNoticeContent('');
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Send Failed',
+        message: err.message || 'Could not send notice.',
+      });
+    } finally {
+      setNoticeLoading(false);
+    }
   };
 
   return (
@@ -208,6 +318,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <th className="py-3 px-4 font-bold">USER ROLE</th>
                 <th className="py-3 px-4 font-bold">REPORTING TO</th>
                 <th className="py-3 px-4 font-bold">STATUS</th>
+                {portalMode === 'admin' && (
+                  <th className="py-3 px-4 font-bold text-right">ACTIONS</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -281,6 +394,37 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <span>Active</span>
                       </span>
                     </td>
+
+                    {portalMode === 'admin' && (
+                      <td className="py-3 px-4 text-right">
+                        <div
+                          className="flex items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            id={`btn-notice-${emp.id}`}
+                            onClick={() => handleOpenNoticeModal(emp)}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            title="Send notice to employee"
+                          >
+                            <Bell className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Notice</span>
+                          </button>
+
+                          {!isCurrentUser && (
+                            <button
+                              id={`btn-remove-${emp.id}`}
+                              onClick={() => handleOpenRemoveModal(emp)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                              title="Remove employee from staff"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Remove</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -323,6 +467,154 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modern In-App Remove Employee Confirmation Modal */}
+      {removingEmp && (
+        <div
+          id="remove-employee-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRemovingEmp(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Remove Employee?</h3>
+                <p className="text-xs text-slate-500">Staff roster modification</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove <strong className="text-slate-900">{removingEmp.firstName} {removingEmp.lastName}</strong> ({removingEmp.employeeCode}) from the company staff roster?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-remove-emp"
+                type="button"
+                onClick={() => setRemovingEmp(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-remove-emp"
+                type="button"
+                onClick={handleConfirmRemoveEmployee}
+                disabled={removeLoading}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+              >
+                {removeLoading ? 'Removing...' : 'Confirm Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern In-App Send Notice Modal */}
+      {noticeTargetEmp && (
+        <div
+          id="send-notice-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setNoticeTargetEmp(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Send Notice to {noticeTargetEmp.firstName} {noticeTargetEmp.lastName}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">{noticeTargetEmp.employeeCode} &bull; {noticeTargetEmp.departmentName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNoticeTargetEmp(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Notice Subject / Title
+                </label>
+                <input
+                  id="input-notice-title"
+                  type="text"
+                  value={noticeTitle}
+                  onChange={(e) => setNoticeTitle(e.target.value)}
+                  placeholder="e.g. Schedule Update, Mandatory Training, Performance Note..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Priority
+                </label>
+                <select
+                  id="select-notice-priority"
+                  value={noticePriority}
+                  onChange={(e) => setNoticePriority(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none cursor-pointer bg-white"
+                >
+                  <option value="Low">Low Priority</option>
+                  <option value="Medium">Medium Priority</option>
+                  <option value="High">High Priority</option>
+                  <option value="Urgent">Urgent / Important Notice</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Notice Details / Content
+                </label>
+                <textarea
+                  id="textarea-notice-content"
+                  rows={4}
+                  value={noticeContent}
+                  onChange={(e) => setNoticeContent(e.target.value)}
+                  placeholder="Type the message or instructions for the employee..."
+                  className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-send-notice"
+                type="button"
+                onClick={() => setNoticeTargetEmp(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-send-notice"
+                type="button"
+                onClick={handleConfirmSendNotice}
+                disabled={noticeLoading}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{noticeLoading ? 'Sending...' : 'Send Notice'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

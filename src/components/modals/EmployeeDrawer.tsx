@@ -22,6 +22,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -51,6 +52,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
   const handleSubmit = async () => {
     setLoading(true);
+    setFormError(null);
     try {
       const selectedDept = departments.find((d) => d.id === formData.departmentId);
       const selectedDes = designations.find((d) => d.id === formData.designationId);
@@ -96,11 +98,10 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       };
 
       await api.createEmployee(employeePayload);
-      alert(`Employee ${formData.firstName} ${formData.lastName} successfully created!`);
       onRefresh();
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Failed to create employee');
+      setFormError(err.message || 'Failed to create employee');
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Add New Employee</h3>
+              <h3 className="text-lg font-bold text-slate-900">Add New Employee</h3>
               <p className="text-xs text-slate-500">Step {step} of 3</p>
             </div>
           </div>
@@ -147,6 +148,13 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
         {/* Form Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {formError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between">
+              <span>{formError}</span>
+              <button onClick={() => setFormError(null)} className="text-rose-500 hover:text-rose-700 font-bold">&times;</button>
+            </div>
+          )}
+
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in">
               <div className="grid grid-cols-2 gap-3">
@@ -155,10 +163,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     First Name
                   </label>
                   <input
+                    id="input-employee-first-name"
                     type="text"
                     required
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    onChange={(e) => {
+                      setFormError(null);
+                      setFormData({ ...formData, firstName: e.target.value });
+                    }}
                     placeholder="e.g. Alex"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   />
@@ -168,6 +180,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     Last Name
                   </label>
                   <input
+                    id="input-employee-last-name"
                     type="text"
                     required
                     value={formData.lastName}
@@ -183,10 +196,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   Work Email Address
                 </label>
                 <input
+                  id="input-employee-email"
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => {
+                    setFormError(null);
+                    setFormData({ ...formData, email: e.target.value });
+                  }}
                   placeholder="alex.mercer@paneliya.com"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                 />
@@ -395,11 +412,13 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
           {step < 3 ? (
             <button
+              id="btn-next-step-employee"
               onClick={() => {
                 if (step === 1 && (!formData.firstName || !formData.email)) {
-                  alert('Please enter first name and email.');
+                  setFormError('Please enter first name and work email address.');
                   return;
                 }
+                setFormError(null);
                 setStep((s) => s + 1);
               }}
               className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
@@ -408,6 +427,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             </button>
           ) : (
             <button
+              id="btn-submit-employee"
               onClick={handleSubmit}
               disabled={loading}
               className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"

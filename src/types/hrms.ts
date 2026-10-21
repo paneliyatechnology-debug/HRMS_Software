@@ -419,10 +419,14 @@ export interface Announcement {
   content: string;
   publishDate: string;
   expiryDate?: string;
-  targetAudience: 'All' | 'Department' | 'Management';
+  targetAudience: 'All' | 'Department' | 'Management' | 'Individual';
+  targetEmployeeId?: string;
+  targetEmployeeName?: string;
   departmentId?: string;
-  priority: 'Low' | 'Medium' | 'High';
+  departmentName?: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
   authorName: string;
+  authorRole?: string;
 }
 
 export interface NotificationItem {
