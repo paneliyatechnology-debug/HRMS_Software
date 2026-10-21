@@ -19,6 +19,7 @@ import {
   X,
   AlertCircle,
   Send,
+  MessageSquare,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,7 @@ interface EmployeesModuleProps {
   onSelectEmployee: (emp: Employee) => void;
   onOpenAddModal: () => void;
   onRefresh?: () => void;
+  onOpenChatWithEmployee?: (empId: string) => void;
   portalMode?: 'employee' | 'admin';
 }
 
@@ -40,6 +42,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   onSelectEmployee,
   onOpenAddModal,
   onRefresh,
+  onOpenChatWithEmployee,
   portalMode = 'admin',
 }) => {
   const { user } = useAuth();
@@ -401,6 +404,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           className="flex items-center justify-end gap-1.5"
                           onClick={(e) => e.stopPropagation()}
                         >
+                          <button
+                            id={`btn-chat-${emp.id}`}
+                            onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            title="Chat with employee"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Chat</span>
+                          </button>
+
                           <button
                             id={`btn-notice-${emp.id}`}
                             onClick={() => handleOpenNoticeModal(emp)}

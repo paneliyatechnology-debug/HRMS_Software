@@ -452,3 +452,44 @@ export interface AuditLog {
   ipAddress: string;
   createdAt: string;
 }
+
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  size: string;
+  type: 'image' | 'document' | 'pdf';
+  url?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'admin' | 'employee';
+  senderAvatar?: string;
+  recipientId: string;
+  recipientName: string;
+  content: string;
+  timestamp: string;
+  status: 'sent' | 'delivered' | 'read';
+  attachments?: ChatAttachment[];
+}
+
+export interface ChatConversation {
+  id: string;
+  type: 'direct' | 'broadcast';
+  participantIds: string[];
+  participantNames: Record<string, string>;
+  participantRoles?: Record<string, 'admin' | 'employee'>;
+  participantAvatars?: Record<string, string>;
+  participantCodes?: Record<string, string>;
+  participantEmails?: Record<string, string>;
+  participantDesignations?: Record<string, string>;
+  title?: string;
+  lastMessage?: string;
+  lastMessageTimestamp?: string;
+  lastSenderId?: string;
+  unreadCount: Record<string, number>;
+  updatedAt: string;
+}

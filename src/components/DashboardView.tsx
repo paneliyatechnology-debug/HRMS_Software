@@ -21,6 +21,7 @@ import {
   Trash2,
   Bell,
   Send,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -52,6 +53,7 @@ interface DashboardViewProps {
   onOpenAddEmployeeModal: () => void;
   onSelectEmployee: (emp: Employee) => void;
   onRefreshData?: () => void;
+  onOpenChatWithEmployee?: (empId: string) => void;
   portalMode?: 'employee' | 'admin';
 }
 
@@ -66,6 +68,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAddEmployeeModal,
   onSelectEmployee,
   onRefreshData,
+  onOpenChatWithEmployee,
   portalMode = 'admin',
 }) => {
   const { user } = useAuth();
@@ -630,6 +633,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             className="flex items-center justify-end gap-1.5"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            <button
+                              id={`btn-dash-chat-${emp.id}`}
+                              onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                              title="Chat with employee"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Chat</span>
+                            </button>
+
                             <button
                               id={`btn-dash-notice-${emp.id}`}
                               onClick={() => handleOpenNoticeModalDashboard(emp)}

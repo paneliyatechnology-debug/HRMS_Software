@@ -17,6 +17,7 @@ import {
   Award,
   BarChart3,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,6 +29,7 @@ interface SidebarProps {
   onSelectSubTab?: (subTab: string) => void;
   portalMode?: 'employee' | 'admin';
   pendingLeavesCount?: number;
+  unreadChatCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectSubTab,
   portalMode = 'admin',
   pendingLeavesCount = 0,
+  unreadChatCount = 0,
 }) => {
   const { user, logout } = useAuth();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -122,6 +125,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               portalMode === 'admin' && pendingLeavesCount > 0 ? (
                 <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-800 text-xs font-semibold">
                   {pendingLeavesCount}
+                </span>
+              ) : undefined
+            )}
+            {navItem(
+              'chat',
+              'Team Chat',
+              <MessageSquare className="w-4 h-4" />,
+              unreadChatCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white text-xs font-semibold">
+                  {unreadChatCount}
                 </span>
               ) : undefined
             )}

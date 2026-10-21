@@ -12,6 +12,7 @@ import {
   Calendar,
   UserPlus,
   Building2,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,8 +23,10 @@ interface HeaderProps {
   onOpenAddEmployeeModal: () => void;
   onOpenProfile?: () => void;
   onNavigateSettings?: () => void;
+  onOpenChat?: () => void;
   portalMode?: 'employee' | 'admin';
   pendingLeavesCount?: number;
+  unreadChatCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,8 +36,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAddEmployeeModal,
   onOpenProfile,
   onNavigateSettings,
+  onOpenChat,
   portalMode = 'admin',
   pendingLeavesCount = 0,
+  unreadChatCount = 0,
 }) => {
   const { user, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -88,6 +93,21 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Add Employee</span>
+          </button>
+        )}
+
+        {/* Team Chat Quick Access */}
+        {onOpenChat && (
+          <button
+            id="btn-header-open-chat"
+            onClick={onOpenChat}
+            className="relative w-8 h-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
+            title="Open Team Chat"
+          >
+            <MessageSquare className="w-4 h-4" />
+            {unreadChatCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-slate-900 ring-2 ring-white" />
+            )}
           </button>
         )}
 

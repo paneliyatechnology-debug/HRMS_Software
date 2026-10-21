@@ -17,9 +17,11 @@ import { DocumentsModule } from '../components/modules/DocumentsModule';
 import { AssetsModule } from '../components/modules/AssetsModule';
 import { ResignationsModule } from '../components/modules/ResignationsModule';
 import { AnnouncementsModule } from '../components/modules/AnnouncementsModule';
+import { ChatModule } from '../components/modules/ChatModule';
 import { ReportsModule } from '../components/modules/ReportsModule';
 import { AuditLogsModule } from '../components/modules/AuditLogsModule';
 import { SettingsModule } from '../components/modules/SettingsModule';
+import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../lib/chatService';
 
 import { AttendanceModal } from '../components/modals/AttendanceModal';
 import { LeaveModal } from '../components/modals/LeaveModal';
@@ -77,17 +79,36 @@ export default function Home() {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
+  // Chat integration state
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+  const [targetChatEmployeeId, setTargetChatEmployeeId] = useState<string | null>(null);
+
   const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
 
   // Strict role guard: prevent employees from accessing admin-only views
   useEffect(() => {
     if (portalMode === 'employee') {
-      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements', 'settings'];
+      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements', 'chat', 'settings'];
       if (!allowedInEmployee.includes(activeModule)) {
         setActiveModule('dashboard');
       }
     }
   }, [portalMode, activeModule]);
+
+  // Chat unread count synchronization
+  useEffect(() => {
+    if (isAuthenticated) {
+      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || 'emp-2';
+      const updateChatUnread = () => {
+        setUnreadChatCount(getTotalUnreadChatCount(currentUserId));
+      };
+      updateChatUnread();
+      window.addEventListener('hrms_chat_updated', updateChatUnread);
+      return () => {
+        window.removeEventListener('hrms_chat_updated', updateChatUnread);
+      };
+    }
+  }, [isAuthenticated, portalMode, user]);
 
   const loadData = async () => {
     try {
@@ -165,8 +186,10 @@ export default function Home() {
         onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
         onOpenProfile={() => setSelectedEmployee(employees[0] || mockEmployees[0])}
         onNavigateSettings={() => setActiveModule('settings')}
+        onOpenChat={() => setActiveModule('chat')}
         portalMode={portalMode}
         pendingLeavesCount={pendingLeavesCount}
+        unreadChatCount={unreadChatCount}
       />
 
       {/* Main Workspace: Left Sidebar + Scrollable Viewport */}
@@ -179,6 +202,7 @@ export default function Home() {
           onSelectSubTab={setSubTab}
           portalMode={portalMode}
           pendingLeavesCount={pendingLeavesCount}
+          unreadChatCount={unreadChatCount}
         />
 
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full [scrollbar-width:thin]">
@@ -197,6 +221,10 @@ export default function Home() {
             onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
             onSelectEmployee={setSelectedEmployee}
             onRefreshData={loadData}
+            onOpenChatWithEmployee={(empId) => {
+              setTargetChatEmployeeId(empId);
+              setActiveModule('chat');
+            }}
             portalMode={portalMode}
           />
         )}
@@ -217,6 +245,10 @@ export default function Home() {
             onSelectEmployee={setSelectedEmployee}
             onOpenAddModal={() => setAddEmployeeModalOpen(true)}
             onRefresh={loadData}
+            onOpenChatWithEmployee={(empId) => {
+              setTargetChatEmployeeId(empId);
+              setActiveModule('chat');
+            }}
             portalMode={portalMode}
           />
         )}
