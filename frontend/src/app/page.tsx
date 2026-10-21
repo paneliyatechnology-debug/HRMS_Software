@@ -53,6 +53,7 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [portalMode, setPortalMode] = useState<'employee' | 'admin'>('admin');
 
   // Data state
   const [stats, setStats] = useState<any>(mockDashboardStats);
@@ -73,6 +74,19 @@ export default function Home() {
   const [addEmployeeModalOpen, setAddEmployeeModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
+
+  const handleTogglePortal = (newMode: 'employee' | 'admin') => {
+    setPortalMode(newMode);
+    if (newMode === 'employee') {
+      // In employee mode, restrict to employee views
+      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements'];
+      if (!allowedInEmployee.includes(activeModule)) {
+        setActiveModule('dashboard');
+      }
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -121,7 +135,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col font-sans select-none antialiased">
-      {/* Top Navbar matching Clan.biz */}
+      {/* Top Navbar matching Clan.biz with Liquid Metal Portal Switcher */}
       <Header
         onOpenSidebar={() => setSidebarOpen(true)}
         onOpenClockModal={() => setClockModalOpen(true)}
@@ -129,6 +143,9 @@ export default function Home() {
         onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
         onOpenProfile={() => setSelectedEmployee(employees[0] || mockEmployees[0])}
         onNavigateSettings={() => setActiveModule('settings')}
+        portalMode={portalMode}
+        onTogglePortal={handleTogglePortal}
+        pendingLeavesCount={pendingLeavesCount}
       />
 
       {/* Slide-over Left Sidebar */}
@@ -138,6 +155,9 @@ export default function Home() {
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
         onSelectSubTab={setSubTab}
+        portalMode={portalMode}
+        onTogglePortal={handleTogglePortal}
+        pendingLeavesCount={pendingLeavesCount}
       />
 
       {/* Main Content Area */}
@@ -156,6 +176,8 @@ export default function Home() {
             onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
             onSelectEmployee={setSelectedEmployee}
             onRefreshData={loadData}
+            portalMode={portalMode}
+            onTogglePortal={handleTogglePortal}
           />
         )}
 
@@ -192,6 +214,7 @@ export default function Home() {
             leaves={leaves}
             onOpenApplyModal={() => setLeaveModalOpen(true)}
             onRefresh={loadData}
+            portalMode={portalMode}
           />
         )}
 

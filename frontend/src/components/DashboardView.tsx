@@ -18,8 +18,10 @@ import {
   Cake,
   CheckCircle2,
   ExternalLink,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
 import { api } from '../lib/api';
 
@@ -34,6 +36,8 @@ interface DashboardViewProps {
   onOpenAddEmployeeModal: () => void;
   onSelectEmployee: (emp: Employee) => void;
   onRefreshData?: () => void;
+  portalMode?: 'employee' | 'admin';
+  onTogglePortal?: (mode: 'employee' | 'admin') => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -47,16 +51,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAddEmployeeModal,
   onSelectEmployee,
   onRefreshData,
+  portalMode = 'admin',
+  onTogglePortal,
 }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'my' | 'hr'>('my');
+  const { showToast } = useSocket();
+  const [activeTab, setActiveTab] = useState<'my' | 'hr'>(portalMode === 'admin' ? 'hr' : 'my');
   const [showBanner, setShowBanner] = useState(true);
+
+  // Sync activeTab when portalMode changes
+  useEffect(() => {
+    if (portalMode === 'admin') {
+      setActiveTab('hr');
+    } else {
+      setActiveTab('my');
+    }
+  }, [portalMode]);
 
   // Live Clock In / Out State from real database
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [clockInLoading, setClockInLoading] = useState(false);
   const [elapsedHours, setElapsedHours] = useState('0 Hours');
+
+  // Pending leaves queue
+  const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
+  const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
+
+  const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string) => {
+    setProcessingLeaveId(id);
+    try {
+      await api.approveLeave(id, 'SUPER_ADMIN', 'Keyur Sangani', 'Approved directly from HR Dashboard');
+      showToast({
+        type: 'success',
+        title: 'Leave Approved',
+        message: `${empName}'s ${leaveType} has been approved.`,
+      });
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Approval Error',
+        message: err.message || 'Could not approve leave.',
+      });
+    } finally {
+      setProcessingLeaveId(null);
+    }
+  };
+
+  const handleDashboardRejectLeave = async (id: string, empName: string) => {
+    const reason = prompt(`Enter rejection remarks for ${empName}:`, 'Operational constraints during sprint');
+    if (!reason) return;
+    setProcessingLeaveId(id);
+    try {
+      await api.rejectLeave(id, 'Keyur Sangani', reason);
+      showToast({
+        type: 'warning',
+        title: 'Leave Rejected',
+        message: `${empName}'s leave was rejected with remarks: "${reason}"`,
+      });
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Rejection Error',
+        message: err.message || 'Could not reject leave.',
+      });
+    } finally {
+      setProcessingLeaveId(null);
+    }
+  };
 
   // Check if Keyur Sangani is already clocked in today
   useEffect(() => {
@@ -628,56 +692,233 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </>
       ) : (
         /* HR Management Overview Tab */
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="space-y-5">
+          {/* Top 4 KPI Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
               <span className="text-[11px] font-bold text-slate-500 uppercase">Total Employees</span>
               <p className="text-3xl font-black text-slate-900 mt-1">{employees.length}</p>
-              <p className="text-[11px] text-emerald-600 font-bold mt-1">100% Active</p>
+              <p className="text-[11px] text-emerald-600 font-bold mt-1">100% Active Workforce</p>
             </div>
+
             <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
               <span className="text-[11px] font-bold text-slate-500 uppercase">Today's Attendance</span>
               <p className="text-3xl font-black text-slate-900 mt-1">
                 {isCheckedIn ? '100%' : '0%'}
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                {isCheckedIn ? '1 of 1 present' : '0 of 1 checked in'}
+                {isCheckedIn ? 'Keyur Sangani Clocked In' : '0 punched in so far'}
               </p>
             </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Pending Leaves</span>
-              <p className="text-3xl font-black text-slate-900 mt-1">{leaves.length}</p>
-              <p className="text-[11px] text-slate-500 mt-1">All up to date</p>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs relative">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Pending Approvals</span>
+              <p className="text-3xl font-black text-slate-900 mt-1">{pendingLeaves.length}</p>
+              {pendingLeaves.length > 0 ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-bold mt-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  ⚡ Action Required
+                </span>
+              ) : (
+                <p className="text-[11px] text-emerald-600 font-bold mt-1">All Clear</p>
+              )}
             </div>
+
             <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
               <span className="text-[11px] font-bold text-slate-500 uppercase">System Status</span>
               <p className="text-lg font-black text-emerald-600 mt-1">Real-time Connected</p>
-              <p className="text-[11px] text-slate-500 mt-1">Postgres / SQLite Active</p>
+              <p className="text-[11px] text-slate-500 mt-1">Nest.js + SQLite Sync Active</p>
             </div>
           </div>
 
+          {/* ⚡ PENDING LEAVE APPROVALS ACTION WIDGET */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Organisation Quick Actions</h3>
-                <p className="text-xs text-slate-500">Manage real employees, departments, and payroll runs.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    Pending Leave Approvals Queue
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Approve or reject employee requests with immediate balance deduction
+                  </p>
+                </div>
               </div>
+
               <button
-                onClick={onOpenAddEmployeeModal}
-                className="px-3.5 py-2 rounded-xl bg-[#09203F] text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-2xs"
+                onClick={() => onNavigateModule('leaves')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 self-start sm:self-auto"
               >
-                + Add Employee
+                <span>Open Leave Module</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            {pendingLeaves.length === 0 ? (
+              <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <p className="text-xs font-bold text-emerald-900">
+                  No pending leave applications. The approval queue is completely up to date.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 pt-1">
+                {pendingLeaves.map((leave) => {
+                  const isProcessing = processingLeaveId === leave.id;
+                  return (
+                    <div
+                      key={leave.id}
+                      className="p-3.5 rounded-xl border border-amber-200/90 bg-amber-50/20 hover:bg-white hover:shadow-xs transition-all flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-white font-bold text-xs ring-1 ring-slate-200">
+                              {leave.employeeName?.[0] || 'E'}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900">{leave.employeeName}</p>
+                              <p className="text-[11px] text-slate-500 font-medium">
+                                {leave.departmentName || 'Employee'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                            {leave.leaveType}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 text-xs text-slate-600 flex items-center gap-2">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="font-semibold text-slate-800">
+                            {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}
+                          </span>
+                          <span className="font-bold text-indigo-700">({leave.daysCount} days)</span>
+                        </div>
+
+                        <p className="mt-1.5 text-xs text-slate-700 bg-white/80 p-2 rounded-lg border border-slate-200/70 italic">
+                          "{leave.reason}"
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        <button
+                          onClick={() =>
+                            handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType)
+                          }
+                          disabled={isProcessing}
+                          className="flex-1 py-1.5 px-3 rounded-lg liquid-metal-emerald text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs hover:scale-[1.01] transition-transform"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>{isProcessing ? 'Processing...' : 'Approve'}</span>
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleDashboardRejectLeave(leave.id, leave.employeeName)
+                          }
+                          disabled={isProcessing}
+                          className="flex-1 py-1.5 px-3 rounded-lg liquid-metal-rose text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs hover:scale-[1.01] transition-transform"
+                        >
+                          <X className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 👥 OBSERVE ALL EMPLOYEE DATA WIDGET */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  Observe Workforce Directory ({employees.length} Members)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Click any team member to observe their full 11-tab profile, salary, attendance & records
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onOpenAddEmployeeModal}
+                  className="px-3 py-1.5 rounded-xl liquid-metal-dark text-white text-xs font-bold shadow-2xs"
+                >
+                  + Add Employee
+                </button>
+                <button
+                  onClick={() => onNavigateModule('employees')}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  View Table ➔
+                </button>
+              </div>
+            </div>
+
+            {/* Employee Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+              {employees.map((emp) => (
+                <div
+                  key={emp.id}
+                  onClick={() => onSelectEmployee(emp)}
+                  className="p-3.5 rounded-xl border border-slate-200/90 hover:border-indigo-400 bg-slate-50/40 hover:bg-white hover:shadow-md cursor-pointer transition-all flex flex-col justify-between space-y-3"
+                  title="Click to observe complete employee data across 11 tabs"
+                >
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-600 flex items-center justify-center text-slate-900 font-extrabold text-sm ring-2 ring-white shadow-2xs">
+                        {emp.firstName?.[0] || 'K'}{emp.lastName?.[0] || 'S'}
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                        {emp.status || 'Active'}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5">
+                      <h4 className="text-sm font-extrabold text-slate-900 leading-tight">
+                        {emp.firstName} {emp.lastName}
+                      </h4>
+                      <p className="text-xs text-indigo-700 font-semibold mt-0.5">
+                        {emp.designationTitle || 'Staff Member'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                        {emp.departmentName || 'paneliya technology'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-mono mt-1">
+                        {emp.employeeCode} • {emp.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                    <span>Observe 11-Tab Profile</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Shortcuts */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">HR Quick Actions</h3>
+              <p className="text-xs text-slate-500">Access modules to update payroll, shifts, or organization charts.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div
                 onClick={() => onNavigateModule('employees')}
                 className="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-white cursor-pointer transition-all"
               >
                 <Users className="w-5 h-5 text-indigo-600 mb-2" />
                 <p className="text-xs font-bold text-slate-900">Manage Employees</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">View real records & roles</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Observe & manage records</p>
               </div>
               <div
                 onClick={() => onNavigateModule('attendance')}
@@ -688,12 +929,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <p className="text-[11px] text-slate-500 mt-0.5">Monthly matrix & clock punches</p>
               </div>
               <div
-                onClick={() => onNavigateModule('leaves')}
+                onClick={() => onNavigateModule('payroll')}
                 className="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 bg-slate-50/50 hover:bg-white cursor-pointer transition-all"
               >
                 <Calendar className="w-5 h-5 text-amber-600 mb-2" />
-                <p className="text-xs font-bold text-slate-900">Leave Applications</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Approve or reject requests</p>
+                <p className="text-xs font-bold text-slate-900">Payroll Processing</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Salary slips & allowances</p>
               </div>
             </div>
           </div>

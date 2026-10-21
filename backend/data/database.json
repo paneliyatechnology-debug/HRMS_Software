@@ -132,8 +132,8 @@
       "year": 2026,
       "casualLeave": {
         "total": 3.12,
-        "used": 0,
-        "remaining": 3.12
+        "used": 1,
+        "remaining": 2.12
       },
       "sickLeave": {
         "total": 0,
@@ -160,11 +160,12 @@
       "daysCount": 1,
       "isHalfDay": false,
       "reason": "Family function",
-      "status": "Pending",
+      "status": "Approved",
       "appliedDate": "2026-10-21",
       "managerApproverId": "",
       "managerApproverName": "—",
-      "comments": "Pending review"
+      "comments": "Approved by Keyur Sangani (HR & Admin)",
+      "hrApprovedAt": "2026-10-21T10:16:54.243Z"
     }
   ],
   "attendanceRecords": [
@@ -429,6 +430,15 @@
   ],
   "notifications": [
     {
+      "id": "notif-1792577814243",
+      "title": "Leave Approved",
+      "message": "Your leave request for 2026-10-20 to 2026-10-20 has been approved.",
+      "type": "leave",
+      "isRead": false,
+      "createdAt": "2026-10-21T10:16:54.243Z",
+      "link": "/leaves"
+    },
+    {
       "id": "notif-1792575268109",
       "title": "New Leave Application",
       "message": "Keyur Sangani applied for Casual Leave (1 days).",
@@ -449,6 +459,18 @@
   ],
   "documents": [],
   "auditLogs": [
+    {
+      "id": "log-1792577814243-300",
+      "userId": "sys",
+      "userName": "Keyur Sangani",
+      "userRole": "SUPER_ADMIN",
+      "action": "LEAVE_APPROVED",
+      "module": "Leave Management",
+      "recordId": "lr-1792575268109",
+      "details": "Approved leave request for Keyur Sangani (1 days)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T10:16:54.243Z"
+    },
     {
       "id": "log-1792576742491-669",
       "userId": "emp-1",
