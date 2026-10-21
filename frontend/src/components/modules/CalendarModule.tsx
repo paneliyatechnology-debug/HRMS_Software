@@ -124,7 +124,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {onOpenClockModal && (
             <button
               onClick={onOpenClockModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 liquid-metal-chrome text-slate-700 text-xs font-bold transition-all shadow-2xs"
             >
               <Clock className="w-3.5 h-3.5 text-slate-500" />
               <span>Log Punch</span>
@@ -134,7 +134,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {onOpenLeaveModal && (
             <button
               onClick={onOpenLeaveModal}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-2xs"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl liquid-metal-indigo text-white text-xs font-bold transition-all shadow-2xs"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Apply Leave</span>

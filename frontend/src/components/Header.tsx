@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             onClick={() => setCreateMenuOpen(!createMenuOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm font-semibold hover:bg-slate-100 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg liquid-metal-chrome border border-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-all shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5 text-slate-700 stroke-[2.5]" />
             <span>Create</span>

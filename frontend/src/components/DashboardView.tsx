@@ -249,10 +249,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <button
                   onClick={handleToggleClockIn}
                   disabled={clockInLoading}
-                  className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs ${
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs ${
                     isCheckedIn
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                      : 'bg-[#1e293b] hover:bg-slate-900 text-white'
+                      ? 'liquid-metal-amber text-white'
+                      : 'liquid-metal-dark text-white'
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5" />
@@ -291,7 +291,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </span>
                   <button
                     onClick={onOpenLeaveModal}
-                    className="px-3 py-1 rounded-md bg-[#f59e0b] hover:bg-amber-600 text-white text-xs font-bold transition-colors shadow-2xs"
+                    className="px-3 py-1 rounded-md liquid-metal-amber text-white text-xs font-bold transition-all shadow-2xs"
                   >
                     Apply Leave
                   </button>
@@ -373,13 +373,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     onClick={() => onSelectEmployee(primaryEmployee)}
-                    className="py-2 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold text-center transition-colors shadow-2xs"
+                    className="py-2 px-3 rounded-lg border border-slate-200 liquid-metal-chrome text-slate-800 text-xs font-bold text-center transition-all shadow-2xs"
                   >
                     Update Profile
                   </button>
                   <button
                     onClick={() => onNavigateModule('documents')}
-                    className="py-2 px-3 rounded-lg bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-bold text-center transition-colors shadow-2xs"
+                    className="py-2 px-3 rounded-lg liquid-metal-dark text-white text-xs font-bold text-center transition-all shadow-2xs"
                   >
                     View Documents
                   </button>
@@ -618,7 +618,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 <button
                   onClick={() => onSelectEmployee(primaryEmployee)}
-                  className="w-full py-2.5 rounded-xl bg-[#0f172a] hover:bg-slate-800 text-white font-bold text-xs text-center transition-colors shadow-2xs mt-2"
+                  className="w-full py-2.5 rounded-xl liquid-metal-dark text-white font-bold text-xs text-center transition-all shadow-2xs mt-2"
                 >
                   Complete profile
                 </button>

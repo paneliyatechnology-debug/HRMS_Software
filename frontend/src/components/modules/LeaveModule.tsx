@@ -128,7 +128,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenApplyModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4f46e5] hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-2xs transition-all"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>New Leave</span>
@@ -136,7 +136,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
           <button
             onClick={() => alert('Import CSV modal')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 liquid-metal-chrome text-slate-700 font-bold text-xs transition-all shadow-2xs"
           >
             <Upload className="w-3.5 h-3.5 text-slate-500" />
             <span>Import</span>
@@ -144,7 +144,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 liquid-metal-chrome text-slate-700 font-bold text-xs transition-all shadow-2xs"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export</span>

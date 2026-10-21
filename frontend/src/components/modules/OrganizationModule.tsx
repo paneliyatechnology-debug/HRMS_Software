@@ -81,7 +81,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           <div className="flex justify-end">
             <button
               onClick={() => alert('New Department creation modal')}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-2xs transition-all"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Add Department</span>
@@ -141,7 +141,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             </h3>
             <button
               onClick={() => alert('New Designation creation modal')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-2xs transition-all"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Add Designation</span>

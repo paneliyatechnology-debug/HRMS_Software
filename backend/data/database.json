@@ -174,12 +174,12 @@
       "employeeName": "Keyur Sangani",
       "date": "2026-10-21",
       "checkIn": "03:01 PM",
-      "checkOut": "",
+      "checkOut": "03:29 PM",
       "breakDurationMinutes": 0,
       "workingHours": 8.5,
       "overtimeHours": 0.5,
       "status": "Late",
-      "remarks": "Self clock-in via Clan.biz Dashboard",
+      "remarks": "Self clock-out via Clan.biz Dashboard",
       "createdAt": "2026-10-21T09:31:00.954Z"
     },
     {
@@ -449,6 +449,42 @@
   ],
   "documents": [],
   "auditLogs": [
+    {
+      "id": "log-1792576742491-669",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKOUT",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked out at 03:29 PM with 8.5 working hours",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:59:02.491Z"
+    },
+    {
+      "id": "log-1792576384083-743",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKIN",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked in at 03:23 PM (Late)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:53:04.083Z"
+    },
+    {
+      "id": "log-1792576376430-349",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKOUT",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked out at 03:22 PM with 8.5 working hours",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:52:56.430Z"
+    },
     {
       "id": "log-1792576119030-558",
       "userId": "emp-1",

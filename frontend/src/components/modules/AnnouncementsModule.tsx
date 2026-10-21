@@ -49,7 +49,7 @@ export const AnnouncementsModule: React.FC = () => {
 
         <button
           onClick={() => alert('New announcement publisher opening...')}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full liquid-metal-indigo text-white font-semibold text-xs shadow-2xs transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>New Bulletin</span>

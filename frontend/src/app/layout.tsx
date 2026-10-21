@@ -5,6 +5,8 @@ import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { SocketProvider } from '../context/SocketContext';
 
+import { LiquidMetalEffect } from '../components/LiquidMetalEffect';
+
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
@@ -26,6 +28,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>
+              <LiquidMetalEffect />
               {children}
             </SocketProvider>
           </AuthProvider>

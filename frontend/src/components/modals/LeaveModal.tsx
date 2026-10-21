@@ -168,14 +168,14 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 liquid-metal-chrome rounded-xl transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition"
+              className="px-5 py-2.5 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-md transition-all"
             >
               {loading ? 'Submitting...' : 'Submit Application'}
             </button>

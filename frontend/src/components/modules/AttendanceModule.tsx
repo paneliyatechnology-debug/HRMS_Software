@@ -146,7 +146,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenPunchModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4f46e5] hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl liquid-metal-indigo text-white font-bold text-xs shadow-2xs transition-all"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Mark Attendance</span>
@@ -154,7 +154,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 liquid-metal-chrome text-slate-700 font-bold text-xs transition-all shadow-2xs"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export CSV</span>
@@ -317,7 +317,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
             <button
               onClick={() => alert('Opening shift assignment dialog')}
-              className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition shadow-2xs"
+              className="px-3 py-1.5 rounded-xl liquid-metal-indigo text-white text-xs font-bold transition-all shadow-2xs"
             >
               + Assign Shift
             </button>
@@ -394,7 +394,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
             <button
               onClick={() => alert('New holiday added to schedule')}
-              className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100 transition shadow-2xs"
+              className="px-3 py-1.5 rounded-xl liquid-metal-amber text-white text-xs font-bold transition-all shadow-2xs"
             >
               + Add Holiday
             </button>
