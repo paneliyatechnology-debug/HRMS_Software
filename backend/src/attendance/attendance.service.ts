@@ -60,37 +60,42 @@ export class AttendanceService {
 
   checkIn(employeeId: string, remarks?: string) {
     const today = new Date().toISOString().split('T')[0];
-    const existing = this.db.attendanceRecords.find(
-      (a) => a.employeeId === employeeId && a.date === today
-    );
-
-    if (existing && existing.checkIn) {
-      throw new BadRequestException('Employee is already checked in for today');
-    }
-
     const employee = this.db.employees.find((e) => e.id === employeeId);
     if (!employee) throw new NotFoundException('Employee not found');
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
+    const punchStatus = isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
 
-    const record: AttendanceRecord = {
-      id: `att-${Date.now()}`,
-      employeeId,
-      employeeName: `${employee.firstName} ${employee.lastName}`,
-      date: today,
-      checkIn: timeStr,
-      checkOut: '',
-      breakDurationMinutes: 0,
-      workingHours: 0,
-      overtimeHours: 0,
-      status: isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
-      remarks: remarks || (isLate ? 'Late arrival' : 'Regular check-in'),
-      createdAt: now.toISOString(),
-    };
+    let record = this.db.attendanceRecords.find(
+      (a) => a.employeeId === employeeId && a.date === today
+    );
 
-    this.db.attendanceRecords.unshift(record);
+    if (record) {
+      // Re-punch or continue session
+      record.checkIn = record.checkIn || timeStr;
+      record.checkOut = ''; // active session
+      record.status = punchStatus;
+      if (remarks) record.remarks = remarks;
+    } else {
+      record = {
+        id: `att-${Date.now()}`,
+        employeeId,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        date: today,
+        checkIn: timeStr,
+        checkOut: '',
+        breakDurationMinutes: 0,
+        workingHours: 0,
+        overtimeHours: 0,
+        status: punchStatus,
+        remarks: remarks || (isLate ? 'Late arrival' : 'Regular check-in'),
+        createdAt: now.toISOString(),
+      };
+      this.db.attendanceRecords.unshift(record);
+    }
+
     this.db.logAudit(
       employee.id,
       `${employee.firstName} ${employee.lastName}`,
@@ -118,29 +123,36 @@ export class AttendanceService {
 
   checkOut(employeeId: string, remarks?: string) {
     const today = new Date().toISOString().split('T')[0];
-    const record = this.db.attendanceRecords.find(
+    let record = this.db.attendanceRecords.find(
       (a) => a.employeeId === employeeId && a.date === today
     );
-
-    if (!record || !record.checkIn) {
-      throw new BadRequestException('Cannot check out before checking in');
-    }
-
-    if (record.checkOut) {
-      throw new BadRequestException('Employee is already checked out for today');
-    }
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    // Approximate hours worked
-    const workedHours = 8.5;
-    const overtimeHours = workedHours > 8.0 ? parseFloat((workedHours - 8.0).toFixed(1)) : 0;
-
-    record.checkOut = timeStr;
-    record.workingHours = workedHours;
-    record.overtimeHours = overtimeHours;
-    if (remarks) record.remarks = remarks;
+    if (!record) {
+      const employee = this.db.employees.find((e) => e.id === employeeId);
+      record = {
+        id: `att-${Date.now()}`,
+        employeeId,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        date: today,
+        checkIn: '09:00 AM',
+        checkOut: timeStr,
+        breakDurationMinutes: 0,
+        workingHours: 8.5,
+        overtimeHours: 0.5,
+        status: AttendanceStatus.PRESENT,
+        remarks: remarks || 'Clock-out punch',
+        createdAt: now.toISOString(),
+      };
+      this.db.attendanceRecords.unshift(record);
+    } else {
+      record.checkOut = timeStr;
+      record.workingHours = record.workingHours > 0 ? record.workingHours : 8.5;
+      record.overtimeHours = record.workingHours > 8.0 ? parseFloat((record.workingHours - 8.0).toFixed(1)) : 0;
+      if (remarks) record.remarks = remarks;
+    }
 
     this.db.logAudit(
       employeeId,
@@ -148,7 +160,7 @@ export class AttendanceService {
       'EMPLOYEE',
       'ATTENDANCE_CHECKOUT',
       'Attendance',
-      `Checked out at ${timeStr} with ${workedHours} working hours`,
+      `Checked out at ${timeStr} with ${record.workingHours} working hours`,
       record.id
     );
 

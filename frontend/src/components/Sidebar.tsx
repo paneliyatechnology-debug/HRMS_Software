@@ -27,6 +27,7 @@ interface SidebarProps {
   setActiveModule: (m: string) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  onSelectSubTab?: (subTab: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveModule,
   isOpen,
   setIsOpen,
+  onSelectSubTab,
 }) => {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
@@ -46,8 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setOpenSections((prev) => ({ ...prev, [section]: !prev [section] }));
   };
 
-  const handleNav = (moduleId: string) => {
+  const handleNav = (moduleId: string, subTab?: string) => {
     setActiveModule(moduleId);
+    if (onSelectSubTab && subTab) {
+      onSelectSubTab(subTab);
+    }
     setIsOpen(false);
   };
 
@@ -154,19 +159,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Employees
                 </button>
                 <button
-                  onClick={() => handleNav('organization')}
+                  onClick={() => handleNav('organization', 'designations')}
                   className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   Designation
                 </button>
                 <button
-                  onClick={() => handleNav('organization')}
+                  onClick={() => handleNav('organization', 'departments')}
                   className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   Department
                 </button>
                 <button
-                  onClick={() => handleNav('organization')}
+                  onClick={() => handleNav('organization', 'hierarchy')}
                   className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   Organisation Chart
@@ -195,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {openSections.attendance && (
               <div className="ml-7 mt-0.5 space-y-0.5 border-l border-slate-100 pl-2">
                 <button
-                  onClick={() => handleNav('attendance')}
+                  onClick={() => handleNav('attendance', 'summary')}
                   className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                     activeModule === 'attendance'
                       ? 'text-indigo-700 font-bold bg-indigo-50/60'
@@ -215,13 +220,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Leaves
                 </button>
                 <button
-                  onClick={() => handleNav('attendance')}
+                  onClick={() => handleNav('attendance', 'roster')}
                   className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   Shift Roster
                 </button>
                 <button
-                  onClick={() => handleNav('attendance')}
+                  onClick={() => handleNav('attendance', 'holidays')}
                   className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   Holiday

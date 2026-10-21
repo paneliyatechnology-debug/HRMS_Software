@@ -113,7 +113,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Real-time calculation of October 2026 attendance stats
   const octAttendance = attendance.filter((a) => a.date?.startsWith('2026-10'));
   const daysAbsent = octAttendance.filter((a) => String(a.status).toLowerCase() === 'absent').length || 13;
-  const daysPresent = isCheckedIn ? 1 : octAttendance.filter((a) => String(a.status).toLowerCase() === 'present').length;
+  const daysPresent = isCheckedIn
+    ? Math.max(1, octAttendance.filter((a) => ['present', 'late'].includes(String(a.status).toLowerCase())).length)
+    : octAttendance.filter((a) => ['present', 'late'].includes(String(a.status).toLowerCase())).length;
   const daysLate = octAttendance.filter((a) => String(a.status).toLowerCase() === 'late').length;
 
   return (
@@ -239,7 +241,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <p className="text-[11px] text-amber-700 font-medium">
                   {isCheckedIn
                     ? `Clocked in at ${checkInTime}. Remember to clock out at 06:00 PM.`
-                    : 'Outside your shift window (09:00 AM – 06:00 PM).'}
+                    : 'Shift window: 09:00 AM – 06:00 PM. Click below to clock in.'}
                 </p>
               </div>
 

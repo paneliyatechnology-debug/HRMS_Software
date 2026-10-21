@@ -147,8 +147,41 @@
       }
     }
   ],
-  "leaveRequests": [],
+  "leaveRequests": [
+    {
+      "id": "lr-1792575268109",
+      "employeeId": "emp-1",
+      "employeeName": "Keyur Sangani",
+      "employeeAvatar": "",
+      "departmentName": "--",
+      "leaveType": "Casual Leave",
+      "startDate": "2026-10-20",
+      "endDate": "2026-10-20",
+      "daysCount": 1,
+      "isHalfDay": false,
+      "reason": "Family function",
+      "status": "Pending",
+      "appliedDate": "2026-10-21",
+      "managerApproverId": "",
+      "managerApproverName": "—",
+      "comments": "Pending review"
+    }
+  ],
   "attendanceRecords": [
+    {
+      "id": "att-1792575060957",
+      "employeeId": "emp-1",
+      "employeeName": "Keyur Sangani",
+      "date": "2026-10-21",
+      "checkIn": "03:01 PM",
+      "checkOut": "",
+      "breakDurationMinutes": 0,
+      "workingHours": 8.5,
+      "overtimeHours": 0.5,
+      "status": "Late",
+      "remarks": "Self clock-in via Clan.biz Dashboard",
+      "createdAt": "2026-10-21T09:31:00.954Z"
+    },
     {
       "id": "att-1792415524974",
       "employeeId": "emp-1",
@@ -396,6 +429,15 @@
   ],
   "notifications": [
     {
+      "id": "notif-1792575268109",
+      "title": "New Leave Application",
+      "message": "Keyur Sangani applied for Casual Leave (1 days).",
+      "type": "leave",
+      "isRead": false,
+      "createdAt": "2026-10-21T09:34:28.109Z",
+      "link": "/leaves"
+    },
+    {
       "id": "notif-1",
       "title": "Welcome to paneliya technology",
       "message": "New here? Read the Employee Guide to learn how to use attendance, leave, and your profile.",
@@ -407,6 +449,54 @@
   ],
   "documents": [],
   "auditLogs": [
+    {
+      "id": "log-1792576119030-558",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKIN",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked in at 03:18 PM (Late)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:48:39.030Z"
+    },
+    {
+      "id": "log-1792575268109-430",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "LEAVE_APPLIED",
+      "module": "Leave Management",
+      "recordId": "lr-1792575268109",
+      "details": "Applied for 1 day(s) of Casual Leave (2026-10-20 to 2026-10-20)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:34:28.109Z"
+    },
+    {
+      "id": "log-1792575066933-485",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKOUT",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked out at 03:01 PM with 8.5 working hours",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:31:06.933Z"
+    },
+    {
+      "id": "log-1792575060957-203",
+      "userId": "emp-1",
+      "userName": "Keyur Sangani",
+      "userRole": "EMPLOYEE",
+      "action": "ATTENDANCE_CHECKIN",
+      "module": "Attendance",
+      "recordId": "att-1792575060957",
+      "details": "Checked in at 03:01 PM (Late)",
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-10-21T09:31:00.957Z"
+    },
     {
       "id": "log-1792415773044-575",
       "userId": "sys",

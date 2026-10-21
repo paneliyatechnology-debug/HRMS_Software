@@ -22,6 +22,8 @@ interface HeaderProps {
   onOpenClockModal: () => void;
   onOpenLeaveModal: () => void;
   onOpenAddEmployeeModal: () => void;
+  onOpenProfile?: () => void;
+  onNavigateSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenClockModal,
   onOpenLeaveModal,
   onOpenAddEmployeeModal,
+  onOpenProfile,
+  onNavigateSettings,
 }) => {
   const { user } = useAuth();
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -215,7 +219,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <button
-                onClick={() => setProfileMenuOpen(false)}
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  if (onOpenProfile) onOpenProfile();
+                }}
                 className="w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2"
               >
                 <User className="w-3.5 h-3.5 text-slate-500" />
@@ -223,7 +230,10 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               <button
-                onClick={() => setProfileMenuOpen(false)}
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  if (onNavigateSettings) onNavigateSettings();
+                }}
                 className="w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2"
               >
                 <Settings className="w-3.5 h-3.5 text-slate-500" />

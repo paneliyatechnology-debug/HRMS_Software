@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { DashboardView } from '../components/DashboardView';
+import { CalendarModule } from '../components/modules/CalendarModule';
 import { EmployeesModule } from '../components/modules/EmployeesModule';
 import { AttendanceModule } from '../components/modules/AttendanceModule';
 import { LeaveModule } from '../components/modules/LeaveModule';
@@ -50,6 +51,7 @@ import {
 
 export default function Home() {
   const [activeModule, setActiveModule] = useState('dashboard');
+  const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data state
@@ -125,6 +127,8 @@ export default function Home() {
         onOpenClockModal={() => setClockModalOpen(true)}
         onOpenLeaveModal={() => setLeaveModalOpen(true)}
         onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+        onOpenProfile={() => setSelectedEmployee(employees[0] || mockEmployees[0])}
+        onNavigateSettings={() => setActiveModule('settings')}
       />
 
       {/* Slide-over Left Sidebar */}
@@ -133,6 +137,7 @@ export default function Home() {
         setActiveModule={setActiveModule}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
+        onSelectSubTab={setSubTab}
       />
 
       {/* Main Content Area */}
@@ -143,12 +148,23 @@ export default function Home() {
             employees={employees}
             leaves={leaves}
             attendance={attendance}
-            onNavigateModule={setActiveModule}
+            onNavigateModule={(mod) => {
+              setActiveModule(mod);
+            }}
             onOpenClockModal={() => setClockModalOpen(true)}
             onOpenLeaveModal={() => setLeaveModalOpen(true)}
             onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
             onSelectEmployee={setSelectedEmployee}
             onRefreshData={loadData}
+          />
+        )}
+
+        {activeModule === 'calendar' && (
+          <CalendarModule
+            attendance={attendance}
+            leaves={leaves}
+            onOpenLeaveModal={() => setLeaveModalOpen(true)}
+            onOpenClockModal={() => setClockModalOpen(true)}
           />
         )}
 
@@ -165,6 +181,7 @@ export default function Home() {
           <AttendanceModule
             records={attendance}
             employees={employees}
+            initialTab={(subTab as any) || 'summary'}
             onOpenPunchModal={() => setClockModalOpen(true)}
             onRefresh={loadData}
           />
@@ -205,6 +222,7 @@ export default function Home() {
             departments={departments}
             designations={designations}
             locations={locations}
+            initialTab={(subTab as any) || 'departments'}
             onRefresh={loadData}
           />
         )}

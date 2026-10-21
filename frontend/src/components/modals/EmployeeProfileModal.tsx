@@ -69,11 +69,17 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           </button>
 
           <div className="flex flex-wrap items-center gap-5">
-            <img
-              src={employee.avatarUrl}
-              alt={employee.firstName}
-              className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100 shadow-2xs"
-            />
+            {employee.avatarUrl ? (
+              <img
+                src={employee.avatarUrl}
+                alt={employee.firstName}
+                className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100 shadow-2xs"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-500 flex items-center justify-center text-slate-900 font-black text-xl ring-2 ring-slate-100 shadow-2xs">
+                {employee.firstName?.[0] || 'K'}{employee.lastName?.[0] || 'S'}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl font-bold tracking-tight">
