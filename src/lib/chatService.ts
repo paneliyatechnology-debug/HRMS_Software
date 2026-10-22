@@ -18,71 +18,11 @@ function getDefaultConversations(): ChatConversation[] {
       participantIds: ['all'],
       participantNames: { all: 'All Staff & Management' },
       title: '📢 General Staff Helpdesk & Broadcast',
-      lastMessage: 'Welcome everyone to the Paneliya HRMS team communication channel! Feel free to ask questions here.',
-      lastMessageTimestamp: '2026-10-21T09:00:00.000Z',
+      lastMessage: 'Welcome everyone to the Paneliya HRMS team communication channel!',
+      lastMessageTimestamp: '2026-10-22T09:00:00.000Z',
       lastSenderId: ADMIN_USER_ID,
       unreadCount: {},
-      updatedAt: '2026-10-21T09:00:00.000Z',
-    },
-    {
-      id: 'conv-user-1-emp-2',
-      type: 'direct',
-      participantIds: [ADMIN_USER_ID, 'emp-2'],
-      participantNames: {
-        [ADMIN_USER_ID]: 'Keyur Sangani',
-        'emp-2': 'Rahul Sharma',
-      },
-      participantRoles: {
-        [ADMIN_USER_ID]: 'admin',
-        'emp-2': 'employee',
-      },
-      participantCodes: {
-        [ADMIN_USER_ID]: 'ADMIN-01',
-        'emp-2': 'EMP-2',
-      },
-      participantEmails: {
-        [ADMIN_USER_ID]: 'keyur.sangani1234@gmail.com',
-        'emp-2': 'rahul.sharma@paneliya.com',
-      },
-      participantDesignations: {
-        [ADMIN_USER_ID]: 'Super Admin',
-        'emp-2': 'Senior Fullstack Engineer',
-      },
-      lastMessage: 'Understood, will share the test verification logs shortly.',
-      lastMessageTimestamp: '2026-10-21T10:15:00.000Z',
-      lastSenderId: 'emp-2',
-      unreadCount: { [ADMIN_USER_ID]: 1, 'emp-2': 0 },
-      updatedAt: '2026-10-21T10:15:00.000Z',
-    },
-    {
-      id: 'conv-user-1-emp-3',
-      type: 'direct',
-      participantIds: [ADMIN_USER_ID, 'emp-3'],
-      participantNames: {
-        [ADMIN_USER_ID]: 'Keyur Sangani',
-        'emp-3': 'Priya Nair',
-      },
-      participantRoles: {
-        [ADMIN_USER_ID]: 'admin',
-        'emp-3': 'employee',
-      },
-      participantCodes: {
-        [ADMIN_USER_ID]: 'ADMIN-01',
-        'emp-3': 'EMP-3',
-      },
-      participantEmails: {
-        [ADMIN_USER_ID]: 'keyur.sangani1234@gmail.com',
-        'emp-3': 'priya.nair@paneliya.com',
-      },
-      participantDesignations: {
-        [ADMIN_USER_ID]: 'Super Admin',
-        'emp-3': 'Lead Product Designer',
-      },
-      lastMessage: 'Thanks Priya, looking clean and aligned with our standards.',
-      lastMessageTimestamp: '2026-10-21T09:45:00.000Z',
-      lastSenderId: ADMIN_USER_ID,
-      unreadCount: { [ADMIN_USER_ID]: 0, 'emp-3': 0 },
-      updatedAt: '2026-10-21T09:45:00.000Z',
+      updatedAt: '2026-10-22T09:00:00.000Z',
     },
   ];
 }
@@ -99,84 +39,8 @@ function getDefaultMessages(): Record<string, ChatMessage[]> {
         senderRole: 'admin',
         recipientId: 'all',
         recipientName: 'All Staff',
-        content: 'Welcome everyone to the Paneliya HRMS team communication channel! Feel free to ask questions here.',
-        timestamp: '2026-10-21T09:00:00.000Z',
-        status: 'read',
-      },
-      {
-        id: 'msg-gen-2',
-        conversationId: 'conv-general',
-        senderId: 'emp-2',
-        senderName: 'Rahul Sharma',
-        senderRole: 'employee',
-        recipientId: 'all',
-        recipientName: 'All Staff',
-        content: 'Thank you Keyur sir! Great to have this direct communication platform ready.',
-        timestamp: '2026-10-21T09:05:00.000Z',
-        status: 'read',
-      },
-    ],
-    'conv-user-1-emp-2': [
-      {
-        id: 'msg-rahul-1',
-        conversationId: 'conv-user-1-emp-2',
-        senderId: 'emp-2',
-        senderName: 'Rahul Sharma',
-        senderRole: 'employee',
-        recipientId: ADMIN_USER_ID,
-        recipientName: 'Keyur Sangani',
-        content: 'Hello Keyur sir, I have finalized the Sprint 3 API documentation for authentication modules.',
-        timestamp: '2026-10-21T10:00:00.000Z',
-        status: 'read',
-      },
-      {
-        id: 'msg-rahul-2',
-        conversationId: 'conv-user-1-emp-2',
-        senderId: ADMIN_USER_ID,
-        senderName: 'Keyur Sangani',
-        senderRole: 'admin',
-        recipientId: 'emp-2',
-        recipientName: 'Rahul Sharma',
-        content: 'Great work Rahul! Please ensure the staging server deployment is tested thoroughly before the end of the day.',
-        timestamp: '2026-10-21T10:10:00.000Z',
-        status: 'read',
-      },
-      {
-        id: 'msg-rahul-3',
-        conversationId: 'conv-user-1-emp-2',
-        senderId: 'emp-2',
-        senderName: 'Rahul Sharma',
-        senderRole: 'employee',
-        recipientId: ADMIN_USER_ID,
-        recipientName: 'Keyur Sangani',
-        content: 'Understood, will share the test verification logs shortly.',
-        timestamp: '2026-10-21T10:15:00.000Z',
-        status: 'delivered',
-      },
-    ],
-    'conv-user-1-emp-3': [
-      {
-        id: 'msg-priya-1',
-        conversationId: 'conv-user-1-emp-3',
-        senderId: 'emp-3',
-        senderName: 'Priya Nair',
-        senderRole: 'employee',
-        recipientId: ADMIN_USER_ID,
-        recipientName: 'Keyur Sangani',
-        content: 'Good morning sir! The new design system components have been updated in Figma for review.',
-        timestamp: '2026-10-21T09:30:00.000Z',
-        status: 'read',
-      },
-      {
-        id: 'msg-priya-2',
-        conversationId: 'conv-user-1-emp-3',
-        senderId: ADMIN_USER_ID,
-        senderName: 'Keyur Sangani',
-        senderRole: 'admin',
-        recipientId: 'emp-3',
-        recipientName: 'Priya Nair',
-        content: 'Thanks Priya, looking clean and aligned with our standards.',
-        timestamp: '2026-10-21T09:45:00.000Z',
+        content: 'Welcome everyone to the Paneliya HRMS team communication channel!',
+        timestamp: '2026-10-22T09:00:00.000Z',
         status: 'read',
       },
     ],
@@ -192,7 +56,18 @@ export function getAllConversations(): ChatConversation[] {
       localStorage.setItem(CHAT_CONVERSATIONS_KEY, JSON.stringify(initial));
       return initial;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const clean = parsed.filter(
+        (c: ChatConversation) =>
+          c.id !== 'conv-user-1-emp-2' &&
+          c.id !== 'conv-user-1-emp-3' &&
+          !c.participantIds?.includes('emp-2') &&
+          !c.participantIds?.includes('emp-3')
+      );
+      return clean.length > 0 ? clean : getDefaultConversations();
+    }
+    return getDefaultConversations();
   } catch (e) {
     console.error('Failed to parse chat conversations:', e);
     return getDefaultConversations();
@@ -218,7 +93,10 @@ export function getAllMessagesMap(): Record<string, ChatMessage[]> {
       localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(initial));
       return initial;
     }
-    return JSON.parse(raw);
+    const map = JSON.parse(raw);
+    delete map['conv-user-1-emp-2'];
+    delete map['conv-user-1-emp-3'];
+    return map;
   } catch (e) {
     console.error('Failed to parse chat messages:', e);
     return getDefaultMessages();

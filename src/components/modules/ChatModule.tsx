@@ -49,7 +49,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const { user, portalMode } = useAuth();
 
   // Determine current user chat identity
-  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || 'emp-2';
+  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || '';
   const currentUserName = portalMode === 'admin' ? ADMIN_NAME : `${user.firstName || 'Staff'} ${user.lastName || 'Member'}`.trim();
   const currentUserRole = portalMode === 'admin' ? ('admin' as const) : ('employee' as const);
 
@@ -168,7 +168,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
     if (portalMode === 'admin') {
       // The other participant is the employee
-      const empId = conv.participantIds.find((id) => id !== ADMIN_USER_ID) || 'emp-2';
+      const empId = conv.participantIds.find((id) => id !== ADMIN_USER_ID) || '';
       const name = conv.participantNames[empId] || 'Staff Member';
       const code = conv.participantCodes?.[empId] || 'EMP';
       const email = conv.participantEmails?.[empId] || '';

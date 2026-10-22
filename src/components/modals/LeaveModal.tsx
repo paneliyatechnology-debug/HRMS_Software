@@ -40,9 +40,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     try {
       const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
       await api.applyLeave({
-        employeeId: user.employeeId || 'emp-2',
+        employeeId: user.employeeId || user.id || '',
         employeeName: empName || 'Employee',
-        departmentName: (user as any).departmentName || 'Engineering',
+        departmentName: (user as any).departmentName || 'Paneliya Technology',
         leaveType,
         startDate,
         endDate,

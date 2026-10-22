@@ -41,13 +41,13 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
   const [audienceType, setAudienceType] = useState<'All' | 'Individual'>('All');
-  const [targetEmployeeId, setTargetEmployeeId] = useState(employees[0]?.id || 'emp-2');
+  const [targetEmployeeId, setTargetEmployeeId] = useState(employees[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
 
   const loadAnnouncements = async () => {
     try {
       const data = await api.getAnnouncements(
-        portalMode === 'employee' ? user.employeeId || 'emp-2' : undefined
+        portalMode === 'employee' ? user.employeeId || user.id || '' : undefined
       );
       if (data) {
         setAnnouncements(data);

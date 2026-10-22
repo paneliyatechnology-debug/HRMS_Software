@@ -23,7 +23,7 @@ interface AttendanceModalProps {
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user } = useAuth();
-  const currentEmpId = user.employeeId || 'emp-2';
+  const currentEmpId = user.employeeId || user.id || '';
 
   const [time, setTime] = useState<Date | null>(null);
   const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));

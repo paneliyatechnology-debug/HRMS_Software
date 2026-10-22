@@ -386,8 +386,8 @@ export const ResignationsModule: React.FC = () => {
               <div className="pt-6 font-sans text-xs">
                 <p className="font-bold text-slate-900">For Paneliya Technology Inc.</p>
                 <div className="mt-8">
-                  <p className="font-bold text-slate-800">Sarah Jenkins</p>
-                  <p className="text-slate-500 text-[11px]">Head of Human Resources & Operations</p>
+                  <p className="font-bold text-slate-800">Authorized Signatory</p>
+                  <p className="text-slate-500 text-[11px]">Human Resources & Operations</p>
                 </div>
               </div>
             </div>

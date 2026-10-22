@@ -52,7 +52,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         api.getPerformanceReviews(),
       ]);
       setCycles(cyclesData);
-      if (reviewsData.length > 0) {
+      if (Array.isArray(reviewsData)) {
         setReviews(reviewsData);
       }
     } catch (err) {

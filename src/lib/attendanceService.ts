@@ -75,7 +75,16 @@ export function getAllAttendanceRecords(): AttendanceRecord[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (r: AttendanceRecord) =>
+            r.employeeId !== 'emp-2' &&
+            r.employeeId !== 'emp-3' &&
+            r.employeeName !== 'Rahul Sharma' &&
+            r.employeeName !== 'Priya Patel'
+        );
+      }
     }
   } catch (err) {
     console.error('Failed to read attendance records:', err);

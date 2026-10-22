@@ -94,7 +94,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, []);
 
   // Determine current active employee for self-service punch
-  const currentEmpId = user.employeeId || 'emp-2';
+  const currentEmpId = user.employeeId || user.id || '';
   const currentEmp = employees.find((e) => e.id === currentEmpId || e.email === user.email) || employees[0];
 
   // Live punch status for employee

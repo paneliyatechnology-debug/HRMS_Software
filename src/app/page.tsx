@@ -105,7 +105,7 @@ export default function Home() {
   // Chat unread count synchronization
   useEffect(() => {
     if (isAuthenticated) {
-      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || 'emp-2';
+      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
       const updateChatUnread = () => {
         setUnreadChatCount(getTotalUnreadChatCount(currentUserId));
       };
@@ -120,8 +120,8 @@ export default function Home() {
   // Employee Screen Activity Monitor (detects mouse movement, clicks, keyboard)
   useEffect(() => {
     if (!isAuthenticated) return;
-    const currentEmpId = user?.employeeId || (portalMode === 'employee' ? 'emp-2' : undefined);
-    if (!currentEmpId) return;
+    const currentEmpId = user?.employeeId || user?.id;
+    if (!currentEmpId || portalMode !== 'employee') return;
 
     let lastRecorded = 0;
     const handleScreenActivity = () => {
@@ -132,7 +132,7 @@ export default function Home() {
         recordUserScreenActivity(
           currentEmpId,
           `${user.firstName || 'Employee'} ${user.lastName || ''}`,
-          (user as any).employeeCode || 'EMP-2'
+          (user as any).employeeCode || currentEmpId
         );
       }
     };
@@ -216,15 +216,15 @@ export default function Home() {
       ]);
 
       if (statsData) setStats(statsData);
-      if (employeesData && employeesData.length > 0) setEmployees(employeesData);
-      if (departmentsData && departmentsData.length > 0) setDepartments(departmentsData);
-      if (designationsData && designationsData.length > 0) setDesignations(designationsData);
-      if (leavesData) setLeaves(leavesData);
-      if (attendanceData) setAttendance(attendanceData);
-      if (payrollData && payrollData.length > 0) setPayroll(payrollData);
-      if (jobsData && jobsData.length > 0) setJobs(jobsData);
-      if (candidatesData && candidatesData.length > 0) setCandidates(candidatesData);
-      if (assetsData && assetsData.length > 0) setAssets(assetsData);
+      if (Array.isArray(employeesData) && employeesData.length > 0) setEmployees(employeesData);
+      if (Array.isArray(departmentsData) && departmentsData.length > 0) setDepartments(departmentsData);
+      if (Array.isArray(designationsData) && designationsData.length > 0) setDesignations(designationsData);
+      if (Array.isArray(leavesData)) setLeaves(leavesData);
+      if (Array.isArray(attendanceData)) setAttendance(attendanceData);
+      if (Array.isArray(payrollData)) setPayroll(payrollData);
+      if (Array.isArray(jobsData)) setJobs(jobsData);
+      if (Array.isArray(candidatesData)) setCandidates(candidatesData);
+      if (Array.isArray(assetsData)) setAssets(assetsData);
     } catch (err) {
       console.warn('API sync warning (using real data fallback):', err);
     }

@@ -34,17 +34,37 @@ export const mockUsers: User[] = [
 ];
 
 export const mockDepartments: Department[] = [
-  { id: 'dept-1', name: 'Administration & Management', code: 'ADM', headName: 'Keyur Sangani', employeeCount: 1, createdAt: '2026-10-19' },
+  {
+    id: 'dept-1',
+    name: 'Administration & Management',
+    code: 'ADM',
+    headName: 'Keyur Sangani',
+    employeeCount: 1,
+    createdAt: '2026-10-19',
+  },
 ];
 
 export const mockDesignations: Designation[] = [
-  { id: 'des-1', title: 'App Administrator', departmentId: 'dept-1', departmentName: 'Administration & Management', minSalary: 80000, maxSalary: 120000, createdAt: '2026-10-19' },
-  { id: 'des-2', title: 'Senior Fullstack Engineer', departmentId: 'dept-2', departmentName: 'Engineering & Technology', minSalary: 60000, maxSalary: 95000, createdAt: '2026-10-19' },
-  { id: 'des-3', title: 'Lead Product Designer', departmentId: 'dept-3', departmentName: 'Product & UX Design', minSalary: 55000, maxSalary: 85000, createdAt: '2026-10-19' },
+  {
+    id: 'des-1',
+    title: 'App Administrator',
+    departmentId: 'dept-1',
+    departmentName: 'Administration & Management',
+    minSalary: 80000,
+    maxSalary: 120000,
+    createdAt: '2026-10-19',
+  },
 ];
 
 export const mockLocations: Location[] = [
-  { id: 'loc-1', name: 'Corporate HQ', city: 'Surat', country: 'India', address: 'paneliya technology, Surat, Gujarat', isHeadquarter: true },
+  {
+    id: 'loc-1',
+    name: 'Corporate HQ',
+    city: 'Surat',
+    country: 'India',
+    address: 'paneliya technology, Surat, Gujarat',
+    isHeadquarter: true,
+  },
 ];
 
 export const mockEmployees: Employee[] = [
@@ -59,7 +79,7 @@ export const mockEmployees: Employee[] = [
     gender: 'Male',
     dateOfBirth: '1996-05-15',
     address: 'Surat, Gujarat',
-    emergencyContact: { name: 'Family Emergency', relationship: 'Parent', phone: '+91 98765 00000' },
+    emergencyContact: { name: '', relationship: '', phone: '' },
     joiningDate: '2026-10-19',
     employmentType: 'Full-time',
     status: 'Active',
@@ -72,159 +92,63 @@ export const mockEmployees: Employee[] = [
     workLocationId: 'loc-1',
     workLocationName: 'Corporate HQ',
     shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: { bankName: 'HDFC Bank', accountNumber: '5010049281928', ifscOrRouting: 'HDFC000182', accountHolderName: 'Keyur Sangani' },
-    taxInformation: { taxId: 'TX-992019', panOrSsn: 'ABCDE1234F', taxRegime: 'New Regime' },
-    education: [{ degree: 'B.Tech in Computer Science', institution: 'GTU', year: 2018 }],
-    previousExperience: [{ company: 'Tech Solutions', role: 'Lead Architect', years: 4 }],
-    skills: ['App Administrator', 'Project Management', 'System Architecture'],
-    salary: { basic: 50000, hra: 20000, allowances: 10000, bonus: 5000, pf: 6000, tax: 8000, professionalTax: 200, gross: 85000, net: 70800 },
+    bankDetails: {
+      bankName: '',
+      accountNumber: '',
+      ifscOrRouting: '',
+      accountHolderName: 'Keyur Sangani',
+    },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+    education: [],
+    previousExperience: [],
+    skills: ['App Administrator'],
+    salary: {
+      basic: 50000,
+      hra: 20000,
+      allowances: 10000,
+      bonus: 5000,
+      pf: 6000,
+      tax: 8000,
+      professionalTax: 200,
+      gross: 85000,
+      net: 70800,
+    },
     createdAt: '2026-10-19',
     updatedAt: '2026-10-19',
   },
-  {
-    id: 'emp-2',
-    employeeCode: 'EMP-2',
-    firstName: 'Rahul',
-    lastName: 'Sharma',
-    email: 'rahul.sharma@paneliya.com',
-    phone: '+91 98765 43210',
-    avatarUrl: '',
-    gender: 'Male',
-    dateOfBirth: '1997-08-20',
-    address: 'Ahmedabad, Gujarat',
-    emergencyContact: { name: 'Anil Sharma', relationship: 'Father', phone: '+91 98765 43211' },
-    joiningDate: '2026-10-01',
-    employmentType: 'Full-time',
-    status: 'Active',
-    departmentId: 'dept-2',
-    departmentName: 'Engineering & Technology',
-    designationId: 'des-2',
-    designationTitle: 'Senior Fullstack Engineer',
-    reportingManagerId: 'emp-1',
-    reportingManagerName: 'Keyur Sangani',
-    workLocationId: 'loc-1',
-    workLocationName: 'Corporate HQ',
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: { bankName: 'State Bank of India', accountNumber: '38291049281', ifscOrRouting: 'SBIN000492', accountHolderName: 'Rahul Sharma' },
-    taxInformation: { taxId: 'TX-448291', panOrSsn: 'BKFPS9921M', taxRegime: 'New Regime' },
-    education: [{ degree: 'B.E. Information Technology', institution: 'Nirma University', year: 2019 }],
-    previousExperience: [{ company: 'CloudWave Systems', role: 'Fullstack Developer', years: 3 }],
-    skills: ['React', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker'],
-    salary: { basic: 45000, hra: 18000, allowances: 8000, bonus: 4000, pf: 5400, tax: 6500, professionalTax: 200, gross: 75000, net: 62900 },
-    createdAt: '2026-10-01',
-    updatedAt: '2026-10-01',
-  },
-  {
-    id: 'emp-3',
-    employeeCode: 'EMP-3',
-    firstName: 'Priya',
-    lastName: 'Patel',
-    email: 'priya.patel@paneliya.com',
-    phone: '+91 98765 12345',
-    avatarUrl: '',
-    gender: 'Female',
-    dateOfBirth: '1998-11-12',
-    address: 'Surat, Gujarat',
-    emergencyContact: { name: 'Meena Patel', relationship: 'Mother', phone: '+91 98765 12346' },
-    joiningDate: '2026-10-05',
-    employmentType: 'Full-time',
-    status: 'Active',
-    departmentId: 'dept-3',
-    departmentName: 'Product & UX Design',
-    designationId: 'des-3',
-    designationTitle: 'Lead Product Designer',
-    reportingManagerId: 'emp-1',
-    reportingManagerName: 'Keyur Sangani',
-    workLocationId: 'loc-1',
-    workLocationName: 'Corporate HQ',
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: { bankName: 'ICICI Bank', accountNumber: '992810481928', ifscOrRouting: 'ICIC000029', accountHolderName: 'Priya Patel' },
-    taxInformation: { taxId: 'TX-338192', panOrSsn: 'CPXPT8819Q', taxRegime: 'New Regime' },
-    education: [{ degree: 'Bachelor of Design (B.Des)', institution: 'NID Ahmedabad', year: 2020 }],
-    previousExperience: [{ company: 'PixelCraft Studio', role: 'UI/UX Designer', years: 3 }],
-    skills: ['Figma', 'Design Systems', 'User Research', 'Prototyping', 'Tailwind CSS'],
-    salary: { basic: 42000, hra: 16800, allowances: 7200, bonus: 4000, pf: 5040, tax: 5800, professionalTax: 200, gross: 70000, net: 58960 },
-    createdAt: '2026-10-05',
-    updatedAt: '2026-10-05',
-  },
 ];
 
-export const mockLeaveRequests: LeaveRequest[] = [
-  {
-    id: 'lr-1792575268109',
-    employeeId: 'emp-1',
-    employeeName: 'Keyur Sangani',
-    employeeAvatar: '',
-    departmentName: 'Administration & Management',
-    leaveType: 'Casual Leave',
-    startDate: '2026-10-20',
-    endDate: '2026-10-20',
-    daysCount: 1,
-    isHalfDay: false,
-    reason: 'Family function',
-    status: 'Pending',
-    appliedDate: '2026-10-21',
-    managerApproverId: '',
-    managerApproverName: '—',
-    comments: 'Pending review',
-  },
-  {
-    id: 'lr-1792578000001',
-    employeeId: 'emp-2',
-    employeeName: 'Rahul Sharma',
-    employeeAvatar: '',
-    departmentName: 'Engineering & Technology',
-    leaveType: 'Sick Leave',
-    startDate: '2026-10-22',
-    endDate: '2026-10-23',
-    daysCount: 2,
-    isHalfDay: false,
-    reason: 'Viral fever and doctor recommended bed rest',
-    status: 'Pending',
-    appliedDate: '2026-10-21',
-    managerApproverId: 'emp-1',
-    managerApproverName: 'Keyur Sangani',
-    comments: 'Awaiting HR approval',
-  },
-  {
-    id: 'lr-1792578000002',
-    employeeId: 'emp-3',
-    employeeName: 'Priya Patel',
-    employeeAvatar: '',
-    departmentName: 'Product & UX Design',
-    leaveType: 'Paid Leave',
-    startDate: '2026-10-15',
-    endDate: '2026-10-16',
-    daysCount: 2,
-    isHalfDay: false,
-    reason: 'Attending Design Systems Conference',
-    status: 'Approved',
-    appliedDate: '2026-10-12',
-    managerApproverId: 'emp-1',
-    managerApproverName: 'Keyur Sangani',
-    comments: 'Approved by Keyur Sangani',
-  },
-];
+export const mockLeaveRequests: LeaveRequest[] = [];
 
-export const mockLeaveBalances: LeaveBalance[] = [
-  {
-    id: 'bal-emp-1',
-    employeeId: 'emp-1',
-    year: 2026,
-    casualLeave: { total: 3.12, used: 0, remaining: 3.12 },
-    sickLeave: { total: 0, used: 0, remaining: 0 },
-    paidLeave: { total: 3.12, used: 0, remaining: 3.12 },
-  },
-];
+export const mockLeaveBalances: LeaveBalance[] = [];
 
-export const mockHolidays: Holiday[] = [
-  { id: 'hol-1', name: 'Diwali', date: '2026-11-08', dayOfWeek: 'Sunday', type: 'Public', description: 'Festival of Lights' },
-  { id: 'hol-2', name: 'Christmas Day', date: '2026-12-25', dayOfWeek: 'Friday', type: 'Public', description: 'Christmas' },
-];
+export const mockHolidays: Holiday[] = [];
+
+export const mockJobs: JobOpening[] = [];
+
+export const mockCandidates: Candidate[] = [];
+
+export const mockPerformanceCycles: any[] = [];
+
+export const mockPerformanceReviews: PerformanceReview[] = [];
+
+export const mockTrainingPrograms: TrainingProgram[] = [];
+
+export const mockTrainingEnrollments: any[] = [];
+
+export const mockCompanyAssets: CompanyAsset[] = [];
+
+export const mockResignations: Resignation[] = [];
+
+export const mockAnnouncements: Announcement[] = [];
+
+export const mockNotifications: NotificationItem[] = [];
+
+export const mockAuditLogs: AuditLog[] = [];
 
 export const mockDashboardStats = {
   kpiCards: {
-    totalEmployees: { value: 1, growth: '+0%', subtext: '1 Employee Active' },
+    totalEmployees: { value: 0, growth: '+0%', subtext: '0 Employees' },
     todaysPresent: { count: 0, percentage: '0%', subtext: '0% Present Today' },
     totalExpense: { value: '₹0.00', growth: '0%', subtext: 'October 2026' },
     totalPayrolls: { value: '₹0.00', growth: '0%', subtext: 'Processed' },
@@ -232,12 +156,12 @@ export const mockDashboardStats = {
   attendanceSummary: {
     present: 0,
     late: 0,
-    absent: 13,
-    status: 'Critical',
+    absent: 0,
+    status: 'Normal',
     month: 'October 2026',
   },
   leaveStatus: {
-    annualLeave: 3.12,
+    annualLeave: 0,
     nextLeave: 'No upcoming leave',
   },
   nextHoliday: 'No upcoming holiday',
@@ -251,316 +175,14 @@ export const mockDashboardStats = {
     { month: 'Sun', hours: 0 },
   ],
   leaveApplications: [],
-  employmentBreakdown: [
-    { label: 'Full-time', count: 1, percent: 100, color: '#3b82f6' },
-  ],
-  departmentStats: [
-    { name: 'Administration', count: 1 },
-  ],
-  activeEmployees: 1,
-  absentToday: 1,
+  employmentBreakdown: [],
+  departmentStats: [],
+  activeEmployees: 0,
+  absentToday: 0,
   pendingLeaves: 0,
   totalCandidates: 0,
   openJobs: 0,
 };
-
-export const mockAnnouncements: Announcement[] = [
-  {
-    id: 'ann-1',
-    title: 'Welcome to paneliya technology Portal',
-    content: 'HR & Project Management OS setup completed. Manage attendance, leave, and tasks in real-time.',
-    authorName: 'Keyur Sangani (App Administrator)',
-    priority: 'High',
-    publishDate: '2026-10-19T09:00:00Z',
-    expiryDate: '2026-12-31T23:59:59Z',
-    targetAudience: 'All',
-  },
-];
-
-export const mockNotifications: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Welcome to paneliya technology',
-    message: 'Read the Employee Guide to learn how to use attendance, leave, and your profile.',
-    type: 'system',
-    isRead: false,
-    createdAt: '2026-10-19T09:00:00Z',
-    link: '/account/dashboard',
-  },
-];
-
-export const mockAuditLogs: AuditLog[] = [
-  {
-    id: 'audit-1',
-    userId: 'user-1',
-    userName: 'Keyur Sangani',
-    userRole: 'App Administrator',
-    action: 'LOGIN',
-    module: 'Auth',
-    recordId: 'user-1',
-    details: 'Signed into paneliya technology HR & Project Management OS',
-    ipAddress: '127.0.0.1',
-    createdAt: '2026-10-19T18:00:00Z',
-  },
-];
-
-export const mockJobs: JobOpening[] = [
-  {
-    id: 'job-1',
-    title: 'Senior AI Engineer',
-    departmentId: 'dept-2',
-    departmentName: 'Engineering & Technology',
-    designationTitle: 'Senior Fullstack Engineer',
-    location: 'Surat, Gujarat (Hybrid)',
-    employmentType: 'Full-time',
-    experienceLevel: 'Senior',
-    openingsCount: 2,
-    salaryRange: '₹12,00,000 - ₹18,00,000',
-    description: 'Build and deploy enterprise AI infrastructure, scalable microservices, and neural search systems.',
-    skillsRequired: ['Python', 'TypeScript', 'NestJS', 'PyTorch'],
-    status: 'Published',
-    postedDate: '2026-10-10',
-    applicantCount: 5,
-  },
-  {
-    id: 'job-2',
-    title: 'Product Design Lead',
-    departmentId: 'dept-3',
-    departmentName: 'Product & UX Design',
-    designationTitle: 'Lead Product Designer',
-    location: 'Surat, Gujarat (On-site)',
-    employmentType: 'Full-time',
-    experienceLevel: 'Lead',
-    openingsCount: 1,
-    salaryRange: '₹10,00,000 - ₹15,00,000',
-    description: 'Lead design systems, micro-interactions, and enterprise SaaS customer journey mapping.',
-    skillsRequired: ['Figma', 'Design Systems', 'UX Research', 'Tailwind CSS'],
-    status: 'Published',
-    postedDate: '2026-10-15',
-    applicantCount: 3,
-  },
-];
-
-export const mockCandidates: Candidate[] = [
-  {
-    id: 'cand-1',
-    jobId: 'job-1',
-    jobTitle: 'Senior AI Engineer',
-    fullName: 'Lucas Scott',
-    email: 'lucas.scott@example.com',
-    phone: '+91 98765 01234',
-    resumeUrl: '/resumes/lucas-scott.pdf',
-    experienceYears: 5,
-    currentCompany: 'Acme Cloud Systems',
-    skills: ['React', 'Node.js', 'NestJS', 'PostgreSQL'],
-    source: 'LinkedIn',
-    status: 'Interview',
-    appliedDate: '2026-10-18',
-    rating: 4.8,
-    notes: 'Strong portfolio and open-source contributor. Cleared initial screening.',
-    interviews: [
-      {
-        id: 'int-1',
-        round: 'Technical Architecture Round',
-        interviewerName: 'Keyur Sangani (Lead Architect)',
-        scheduledAt: '2026-10-25 10:00 AM IST',
-        status: 'Scheduled',
-      },
-    ],
-  },
-  {
-    id: 'cand-2',
-    jobId: 'job-1',
-    jobTitle: 'Senior AI Engineer',
-    fullName: 'Ananya Deshmukh',
-    email: 'ananya.deshmukh@example.com',
-    phone: '+91 98765 05678',
-    resumeUrl: '/resumes/ananya-deshmukh.pdf',
-    experienceYears: 4,
-    currentCompany: 'Fintech Labs',
-    skills: ['Python', 'FastAPI', 'Docker', 'Kubernetes'],
-    source: 'Referral',
-    status: 'Offer',
-    appliedDate: '2026-10-12',
-    rating: 4.9,
-    notes: 'Offered position. Awaiting formal acceptance.',
-  },
-  {
-    id: 'cand-3',
-    jobId: 'job-2',
-    jobTitle: 'Product Design Lead',
-    fullName: 'Marcus Vance',
-    email: 'marcus.vance@example.com',
-    phone: '+91 98765 08910',
-    resumeUrl: '/resumes/marcus-vance.pdf',
-    experienceYears: 6,
-    currentCompany: 'Pixel Studio',
-    skills: ['Figma', 'Design Tokens', 'User Testing'],
-    source: 'Direct Website',
-    status: 'Screening',
-    appliedDate: '2026-10-20',
-    rating: 4.3,
-    notes: 'Reviewing design portfolio.',
-  },
-];
-
-export const mockPerformanceCycles = [
-  {
-    id: 'cycle-2026',
-    title: 'Annual Performance Appraisal 2026',
-    year: 2026,
-    period: 'H2 2026',
-    startDate: '2026-10-01',
-    endDate: '2026-12-31',
-    status: 'Active',
-  },
-];
-
-export const mockPerformanceReviews: PerformanceReview[] = [
-  {
-    id: 'rev-1',
-    cycleId: 'cycle-2026',
-    cycleTitle: 'Annual Performance Appraisal 2026',
-    employeeId: 'emp-2',
-    employeeName: 'Rahul Sharma',
-    managerId: 'emp-1',
-    managerName: 'Keyur Sangani',
-    goals: [
-      {
-        title: 'Core Microservices Architecture',
-        description: 'Complete high-performance REST APIs and real-time Socket Gateway',
-        weight: 50,
-        progress: 100,
-      },
-      {
-        title: 'Automated CI/CD Deployment',
-        description: 'Reduce build and deployment latency by 30%',
-        weight: 50,
-        progress: 90,
-      },
-    ],
-    selfRating: 4.5,
-    selfComments: 'Delivered core microservices ahead of sprint deadline with 99.9% uptime.',
-    managerRating: 4.8,
-    managerFeedback: 'Outstanding performance, strong problem-solving skills, and great pair programming initiative.',
-    appraisalRecommended: 'Promotion to Lead Software Engineer recommended.',
-    status: 'Manager Review',
-    finalRating: 4.65,
-  },
-];
-
-export const mockTrainingPrograms: TrainingProgram[] = [
-  {
-    id: 'trn-1',
-    title: 'Advanced System Design with NestJS & Clean Architecture',
-    description: 'Master modular enterprise design patterns, event-driven messaging, and high-concurrency microservices.',
-    trainerName: 'Alex Morgan (Staff Architect)',
-    skillsCovered: ['NestJS', 'TypeScript', 'Clean Architecture', 'Event Sourcing'],
-    startDate: '2026-11-10',
-    endDate: '2026-11-20',
-    durationHours: 16,
-    status: 'Upcoming',
-    enrolledCount: 3,
-  },
-  {
-    id: 'trn-2',
-    title: 'Enterprise Cybersecurity & ISO 27001 Data Governance',
-    description: 'Comprehensive compliance protocol for safe credential handling, token encryption, and threat audits.',
-    trainerName: 'Sarah Connor (Security Lead)',
-    skillsCovered: ['ISO 27001', 'SOC 2', 'Data Privacy', 'Zero-Trust'],
-    startDate: '2026-10-01',
-    endDate: '2026-10-31',
-    durationHours: 8,
-    status: 'In Progress',
-    enrolledCount: 5,
-  },
-];
-
-export const mockTrainingEnrollments = [
-  {
-    id: 'enr-1',
-    trainingId: 'trn-1',
-    trainingTitle: 'Advanced System Design with NestJS & Clean Architecture',
-    employeeId: 'emp-2',
-    employeeName: 'Rahul Sharma',
-    status: 'In Progress' as const,
-    progressPercent: 75,
-  },
-  {
-    id: 'enr-2',
-    trainingId: 'trn-2',
-    trainingTitle: 'Enterprise Cybersecurity & ISO 27001 Data Governance',
-    employeeId: 'emp-3',
-    employeeName: 'Priya Patel',
-    status: 'In Progress' as const,
-    progressPercent: 60,
-  },
-];
-
-export const mockCompanyAssets: CompanyAsset[] = [
-  {
-    id: 'ast-1',
-    assetCode: 'AST-101',
-    name: 'MacBook Pro M3 Max 16"',
-    category: 'Laptop',
-    serialNumber: 'C02G879QMD6T',
-    assignedToEmployeeId: 'emp-2',
-    assignedToEmployeeName: 'Rahul Sharma',
-    assignedDate: '2026-02-01',
-    condition: 'Excellent',
-    status: 'Assigned',
-    purchaseDate: '2026-01-15',
-  },
-  {
-    id: 'ast-2',
-    assetCode: 'AST-102',
-    name: 'Dell UltraSharp 27" 4K Thunderbolt Monitor',
-    category: 'Monitor',
-    serialNumber: 'DL-994821',
-    condition: 'Excellent',
-    status: 'Available',
-    purchaseDate: '2026-02-10',
-  },
-  {
-    id: 'ast-3',
-    assetCode: 'AST-103',
-    name: 'Lenovo ThinkPad X1 Carbon Gen 11',
-    category: 'Laptop',
-    serialNumber: 'LN-552190',
-    assignedToEmployeeId: 'emp-3',
-    assignedToEmployeeName: 'Priya Patel',
-    assignedDate: '2026-02-05',
-    condition: 'Good',
-    status: 'Assigned',
-    purchaseDate: '2026-01-20',
-  },
-];
-
-export const mockResignations: Resignation[] = [
-  {
-    id: 'res-1',
-    employeeId: 'emp-3',
-    employeeName: 'Priya Patel',
-    employeeCode: 'EMP-3',
-    departmentName: 'Product & UX Design',
-    resignationDate: '2026-10-15',
-    lastWorkingDay: '2026-11-15',
-    noticePeriodDays: 30,
-    reason: 'Relocating to another city for personal family commitments',
-    status: 'In Clearance',
-    managerApproval: {
-      status: 'Pending',
-      notes: 'Transition handover plan in discussion.',
-    },
-    clearance: {
-      departmentClearance: true,
-      assetReturned: false,
-      financeSettlement: false,
-      exitInterviewCompleted: false,
-    },
-    exitFeedback: 'Enjoyed working with Paneliya engineering team.',
-  },
-];
 
 export const mockSystemSettings = {
   company: {

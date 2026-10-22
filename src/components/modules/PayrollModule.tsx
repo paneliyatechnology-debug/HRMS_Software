@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   Download,
@@ -32,73 +32,25 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const [selectedPayslip, setSelectedPayslip] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [payslipRows, setPayslipRows] = useState([
-    {
-      id: 'pr-1',
-      name: 'John Deo',
-      code: 'PAN-001',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-      role: 'VP of Engineering',
-      basic: 12500,
-      allowances: 3500,
-      gross: 16000,
-      deductions: 2200,
-      net: 13800,
-      status: 'Paid',
-    },
-    {
-      id: 'pr-2',
-      name: 'Sarah Jenkins',
-      code: 'PAN-002',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-      role: 'HR Director',
-      basic: 10000,
-      allowances: 2500,
-      gross: 12500,
-      deductions: 1700,
-      net: 10800,
-      status: 'Paid',
-    },
-    {
-      id: 'pr-3',
-      name: 'Alex Mercer',
-      code: 'PAN-004',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-      role: 'Staff Software Engineer',
-      basic: 9500,
-      allowances: 2200,
-      gross: 11700,
-      deductions: 1600,
-      net: 10100,
-      status: 'Paid',
-    },
-    {
-      id: 'pr-4',
-      name: 'Priya Sharma',
-      code: 'PAN-005',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
-      role: 'Head of Product Design',
-      basic: 9000,
-      allowances: 2000,
-      gross: 11000,
-      deductions: 1500,
-      net: 9500,
-      status: 'Paid',
-    },
-    {
-      id: 'pr-5',
-      name: 'Daniel Craig',
-      code: 'PAN-022',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
-      role: 'Senior Full Stack Engineer',
-      basic: 7500,
-      allowances: 1500,
-      gross: 9000,
-      deductions: 1200,
-      net: 7800,
-      status: 'Approved',
-    },
-  ]);
+  const [records, setRecords] = useState<PayrollRecord[]>(payrollRecords || []);
+
+  useEffect(() => {
+    setRecords(payrollRecords || []);
+  }, [payrollRecords]);
+
+  const payslipRows = records.map((r) => ({
+    id: r.id,
+    name: r.employeeName || 'Employee',
+    code: r.employeeCode || r.id,
+    avatar: (r as any).employeeAvatar || (r as any).avatarUrl || '',
+    role: r.designationTitle || 'Staff Member',
+    basic: r.basicSalary || 0,
+    allowances: r.allowances || 0,
+    gross: r.grossSalary || 0,
+    deductions: r.totalDeductions || 0,
+    net: r.netSalary || 0,
+    status: r.status || 'Draft',
+  }));
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
@@ -106,8 +58,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         status: newStatus,
         actorName: `${user.firstName || 'Finance'} ${user.lastName || 'Admin'}`,
       });
-      setPayslipRows((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: newStatus as any } : r))
       );
       showToast({
         title: 'Status Updated',
@@ -185,9 +137,9 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     }
   };
 
-  const totalGross = payrollRecords.reduce((acc, curr) => acc + (curr.grossSalary || 0), 0) || 203936;
-  const totalNet = payrollRecords.reduce((acc, curr) => acc + (curr.netSalary || 0), 0) || 182400;
-  const totalDeductions = payrollRecords.reduce((acc, curr) => acc + (curr.totalDeductions || 0), 0) || 21536;
+  const totalGross = records.reduce((acc, curr) => acc + (curr.grossSalary || 0), 0);
+  const totalNet = records.reduce((acc, curr) => acc + (curr.netSalary || 0), 0);
+  const totalDeductions = records.reduce((acc, curr) => acc + (curr.totalDeductions || 0), 0);
 
   const handleGenerateBatch = async () => {
     setLoading(true);
@@ -308,55 +260,69 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {payslipRows.map((rec) => (
-                <tr key={rec.id} className="hover:bg-slate-50/70 transition">
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={rec.avatar}
-                        alt={rec.name}
-                        className="w-7 h-7 rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-semibold text-slate-900">{rec.name}</p>
-                        <span className="text-[10px] text-slate-400">{rec.code}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-slate-500">{rec.role}</td>
-                  <td className="py-3 px-3 text-slate-700 font-medium">${rec.basic.toLocaleString()}</td>
-                  <td className="py-3 px-3 text-slate-500">+${rec.allowances.toLocaleString()}</td>
-                  <td className="py-3 px-3 text-slate-900 font-semibold">${rec.gross.toLocaleString()}</td>
-                  <td className="py-3 px-3 text-amber-600 font-medium">-${rec.deductions.toLocaleString()}</td>
-                  <td className="py-3 px-3 text-blue-600 font-bold">${rec.net.toLocaleString()}</td>
-                  <td className="py-3 px-3">
-                    <select
-                      value={rec.status}
-                      onChange={(e) => handleStatusChange(rec.id, e.target.value)}
-                      className={`px-2 py-0.5 rounded-full font-semibold text-[10px] border-0 cursor-pointer ${
-                        rec.status === 'Paid'
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : rec.status === 'Processed'
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'bg-amber-50 text-amber-600'
-                      }`}
-                    >
-                      <option value="Draft">Draft</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Processed">Processed</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <button
-                      onClick={() => handleViewSlip(rec)}
-                      className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
-                    >
-                      View Slip
-                    </button>
+              {payslipRows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
+                    No payroll records generated for this cycle. Click &quot;Run Payroll&quot; to calculate salaries.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                payslipRows.map((rec) => (
+                  <tr key={rec.id} className="hover:bg-slate-50/70 transition">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
+                        {rec.avatar ? (
+                          <img
+                            src={rec.avatar}
+                            alt={rec.name}
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-[10px]">
+                            {rec.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-semibold text-slate-900">{rec.name}</p>
+                          <span className="text-[10px] text-slate-400">{rec.code}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-slate-500">{rec.role}</td>
+                    <td className="py-3 px-3 text-slate-700 font-medium">₹{rec.basic.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-slate-500">+₹{rec.allowances.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-slate-900 font-semibold">₹{rec.gross.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-amber-600 font-medium">-₹{rec.deductions.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-blue-600 font-bold">₹{rec.net.toLocaleString()}</td>
+                    <td className="py-3 px-3">
+                      <select
+                        value={rec.status}
+                        onChange={(e) => handleStatusChange(rec.id, e.target.value)}
+                        className={`px-2 py-0.5 rounded-full font-semibold text-[10px] border-0 cursor-pointer ${
+                          rec.status === 'Paid'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : rec.status === 'Processed'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'bg-amber-50 text-amber-600'
+                        }`}
+                      >
+                        <option value="Draft">Draft</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Processed">Processed</option>
+                        <option value="Paid">Paid</option>
+                      </select>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        onClick={() => handleViewSlip(rec)}
+                        className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
+                      >
+                        View Slip
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

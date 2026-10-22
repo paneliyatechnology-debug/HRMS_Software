@@ -13,10 +13,17 @@ export function getAllEmployees(): Employee[] {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Filter out legacy demo employees
+        const clean = parsed.filter(
+          (e) =>
+            e.id !== 'emp-2' &&
+            e.id !== 'emp-3' &&
+            !(e.firstName === 'Rahul' && e.lastName === 'Sharma') &&
+            !(e.firstName === 'Priya' && e.lastName === 'Patel')
+        );
+        return clean.length > 0 ? clean : mockEmployees;
       }
     }
-    // initialize with mock data
     localStorage.setItem(EMPLOYEES_STORAGE_KEY, JSON.stringify(mockEmployees));
     return mockEmployees;
   } catch (err) {

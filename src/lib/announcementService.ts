@@ -2,60 +2,26 @@ import { Announcement } from '../types/hrms';
 
 const ANNOUNCEMENTS_STORAGE_KEY = 'hrms_announcements_records';
 
-const defaultAnnouncements: Announcement[] = [
-  {
-    id: 'anc-1',
-    title: 'Company Annual Town Hall & Q3 Product Keynote',
-    content:
-      'Join us on Friday, October 30th at 10:00 AM PST for our quarterly town hall! We will celebrate major engineering milestones, reveal the Q4 roadmap, and recognize employee achievements.',
-    publishDate: '2026-10-15',
-    targetAudience: 'All',
-    priority: 'High',
-    authorName: 'John Deo (VP of Engineering)',
-    authorRole: 'Executive Leadership',
-  },
-  {
-    id: 'anc-2',
-    title: 'Open Enrollment for Health, Dental & Vision Insurance Benefits',
-    content:
-      'The 2027 open enrollment period begins next Monday. Please review the updated benefit plans in the Documents portal before November 15th.',
-    publishDate: '2026-10-17',
-    targetAudience: 'All',
-    priority: 'Medium',
-    authorName: 'Sarah Jenkins (HR Director)',
-    authorRole: 'Human Resources',
-  },
-  {
-    id: 'anc-3',
-    title: 'New Hybrid Office Policy & Workspace Booking Guidelines',
-    content:
-      'We have upgraded collaboration spaces in both SF and NY offices. Hot-desking reservations are now available in the employee portal.',
-    publishDate: '2026-10-18',
-    targetAudience: 'All',
-    priority: 'Low',
-    authorName: 'People Operations',
-    authorRole: 'Admin',
-  },
-];
+const defaultAnnouncements: Announcement[] = [];
 
 /**
  * Retrieve all notices/announcements
  */
 export function getAllAnnouncements(): Announcement[] {
-  if (typeof window === 'undefined') return defaultAnnouncements;
+  if (typeof window === 'undefined') return [];
   try {
     const saved = localStorage.getItem(ANNOUNCEMENTS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        const clean = parsed.filter((a: Announcement) => !['anc-1', 'anc-2', 'anc-3'].includes(a.id));
+        return clean;
       }
     }
-    localStorage.setItem(ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(defaultAnnouncements));
-    return defaultAnnouncements;
+    return [];
   } catch (err) {
     console.error('Failed to load announcements:', err);
-    return defaultAnnouncements;
+    return [];
   }
 }
 

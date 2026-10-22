@@ -52,7 +52,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const myId = user.employeeId || 'emp-2';
+  const myId = user.employeeId || user.id || '';
   const myFirstName = (user.firstName || '').toLowerCase();
 
   const relevantLeaves =

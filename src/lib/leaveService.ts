@@ -4,18 +4,25 @@ import { mockLeaveRequests, mockEmployees } from './mockData';
 const LEAVES_STORAGE_KEY = 'hrms_leave_requests';
 
 export function getAllLeaves(): LeaveRequest[] {
-  if (typeof window === 'undefined') return mockLeaveRequests;
+  if (typeof window === 'undefined') return [];
   try {
     const saved = localStorage.getItem(LEAVES_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (l) =>
+            l.employeeId !== 'emp-2' &&
+            l.employeeId !== 'emp-3' &&
+            l.employeeName !== 'Rahul Sharma' &&
+            l.employeeName !== 'Priya Patel'
+        );
+      }
     }
-    // initialize with mock data
-    localStorage.setItem(LEAVES_STORAGE_KEY, JSON.stringify(mockLeaveRequests));
-    return mockLeaveRequests;
+    return [];
   } catch (err) {
     console.error('Failed to load leaves:', err);
-    return mockLeaveRequests;
+    return [];
   }
 }
 
