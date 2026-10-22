@@ -18,6 +18,8 @@ import {
   Smile,
   Shield,
   User as UserIcon,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Employee, ChatConversation, ChatMessage, ChatAttachment } from '../../types/hrms';
@@ -25,6 +27,8 @@ import {
   getAllConversations,
   getMessagesForConversation,
   sendChatMessage,
+  editChatMessage,
+  deleteChatMessage,
   markConversationAsRead,
   syncConversationsWithEmployees,
   ADMIN_USER_ID,
@@ -57,6 +61,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+
+  // Edit and Delete Message states
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -243,6 +252,29 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         type: 'image',
       });
     }
+  };
+
+  const handleStartEdit = (msg: ChatMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.content);
+  };
+
+  const handleSaveEdit = (messageId: string) => {
+    if (!activeConversation) return;
+    if (!editingText.trim()) return;
+
+    editChatMessage(activeConversation.id, messageId, editingText, currentUserId);
+    setEditingMessageId(null);
+    setEditingText('');
+    setMessages(getMessagesForConversation(activeConversation.id));
+  };
+
+  const handleConfirmDelete = () => {
+    if (!activeConversation || !deletingMessageId) return;
+
+    deleteChatMessage(activeConversation.id, deletingMessageId, currentUserId);
+    setDeletingMessageId(null);
+    setMessages(getMessagesForConversation(activeConversation.id));
   };
 
   // Filter conversations
@@ -536,11 +568,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               ) : (
                 messages.map((msg) => {
                   const isMe = msg.senderId === currentUserId;
+                  const canManage = isMe || currentUserRole === 'admin';
+                  const isEditingThis = editingMessageId === msg.id;
 
                   return (
                     <div
                       key={msg.id}
-                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
+                      className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 relative`}
                     >
                       {/* Sender label for incoming */}
                       {!isMe && (
@@ -554,61 +588,136 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         </div>
                       )}
 
-                      {/* Message Bubble */}
-                      <div
-                        className={`max-w-[85%] sm:max-w-md md:max-w-lg p-3.5 rounded-2xl shadow-xs transition-all ${
-                          isMe
-                            ? 'bg-slate-900 text-white rounded-tr-xs'
-                            : 'bg-white text-slate-900 border border-slate-200/80 rounded-tl-xs'
-                        }`}
-                      >
-                        {/* Attachments */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="mb-2 space-y-1.5">
-                            {msg.attachments.map((att) => (
-                              <div
-                                key={att.id}
-                                className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-medium border ${
-                                  isMe
-                                    ? 'bg-white/10 border-white/20 text-white'
-                                    : 'bg-slate-50 border-slate-200 text-slate-800'
-                                }`}
-                              >
-                                {att.type === 'image' ? (
-                                  <ImageIcon className="w-4 h-4 text-blue-400 shrink-0" />
-                                ) : (
-                                  <FileText className="w-4 h-4 text-rose-400 shrink-0" />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-semibold">{att.name}</p>
-                                  <p className="text-[10px] opacity-75">{att.size}</p>
-                                </div>
-                              </div>
-                            ))}
+                      {/* Bubble Container with Action Buttons */}
+                      <div className="relative group/bubble max-w-[85%] sm:max-w-md md:max-w-lg">
+                        {/* Hover action menu for Edit & Delete */}
+                        {canManage && !isEditingThis && (
+                          <div
+                            className={`absolute -top-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200 shadow-md opacity-0 group-hover/bubble:opacity-100 transition-opacity ${
+                              isMe ? 'right-2' : 'left-2'
+                            }`}
+                          >
+                            <button
+                              id={`btn-edit-msg-${msg.id}`}
+                              type="button"
+                              onClick={() => handleStartEdit(msg)}
+                              className="p-1 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                              title="Edit message"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              id={`btn-delete-msg-${msg.id}`}
+                              type="button"
+                              onClick={() => setDeletingMessageId(msg.id)}
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete message"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         )}
 
-                        {/* Content text */}
-                        <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">
-                          {msg.content}
-                        </p>
-
-                        {/* Timestamp & Status */}
+                        {/* Message Bubble */}
                         <div
-                          className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                            isMe ? 'text-slate-300' : 'text-slate-400'
+                          className={`p-3.5 rounded-2xl shadow-xs transition-all ${
+                            isMe
+                              ? 'bg-slate-900 text-white rounded-tr-xs'
+                              : 'bg-white text-slate-900 border border-slate-200/80 rounded-tl-xs'
                           }`}
                         >
-                          <span>{formatTime(msg.timestamp)}</span>
-                          {isMe && (
-                            <span>
-                              {msg.status === 'read' ? (
-                                <CheckCheck className="w-3.5 h-3.5 text-blue-400 inline" />
-                              ) : (
-                                <Check className="w-3.5 h-3.5 text-slate-400 inline" />
-                              )}
-                            </span>
+                          {/* Attachments */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="mb-2 space-y-1.5">
+                              {msg.attachments.map((att) => (
+                                <div
+                                  key={att.id}
+                                  className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-medium border ${
+                                    isMe
+                                      ? 'bg-white/10 border-white/20 text-white'
+                                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                                  }`}
+                                >
+                                  {att.type === 'image' ? (
+                                    <ImageIcon className="w-4 h-4 text-blue-400 shrink-0" />
+                                  ) : (
+                                    <FileText className="w-4 h-4 text-rose-400 shrink-0" />
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-semibold">{att.name}</p>
+                                    <p className="text-[10px] opacity-75">{att.size}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
+
+                          {/* Content or Edit Input */}
+                          {isEditingThis ? (
+                            <div className="space-y-2 mt-0.5">
+                              <textarea
+                                id={`input-edit-msg-${msg.id}`}
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSaveEdit(msg.id);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingMessageId(null);
+                                  }
+                                }}
+                                rows={2}
+                                className="w-full p-2 text-xs rounded-xl border border-slate-300 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  id="btn-cancel-edit-msg"
+                                  type="button"
+                                  onClick={() => setEditingMessageId(null)}
+                                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-200/80 hover:bg-slate-300 text-slate-700 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  id="btn-save-edit-msg"
+                                  type="button"
+                                  onClick={() => handleSaveEdit(msg.id)}
+                                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-2xs transition-colors"
+                                >
+                                  Save Changes
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">
+                              {msg.content}
+                            </p>
+                          )}
+
+                          {/* Timestamp & Status */}
+                          <div
+                            className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
+                              isMe ? 'text-slate-300' : 'text-slate-400'
+                            }`}
+                          >
+                            {msg.isEdited && (
+                              <span className="italic text-[9px] opacity-75 mr-0.5">
+                                (edited)
+                              </span>
+                            )}
+                            <span>{formatTime(msg.timestamp)}</span>
+                            {isMe && (
+                              <span>
+                                {msg.status === 'read' ? (
+                                  <CheckCheck className="w-3.5 h-3.5 text-blue-400 inline" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5 text-slate-400 inline" />
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -712,6 +821,52 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           </div>
         )}
       </div>
+
+      {/* Delete Message In-App Confirmation Modal */}
+      {deletingMessageId && (
+        <div
+          id="delete-message-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeletingMessageId(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Message?</h3>
+                <p className="text-xs text-slate-500">Remove from conversation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete this message for everyone in this conversation?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-delete-msg"
+                type="button"
+                onClick={() => setDeletingMessageId(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-delete-msg"
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
+              >
+                Delete Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

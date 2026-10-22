@@ -474,6 +474,9 @@ export interface ChatMessage {
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
   attachments?: ChatAttachment[];
+  isEdited?: boolean;
+  editedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface ChatConversation {

@@ -466,3 +466,94 @@ export function getTotalUnreadChatCount(currentUserId: string): number {
     return total + count;
   }, 0);
 }
+
+/**
+ * Edits an existing message in a conversation.
+ */
+export function editChatMessage(
+  conversationId: string,
+  messageId: string,
+  newContent: string,
+  editorUserId: string
+): ChatMessage | null {
+  const messagesMap = getAllMessagesMap();
+  const messages = messagesMap[conversationId] || [];
+  const msgIndex = messages.findIndex((m) => m.id === messageId);
+
+  if (msgIndex === -1) return null;
+
+  const msg = messages[msgIndex];
+  // Only sender or admin can edit
+  if (msg.senderId !== editorUserId && editorUserId !== ADMIN_USER_ID) {
+    return null;
+  }
+
+  const updatedMessage: ChatMessage = {
+    ...msg,
+    content: newContent.trim(),
+    isEdited: true,
+    editedAt: new Date().toISOString(),
+  };
+
+  messages[msgIndex] = updatedMessage;
+  messagesMap[conversationId] = [...messages];
+  saveMessagesMap(messagesMap);
+
+  // If this was the last message in conversation, update conversation preview
+  if (msgIndex === messages.length - 1) {
+    const conversations = getAllConversations();
+    const convIndex = conversations.findIndex((c) => c.id === conversationId);
+    if (convIndex !== -1) {
+      conversations[convIndex].lastMessage = newContent.trim();
+      conversations[convIndex].updatedAt = new Date().toISOString();
+      saveConversations(conversations);
+    }
+  }
+
+  return updatedMessage;
+}
+
+/**
+ * Deletes a message from a conversation.
+ */
+export function deleteChatMessage(
+  conversationId: string,
+  messageId: string,
+  deleterUserId: string
+): boolean {
+  const messagesMap = getAllMessagesMap();
+  const messages = messagesMap[conversationId] || [];
+  const msgIndex = messages.findIndex((m) => m.id === messageId);
+
+  if (msgIndex === -1) return false;
+
+  const msg = messages[msgIndex];
+  // Only sender or admin can delete
+  if (msg.senderId !== deleterUserId && deleterUserId !== ADMIN_USER_ID) {
+    return false;
+  }
+
+  // Remove the message
+  messages.splice(msgIndex, 1);
+  messagesMap[conversationId] = [...messages];
+  saveMessagesMap(messagesMap);
+
+  // Update conversation lastMessage preview
+  const conversations = getAllConversations();
+  const convIndex = conversations.findIndex((c) => c.id === conversationId);
+  if (convIndex !== -1) {
+    const remaining = messages;
+    if (remaining.length > 0) {
+      const last = remaining[remaining.length - 1];
+      conversations[convIndex].lastMessage = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+      conversations[convIndex].lastMessageTimestamp = last.timestamp;
+      conversations[convIndex].lastSenderId = last.senderId;
+    } else {
+      conversations[convIndex].lastMessage = 'No messages yet';
+      conversations[convIndex].lastMessageTimestamp = conversations[convIndex].updatedAt;
+    }
+    saveConversations(conversations);
+  }
+
+  return true;
+}
