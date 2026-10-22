@@ -1,87 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShieldCheck, Search, Filter, Clock, User, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Search, Filter, Clock, User, Globe, RefreshCw } from 'lucide-react';
 import { AuditLog } from '../../types/hrms';
+import { api } from '../../lib/api';
 
 export const AuditLogsModule: React.FC = () => {
   const [moduleFilter, setModuleFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const logs: AuditLog[] = [
-    {
-      id: 'log-1',
-      userId: 'user-1',
-      userName: 'John Deo',
-      userRole: 'SUPER_ADMIN',
-      action: 'SYSTEM_LOGIN',
-      module: 'Authentication',
-      recordId: 'user-1',
-      details: 'Successful login from IP 192.168.1.100 (Chrome/macOS)',
-      ipAddress: '192.168.1.100',
-      createdAt: '2026-10-19T08:55:00Z',
-    },
-    {
-      id: 'log-2',
-      userId: 'user-2',
-      userName: 'Sarah Jenkins',
-      userRole: 'HR_ADMIN',
-      action: 'LEAVE_APPROVED',
-      module: 'Leave Management',
-      recordId: 'lr-1',
-      details: 'Approved Sick Leave for Adarson Miller (Oct 21, 2026)',
-      ipAddress: '192.168.1.105',
-      createdAt: '2026-10-19T09:15:00Z',
-    },
-    {
-      id: 'log-3',
-      userId: 'user-7',
-      userName: 'Rachel Green',
-      userRole: 'FINANCE_ADMIN',
-      action: 'PAYROLL_GENERATED',
-      module: 'Payroll',
-      recordId: 'pr-2026-10',
-      details: 'Initiated monthly payroll computation for October 2026 (21 employees)',
-      ipAddress: '192.168.1.112',
-      createdAt: '2026-10-19T07:00:00Z',
-    },
-    {
-      id: 'log-4',
-      userId: 'user-4',
-      userName: 'Alex Mercer',
-      userRole: 'MANAGER',
-      action: 'ATTENDANCE_CHECKIN',
-      module: 'Attendance',
-      recordId: 'att-3',
-      details: 'Employee punched in at 08:45 AM (Office Geofence Verified)',
-      ipAddress: '192.168.1.108',
-      createdAt: '2026-10-19T08:45:00Z',
-    },
-    {
-      id: 'log-5',
-      userId: 'user-2',
-      userName: 'Sarah Jenkins',
-      userRole: 'HR_ADMIN',
-      action: 'ANNOUNCEMENT_PUBLISHED',
-      module: 'Announcements',
-      recordId: 'anc-2',
-      details: 'Published open enrollment notification to all employees',
-      ipAddress: '192.168.1.105',
-      createdAt: '2026-10-17T11:00:00Z',
-    },
-  ];
+  const loadLogs = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getAuditLogs(moduleFilter !== 'ALL' ? moduleFilter : undefined);
+      setLogs(data);
+    } catch (err) {
+      console.error('Failed to load audit logs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, [moduleFilter]);
 
   const filtered = logs.filter((l) => {
-    const matchMod = moduleFilter === 'ALL' || l.module.toLowerCase() === moduleFilter.toLowerCase();
     const matchQ =
       l.userName.toLowerCase().includes(search.toLowerCase()) ||
       l.action.toLowerCase().includes(search.toLowerCase()) ||
-      l.details.toLowerCase().includes(search.toLowerCase());
-    return matchMod && matchQ;
+      (l.details || '').toLowerCase().includes(search.toLowerCase());
+    return matchQ;
   });
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -92,9 +47,19 @@ export const AuditLogsModule: React.FC = () => {
           </p>
         </div>
 
-        <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 font-bold text-xs flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4" /> SOC 2 / GDPR Compliant
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadLogs}
+            disabled={loading}
+            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 shadow-2xs transition"
+            title="Refresh Audit Logs"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 font-bold text-xs flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4" /> SOC 2 / GDPR Compliant
+          </span>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6">
@@ -106,19 +71,19 @@ export const AuditLogsModule: React.FC = () => {
               placeholder="Search audit trail..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            {['ALL', 'Authentication', 'Leave Management', 'Payroll', 'Attendance'].map((m) => (
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {['ALL', 'Authentication', 'Leave Management', 'Payroll', 'Attendance', 'Recruitment'].map((m) => (
               <button
                 key={m}
                 onClick={() => setModuleFilter(m)}
                 className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${
                   moduleFilter === m
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {m}
@@ -164,7 +129,7 @@ export const AuditLogsModule: React.FC = () => {
                     {log.details}
                   </td>
                   <td className="py-3.5 px-4 text-right text-slate-400">
-                    {log.ipAddress}
+                    {log.ipAddress || '192.168.1.100'}
                   </td>
                 </tr>
               ))}

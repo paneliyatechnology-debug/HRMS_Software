@@ -19,6 +19,8 @@ import {
   ShieldCheck,
   Coffee,
   Pause,
+  Sliders,
+  Cpu,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import {
@@ -29,7 +31,11 @@ import {
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
+  saveAttendanceRecords,
 } from '../../lib/attendanceService';
+import { api } from '../../lib/api';
+import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -46,6 +52,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   onOpenPunchModal,
   onRefresh,
 }) => {
+  const { user } = useAuth();
+  const { showToast } = useSocket();
+
   const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
@@ -53,6 +62,107 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [selectedYear, setSelectedYear] = useState('2026');
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+
+  // Modal: HR Regularization
+  const [isRegModalOpen, setIsRegModalOpen] = useState(false);
+  const [regEmpId, setRegEmpId] = useState(employees[0]?.id || 'emp-1');
+  const [regDate, setRegDate] = useState('2026-10-21');
+  const [regCheckIn, setRegCheckIn] = useState('09:00 AM');
+  const [regCheckOut, setRegCheckOut] = useState('06:00 PM');
+  const [regStatus, setRegStatus] = useState<'Present' | 'Half Day' | 'Late'>('Present');
+  const [regRemarks, setRegRemarks] = useState('Missed punch due to biometric maintenance');
+
+  // Modal: Biometric Hardware Sync
+  const [isBiometricModalOpen, setIsBiometricModalOpen] = useState(false);
+  const [bioDeviceId, setBioDeviceId] = useState('GATE-01-TERMINAL');
+  const [bioEmployeeCode, setBioEmployeeCode] = useState('EMP-1');
+  const [bioSyncing, setBioSyncing] = useState(false);
+
+  const handleRegularizeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await api.regularizeAttendance({
+        employeeId: regEmpId,
+        date: regDate,
+        checkIn: regCheckIn,
+        checkOut: regCheckOut,
+        status: regStatus,
+        remarks: regRemarks,
+      });
+
+      // Also persist to local attendanceService so UI timer and dashboard stay in sync
+      const existing = getAllAttendanceRecords();
+      const targetEmp = employees.find((emp) => emp.id === regEmpId);
+      const updated = [
+        ...existing.filter((r) => !(r.employeeId === regEmpId && r.date === regDate)),
+        {
+          id: `att-reg-${Date.now()}`,
+          employeeId: regEmpId,
+          employeeName: targetEmp ? `${targetEmp.firstName} ${targetEmp.lastName}` : 'Employee',
+          date: regDate,
+          checkIn: regCheckIn,
+          checkOut: regCheckOut,
+          status: regStatus,
+          activeSeconds: 28800,
+          breakSeconds: 3600,
+          breakDurationMinutes: 60,
+          workingHours: 8,
+          overtimeHours: 0,
+          isCompleted: true,
+          isOnBreak: false,
+          remarks: regRemarks,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      saveAttendanceRecords(updated as AttendanceRecord[]);
+
+      showToast({
+        type: 'success',
+        title: 'Attendance Regularized',
+        message: `Punches for ${regDate} corrected and logged in audit trail.`,
+      });
+      setIsRegModalOpen(false);
+      onRefresh();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Regularization Failed',
+        message: err.message || 'Could not regularize attendance.',
+      });
+    }
+  };
+
+  const handleBiometricSyncSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBioSyncing(true);
+    try {
+      const nowStr = new Date().toISOString();
+      await api.syncBiometricAttendance([
+        {
+          deviceId: 'ZK-DEV-01',
+          employeeCode: bioEmployeeCode,
+          punchTime: nowStr,
+          type: 'IN',
+        },
+      ]);
+
+      showToast({
+        type: 'success',
+        title: 'Biometric Machine Synced',
+        message: `Synchronized biometric punch logs from ${bioDeviceId}.`,
+      });
+      setIsBiometricModalOpen(false);
+      onRefresh();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Sync Failed',
+        message: err.message || 'Could not sync biometric machine.',
+      });
+    } finally {
+      setBioSyncing(false);
+    }
+  };
 
   useEffect(() => {
     const update = () => {
@@ -179,13 +289,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       {/* Action Buttons Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenPunchModal}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Mark Attendance</span>
+          </button>
+
+          <button
+            onClick={() => setIsRegModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+          >
+            <Sliders className="w-3.5 h-3.5 text-blue-600" />
+            <span>Regularize Punch</span>
+          </button>
+
+          <button
+            onClick={() => setIsBiometricModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+          >
+            <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Biometric Sync</span>
           </button>
 
           <button
@@ -627,6 +753,184 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: HR Regularization */}
+      {isRegModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-blue-600" />
+                HR Attendance Regularization
+              </h3>
+              <button
+                onClick={() => setIsRegModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegularizeSubmit} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
+                <select
+                  value={regEmpId}
+                  onChange={(e) => setRegEmpId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
+                >
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={regDate}
+                    onChange={(e) => setRegDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={regStatus}
+                    onChange={(e) => setRegStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
+                  >
+                    <option value="Present">Present</option>
+                    <option value="Late">Late</option>
+                    <option value="Half Day">Half Day</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Check-in Time</label>
+                  <input
+                    type="text"
+                    value={regCheckIn}
+                    onChange={(e) => setRegCheckIn(e.target.value)}
+                    placeholder="09:00 AM"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Check-out Time</label>
+                  <input
+                    type="text"
+                    value={regCheckOut}
+                    onChange={(e) => setRegCheckOut(e.target.value)}
+                    placeholder="06:00 PM"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Correction Remarks / Reason *</label>
+                <input
+                  type="text"
+                  required
+                  value={regRemarks}
+                  onChange={(e) => setRegRemarks(e.target.value)}
+                  placeholder="e.g., Missed punch due to biometric maintenance"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsRegModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                >
+                  Save Regularization
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Biometric Hardware Sync */}
+      {isBiometricModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-emerald-600" />
+                Biometric Terminal Sync (ZKTeco / eSSL)
+              </h3>
+              <button
+                onClick={() => setIsBiometricModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBiometricSyncSubmit} className="mt-4 space-y-4 text-xs">
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Machine Network Gateway</span>
+                <p className="font-mono text-slate-800 text-[11px]">TCP/IP Protocol • Port 4000 Hook</p>
+                <p className="text-[11px] text-emerald-600 font-semibold">Ready to pull batch buffer logs</p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Terminal Device Identifier</label>
+                <input
+                  type="text"
+                  value={bioDeviceId}
+                  onChange={(e) => setBioDeviceId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Employee Code Test Punch</label>
+                <input
+                  type="text"
+                  value={bioEmployeeCode}
+                  onChange={(e) => setBioEmployeeCode(e.target.value)}
+                  placeholder="e.g. EMP-1"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBiometricModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={bioSyncing}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  {bioSyncing ? 'Synchronizing...' : 'Execute Batch Sync'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

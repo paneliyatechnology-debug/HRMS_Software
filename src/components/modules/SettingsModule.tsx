@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Shield, Clock, Calendar, DollarSign, Check, Building } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { api } from '../../lib/api';
 
 export const SettingsModule: React.FC = () => {
   const { hasPermission } = useAuth();
+  const { showToast } = useSocket();
   const [activeTab, setActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac'>('company');
+  const [loading, setLoading] = useState(false);
 
   const [companyData, setCompanyData] = useState({
     name: 'Paneliya Technology Inc.',
@@ -25,11 +29,61 @@ export const SettingsModule: React.FC = () => {
     workingHoursPerDay: 8,
   });
 
+  const [leavePolicyData, setLeavePolicyData] = useState({
+    casualLeaveAnnual: 12,
+    sickLeaveAnnual: 10,
+    paidLeaveAnnual: 15,
+    carryForwardLimit: 5,
+  });
+
   const [savedMessage, setSavedMessage] = useState(false);
 
-  const handleSave = () => {
-    setSavedMessage(true);
-    setTimeout(() => setSavedMessage(false), 3000);
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await api.getSettings();
+        if (data) {
+          if (data.company) setCompanyData((prev) => ({ ...prev, ...data.company }));
+          if (data.workSchedule) setScheduleData((prev) => ({ ...prev, ...data.workSchedule }));
+          if (data.leavePolicy) setLeavePolicyData((prev) => ({ ...prev, ...data.leavePolicy }));
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      await api.updateSettings({
+        company: companyData,
+        workSchedule: scheduleData,
+        leavePolicy: leavePolicyData,
+        payrollPolicy: {
+          payCycle: 'Monthly',
+          disbursementDate: 28,
+          pfContributionPercent: 12,
+        },
+      });
+
+      setSavedMessage(true);
+      showToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'System parameters updated and synchronized.',
+      });
+      setTimeout(() => setSavedMessage(false), 3000);
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: err.message || 'Failed to update system settings.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const rbacMatrix = [
@@ -49,10 +103,10 @@ export const SettingsModule: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-            Settings & Permissions
+            Settings & Enterprise Policies
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Configure company legal entity parameters, working hours, and RBAC matrix
+            Configure company legal entity parameters, working hours, leave quotas, and RBAC matrix
           </p>
         </div>
 
@@ -97,7 +151,7 @@ export const SettingsModule: React.FC = () => {
                 type="text"
                 value={companyData.name}
                 onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
               />
             </div>
             <div>
@@ -106,7 +160,7 @@ export const SettingsModule: React.FC = () => {
                 type="text"
                 value={companyData.tagline}
                 onChange={(e) => setCompanyData({ ...companyData, tagline: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -116,7 +170,7 @@ export const SettingsModule: React.FC = () => {
                   type="text"
                   value={companyData.taxId}
                   onChange={(e) => setCompanyData({ ...companyData, taxId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
                 />
               </div>
               <div>
@@ -125,7 +179,7 @@ export const SettingsModule: React.FC = () => {
                   type="text"
                   value={companyData.currency}
                   onChange={(e) => setCompanyData({ ...companyData, currency: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
                 />
               </div>
             </div>
@@ -135,15 +189,16 @@ export const SettingsModule: React.FC = () => {
                 type="text"
                 value={companyData.address}
                 onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
               />
             </div>
 
             <button
               onClick={handleSave}
-              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+              disabled={loading}
+              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
             >
-              Save Company Settings
+              {loading ? 'Saving...' : 'Save Company Settings'}
             </button>
           </div>
         </div>
@@ -162,7 +217,7 @@ export const SettingsModule: React.FC = () => {
                   type="number"
                   value={scheduleData.workingHoursPerDay}
                   onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
                 />
               </div>
               <div>
@@ -171,15 +226,27 @@ export const SettingsModule: React.FC = () => {
                   type="number"
                   value={scheduleData.gracePeriodMinutes}
                   onChange={(e) => setScheduleData({ ...scheduleData, gracePeriodMinutes: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
                 />
               </div>
             </div>
+
+            <div>
+              <label className="block font-medium mb-1 text-slate-700">Default Shift Window</label>
+              <input
+                type="text"
+                value={scheduleData.defaultShift}
+                onChange={(e) => setScheduleData({ ...scheduleData, defaultShift: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
+              />
+            </div>
+
             <button
               onClick={handleSave}
-              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+              disabled={loading}
+              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
             >
-              Save Attendance Rules
+              {loading ? 'Saving...' : 'Save Attendance Rules'}
             </button>
           </div>
         </div>
@@ -188,21 +255,54 @@ export const SettingsModule: React.FC = () => {
       {/* Tab 3: Leave Policies */}
       {activeTab === 'leaves' && (
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
-          <h3 className="text-sm font-bold text-slate-900">Annual Leave Entitlements</h3>
-          <div className="grid grid-cols-3 gap-3 text-xs">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
-              <span className="text-slate-400 block font-semibold">Casual Leave</span>
-              <span className="text-lg font-bold text-blue-600 mt-1 block">12 Days / Year</span>
+          <h3 className="text-sm font-bold text-slate-900">Annual Leave Quota Policy</h3>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block font-medium mb-1 text-slate-700">Casual Leave (Days / Year)</label>
+              <input
+                type="number"
+                value={leavePolicyData.casualLeaveAnnual}
+                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
+              />
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
-              <span className="text-slate-400 block font-semibold">Sick Leave</span>
-              <span className="text-lg font-bold text-emerald-600 mt-1 block">10 Days / Year</span>
+            <div>
+              <label className="block font-medium mb-1 text-slate-700">Sick Leave (Days / Year)</label>
+              <input
+                type="number"
+                value={leavePolicyData.sickLeaveAnnual}
+                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
+              />
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
-              <span className="text-slate-400 block font-semibold">Paid / Annual</span>
-              <span className="text-lg font-bold text-purple-600 mt-1 block">15 Days / Year</span>
+            <div>
+              <label className="block font-medium mb-1 text-slate-700">Paid / Annual Leave (Days / Year)</label>
+              <input
+                type="number"
+                value={leavePolicyData.paidLeaveAnnual}
+                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
+              />
+            </div>
+            <div>
+              <label className="block font-medium mb-1 text-slate-700">Max Carry Forward Limit</label>
+              <input
+                type="number"
+                value={leavePolicyData.carryForwardLimit}
+                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
+              />
             </div>
           </div>
+
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Leave Policy'}
+          </button>
         </div>
       )}
 
