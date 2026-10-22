@@ -54,7 +54,7 @@ import {
 } from '../lib/mockData';
 
 export default function Home() {
-  const { isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
+  const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
   const [activeModule, setActiveModule] = useState('dashboard');
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -316,6 +316,13 @@ export default function Home() {
         {activeModule === 'resignations' && <ResignationsModule />}
         {activeModule === 'announcements' && (
           <AnnouncementsModule employees={employees} portalMode={portalMode} />
+        )}
+        {activeModule === 'chat' && (
+          <ChatModule
+            employees={employees}
+            initialEmployeeId={targetChatEmployeeId}
+            onClearInitialEmployee={() => setTargetChatEmployeeId(null)}
+          />
         )}
         {activeModule === 'reports' && <ReportsModule />}
         {activeModule === 'audit-logs' && <AuditLogsModule />}

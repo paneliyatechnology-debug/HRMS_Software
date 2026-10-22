@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '../types/hrms';
 import { mockUsers, mockEmployees } from '../lib/mockData';
+import { getAllEmployees } from '../lib/employeeService';
 import { api } from '../lib/api';
 
 interface AuthContextType {
@@ -136,12 +137,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; message?: string }> => {
     const trimmed = codeOrEmail.trim().toLowerCase();
 
-    // Match in employees list
-    const foundEmp = mockEmployees.find(
+    // Match in employees list (dynamic storage + mocks)
+    const allEmps = getAllEmployees();
+    const sourceEmps = allEmps && allEmps.length > 0 ? allEmps : mockEmployees;
+
+    const foundEmp = sourceEmps.find(
       (e) =>
         e.employeeCode.toLowerCase() === trimmed ||
         e.email.toLowerCase() === trimmed ||
-        e.phone.includes(trimmed) ||
+        (e.phone && e.phone.includes(trimmed)) ||
         `${e.firstName} ${e.lastName}`.toLowerCase().includes(trimmed)
     );
 
