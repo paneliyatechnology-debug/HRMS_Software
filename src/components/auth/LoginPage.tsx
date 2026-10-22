@@ -124,7 +124,7 @@ export const LoginPage: React.FC = () => {
             /* ========================================================== */
             /* ADMIN LOGIN                                                */
             /* ========================================================== */
-            <form onSubmit={handleAdminSubmit} className="space-y-4">
+            <form onSubmit={handleAdminSubmit} className="space-y-4" autoComplete="off">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Email or Phone Number
@@ -134,6 +134,7 @@ export const LoginPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    autoComplete="off"
                     value={adminIdentifier}
                     onChange={(e) => setAdminIdentifier(e.target.value)}
                     placeholder="Email or phone (e.g. 6352486893)"
@@ -154,6 +155,7 @@ export const LoginPage: React.FC = () => {
                   <input
                     type={showAdminPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     placeholder="••••••••"
@@ -176,26 +178,12 @@ export const LoginPage: React.FC = () => {
               >
                 {loading ? 'Signing in...' : 'Sign In as Administrator'}
               </button>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Demo Admin: Keyur Sangani</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdminIdentifier('keyur.sangani1234@gmail.com');
-                    setAdminPassword('123456789');
-                  }}
-                  className="font-medium text-slate-900 hover:underline"
-                >
-                  Autofill
-                </button>
-              </div>
             </form>
           ) : (
             /* ========================================================== */
             /* EMPLOYEE LOGIN                                             */
             /* ========================================================== */
-            <form onSubmit={handleEmployeeSubmit} className="space-y-4">
+            <form onSubmit={handleEmployeeSubmit} className="space-y-4" autoComplete="off">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1.5">
                   Employee ID or Email
@@ -205,6 +193,7 @@ export const LoginPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    autoComplete="off"
                     value={empIdentifier}
                     onChange={(e) => setEmpIdentifier(e.target.value)}
                     placeholder="e.g. EMP-1, EMP-2, or employee email"
@@ -225,6 +214,7 @@ export const LoginPage: React.FC = () => {
                   <input
                     type={showEmpPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={empPassword}
                     onChange={(e) => setEmpPassword(e.target.value)}
                     placeholder="••••••••"
@@ -247,20 +237,6 @@ export const LoginPage: React.FC = () => {
               >
                 {loading ? 'Signing in...' : 'Sign In as Employee'}
               </button>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Backend Staff: Bapu (EMP-109)</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmpIdentifier('EMP-109');
-                    setEmpPassword('123456');
-                  }}
-                  className="font-medium text-slate-900 hover:underline"
-                >
-                  Autofill
-                </button>
-              </div>
             </form>
           )}
         </div>
