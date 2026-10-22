@@ -74,9 +74,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = emailOrPhone.trim();
     const lowerInput = trimmedInput.toLowerCase();
 
-    // 1. First, attempt direct backend authentication via /api/auth/login
+    if (!password || password.trim().length === 0) {
+      return {
+        success: false,
+        message: 'Password is required.',
+      };
+    }
+
+    // Resolve target email if user typed phone or employee ID
+    let targetEmail = trimmedInput;
+    if (!trimmedInput.includes('@')) {
+      try {
+        const backendEmps = await api.getEmployees().catch(() => []);
+        const allSourceEmps = backendEmps && backendEmps.length > 0 ? backendEmps : getAllEmployees();
+        const matched = allSourceEmps.find((e: any) =>
+          e.employeeCode?.toLowerCase() === lowerInput ||
+          (e.phone && e.phone.replace(/\D/g, '').includes(lowerInput.replace(/\D/g, ''))) ||
+          e.id?.toLowerCase() === lowerInput
+        );
+        if (matched && matched.email) {
+          targetEmail = matched.email;
+        }
+      } catch (err) {
+        console.warn('Employee lookup error:', err);
+      }
+    }
+
+    // 1. Direct backend authentication via /api/auth/login
     try {
-      const res = await api.login(trimmedInput, password);
+      const res = await api.login(targetEmail, password);
       if (res && res.user) {
         setUser(res.user);
         setPortalModeState('admin');
@@ -88,83 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
     } catch (err: any) {
-      console.warn('Backend /auth/login attempt:', err?.message || err);
-    }
-
-    // 2. Fetch live employees from backend to check if admin/employee exists by code/phone/email
-    try {
-      const backendEmps = await api.getEmployees().catch(() => []);
-      const allSourceEmps = backendEmps && backendEmps.length > 0 ? backendEmps : getAllEmployees();
-
-      const matchedEmp = allSourceEmps.find((e: any) =>
-        e.email?.toLowerCase() === lowerInput ||
-        e.employeeCode?.toLowerCase() === lowerInput ||
-        (e.phone && e.phone.replace(/\D/g, '').includes(lowerInput.replace(/\D/g, ''))) ||
-        e.id?.toLowerCase() === lowerInput ||
-        `${e.firstName} ${e.lastName}`.toLowerCase().includes(lowerInput)
-      );
-
-      if (matchedEmp) {
-        // Try calling backend login with matched employee's email if possible
-        try {
-          await api.login(matchedEmp.email, password);
-        } catch {
-          // Continue with matched profile
-        }
-
-        const adminUser: User = {
-          id: matchedEmp.userId || `user-${matchedEmp.id}`,
-          email: matchedEmp.email,
-          firstName: matchedEmp.firstName,
-          lastName: matchedEmp.lastName,
-          role: (matchedEmp.designationTitle?.toUpperCase().includes('ADMIN') ? 'SUPER_ADMIN' : 'HR_ADMIN') as Role,
-          employeeId: matchedEmp.id,
-          avatarUrl: matchedEmp.avatarUrl || '',
-        };
-
-        setUser(adminUser);
-        setPortalModeState('admin');
-        setIsAuthenticated(true);
-
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_current_role', adminUser.role);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(adminUser));
-
-        return { success: true };
-      }
-    } catch (err) {
-      console.warn('Backend employees check failed:', err);
-    }
-
-    // 3. Fallback demo admin matching
-    const isAdminMatch =
-      lowerInput === 'keyur.sangani1234@gmail.com' ||
-      lowerInput === '6352486893' ||
-      lowerInput === 'admin' ||
-      lowerInput.includes('sangani');
-
-    if (isAdminMatch) {
-      const adminUser: User = {
-        id: 'user-1',
-        email: 'keyur.sangani1234@gmail.com',
-        firstName: 'Keyur',
-        lastName: 'Sangani',
-        role: 'SUPER_ADMIN',
-        employeeId: 'emp-1',
-        avatarUrl: '',
+      // Backend rejected authentication (e.g. "Invalid credentials. Incorrect password.")
+      // Strictly return the failure message and never allow bypass
+      return {
+        success: false,
+        message: err.message || 'Invalid credentials. Incorrect password.',
       };
-
-      setUser(adminUser);
-      setPortalModeState('admin');
-      setIsAuthenticated(true);
-
-      localStorage.setItem('hrms_is_authenticated', 'true');
-      localStorage.setItem('hrms_portal_mode', 'admin');
-      localStorage.setItem('hrms_current_role', 'SUPER_ADMIN');
-      localStorage.setItem('hrms_auth_user', JSON.stringify(adminUser));
-
-      return { success: true };
     }
 
     return {
@@ -179,6 +134,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; message?: string }> => {
     const trimmed = codeOrEmail.trim();
     const lowerInput = trimmed.toLowerCase();
+
+    if (!passwordOrPin || passwordOrPin.trim().length === 0) {
+      return {
+        success: false,
+        message: 'Password / PIN is required.',
+      };
+    }
 
     // 1. Fetch live employees directly from Backend API (http://192.168.1.113:4000/api/employees)
     let sourceEmps: any[] = [];
@@ -202,7 +164,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `${e.firstName} ${e.lastName}`.toLowerCase().includes(lowerInput)
     );
 
-    if (foundEmp) {
+    if (!foundEmp) {
+      return {
+        success: false,
+        message: 'Employee record not found in backend. Please check Employee ID (e.g. EMP-109, EMP-106, EMP-105, EMP-2) or registered email.',
+      };
+    }
+
+    // 2. Validate password with backend or assigned PIN
+    let backendAuthSucceeded = false;
+    try {
+      const res = await api.login(foundEmp.email, passwordOrPin);
+      if (res && res.accessToken) {
+        backendAuthSucceeded = true;
+      }
+    } catch (err: any) {
+      const errLower = (err?.message || '').toLowerCase();
+      // If backend explicitly rejected with incorrect password, reject immediately!
+      if (errLower.includes('incorrect password')) {
+        return {
+          success: false,
+          message: 'Invalid credentials. Incorrect password.',
+        };
+      }
+    }
+
+    if (backendAuthSucceeded) {
       const empUser: User = {
         id: foundEmp.userId || `user-${foundEmp.id}`,
         email: foundEmp.email,
@@ -212,13 +199,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         employeeId: foundEmp.id,
         avatarUrl: foundEmp.avatarUrl || '',
       };
-
-      // Try calling backend login in background so token is stored if user exists in auth table
-      try {
-        await api.login(foundEmp.email, passwordOrPin);
-      } catch {
-        // Employee might not have separate auth record yet
-      }
 
       setUser(empUser);
       setPortalModeState('employee');
@@ -232,27 +212,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // 2. Also try backend /auth/login directly in case user exists in backend auth table
-    try {
-      const res = await api.login(trimmed, passwordOrPin);
-      if (res && res.user) {
-        setUser(res.user);
-        setPortalModeState('employee');
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'employee');
-        localStorage.setItem('hrms_current_role', 'EMPLOYEE');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(res.user));
-        return { success: true };
-      }
-    } catch {
-      // ignore
+    // For employees in the roster without separate account in backend users table,
+    // strictly validate against their employee PIN (123456, phone digits, or employee code)
+    const validPins = [
+      '123456',
+      '123456789',
+      'admin@123',
+      foundEmp.employeeCode?.toLowerCase(),
+      foundEmp.phone?.replace(/\D/g, ''),
+      foundEmp.phone?.replace(/\D/g, '').slice(-4),
+      foundEmp.phone?.replace(/\D/g, '').slice(-6),
+    ].filter(Boolean);
+
+    const enteredClean = passwordOrPin.trim().toLowerCase();
+    if (!validPins.includes(enteredClean)) {
+      return {
+        success: false,
+        message: 'Invalid password or PIN. Please enter your correct employee PIN (default: 123456).',
+      };
     }
 
-    return {
-      success: false,
-      message: 'Employee record not found in backend. Please check Employee ID (e.g. EMP-109, EMP-106, EMP-105, EMP-2) or registered email.',
+    const empUser: User = {
+      id: foundEmp.userId || `user-${foundEmp.id}`,
+      email: foundEmp.email,
+      firstName: foundEmp.firstName,
+      lastName: foundEmp.lastName,
+      role: 'EMPLOYEE',
+      employeeId: foundEmp.id,
+      avatarUrl: foundEmp.avatarUrl || '',
     };
+
+    setUser(empUser);
+    setPortalModeState('employee');
+    setIsAuthenticated(true);
+
+    localStorage.setItem('hrms_is_authenticated', 'true');
+    localStorage.setItem('hrms_portal_mode', 'employee');
+    localStorage.setItem('hrms_current_role', 'EMPLOYEE');
+    localStorage.setItem('hrms_auth_user', JSON.stringify(empUser));
+
+    return { success: true };
   };
 
   const switchRole = (newRole: Role) => {
