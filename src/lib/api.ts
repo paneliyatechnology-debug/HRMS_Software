@@ -81,6 +81,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
         : null;
 
     const res = await fetch(`${API_BASE}${url}`, {
+      cache: 'no-store',
       ...options,
       headers: {
         'Content-Type': 'application/json',

@@ -233,10 +233,14 @@ export default function Home() {
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
+      const pollInterval = setInterval(() => {
+        loadData();
+      }, 10000);
       const handleUpdate = () => loadData();
       window.addEventListener('hrms_employees_updated', handleUpdate);
       window.addEventListener('hrms_announcements_updated', handleUpdate);
       return () => {
+        clearInterval(pollInterval);
         window.removeEventListener('hrms_employees_updated', handleUpdate);
         window.removeEventListener('hrms_announcements_updated', handleUpdate);
       };
