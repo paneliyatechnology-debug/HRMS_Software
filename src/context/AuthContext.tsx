@@ -6,6 +6,21 @@ import { mockUsers, mockEmployees } from '../lib/mockData';
 import { getAllEmployees } from '../lib/employeeService';
 import { api } from '../lib/api';
 
+export const isUserAdminRole = (role?: string): boolean => {
+  if (!role) return false;
+  const normalized = role.trim().toUpperCase();
+  return (
+    normalized === 'SUPER_ADMIN' ||
+    normalized === 'HR_ADMIN' ||
+    normalized === 'FINANCE_ADMIN' ||
+    normalized === 'ADMIN'
+  );
+};
+
+export const determinePortalMode = (role?: string): 'admin' | 'employee' => {
+  return isUserAdminRole(role) ? 'admin' : 'employee';
+};
+
 interface AuthContextType {
   user: User;
   role: Role;
@@ -39,6 +54,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false); // strictly false by default, requires login
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const enrichUserData = async (baseUser: any) => {
+    if (!baseUser) return baseUser;
+    let enriched = { ...baseUser };
+    try {
+      const backendEmps = await api.getEmployees().catch(() => []);
+      const allSourceEmps = backendEmps && backendEmps.length > 0 ? backendEmps : getAllEmployees();
+      const matched = allSourceEmps.find((e: any) =>
+        (baseUser.email && e.email?.toLowerCase() === baseUser.email.toLowerCase()) ||
+        (baseUser.id && (e.userId === baseUser.id || e.id === baseUser.id || (e as any)._id === baseUser.id)) ||
+        (baseUser.employeeId && (e.id === baseUser.employeeId || (e as any)._id === baseUser.employeeId)) ||
+        (baseUser.employeeCode && e.employeeCode?.toLowerCase() === baseUser.employeeCode.toLowerCase())
+      );
+      if (matched) {
+        enriched.employeeId = matched.id;
+        enriched.employeeCode = matched.employeeCode;
+        enriched.departmentName = matched.departmentName;
+        enriched.designationTitle = matched.designationTitle;
+        enriched.avatarUrl = matched.avatarUrl || enriched.avatarUrl || '';
+        enriched.phone = matched.phone || enriched.phone || '';
+      }
+    } catch (err) {
+      console.warn('Could not enrich employee profile:', err);
+    }
+    return enriched;
+  };
+
   useEffect(() => {
     try {
       const storedAuth = localStorage.getItem('hrms_is_authenticated');
@@ -47,20 +88,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedUserData = localStorage.getItem('hrms_auth_user');
 
       if (storedAuth === 'true') {
-        setIsAuthenticated(true);
-        if (savedPortal) {
-          setPortalModeState(savedPortal);
-        }
+        let parsedUser: any = null;
         if (storedUserData) {
           try {
-            setUser(JSON.parse(storedUserData));
+            parsedUser = JSON.parse(storedUserData);
+            setUser(parsedUser);
           } catch {
             // ignore
           }
         } else if (savedRole) {
           const matched = mockUsers.find((u) => u.role === savedRole);
-          if (matched) setUser(matched);
+          if (matched) {
+            parsedUser = matched;
+            setUser(matched);
+          }
         }
+
+        const effectiveRole = parsedUser?.role || savedRole || 'EMPLOYEE';
+        const allowedPortal = determinePortalMode(effectiveRole);
+
+        // Strict role enforcement: Non-admins can NEVER be in admin portal!
+        if (!isUserAdminRole(effectiveRole)) {
+          setPortalModeState('employee');
+          localStorage.setItem('hrms_portal_mode', 'employee');
+        } else if (savedPortal) {
+          setPortalModeState(savedPortal);
+        } else {
+          setPortalModeState(allowedPortal);
+          localStorage.setItem('hrms_portal_mode', allowedPortal);
+        }
+
+        setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
       }
@@ -73,6 +131,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const setPortalMode = (mode: 'admin' | 'employee') => {
+    if (mode === 'admin' && !isUserAdminRole(user?.role)) {
+      console.warn('Access denied: Employee accounts cannot access Admin portal.');
+      setPortalModeState('employee');
+      localStorage.setItem('hrms_portal_mode', 'employee');
+      return;
+    }
     setPortalModeState(mode);
     localStorage.setItem('hrms_portal_mode', mode);
   };
@@ -114,13 +178,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(targetEmail, password);
       if (res && res.user) {
-        setUser(res.user);
-        setPortalModeState('admin');
+        const userRole = res.user.role || 'EMPLOYEE';
+        const targetPortal = determinePortalMode(userRole);
+        const enriched = await enrichUserData(res.user);
+
+        setUser(enriched);
+        setPortalModeState(targetPortal);
         setIsAuthenticated(true);
         localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_current_role', res.user.role || 'SUPER_ADMIN');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(res.user));
+        localStorage.setItem('hrms_portal_mode', targetPortal);
+        localStorage.setItem('hrms_current_role', userRole);
+        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
         return { success: true };
       }
     } catch (err: any) {
@@ -174,55 +242,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `${e.firstName} ${e.lastName}`.toLowerCase().includes(lowerInput)
     );
 
-    if (!foundEmp) {
-      return {
-        success: false,
-        message: 'Employee record not found in backend. Please check Employee ID (e.g. EMP-109, EMP-106, EMP-105, EMP-2) or registered email.',
-      };
-    }
-
     // 2. Validate password with backend or assigned PIN
     let backendAuthSucceeded = false;
-    try {
-      const res = await api.login(foundEmp.email, passwordOrPin);
-      if (res && res.accessToken) {
-        backendAuthSucceeded = true;
-      }
-    } catch (err: any) {
-      const errLower = (err?.message || '').toLowerCase();
-      // If backend explicitly rejected with incorrect password, reject immediately!
-      if (errLower.includes('incorrect password')) {
-        return {
-          success: false,
-          message: 'Invalid credentials. Incorrect password.',
-        };
+    let backendLoginRes: any = null;
+
+    const emailToLogin = foundEmp?.email || (trimmed.includes('@') ? trimmed : null);
+
+    if (emailToLogin) {
+      try {
+        const res = await api.login(emailToLogin, passwordOrPin);
+        if (res && res.accessToken) {
+          backendAuthSucceeded = true;
+          backendLoginRes = res;
+        }
+      } catch (err: any) {
+        const errLower = (err?.message || '').toLowerCase();
+        // If backend explicitly rejected with incorrect password, reject immediately!
+        if (errLower.includes('incorrect password')) {
+          return {
+            success: false,
+            message: 'Invalid credentials. Incorrect password.',
+          };
+        }
       }
     }
 
-    if (backendAuthSucceeded) {
-      const empUser: any = {
-        id: foundEmp.userId || `user-${foundEmp.id}`,
-        email: foundEmp.email,
-        firstName: foundEmp.firstName,
-        lastName: foundEmp.lastName,
-        role: 'EMPLOYEE',
-        employeeId: foundEmp.id,
-        employeeCode: foundEmp.employeeCode,
-        departmentName: foundEmp.departmentName,
-        designationTitle: foundEmp.designationTitle,
-        avatarUrl: foundEmp.avatarUrl || '',
-      };
+    if (backendAuthSucceeded && backendLoginRes?.user) {
+      const userRole = backendLoginRes.user.role || foundEmp?.role || 'EMPLOYEE';
+      const targetPortal = determinePortalMode(userRole);
+      const enriched = await enrichUserData({
+        ...backendLoginRes.user,
+        role: userRole,
+        ...(foundEmp
+          ? {
+              employeeId: foundEmp.id,
+              employeeCode: foundEmp.employeeCode,
+              departmentName: foundEmp.departmentName,
+              designationTitle: foundEmp.designationTitle,
+              avatarUrl: foundEmp.avatarUrl || '',
+            }
+          : {}),
+      });
 
-      setUser(empUser);
-      setPortalModeState('employee');
+      setUser(enriched);
+      setPortalModeState(targetPortal);
       setIsAuthenticated(true);
 
       localStorage.setItem('hrms_is_authenticated', 'true');
-      localStorage.setItem('hrms_portal_mode', 'employee');
-      localStorage.setItem('hrms_current_role', 'EMPLOYEE');
-      localStorage.setItem('hrms_auth_user', JSON.stringify(empUser));
+      localStorage.setItem('hrms_portal_mode', targetPortal);
+      localStorage.setItem('hrms_current_role', userRole);
+      localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
 
       return { success: true };
+    }
+
+    if (!foundEmp) {
+      return {
+        success: false,
+        message: 'Employee record not found. Please check Employee ID (e.g. EMP-109, EMP-2) or registered email.',
+      };
     }
 
     // For employees in the roster without separate account in backend users table,
@@ -291,36 +369,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (res && res.user) {
-        let enrichedUser: any = { ...res.user };
-        try {
-          const emps = await api.getEmployees();
-          const matched = emps.find(
-            (e: any) =>
-              e.email?.toLowerCase() === res.user.email?.toLowerCase() ||
-              e.id === res.user.employeeId
-          );
-          if (matched) {
-            enrichedUser.employeeCode = matched.employeeCode;
-            enrichedUser.departmentName = matched.departmentName;
-            enrichedUser.designationTitle = matched.designationTitle;
-          }
-        } catch (e) {
-          console.warn('Enrich user on register warning:', e);
-        }
+        const userRole = res.user.role || 'EMPLOYEE';
+        const targetPortal = determinePortalMode(userRole);
+        const enriched = await enrichUserData(res.user);
 
-        setUser(enrichedUser);
-        const mode =
-          res.user.role === 'SUPER_ADMIN' || res.user.role === 'HR_ADMIN' ? 'admin' : 'employee';
-        setPortalModeState(mode);
+        setUser(enriched);
+        setPortalModeState(targetPortal);
         setIsAuthenticated(true);
         localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', mode);
-        localStorage.setItem('hrms_current_role', res.user.role || 'EMPLOYEE');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enrichedUser));
+        localStorage.setItem('hrms_portal_mode', targetPortal);
+        localStorage.setItem('hrms_current_role', userRole);
+        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
 
         window.dispatchEvent(new Event('hrms_employees_updated'));
 
-        return { success: true, user: enrichedUser };
+        return { success: true, user: enriched };
       }
 
       return { success: true };

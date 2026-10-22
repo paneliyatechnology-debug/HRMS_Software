@@ -29,7 +29,7 @@ import { EmployeeDrawer } from '../components/modals/EmployeeDrawer';
 import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal';
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
 import { LoginPage } from '../components/auth/LoginPage';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import {
   recordUserScreenActivity,
@@ -90,15 +90,21 @@ export default function Home() {
 
   const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
 
-  // Strict role guard: prevent employees from accessing admin-only views
+  // Strict role guard: prevent employees from accessing admin-only views or portal
   useEffect(() => {
+    const isAdmin = isUserAdminRole(user?.role);
+    if (!isAdmin && portalMode === 'admin') {
+      setPortalMode('employee');
+      return;
+    }
+
     if (portalMode === 'employee') {
       const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements', 'chat', 'settings'];
       if (!allowedInEmployee.includes(activeModule)) {
         setActiveModule('dashboard');
       }
     }
-  }, [portalMode, activeModule]);
+  }, [portalMode, activeModule, user?.role, setPortalMode]);
 
   const { showToast } = useSocket();
 
