@@ -30,6 +30,11 @@ import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal'
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
 import { LoginPage } from '../components/auth/LoginPage';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import {
+  recordUserScreenActivity,
+  evaluateInactivity,
+} from '../lib/activityTracker';
 
 import { api } from '../lib/api';
 import {
@@ -95,6 +100,8 @@ export default function Home() {
     }
   }, [portalMode, activeModule]);
 
+  const { showToast } = useSocket();
+
   // Chat unread count synchronization
   useEffect(() => {
     if (isAuthenticated) {
@@ -109,6 +116,78 @@ export default function Home() {
       };
     }
   }, [isAuthenticated, portalMode, user]);
+
+  // Employee Screen Activity Monitor (detects mouse movement, clicks, keyboard)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const currentEmpId = user?.employeeId || (portalMode === 'employee' ? 'emp-2' : undefined);
+    if (!currentEmpId) return;
+
+    let lastRecorded = 0;
+    const handleScreenActivity = () => {
+      const now = Date.now();
+      // Throttle recording to once every 3 seconds
+      if (now - lastRecorded > 3000) {
+        lastRecorded = now;
+        recordUserScreenActivity(
+          currentEmpId,
+          `${user.firstName || 'Employee'} ${user.lastName || ''}`,
+          (user as any).employeeCode || 'EMP-2'
+        );
+      }
+    };
+
+    window.addEventListener('mousemove', handleScreenActivity);
+    window.addEventListener('mousedown', handleScreenActivity);
+    window.addEventListener('keydown', handleScreenActivity);
+    window.addEventListener('scroll', handleScreenActivity);
+    window.addEventListener('touchstart', handleScreenActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', handleScreenActivity);
+      window.removeEventListener('mousedown', handleScreenActivity);
+      window.removeEventListener('keydown', handleScreenActivity);
+      window.removeEventListener('scroll', handleScreenActivity);
+      window.removeEventListener('touchstart', handleScreenActivity);
+    };
+  }, [isAuthenticated, portalMode, user]);
+
+  // Admin Inactivity Monitor: Evaluates 5-minute idle threshold and raises alert
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(() => {
+      const newlyIdle = evaluateInactivity(5 * 60 * 1000); // 5 minutes threshold
+      if (newlyIdle.length > 0 && portalMode === 'admin') {
+        newlyIdle.forEach((emp) => {
+          showToast({
+            type: 'error',
+            title: `⚠️ Employee Inactive Alert`,
+            message: `${emp.employeeName} (${emp.employeeCode}) has had no mouse or keyboard activity for more than 5 minutes.`,
+            module: 'attendance',
+          });
+        });
+      }
+    }, 2000);
+
+    const handleIdleAlert = (e: any) => {
+      const emp = e.detail;
+      if (emp && portalMode === 'admin') {
+        showToast({
+          type: 'error',
+          title: `⚠️ Employee Inactive Alert`,
+          message: `${emp.employeeName} (${emp.employeeCode}) has had no mouse or keyboard activity for more than 5 minutes.`,
+          module: 'attendance',
+        });
+      }
+    };
+
+    window.addEventListener('hrms_employee_idle_alert', handleIdleAlert);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('hrms_employee_idle_alert', handleIdleAlert);
+    };
+  }, [isAuthenticated, portalMode, showToast]);
 
   const loadData = async () => {
     try {

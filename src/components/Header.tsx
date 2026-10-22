@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Menu,
   Bell,
@@ -13,8 +13,10 @@ import {
   UserPlus,
   Building2,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getAllEmployeeActivities } from '../lib/activityTracker';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -44,6 +46,22 @@ export const Header: React.FC<HeaderProps> = ({
   const { user, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [idleStaffCount, setIdleStaffCount] = useState<number>(0);
+
+  useEffect(() => {
+    const updateIdleCount = () => {
+      const activities = getAllEmployeeActivities();
+      const count = Object.values(activities).filter((a) => a.isIdle).length;
+      setIdleStaffCount(count);
+    };
+    updateIdleCount();
+    const interval = setInterval(updateIdleCount, 2000);
+    window.addEventListener('hrms_employee_activity_updated', updateIdleCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('hrms_employee_activity_updated', updateIdleCount);
+    };
+  }, []);
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -74,6 +92,18 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-2">
+        {/* Inactive Staff Real-time Alert (Admin only) */}
+        {portalMode === 'admin' && idleStaffCount > 0 && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-300 text-rose-700 font-bold text-xs shadow-xs animate-pulse"
+            title="Employees inactive: No mouse/keyboard activity detected for more than 5 minutes"
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+            <span>{idleStaffCount} Staff Idle (&gt;5m)</span>
+          </div>
+        )}
+
         {/* Quick Clock Button */}
         <button
           onClick={onOpenClockModal}

@@ -21,6 +21,7 @@ import {
   Pause,
   Sliders,
   Cpu,
+  AlertTriangle,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import {
@@ -33,6 +34,10 @@ import {
   getTodayDateString,
   saveAttendanceRecords,
 } from '../../lib/attendanceService';
+import {
+  getAllEmployeeActivities,
+  EmployeeActivityStatus,
+} from '../../lib/activityTracker';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
@@ -62,6 +67,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [selectedYear, setSelectedYear] = useState('2026');
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+
+  // Real-time Employee Activity status (mouse/screen movement)
+  const [activities, setActivities] = useState<Record<string, EmployeeActivityStatus>>({});
+
+  useEffect(() => {
+    const syncActivities = () => {
+      setActivities(getAllEmployeeActivities());
+    };
+    syncActivities();
+    const interval = setInterval(syncActivities, 2000);
+    window.addEventListener('hrms_employee_activity_updated', syncActivities);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('hrms_employee_activity_updated', syncActivities);
+    };
+  }, []);
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -420,19 +441,42 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
                       const isDone = rec && rec.isCompleted;
+                      const isIdle = activities[emp.id]?.isIdle || false;
 
                       const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                       const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
 
                       return (
-                        <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                        <tr
+                          key={emp.id}
+                          className={`transition-colors ${
+                            isIdle
+                              ? 'bg-rose-50/50 hover:bg-rose-50/80 border-l-4 border-l-rose-500'
+                              : 'hover:bg-slate-50/70'
+                          }`}
+                        >
                           <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center shrink-0">
+                            <div
+                              className={`w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 ${
+                                isIdle
+                                  ? 'bg-rose-100 border-rose-300 text-rose-700'
+                                  : 'bg-slate-100 border-slate-200 text-slate-700'
+                              }`}
+                            >
                               {emp.firstName?.[0] || 'E'}
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-900">{emp.firstName} {emp.lastName}</p>
-                              <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                              <p className={`font-semibold ${isIdle ? 'text-rose-900' : 'text-slate-900'}`}>
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              {isIdle ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 border border-rose-400 animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
+                                  {emp.employeeCode} • IDLE &gt;5M
+                                </span>
+                              ) : (
+                                <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
@@ -444,7 +488,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </td>
                           <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                             {rec ? (
-                              <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                              <span className={isWorking ? (isIdle ? 'text-rose-700' : 'text-emerald-700') : 'text-slate-800'}>
                                 {formatSecondsToHMS(liveSecs)}
                               </span>
                             ) : (
@@ -461,7 +505,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            {isWorking ? (
+                            {isIdle ? (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1 w-fit animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
+                                Idle (&gt;5m No Mouse Activity)
+                              </span>
+                            ) : isWorking ? (
                               <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                 Working
