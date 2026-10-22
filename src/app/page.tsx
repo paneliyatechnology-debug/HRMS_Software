@@ -66,11 +66,11 @@ export default function Home() {
 
   // Data state
   const [stats, setStats] = useState<any>(mockDashboardStats);
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
-  const [designations, setDesignations] = useState<Designation[]>(mockDesignations);
-  const [locations, setLocations] = useState<Location[]>(mockLocations);
-  const [leaves, setLeaves] = useState<LeaveRequest[]>(mockLeaveRequests);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [jobs, setJobs] = useState<JobOpening[]>([]);
@@ -240,8 +240,38 @@ export default function Home() {
         window.removeEventListener('hrms_employees_updated', handleUpdate);
         window.removeEventListener('hrms_announcements_updated', handleUpdate);
       };
+    } else {
+      setEmployees([]);
+      setDepartments([]);
+      setDesignations([]);
+      setLocations([]);
+      setLeaves([]);
+      setAttendance([]);
+      setPayroll([]);
+      setJobs([]);
+      setCandidates([]);
+      setAssets([]);
+      setSelectedEmployee(null);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.employeeId, user?.id]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setEmployees([]);
+      setDepartments([]);
+      setDesignations([]);
+      setLocations([]);
+      setLeaves([]);
+      setAttendance([]);
+      setPayroll([]);
+      setJobs([]);
+      setCandidates([]);
+      setAssets([]);
+      setSelectedEmployee(null);
+    };
+    window.addEventListener('hrms_auth_logout', handleLogout);
+    return () => window.removeEventListener('hrms_auth_logout', handleLogout);
+  }, []);
 
   if (isLoading) {
     return (
@@ -263,7 +293,51 @@ export default function Home() {
         onOpenClockModal={() => setClockModalOpen(true)}
         onOpenLeaveModal={() => setLeaveModalOpen(true)}
         onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
-        onOpenProfile={() => setSelectedEmployee(employees[0] || mockEmployees[0])}
+        onOpenProfile={() => {
+          const myEmp = employees.find((e) =>
+            (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
+            (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
+            ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
+            (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
+          );
+          if (myEmp) {
+            setSelectedEmployee(myEmp);
+          } else if (user) {
+            setSelectedEmployee({
+              id: user.employeeId || user.id || 'emp-self',
+              employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
+              firstName: user.firstName || 'Employee',
+              lastName: user.lastName || '',
+              email: user.email || '',
+              phone: (user as any)?.phone || '',
+              avatarUrl: user.avatarUrl || '',
+              gender: 'Other',
+              dateOfBirth: '1995-01-01',
+              address: '',
+              emergencyContact: { name: '', relationship: '', phone: '' },
+              joiningDate: '2026-01-01',
+              employmentType: 'Full-time',
+              status: 'Active',
+              departmentId: (user as any)?.departmentId || 'dept-1',
+              departmentName: (user as any)?.departmentName || 'General',
+              designationId: (user as any)?.designationId || 'des-1',
+              designationTitle: (user as any)?.designationTitle || 'Staff',
+              reportingManagerId: '',
+              reportingManagerName: '—',
+              workLocationId: 'loc-1',
+              workLocationName: 'Corporate HQ',
+              shift: 'General Shift (09:00 AM – 06:00 PM)',
+              bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+              taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+              education: [],
+              previousExperience: [],
+              skills: [],
+              salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+              createdAt: '2026-01-01',
+              updatedAt: '2026-01-01',
+            });
+          }
+        }}
         onNavigateSettings={() => setActiveModule('settings')}
         onOpenChat={() => setActiveModule('chat')}
         portalMode={portalMode}
@@ -314,6 +388,7 @@ export default function Home() {
             leaves={leaves}
             onOpenLeaveModal={() => setLeaveModalOpen(true)}
             onOpenClockModal={() => setClockModalOpen(true)}
+            portalMode={portalMode}
           />
         )}
 
@@ -336,9 +411,10 @@ export default function Home() {
           <AttendanceModule
             records={attendance}
             employees={employees}
-            initialTab={(subTab as any) || 'summary'}
+            initialTab={(subTab as any) || (portalMode === 'employee' ? 'today' : 'summary')}
             onOpenPunchModal={() => setClockModalOpen(true)}
             onRefresh={loadData}
+            portalMode={portalMode}
           />
         )}
 
@@ -390,7 +466,12 @@ export default function Home() {
           />
         )}
 
-        {activeModule === 'documents' && <DocumentsModule />}
+        {activeModule === 'documents' && (
+          <DocumentsModule
+            portalMode={portalMode}
+            currentEmployeeId={user?.employeeId || user?.id}
+          />
+        )}
         {activeModule === 'assets' && <AssetsModule />}
         {activeModule === 'resignations' && <ResignationsModule />}
         {activeModule === 'announcements' && (

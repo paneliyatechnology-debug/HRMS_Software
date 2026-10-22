@@ -95,20 +95,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Determine current active employee for self-service punch
   const currentEmpId = user.employeeId || user.id || '';
-  const currentEmp = employees.find((e) => e.id === currentEmpId || e.email === user.email) || employees[0];
+  const currentEmp: Employee =
+    employees.find(
+      (e) =>
+        (currentEmpId && e.id === currentEmpId) ||
+        (user.email && e.email && e.email.toLowerCase() === user.email.toLowerCase()) ||
+        ((user as any).employeeCode && e.employeeCode && e.employeeCode.toLowerCase() === (user as any).employeeCode.toLowerCase())
+    ) || {
+      id: currentEmpId || 'emp-self',
+      employeeCode: (user as any).employeeCode || 'EMP',
+      firstName: user.firstName || 'Employee',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      phone: (user as any).phone || '',
+      avatarUrl: user.avatarUrl || '',
+      gender: 'Other',
+      dateOfBirth: '',
+      address: '',
+      emergencyContact: { name: '', relationship: '', phone: '' },
+      joiningDate: '',
+      employmentType: 'Full-time',
+      status: 'Active',
+      departmentId: '',
+      departmentName: (user as any).departmentName || 'General',
+      designationId: '',
+      designationTitle: (user as any).designationTitle || 'Staff Member',
+      workLocationId: '',
+      workLocationName: '',
+      shift: 'General Shift',
+      bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+      taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
+      education: [],
+      previousExperience: [],
+      skills: [],
+      salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+      createdAt: '',
+      updatedAt: '',
+    };
 
   // Live punch status for employee
-  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));
+  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const activeEmpId = currentEmp.id || currentEmpId;
+
   // Sync and tick timer every second
   const refreshAttendanceState = () => {
     const records = getAllAttendanceRecords();
     setAllAttendance(records);
-    const eligibility = checkEmployeePunchEligibility(currentEmpId);
+    const eligibility = checkEmployeePunchEligibility(activeEmpId);
     setPunchState(eligibility);
 
     if (eligibility.record) {
@@ -133,7 +171,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       clearInterval(timer);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
-  }, [currentEmpId]);
+  }, [activeEmpId, currentEmpId, user.email]);
 
   // Leave processing state for admin
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
@@ -290,11 +328,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionLoading(true);
     try {
       const res = performCheckIn({
-        id: currentEmpId,
+        id: activeEmpId,
         firstName: currentEmp?.firstName || user.firstName || 'Employee',
         lastName: currentEmp?.lastName || user.lastName || '',
-        employeeCode: currentEmp?.employeeCode || 'EMP-2',
-        departmentName: currentEmp?.departmentName || 'Engineering',
+        employeeCode: currentEmp?.employeeCode || (user as any).employeeCode || 'EMP',
+        departmentName: currentEmp?.departmentName || (user as any).departmentName || 'General',
       });
 
       if (!res.success) {
@@ -316,7 +354,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleTakeBreakAction = () => {
     setActionLoading(true);
     try {
-      const res = performTakeBreak(currentEmpId);
+      const res = performTakeBreak(activeEmpId);
       if (res.success) {
         showToast({ type: 'info', title: 'Break Started', message: res.message });
         refreshAttendanceState();
@@ -333,7 +371,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleResumeWorkAction = () => {
     setActionLoading(true);
     try {
-      const res = performResumeWork(currentEmpId);
+      const res = performResumeWork(activeEmpId);
       if (res.success) {
         showToast({ type: 'success', title: 'Work Resumed', message: res.message });
         refreshAttendanceState();
@@ -355,7 +393,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setCheckOutModalOpen(false);
     setActionLoading(true);
     try {
-      const res = performCheckOut(currentEmpId);
+      const res = performCheckOut(activeEmpId);
       if (res.success) {
         showToast({ type: 'success', title: 'Shift Completed', message: res.message });
         refreshAttendanceState();
@@ -881,14 +919,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-800 font-semibold flex items-center justify-center text-sm">
-                    {currentEmp?.firstName?.[0] || 'R'}{currentEmp?.lastName?.[0] || 'S'}
+                    {currentEmp?.firstName?.[0] || user.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || user.lastName?.[0] || ''}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-900">
                       {currentEmp?.firstName || user.firstName} {currentEmp?.lastName || user.lastName}
                     </p>
-                    <p className="text-xs text-slate-500">{currentEmp?.designationTitle || 'Staff'}</p>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5">{currentEmp?.employeeCode || 'EMP-2'}</p>
+                    <p className="text-xs text-slate-500">{currentEmp?.designationTitle || (user as any).designationTitle || 'Staff Member'}</p>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{currentEmp?.employeeCode || (user as any).employeeCode || 'EMP'}</p>
                   </div>
                 </div>
               </div>

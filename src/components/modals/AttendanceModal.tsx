@@ -65,7 +65,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         id: currentEmpId,
         firstName: user.firstName || 'Employee',
         lastName: user.lastName || '',
-        employeeCode: user.employeeId || 'EMP-2',
+        employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
       });
       if (!res.success) {
         alert(res.message);

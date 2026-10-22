@@ -25,6 +25,7 @@ interface CalendarModuleProps {
   leaves: LeaveRequest[];
   onOpenLeaveModal?: () => void;
   onOpenClockModal?: () => void;
+  portalMode?: 'employee' | 'admin';
 }
 
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
@@ -32,9 +33,29 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   leaves,
   onOpenLeaveModal,
   onOpenClockModal,
+  portalMode = 'admin',
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+
+  const myEmpId = user?.employeeId || user?.id || '';
+  const myEmpCode = (user as any)?.employeeCode || '';
+  const myEmail = user?.email?.toLowerCase() || '';
+
+  const userAttendance = portalMode === 'employee'
+    ? attendance.filter((a) =>
+        (myEmpId && (a.employeeId === myEmpId || (a as any)._id === myEmpId)) ||
+        (myEmpCode && (a as any).employeeCode === myEmpCode)
+      )
+    : attendance;
+
+  const userLeaves = portalMode === 'employee'
+    ? leaves.filter((l) =>
+        (myEmpId && l.employeeId === myEmpId) ||
+        (myEmpCode && (l as any).employeeCode === myEmpCode) ||
+        (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail)
+      )
+    : leaves;
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 9, 1)); // October 2026
   const [selectedDay, setSelectedDay] = useState<number | null>(21);
@@ -155,9 +176,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
     // Check attendance for this date
-    const attRec = attendance.find((a) => a.date === dateStr);
+    const attRec = userAttendance.find((a) => a.date === dateStr);
     // Check leaves for this date
-    const leaveRec = leaves.find((l) => dateStr >= l.startDate && dateStr <= l.endDate);
+    const leaveRec = userLeaves.find((l) => dateStr >= l.startDate && dateStr <= l.endDate);
     const holidayName = holidayDateMap[dateStr];
 
     days.push({
@@ -189,20 +210,26 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Enterprise Calendar</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            {portalMode === 'employee' ? 'My Calendar & Shifts' : 'Enterprise Calendar'}
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            View shifts, attendance logs, approved leaves, and manage official holidays
+            {portalMode === 'employee'
+              ? 'View your shifts, attendance logs, applied leaves, and official holidays'
+              : 'View shifts, attendance logs, approved leaves, and manage official holidays'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsAddHolidayOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5 text-blue-600" />
-            <span>Add Holiday</span>
-          </button>
+          {portalMode !== 'employee' && (
+            <button
+              onClick={() => setIsAddHolidayOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5 text-blue-600" />
+              <span>Add Holiday</span>
+            </button>
+          )}
 
           {onOpenClockModal && (
             <button
@@ -448,12 +475,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
             Official Corporate Holidays Directory ({holidaysList.length})
           </h3>
-          <button
-            onClick={() => setIsAddHolidayOpen(true)}
-            className="text-xs text-blue-600 font-bold hover:underline"
-          >
-            + Add Holiday
-          </button>
+          {portalMode !== 'employee' && (
+            <button
+              onClick={() => setIsAddHolidayOpen(true)}
+              className="text-xs text-blue-600 font-bold hover:underline"
+            >
+              + Add Holiday
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
@@ -469,13 +498,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </span>
                 <span className="text-[10px] font-bold text-blue-600 block mt-0.5">{h.type || 'Public'}</span>
               </div>
-              <button
-                onClick={() => handleDeleteHoliday(h.id, h.name)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                title="Remove Holiday"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {portalMode !== 'employee' && (
+                <button
+                  onClick={() => handleDeleteHoliday(h.id, h.name)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                  title="Remove Holiday"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

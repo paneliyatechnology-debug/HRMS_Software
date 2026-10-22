@@ -173,10 +173,10 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center">
-              {user.firstName?.[0] || 'K'}{user.lastName?.[0] || 'S'}
+              {user.firstName?.[0] || 'U'}{user.lastName?.[0] || ''}
             </div>
             <span className="hidden md:inline-block text-xs font-medium text-slate-800">
-              {user.firstName || 'Keyur'}
+              {user.firstName || 'User'}
             </span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </button>
@@ -185,10 +185,10 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white border border-slate-200 shadow-lg py-1 z-50">
               <div className="px-3 py-2 border-b border-slate-100">
                 <p className="text-xs font-semibold text-slate-900 truncate">
-                  {user.firstName || 'Keyur'} {user.lastName || 'Sangani'}
+                  {user.firstName || 'User'} {user.lastName || ''}
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
-                  {user.email || 'keyur.sangani1234@gmail.com'}
+                  {user.email || ''}
                 </p>
               </div>
 

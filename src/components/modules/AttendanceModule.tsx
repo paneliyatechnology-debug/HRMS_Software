@@ -48,6 +48,7 @@ interface AttendanceModuleProps {
   initialTab?: 'today' | 'summary' | 'roster' | 'holidays';
   onOpenPunchModal: () => void;
   onRefresh: () => void;
+  portalMode?: 'employee' | 'admin';
 }
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
@@ -56,9 +57,60 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   initialTab = 'today',
   onOpenPunchModal,
   onRefresh,
+  portalMode = 'admin',
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+
+  const myEmpId = user?.employeeId || user?.id || '';
+  const myEmpCode = (user as any)?.employeeCode || '';
+  const myEmail = user?.email?.toLowerCase() || '';
+
+  const displayEmployees = portalMode === 'employee'
+    ? employees.filter((emp) =>
+        (myEmpId && (emp.id === myEmpId || (emp as any)._id === myEmpId)) ||
+        (myEmpCode && emp.employeeCode === myEmpCode) ||
+        (myEmail && emp.email?.toLowerCase() === myEmail)
+      )
+    : employees;
+
+  const currentEmpFallback: Employee = {
+    id: myEmpId || 'emp-self',
+    employeeCode: myEmpCode || 'EMP-SELF',
+    firstName: user?.firstName || 'Employee',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: (user as any)?.phone || '',
+    avatarUrl: user?.avatarUrl || '',
+    gender: 'Other',
+    dateOfBirth: '1995-01-01',
+    address: '',
+    emergencyContact: { name: '', relationship: '', phone: '' },
+    joiningDate: '2026-01-01',
+    employmentType: 'Full-time',
+    status: 'Active',
+    departmentId: (user as any)?.departmentId || 'dept-1',
+    departmentName: (user as any)?.departmentName || 'General',
+    designationId: (user as any)?.designationId || 'des-1',
+    designationTitle: (user as any)?.designationTitle || 'Staff',
+    reportingManagerId: '',
+    reportingManagerName: '—',
+    workLocationId: 'loc-1',
+    workLocationName: 'Corporate HQ',
+    shift: 'General Shift (09:00 AM – 06:00 PM)',
+    bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+    education: [],
+    previousExperience: [],
+    skills: [],
+    salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+    createdAt: '2026-01-01',
+    updatedAt: '2026-01-01',
+  };
+
+  const visibleEmployees = portalMode === 'employee'
+    ? (displayEmployees.length > 0 ? displayEmployees : [currentEmpFallback])
+    : employees;
 
   const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
   const [selectedEmp, setSelectedEmp] = useState('All');
@@ -217,12 +269,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let csvContent = 'data:text/csv;charset=utf-8,';
     if (activeTab === 'summary') {
       csvContent += 'Employee ID,Name,Month,Year\n';
-      employees.forEach((e) => {
+      visibleEmployees.forEach((e) => {
         csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}",${selectedMonth},${selectedYear}\n`;
       });
     } else if (activeTab === 'roster') {
       csvContent += 'Employee ID,Name,Shift Name,Timing,Weekly Off\n';
-      employees.forEach((e) => {
+      visibleEmployees.forEach((e) => {
         csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
       });
     } else {
@@ -319,21 +371,25 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <span>Mark Attendance</span>
           </button>
 
-          <button
-            onClick={() => setIsRegModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-          >
-            <Sliders className="w-3.5 h-3.5 text-blue-600" />
-            <span>Regularize Punch</span>
-          </button>
+          {portalMode !== 'employee' && (
+            <>
+              <button
+                onClick={() => setIsRegModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+              >
+                <Sliders className="w-3.5 h-3.5 text-blue-600" />
+                <span>Regularize Punch</span>
+              </button>
 
-          <button
-            onClick={() => setIsBiometricModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-          >
-            <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Biometric Sync</span>
-          </button>
+              <button
+                onClick={() => setIsBiometricModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+              >
+                <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Biometric Sync</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={exportCSV}
@@ -372,47 +428,102 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         return (
           <div className="space-y-4">
             {/* KPI Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
-                <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
-              </div>
+            {portalMode === 'employee' ? (
+              (() => {
+                const selfEmp = visibleEmployees[0];
+                const rec = selfEmp ? getTodayRecordForEmployee(selfEmp.id) : null;
+                const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
+                const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                const isDone = rec && rec.isCompleted;
+                const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
 
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
-                <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  {workingCount}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
-              </div>
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">My Punch Status</span>
+                      <p className="text-xl font-bold text-slate-900 mt-1">
+                        {isDone ? 'Completed' : isWorking ? 'Working' : isOnBreak ? 'On Break' : 'Not Punched'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{rec?.checkIn ? `In: ${rec.checkIn}` : 'No punch today'}</p>
+                    </div>
 
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
-                <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
-                  <Pause className="w-3.5 h-3.5 text-amber-600" />
-                  {onBreakCount}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
-              </div>
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">Working Timer</span>
+                      <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                        {isWorking && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                        {rec ? formatSecondsToHMS(liveSecs) : '00:00:00'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{isWorking ? 'Timer active' : 'Logged hours'}</p>
+                    </div>
 
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
-                <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-slate-600" />
-                  {completedCount}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">Break Interval</span>
+                      <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
+                        <Pause className="w-3.5 h-3.5 text-amber-600" />
+                        {formatSecondsToWords(breakSecs)}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{isOnBreak ? 'Currently paused' : 'Total break taken'}</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">Assigned Shift</span>
+                      <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-600" />
+                        09:00 - 18:00
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Corporate Standard</p>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
+                  <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
+                  <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {workingCount}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
+                  <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
+                    <Pause className="w-3.5 h-3.5 text-amber-600" />
+                    {onBreakCount}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
+                  <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-slate-600" />
+                    {completedCount}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Live Table */}
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Today's Live Workforce Shift Log</h3>
-                  <p className="text-xs text-slate-500">Live work timers and break intervals updating every second</p>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {portalMode === 'employee' ? "My Today's Shift & Attendance Log" : "Today's Live Workforce Shift Log"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {portalMode === 'employee' ? "Your live punch and break intervals for today" : "Live work timers and break intervals updating every second"}
+                  </p>
                 </div>
                 <button
                   onClick={onOpenPunchModal}
@@ -436,7 +547,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {employees.map((emp) => {
+                    {visibleEmployees.map((emp) => {
                       const rec = getTodayRecordForEmployee(emp.id);
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
@@ -549,7 +660,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
               <CalendarIcon className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-slate-900">Attendance Summary (October 2026)</h2>
+            <h2 className="text-sm font-bold text-slate-900">
+              {portalMode === 'employee' ? "My Attendance Summary (October 2026)" : "Attendance Summary (October 2026)"}
+            </h2>
           </div>
 
           {/* Status Legend Row */}
@@ -603,7 +716,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {employees.map((emp) => {
+                {visibleEmployees.map((emp) => {
                   return (
                     <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Employee column */}
@@ -674,17 +787,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Shift Roster & Work Schedules</h3>
-                <p className="text-xs text-slate-500">Assigned employee shifts and weekly off days</p>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {portalMode === 'employee' ? "My Shift Schedule" : "Shift Roster & Work Schedules"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {portalMode === 'employee' ? "Your assigned shift timings and weekly off days" : "Assigned employee shifts and weekly off days"}
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => alert('Opening shift assignment dialog')}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs"
-            >
-              + Assign Shift
-            </button>
+            {portalMode !== 'employee' && (
+              <button
+                onClick={() => alert('Opening shift assignment dialog')}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs"
+              >
+                + Assign Shift
+              </button>
+            )}
           </div>
 
           <div className="overflow-x-auto border border-slate-100 rounded-xl">
@@ -696,11 +815,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <th className="py-3 px-4">TIMING</th>
                   <th className="py-3 px-4">GRACE PERIOD</th>
                   <th className="py-3 px-4">WEEKLY OFF</th>
-                  <th className="py-3 px-4 text-right">ACTION</th>
+                  {portalMode !== 'employee' && <th className="py-3 px-4 text-right">ACTION</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {employees.map((emp) => (
+                {visibleEmployees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-slate-50/70">
                     <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center">
@@ -726,14 +845,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         Saturday, Sunday
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => alert(`Editing shift for ${emp.firstName}`)}
-                        className="text-xs text-indigo-600 hover:underline font-bold"
-                      >
-                        Modify
-                      </button>
-                    </td>
+                    {portalMode !== 'employee' && (
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => alert(`Editing shift for ${emp.firstName}`)}
+                          className="text-xs text-indigo-600 hover:underline font-bold"
+                        >
+                          Modify
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -756,12 +877,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => alert('New holiday added to schedule')}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs"
-            >
-              + Add Holiday
-            </button>
+            {portalMode !== 'employee' && (
+              <button
+                onClick={() => alert('New holiday added to schedule')}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs"
+              >
+                + Add Holiday
+              </button>
+            )}
           </div>
 
           <div className="overflow-x-auto border border-slate-100 rounded-xl">

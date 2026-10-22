@@ -67,56 +67,7 @@ export const mockLocations: Location[] = [
   },
 ];
 
-export const mockEmployees: Employee[] = [
-  {
-    id: 'emp-1',
-    employeeCode: 'EMP-1',
-    firstName: 'Keyur',
-    lastName: 'Sangani',
-    email: 'keyur.sangani1234@gmail.com',
-    phone: '6352486893',
-    avatarUrl: '',
-    gender: 'Male',
-    dateOfBirth: '1996-05-15',
-    address: 'Surat, Gujarat',
-    emergencyContact: { name: '', relationship: '', phone: '' },
-    joiningDate: '2026-10-19',
-    employmentType: 'Full-time',
-    status: 'Active',
-    departmentId: 'dept-1',
-    departmentName: 'Administration & Management',
-    designationId: 'des-1',
-    designationTitle: 'App Administrator',
-    reportingManagerId: '',
-    reportingManagerName: '—',
-    workLocationId: 'loc-1',
-    workLocationName: 'Corporate HQ',
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: {
-      bankName: '',
-      accountNumber: '',
-      ifscOrRouting: '',
-      accountHolderName: 'Keyur Sangani',
-    },
-    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
-    education: [],
-    previousExperience: [],
-    skills: ['App Administrator'],
-    salary: {
-      basic: 50000,
-      hra: 20000,
-      allowances: 10000,
-      bonus: 5000,
-      pf: 6000,
-      tax: 8000,
-      professionalTax: 200,
-      gross: 85000,
-      net: 70800,
-    },
-    createdAt: '2026-10-19',
-    updatedAt: '2026-10-19',
-  },
-];
+export const mockEmployees: Employee[] = [];
 
 export const mockLeaveRequests: LeaveRequest[] = [];
 

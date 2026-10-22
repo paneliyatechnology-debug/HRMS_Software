@@ -53,15 +53,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
 
   const myId = user.employeeId || user.id || '';
-  const myFirstName = (user.firstName || '').toLowerCase();
+  const myEmail = user.email?.toLowerCase() || '';
+  const myCode = ((user as any).employeeCode || '').toLowerCase();
 
   const relevantLeaves =
     portalMode === 'employee'
-      ? leaves.filter(
-          (l) =>
-            l.employeeId === myId ||
-            (myFirstName && l.employeeName?.toLowerCase().includes(myFirstName))
-        )
+      ? leaves.filter((l) => {
+          if (myId && l.employeeId === myId) return true;
+          if (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail) return true;
+          if (myCode && (l as any).employeeCode?.toLowerCase() === myCode) return true;
+          return false;
+        })
       : leaves;
 
   const pendingLeaves = relevantLeaves.filter((l) => l.status === 'Pending');

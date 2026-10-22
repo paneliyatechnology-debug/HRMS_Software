@@ -212,14 +212,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center shrink-0">
-                {user.firstName?.[0] || 'K'}{user.lastName?.[0] || 'S'}
+                {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                {user.lastName?.[0] || ''}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-900 truncate">
-                  {user.firstName || 'Keyur'} {user.lastName || 'Sangani'}
+                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Employee'}
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
-                  {portalMode === 'admin' ? 'Administrator' : 'Staff'}
+                  {portalMode === 'admin' ? 'Administrator' : (user as any).designationTitle || 'Staff Employee'}
                 </p>
               </div>
             </div>

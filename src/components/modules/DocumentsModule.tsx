@@ -16,9 +16,21 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import { EmployeeDocument, Employee } from '../../types/hrms';
 
-export const DocumentsModule: React.FC = () => {
+interface DocumentsModuleProps {
+  portalMode?: 'employee' | 'admin';
+  currentEmployeeId?: string;
+}
+
+export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
+  portalMode = 'admin',
+  currentEmployeeId,
+}) => {
+  const { user } = useAuth();
+  const myEmpId = currentEmployeeId || user.employeeId || user.id || '';
+
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +42,7 @@ export const DocumentsModule: React.FC = () => {
   // Form State
   const [docTitle, setDocTitle] = useState('');
   const [docCategory, setDocCategory] = useState('Identity');
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(myEmpId);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,15 +50,20 @@ export const DocumentsModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [portalMode, myEmpId]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docs, emps] = await Promise.all([api.getDocuments(), api.getEmployees()]);
+      const [docs, emps] = await Promise.all([
+        api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
+        api.getEmployees(),
+      ]);
       setDocuments(docs);
       setEmployees(emps);
-      if (emps.length > 0 && !selectedEmployeeId) {
+      if (portalMode === 'employee') {
+        setSelectedEmployeeId(myEmpId);
+      } else if (emps.length > 0 && !selectedEmployeeId) {
         setSelectedEmployeeId(emps[0].id);
       }
     } catch (err) {
@@ -109,6 +126,9 @@ export const DocumentsModule: React.FC = () => {
   };
 
   const filtered = documents.filter((doc) => {
+    if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
+      return false;
+    }
     const matchesCat = category === 'ALL' || doc.category === category;
     const matchesSearch =
       doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -240,7 +260,7 @@ export const DocumentsModule: React.FC = () => {
                       >
                         <Download className="w-3.5 h-3.5" />
                       </a>
-                      {doc.verificationStatus === 'Pending' && (
+                      {portalMode === 'admin' && doc.verificationStatus === 'Pending' && (
                         <button
                           onClick={() => handleVerify(doc.id, 'Verified')}
                           className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[10px]"
@@ -288,22 +308,24 @@ export const DocumentsModule: React.FC = () => {
             </div>
 
             <form onSubmit={handleFileUpload} className="space-y-4 mt-5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Employee
-                </label>
-                <select
-                  value={selectedEmployeeId}
-                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {portalMode === 'admin' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Employee
+                  </label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">

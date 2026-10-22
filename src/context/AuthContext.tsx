@@ -190,13 +190,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (backendAuthSucceeded) {
-      const empUser: User = {
+      const empUser: any = {
         id: foundEmp.userId || `user-${foundEmp.id}`,
         email: foundEmp.email,
         firstName: foundEmp.firstName,
         lastName: foundEmp.lastName,
         role: 'EMPLOYEE',
         employeeId: foundEmp.id,
+        employeeCode: foundEmp.employeeCode,
+        departmentName: foundEmp.departmentName,
+        designationTitle: foundEmp.designationTitle,
         avatarUrl: foundEmp.avatarUrl || '',
       };
 
@@ -232,13 +235,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const empUser: User = {
+    // Clean previous session tokens when signing in as employee via PIN
+    localStorage.removeItem('hrms_auth_token');
+    localStorage.removeItem('bearerToken');
+
+    const empUser: any = {
       id: foundEmp.userId || `user-${foundEmp.id}`,
       email: foundEmp.email,
       firstName: foundEmp.firstName,
       lastName: foundEmp.lastName,
       role: 'EMPLOYEE',
       employeeId: foundEmp.id,
+      employeeCode: foundEmp.employeeCode,
+      departmentName: foundEmp.departmentName,
+      designationTitle: foundEmp.designationTitle,
       avatarUrl: foundEmp.avatarUrl || '',
     };
 
@@ -275,6 +285,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('hrms_current_role');
     localStorage.removeItem('hrms_portal_mode');
     localStorage.removeItem('hrms_auth_user');
+    localStorage.removeItem('hrms_auth_token');
+    localStorage.removeItem('bearerToken');
+    window.dispatchEvent(new Event('hrms_auth_logout'));
   };
 
   const hasPermission = (action: string): boolean => {
