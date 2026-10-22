@@ -71,14 +71,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     emailOrPhone: string,
     password?: string
   ): Promise<{ success: boolean; message?: string }> => {
-    const trimmedInput = emailOrPhone.trim().toLowerCase();
+    const trimmedInput = emailOrPhone.trim();
+    const lowerInput = trimmedInput.toLowerCase();
 
-    // Check credentials (supports phone: 6352486893, email: keyur.sangani1234@gmail.com, or admin demo)
+    // 1. First, attempt direct backend authentication via /api/auth/login
+    try {
+      const res = await api.login(trimmedInput, password);
+      if (res && res.user) {
+        setUser(res.user);
+        setPortalModeState('admin');
+        setIsAuthenticated(true);
+        localStorage.setItem('hrms_is_authenticated', 'true');
+        localStorage.setItem('hrms_portal_mode', 'admin');
+        localStorage.setItem('hrms_current_role', res.user.role || 'SUPER_ADMIN');
+        localStorage.setItem('hrms_auth_user', JSON.stringify(res.user));
+        return { success: true };
+      }
+    } catch (err: any) {
+      console.warn('Backend /auth/login attempt:', err?.message || err);
+    }
+
+    // 2. Fetch live employees from backend to check if admin/employee exists by code/phone/email
+    try {
+      const backendEmps = await api.getEmployees().catch(() => []);
+      const allSourceEmps = backendEmps && backendEmps.length > 0 ? backendEmps : getAllEmployees();
+
+      const matchedEmp = allSourceEmps.find((e: any) =>
+        e.email?.toLowerCase() === lowerInput ||
+        e.employeeCode?.toLowerCase() === lowerInput ||
+        (e.phone && e.phone.replace(/\D/g, '').includes(lowerInput.replace(/\D/g, ''))) ||
+        e.id?.toLowerCase() === lowerInput ||
+        `${e.firstName} ${e.lastName}`.toLowerCase().includes(lowerInput)
+      );
+
+      if (matchedEmp) {
+        // Try calling backend login with matched employee's email if possible
+        try {
+          await api.login(matchedEmp.email, password);
+        } catch {
+          // Continue with matched profile
+        }
+
+        const adminUser: User = {
+          id: matchedEmp.userId || `user-${matchedEmp.id}`,
+          email: matchedEmp.email,
+          firstName: matchedEmp.firstName,
+          lastName: matchedEmp.lastName,
+          role: (matchedEmp.designationTitle?.toUpperCase().includes('ADMIN') ? 'SUPER_ADMIN' : 'HR_ADMIN') as Role,
+          employeeId: matchedEmp.id,
+          avatarUrl: matchedEmp.avatarUrl || '',
+        };
+
+        setUser(adminUser);
+        setPortalModeState('admin');
+        setIsAuthenticated(true);
+
+        localStorage.setItem('hrms_is_authenticated', 'true');
+        localStorage.setItem('hrms_portal_mode', 'admin');
+        localStorage.setItem('hrms_current_role', adminUser.role);
+        localStorage.setItem('hrms_auth_user', JSON.stringify(adminUser));
+
+        return { success: true };
+      }
+    } catch (err) {
+      console.warn('Backend employees check failed:', err);
+    }
+
+    // 3. Fallback demo admin matching
     const isAdminMatch =
-      trimmedInput === 'keyur.sangani1234@gmail.com' ||
-      trimmedInput === '6352486893' ||
-      trimmedInput === 'admin' ||
-      trimmedInput.includes('sangani');
+      lowerInput === 'keyur.sangani1234@gmail.com' ||
+      lowerInput === '6352486893' ||
+      lowerInput === 'admin' ||
+      lowerInput.includes('sangani');
 
     if (isAdminMatch) {
       const adminUser: User = {
@@ -90,12 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         employeeId: 'emp-1',
         avatarUrl: '',
       };
-
-      try {
-        await api.login(adminUser.email, password || '123456789');
-      } catch (err) {
-        console.warn('Backend login fallback used:', err);
-      }
 
       setUser(adminUser);
       setPortalModeState('admin');
@@ -109,25 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // Attempt backend login directly
-    try {
-      const res = await api.login(trimmedInput, password);
-      if (res && res.user) {
-        setUser(res.user);
-        setPortalModeState('admin');
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(res.user));
-        return { success: true };
-      }
-    } catch (err: any) {
-      // not matched
-    }
-
     return {
       success: false,
-      message: 'Invalid Admin credentials. Try phone: 6352486893 or email: keyur.sangani1234@gmail.com with password: 123456789',
+      message: 'Invalid credentials. Please enter a valid registered Admin email, phone, or Employee ID.',
     };
   };
 
@@ -135,30 +177,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     codeOrEmail: string,
     passwordOrPin?: string
   ): Promise<{ success: boolean; message?: string }> => {
-    const trimmed = codeOrEmail.trim().toLowerCase();
+    const trimmed = codeOrEmail.trim();
+    const lowerInput = trimmed.toLowerCase();
 
-    // Match in employees list (dynamic storage + mocks)
-    const allEmps = getAllEmployees();
-    const sourceEmps = allEmps && allEmps.length > 0 ? allEmps : mockEmployees;
+    // 1. Fetch live employees directly from Backend API (http://192.168.1.113:4000/api/employees)
+    let sourceEmps: any[] = [];
+    try {
+      sourceEmps = await api.getEmployees();
+    } catch (err) {
+      console.warn('Failed to fetch backend employees for login, using local data:', err);
+      sourceEmps = getAllEmployees();
+    }
 
-    const foundEmp = sourceEmps.find(
-      (e) =>
-        e.employeeCode.toLowerCase() === trimmed ||
-        e.email.toLowerCase() === trimmed ||
-        (e.phone && e.phone.includes(trimmed)) ||
-        `${e.firstName} ${e.lastName}`.toLowerCase().includes(trimmed)
+    if (!sourceEmps || sourceEmps.length === 0) {
+      sourceEmps = mockEmployees;
+    }
+
+    // Match by Employee Code (e.g. EMP-109, EMP-106, EMP-105, EMP-2), Email, Phone, ID or Name
+    const foundEmp = sourceEmps.find((e) =>
+      e.employeeCode?.toLowerCase() === lowerInput ||
+      e.email?.toLowerCase() === lowerInput ||
+      (e.phone && e.phone.replace(/\D/g, '').includes(lowerInput.replace(/\D/g, ''))) ||
+      e.id?.toLowerCase() === lowerInput ||
+      `${e.firstName} ${e.lastName}`.toLowerCase().includes(lowerInput)
     );
 
     if (foundEmp) {
       const empUser: User = {
-        id: `user-${foundEmp.id}`,
+        id: foundEmp.userId || `user-${foundEmp.id}`,
         email: foundEmp.email,
         firstName: foundEmp.firstName,
         lastName: foundEmp.lastName,
         role: 'EMPLOYEE',
         employeeId: foundEmp.id,
-        avatarUrl: foundEmp.avatarUrl,
+        avatarUrl: foundEmp.avatarUrl || '',
       };
+
+      // Try calling backend login in background so token is stored if user exists in auth table
+      try {
+        await api.login(foundEmp.email, passwordOrPin);
+      } catch {
+        // Employee might not have separate auth record yet
+      }
 
       setUser(empUser);
       setPortalModeState('employee');
@@ -172,9 +232,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
+    // 2. Also try backend /auth/login directly in case user exists in backend auth table
+    try {
+      const res = await api.login(trimmed, passwordOrPin);
+      if (res && res.user) {
+        setUser(res.user);
+        setPortalModeState('employee');
+        setIsAuthenticated(true);
+        localStorage.setItem('hrms_is_authenticated', 'true');
+        localStorage.setItem('hrms_portal_mode', 'employee');
+        localStorage.setItem('hrms_current_role', 'EMPLOYEE');
+        localStorage.setItem('hrms_auth_user', JSON.stringify(res.user));
+        return { success: true };
+      }
+    } catch {
+      // ignore
+    }
+
     return {
       success: false,
-      message: 'Employee not found. Please enter valid Employee Code (e.g. EMP-1, EMP-2, EMP-3) or registered email.',
+      message: 'Employee record not found in backend. Please check Employee ID (e.g. EMP-109, EMP-106, EMP-105, EMP-2) or registered email.',
     };
   };
 

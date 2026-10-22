@@ -249,11 +249,11 @@ export const LoginPage: React.FC = () => {
               </button>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>Demo Employee: Rahul (EMP-2)</span>
+                <span>Backend Staff: Bapu (EMP-109)</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setEmpIdentifier('EMP-2');
+                    setEmpIdentifier('EMP-109');
                     setEmpPassword('123456');
                   }}
                   className="font-medium text-slate-900 hover:underline"

@@ -68,7 +68,7 @@ import {
   getNoticesForEmployee,
 } from './announcementService';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.113:4000/api';
 
 /**
  * Universal API fetcher that forwards JWT Bearer token and gracefully falls back to local data.
@@ -119,23 +119,33 @@ export const api = {
   // 2. AUTHENTICATION & ACCESS
   // =========================================================================
   async login(email: string, password?: string) {
-    const result = await fetchWithFallback<any>(
-      '/auth/login',
-      {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, password }),
-      },
-      {
-        accessToken: `jwt_session_${Date.now()}`,
-        user: mockUsers[0],
-      }
-    );
+      });
 
-    if (typeof window !== 'undefined' && result?.accessToken) {
-      localStorage.setItem('hrms_auth_token', result.accessToken);
-      localStorage.setItem('bearerToken', result.accessToken);
+      if (res.ok) {
+        const result = await res.json();
+        if (typeof window !== 'undefined' && result?.accessToken) {
+          localStorage.setItem('hrms_auth_token', result.accessToken);
+          localStorage.setItem('bearerToken', result.accessToken);
+        }
+        return result;
+      }
+
+      const errData = await res.json().catch(() => ({}));
+      const message =
+        errData?.error?.message ||
+        errData?.message ||
+        `Login failed with status ${res.status}`;
+      throw new Error(message);
+    } catch (err: any) {
+      throw err;
     }
-    return result;
   },
 
   async getProfile(token?: string) {
