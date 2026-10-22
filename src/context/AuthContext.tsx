@@ -15,6 +15,16 @@ interface AuthContextType {
   isLoading: boolean;
   loginAsAdmin: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   loginAsEmployee: (codeOrEmail: string, passwordOrPin?: string) => Promise<{ success: boolean; message?: string }>;
+  registerUser: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+    departmentId?: string;
+    designationId?: string;
+  }) => Promise<{ success: boolean; message?: string; user?: any }>;
   switchRole: (newRole: Role) => void;
   hasPermission: (action: string) => boolean;
   allUsers: User[];
@@ -264,6 +274,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
+  const registerUser = async (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+    departmentId?: string;
+    designationId?: string;
+  }): Promise<{ success: boolean; message?: string; user?: any }> => {
+    try {
+      const res = await api.register({
+        ...data,
+        role: data.role || 'EMPLOYEE',
+      });
+
+      if (res && res.user) {
+        let enrichedUser: any = { ...res.user };
+        try {
+          const emps = await api.getEmployees();
+          const matched = emps.find(
+            (e: any) =>
+              e.email?.toLowerCase() === res.user.email?.toLowerCase() ||
+              e.id === res.user.employeeId
+          );
+          if (matched) {
+            enrichedUser.employeeCode = matched.employeeCode;
+            enrichedUser.departmentName = matched.departmentName;
+            enrichedUser.designationTitle = matched.designationTitle;
+          }
+        } catch (e) {
+          console.warn('Enrich user on register warning:', e);
+        }
+
+        setUser(enrichedUser);
+        const mode =
+          res.user.role === 'SUPER_ADMIN' || res.user.role === 'HR_ADMIN' ? 'admin' : 'employee';
+        setPortalModeState(mode);
+        setIsAuthenticated(true);
+        localStorage.setItem('hrms_is_authenticated', 'true');
+        localStorage.setItem('hrms_portal_mode', mode);
+        localStorage.setItem('hrms_current_role', res.user.role || 'EMPLOYEE');
+        localStorage.setItem('hrms_auth_user', JSON.stringify(enrichedUser));
+
+        window.dispatchEvent(new Event('hrms_employees_updated'));
+
+        return { success: true, user: enrichedUser };
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Registration failed. Please check your details.',
+      };
+    }
+  };
+
   const switchRole = (newRole: Role) => {
     const matched = mockUsers.find((u) => u.role === newRole) || {
       id: `user-${Date.now()}`,
@@ -324,6 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         loginAsAdmin,
         loginAsEmployee,
+        registerUser,
         switchRole,
         hasPermission,
         allUsers: mockUsers,

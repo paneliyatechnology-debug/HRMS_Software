@@ -149,6 +149,47 @@ export const api = {
     }
   },
 
+  async register(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+    departmentId?: string;
+    designationId?: string;
+  }) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        if (typeof window !== 'undefined' && result?.accessToken) {
+          localStorage.setItem('hrms_auth_token', result.accessToken);
+          localStorage.setItem('bearerToken', result.accessToken);
+        }
+        return result;
+      }
+
+      const errData = await res.json().catch(() => ({}));
+      const message =
+        (Array.isArray(errData?.error?.message) ? errData.error.message.join(', ') : null) ||
+        errData?.error?.message ||
+        (Array.isArray(errData?.message) ? errData.message.join(', ') : null) ||
+        errData?.message ||
+        `Registration failed with status ${res.status}`;
+      throw new Error(message);
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
   async getProfile(token?: string) {
     return fetchWithFallback<User>(
       '/auth/me',
