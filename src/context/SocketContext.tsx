@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { getSocketBaseUrl } from '../lib/config';
 
 export interface ToastItem {
   id: string;
@@ -53,8 +54,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
-    // Connect to Nest.js WebSocket Gateway on port 4000
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://192.168.1.113:4000';
+    // Dynamically connect to WebSocket Gateway using URL from .env
+    const socketUrl = getSocketBaseUrl();
     const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,

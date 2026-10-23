@@ -220,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // 1. Fetch live employees directly from Backend API (http://192.168.1.113:4000/api/employees)
+    // 1. Fetch live employees directly from Backend API via .env configuration
     let sourceEmps: any[] = [];
     try {
       sourceEmps = await api.getEmployees();

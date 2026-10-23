@@ -129,7 +129,7 @@ export const AuditLogsModule: React.FC = () => {
                     {log.details}
                   </td>
                   <td className="py-3.5 px-4 text-right text-slate-400">
-                    {log.ipAddress || '192.168.1.100'}
+                    {log.ipAddress || '127.0.0.1'}
                   </td>
                 </tr>
               ))}

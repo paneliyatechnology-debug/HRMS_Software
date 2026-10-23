@@ -67,8 +67,9 @@ import {
   deleteNotice,
   getNoticesForEmployee,
 } from './announcementService';
+import { getApiBaseUrl } from './config';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.113:4000/api';
+const getApiBase = () => getApiBaseUrl();
 
 /**
  * Universal API fetcher that forwards JWT Bearer token and gracefully falls back to local data.
@@ -80,7 +81,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
         ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
         : null;
 
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetch(`${getApiBase()}${url}`, {
       cache: 'no-store',
       ...options,
       headers: {
@@ -121,7 +122,7 @@ export const api = {
   // =========================================================================
   async login(email: string, password?: string) {
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${getApiBase()}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -160,7 +161,7 @@ export const api = {
     designationId?: string;
   }) {
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
+      const res = await fetch(`${getApiBase()}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -871,20 +872,20 @@ export const api = {
     id: string,
     clearanceOrPayload:
       | {
+        departmentClearance?: boolean;
+        assetReturned?: boolean;
+        financeSettlement?: boolean;
+        exitInterviewCompleted?: boolean;
+      }
+      | {
+        clearance: {
           departmentClearance?: boolean;
           assetReturned?: boolean;
           financeSettlement?: boolean;
           exitInterviewCompleted?: boolean;
-        }
-      | {
-          clearance: {
-            departmentClearance?: boolean;
-            assetReturned?: boolean;
-            financeSettlement?: boolean;
-            exitInterviewCompleted?: boolean;
-          };
-          actorName?: string;
-        },
+        };
+        actorName?: string;
+      },
     actorName = 'HR Admin'
   ) {
     const clearance = 'clearance' in clearanceOrPayload ? clearanceOrPayload.clearance : clearanceOrPayload;
@@ -955,7 +956,7 @@ export const api = {
 
   async uploadDocumentFile(formData: FormData) {
     try {
-      const res = await fetch(`${API_BASE}/documents/upload`, {
+      const res = await fetch(`${getApiBase()}/documents/upload`, {
         method: 'POST',
         body: formData,
       });
