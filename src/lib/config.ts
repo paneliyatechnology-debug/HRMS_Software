@@ -15,24 +15,26 @@ export function getApiBaseUrl(): string {
     return clean;
   }
 
-  // 2. Client-side process.env fallback
+  // 2. Client-side process.env fallback from .env
   const envUrl =
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) ||
     '';
 
-  if (!envUrl) {
-    if (typeof window !== 'undefined' && window.location?.hostname) {
-      return `${window.location.protocol}//${window.location.hostname}:4000/api`;
-    }
-    return 'http://localhost:4000/api';
+  if (envUrl && envUrl.trim()) {
+    let clean = envUrl.trim().replace(/\/+$/, '');
+    if (!clean.endsWith('/api')) clean = `${clean}/api`;
+    return clean;
   }
 
-  let clean = envUrl.trim().replace(/\/+$/, '');
-  if (!clean.endsWith('/api')) {
-    clean = `${clean}/api`;
+  // 3. Dynamic browser hostname fallback
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    const protocol = window.location.protocol || 'http:';
+    return `${protocol}//${host}:4000/api`;
   }
-  return clean;
+
+  return 'http://192.168.1.100:4000/api';
 }
 
 export function getSocketBaseUrl(): string {
@@ -47,7 +49,11 @@ export function getSocketBaseUrl(): string {
     return socketEnv.trim().replace(/\/+$/, '');
   }
 
-  // 3. Derive from API URL
-  const apiBase = getApiBaseUrl();
-  return apiBase.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  // 3. Dynamic browser hostname fallback
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    const protocol = window.location.protocol || 'http:';
+    return `${protocol}//${host}:4000`;
+  }
+  return 'http://192.168.1.100:4000';
 }

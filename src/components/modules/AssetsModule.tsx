@@ -147,13 +147,15 @@ export const AssetsModule: React.FC = () => {
     }
   };
 
+  const asQ = searchTerm.trim().toLowerCase();
   const filtered = assets.filter((a) => {
-    const q = searchTerm.toLowerCase();
     return (
-      a.name.toLowerCase().includes(q) ||
-      a.assetCode.toLowerCase().includes(q) ||
-      a.serialNumber.toLowerCase().includes(q) ||
-      (a.assignedToEmployeeName || '').toLowerCase().includes(q)
+      !asQ ||
+      (a.name || '').toLowerCase().includes(asQ) ||
+      (a.assetCode || '').toLowerCase().includes(asQ) ||
+      (a.serialNumber || '').toLowerCase().includes(asQ) ||
+      (a.category || '').toLowerCase().includes(asQ) ||
+      (a.assignedToEmployeeName || '').toLowerCase().includes(asQ)
     );
   });
 
@@ -212,8 +214,17 @@ export const AssetsModule: React.FC = () => {
             placeholder="Search code, name, serial..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:bg-white focus:outline-hidden"
+            className="w-full pl-9 pr-7 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:bg-white focus:outline-hidden"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              title="Clear"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 

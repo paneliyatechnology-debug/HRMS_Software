@@ -71,15 +71,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
 
   // Filter leaves according to current portal & filters
+  const lq = search.trim().toLowerCase();
   const displayedLeaves = relevantLeaves.filter((l) => {
     const matchesSearch =
-      l.employeeName?.toLowerCase().includes(search.toLowerCase()) ||
-      l.reason?.toLowerCase().includes(search.toLowerCase()) ||
-      l.leaveType?.toLowerCase().includes(search.toLowerCase()) ||
-      l.departmentName?.toLowerCase().includes(search.toLowerCase());
+      !lq ||
+      (l.employeeName || '').toLowerCase().includes(lq) ||
+      (l.reason || '').toLowerCase().includes(lq) ||
+      (l.leaveType || '').toLowerCase().includes(lq) ||
+      (l.departmentName || '').toLowerCase().includes(lq);
 
     const matchesStatus =
-      statusFilter === 'All' || l.status?.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === 'All' || (l.status || '').toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
@@ -417,8 +419,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               placeholder="Search employee, leave type..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none shadow-2xs"
+              className="w-full pl-8 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none shadow-2xs"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Clear"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
           {portalMode === 'admin' && (

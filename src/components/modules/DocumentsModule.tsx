@@ -13,6 +13,12 @@ import {
   FileCheck,
   AlertCircle,
   Eye,
+  Building2,
+  Crown,
+  Mail,
+  Phone,
+  MapPin,
+  UserCheck,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
@@ -39,6 +45,19 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Company and Owner Details State
+  const [companySettings, setCompanySettings] = useState({
+    name: 'Paneliya Technology Inc.',
+    tagline: 'Enterprise Cloud & Next-Gen Software Engineering',
+    ownerName: 'Keyur Sangani',
+    ownerRole: 'Founder & Managing Director / Super Admin',
+    ownerEmail: 'keyursangani1210@gmail.com',
+    supportEmail: 'support@paneliya.com',
+    phone: '+91 6352486893',
+    address: 'Paneliya Tech Park, Ring Road, Surat, Gujarat, India',
+    taxId: 'US-EIN-984102941',
+  });
+
   // Form State
   const [docTitle, setDocTitle] = useState('');
   const [docCategory, setDocCategory] = useState('Identity');
@@ -55,12 +74,24 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docs, emps] = await Promise.all([
+      const [docs, emps, settings] = await Promise.all([
         api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
         api.getEmployees(),
+        api.getSettings().catch(() => null),
       ]);
       setDocuments(docs);
       setEmployees(emps);
+      if (settings?.company) {
+        setCompanySettings((prev) => ({
+          ...prev,
+          name: settings.company.name || prev.name,
+          tagline: settings.company.tagline || prev.tagline,
+          taxId: settings.company.taxId || prev.taxId,
+          supportEmail: settings.company.supportEmail || prev.supportEmail,
+          phone: settings.company.phone || prev.phone,
+          address: settings.company.address || prev.address,
+        }));
+      }
       if (portalMode === 'employee') {
         setSelectedEmployeeId(myEmpId);
       } else if (emps.length > 0 && !selectedEmployeeId) {
@@ -125,14 +156,17 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
     }
   };
 
+  const docQ = searchTerm.trim().toLowerCase();
   const filtered = documents.filter((doc) => {
     if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
       return false;
     }
-    const matchesCat = category === 'ALL' || doc.category === category;
+    const matchesCat = category === 'ALL' || (doc.category || '').toLowerCase() === category.toLowerCase();
     const matchesSearch =
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase());
+      !docQ ||
+      (doc.title || '').toLowerCase().includes(docQ) ||
+      (doc.employeeName || '').toLowerCase().includes(docQ) ||
+      (doc.category || '').toLowerCase().includes(docQ);
     return matchesCat && matchesSearch;
   });
 
@@ -163,6 +197,99 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
         </button>
       </div>
 
+      {/* EMPLOYEE VIEW: Official Company Details & Owner Information Card */}
+      {portalMode === 'employee' && (
+        <div className="bg-gradient-to-br from-slate-900 via-[#111d3b] to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+          <div className="absolute right-4 top-4 opacity-5 pointer-events-none">
+            <Building2 className="w-32 h-32 text-white" />
+          </div>
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-white tracking-tight">
+                      {companySettings.name}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-emerald-400" /> Verified Employer
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                    {companySettings.tagline}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-lg bg-white/10 text-xs font-semibold text-slate-200 border border-white/10 backdrop-blur-xs flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                  Tax ID: {companySettings.taxId}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid of Company & Owner Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-white/10 text-xs">
+              {/* Owner Name */}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <span className="text-[10px] text-amber-300 uppercase tracking-wider font-extrabold flex items-center gap-1 mb-1">
+                  <Crown className="w-3.5 h-3.5 text-amber-400" /> Company Owner & Founder
+                </span>
+                <p className="font-bold text-white text-sm">
+                  {companySettings.ownerName}
+                </p>
+                <span className="text-[10px] text-slate-300 block">{companySettings.ownerRole}</span>
+                <span className="text-[10px] text-indigo-300 font-mono">{companySettings.ownerEmail}</span>
+              </div>
+
+              {/* Registered Address */}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <span className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Registered Headquarters
+                </span>
+                <p className="font-semibold text-white truncate" title={companySettings.address}>
+                  {companySettings.address}
+                </p>
+                <span className="text-[10px] text-slate-300">Surat, Gujarat &bull; Corporate Office</span>
+              </div>
+
+              {/* Official Contact */}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <span className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                  <Mail className="w-3.5 h-3.5 text-indigo-400" /> HR & Helpdesk Contact
+                </span>
+                <p className="font-semibold text-white truncate">
+                  {companySettings.supportEmail}
+                </p>
+                <span className="text-[10px] text-slate-300 flex items-center gap-1">
+                  <Phone className="w-3 h-3 text-slate-400" /> {companySettings.phone}
+                </span>
+              </div>
+
+              {/* Your Employee Record Under Owner */}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                <span className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> Your Employment Status
+                </span>
+                <p className="font-semibold text-white truncate">
+                  {user.firstName || 'Employee'} {user.lastName || ''}
+                </p>
+                <span className="text-[10px] text-emerald-300 font-medium block">
+                  Active Staff &bull; ID: {(user as any).employeeCode || user.employeeId || 'EMP'}
+                </span>
+                <span className="text-[10px] text-slate-300">Employed under {companySettings.ownerName}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Container */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
         {/* Filters & Search */}
@@ -190,8 +317,17 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by title or employee..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs rounded-full border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
+              className="w-full pl-9 pr-7 py-1.5 text-xs rounded-full border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Clear"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { DashboardView } from '../components/DashboardView';
@@ -29,13 +30,9 @@ import { EmployeeDrawer } from '../components/modals/EmployeeDrawer';
 import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal';
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
 import { LoginPage } from '../components/auth/LoginPage';
+import { LandingPage } from '../components/landing/LandingPage';
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import {
-  recordUserScreenActivity,
-  evaluateInactivity,
-} from '../lib/activityTracker';
-
 import { api } from '../lib/api';
 import {
   Employee,
@@ -49,23 +46,35 @@ import {
   Candidate,
   CompanyAsset,
 } from '../types/hrms';
-import {
-  mockDashboardStats,
-  mockEmployees,
-  mockDepartments,
-  mockDesignations,
-  mockLocations,
-  mockLeaveRequests,
-} from '../lib/mockData';
 
 export default function Home() {
+  const router = useRouter();
   const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
   const [activeModule, setActiveModule] = useState('dashboard');
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
+        router.push('/login');
+      }
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const initMod = localStorage.getItem('hrms_initial_module');
+      if (initMod) {
+        localStorage.removeItem('hrms_initial_module');
+        setActiveModule(initMod);
+      }
+    }
+  }, [isAuthenticated, user?.role]);
+
   // Data state
-  const [stats, setStats] = useState<any>(mockDashboardStats);
+  const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
@@ -123,77 +132,17 @@ export default function Home() {
     }
   }, [isAuthenticated, portalMode, user]);
 
-  // Employee Screen Activity Monitor (detects mouse movement, clicks, keyboard)
+  // Global keyboard shortcut for Global Search (Ctrl+K or Cmd+K)
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const currentEmpId = user?.employeeId || user?.id;
-    if (!currentEmpId || portalMode !== 'employee') return;
-
-    let lastRecorded = 0;
-    const handleScreenActivity = () => {
-      const now = Date.now();
-      // Throttle recording to once every 3 seconds
-      if (now - lastRecorded > 3000) {
-        lastRecorded = now;
-        recordUserScreenActivity(
-          currentEmpId,
-          `${user.firstName || 'Employee'} ${user.lastName || ''}`,
-          (user as any).employeeCode || currentEmpId
-        );
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchModalOpen((prev) => !prev);
       }
     };
-
-    window.addEventListener('mousemove', handleScreenActivity);
-    window.addEventListener('mousedown', handleScreenActivity);
-    window.addEventListener('keydown', handleScreenActivity);
-    window.addEventListener('scroll', handleScreenActivity);
-    window.addEventListener('touchstart', handleScreenActivity);
-
-    return () => {
-      window.removeEventListener('mousemove', handleScreenActivity);
-      window.removeEventListener('mousedown', handleScreenActivity);
-      window.removeEventListener('keydown', handleScreenActivity);
-      window.removeEventListener('scroll', handleScreenActivity);
-      window.removeEventListener('touchstart', handleScreenActivity);
-    };
-  }, [isAuthenticated, portalMode, user]);
-
-  // Admin Inactivity Monitor: Evaluates 5-minute idle threshold and raises alert
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const interval = setInterval(() => {
-      const newlyIdle = evaluateInactivity(5 * 60 * 1000); // 5 minutes threshold
-      if (newlyIdle.length > 0 && portalMode === 'admin') {
-        newlyIdle.forEach((emp) => {
-          showToast({
-            type: 'error',
-            title: `⚠️ Employee Inactive Alert`,
-            message: `${emp.employeeName} (${emp.employeeCode}) has had no mouse or keyboard activity for more than 5 minutes.`,
-            module: 'attendance',
-          });
-        });
-      }
-    }, 2000);
-
-    const handleIdleAlert = (e: any) => {
-      const emp = e.detail;
-      if (emp && portalMode === 'admin') {
-        showToast({
-          type: 'error',
-          title: `⚠️ Employee Inactive Alert`,
-          message: `${emp.employeeName} (${emp.employeeCode}) has had no mouse or keyboard activity for more than 5 minutes.`,
-          module: 'attendance',
-        });
-      }
-    };
-
-    window.addEventListener('hrms_employee_idle_alert', handleIdleAlert);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('hrms_employee_idle_alert', handleIdleAlert);
-    };
-  }, [isAuthenticated, portalMode, showToast]);
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -222,15 +171,15 @@ export default function Home() {
       ]);
 
       if (statsData) setStats(statsData);
-      if (Array.isArray(employeesData) && employeesData.length > 0) setEmployees(employeesData);
-      if (Array.isArray(departmentsData) && departmentsData.length > 0) setDepartments(departmentsData);
-      if (Array.isArray(designationsData) && designationsData.length > 0) setDesignations(designationsData);
-      if (Array.isArray(leavesData)) setLeaves(leavesData);
-      if (Array.isArray(attendanceData)) setAttendance(attendanceData);
-      if (Array.isArray(payrollData)) setPayroll(payrollData);
-      if (Array.isArray(jobsData)) setJobs(jobsData);
-      if (Array.isArray(candidatesData)) setCandidates(candidatesData);
-      if (Array.isArray(assetsData)) setAssets(assetsData);
+      setEmployees(Array.isArray(employeesData) ? employeesData : []);
+      setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+      setDesignations(Array.isArray(designationsData) ? designationsData : []);
+      setLeaves(Array.isArray(leavesData) ? leavesData : []);
+      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
+      setPayroll(Array.isArray(payrollData) ? payrollData : []);
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
+      setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
+      setAssets(Array.isArray(assetsData) ? assetsData : []);
     } catch (err) {
       console.warn('API sync warning (using real data fallback):', err);
     }
@@ -292,84 +241,89 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return <LandingPage onOpenLogin={() => router.push('/login')} />;
   }
 
   return (
-    <div className="h-screen w-full bg-slate-50 flex flex-col font-sans antialiased overflow-hidden">
-      {/* Top Navbar */}
-      <Header
-        onOpenSidebar={() => setSidebarOpen(true)}
-        onOpenClockModal={() => setClockModalOpen(true)}
-        onOpenLeaveModal={() => setLeaveModalOpen(true)}
-        onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
-        onOpenProfile={() => {
-          const myEmp = employees.find((e) =>
-            (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
-            (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
-            ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
-            (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
-          );
-          if (myEmp) {
-            setSelectedEmployee(myEmp);
-          } else if (user) {
-            setSelectedEmployee({
-              id: user.employeeId || user.id || 'emp-self',
-              employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
-              firstName: user.firstName || 'Employee',
-              lastName: user.lastName || '',
-              email: user.email || '',
-              phone: (user as any)?.phone || '',
-              avatarUrl: user.avatarUrl || '',
-              gender: 'Other',
-              dateOfBirth: '1995-01-01',
-              address: '',
-              emergencyContact: { name: '', relationship: '', phone: '' },
-              joiningDate: '2026-01-01',
-              employmentType: 'Full-time',
-              status: 'Active',
-              departmentId: (user as any)?.departmentId || 'dept-1',
-              departmentName: (user as any)?.departmentName || 'General',
-              designationId: (user as any)?.designationId || 'des-1',
-              designationTitle: (user as any)?.designationTitle || 'Staff',
-              reportingManagerId: '',
-              reportingManagerName: '—',
-              workLocationId: 'loc-1',
-              workLocationName: 'Corporate HQ',
-              shift: 'General Shift (09:00 AM – 06:00 PM)',
-              bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
-              taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
-              education: [],
-              previousExperience: [],
-              skills: [],
-              salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
-              createdAt: '2026-01-01',
-              updatedAt: '2026-01-01',
-            });
-          }
-        }}
-        onNavigateSettings={() => setActiveModule('settings')}
-        onOpenChat={() => setActiveModule('chat')}
+    <div className="h-screen w-full bg-[#f4f7fc] text-[#152345] flex font-sans antialiased overflow-hidden">
+      {/* Left Sidebar (Full height from top to bottom) */}
+      <Sidebar
+        activeModule={activeModule}
+        setActiveModule={setActiveModule}
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+        onSelectSubTab={setSubTab}
         portalMode={portalMode}
         pendingLeavesCount={pendingLeavesCount}
         unreadChatCount={unreadChatCount}
       />
 
-      {/* Main Workspace: Left Sidebar + Scrollable Viewport */}
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          activeModule={activeModule}
-          setActiveModule={setActiveModule}
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-          onSelectSubTab={setSubTab}
+      {/* Right Content Area: Header on top, Scrollable main below */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Top Navbar */}
+        <Header
+          onOpenSidebar={() => setSidebarOpen(true)}
+          onOpenClockModal={() => setClockModalOpen(true)}
+          onOpenLeaveModal={() => setLeaveModalOpen(true)}
+          onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+          onOpenProfile={() => {
+            const myEmp = employees.find((e) =>
+              (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
+              (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
+              ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
+              (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
+            );
+            if (myEmp) {
+              setSelectedEmployee(myEmp);
+            } else if (user) {
+              setSelectedEmployee({
+                id: user.employeeId || user.id || 'emp-self',
+                employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
+                firstName: user.firstName || 'Employee',
+                lastName: user.lastName || '',
+                email: user.email || '',
+                phone: (user as any)?.phone || '',
+                avatarUrl: user.avatarUrl || '',
+                gender: 'Other',
+                dateOfBirth: '1995-01-01',
+                address: '',
+                emergencyContact: { name: '', relationship: '', phone: '' },
+                joiningDate: '2026-01-01',
+                employmentType: 'Full-time',
+                status: 'Active',
+                departmentId: (user as any)?.departmentId || 'dept-1',
+                departmentName: (user as any)?.departmentName || 'General',
+                designationId: (user as any)?.designationId || 'des-1',
+                designationTitle: (user as any)?.designationTitle || 'Staff',
+                reportingManagerId: '',
+                reportingManagerName: '—',
+                workLocationId: 'loc-1',
+                workLocationName: 'Corporate HQ',
+                shift: 'General Shift (09:00 AM – 06:00 PM)',
+                bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+                taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+                education: [],
+                previousExperience: [],
+                skills: [],
+                salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+                createdAt: '2026-01-01',
+                updatedAt: '2026-01-01',
+              });
+            }
+          }}
+          onNavigateSettings={() => setActiveModule('settings')}
+          onOpenChat={() => setActiveModule('chat')}
+          onOpenSearchModal={() => setSearchModalOpen(true)}
+          onNavigateModule={setActiveModule}
+          onSelectEmployee={setSelectedEmployee}
+          employees={employees}
           portalMode={portalMode}
           pendingLeavesCount={pendingLeavesCount}
           unreadChatCount={unreadChatCount}
         />
 
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full [scrollbar-width:thin]">
-          <div className="max-w-[1600px] mx-auto">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full [scrollbar-width:thin] bg-[#f4f7fc]">
+          <div className="max-w-[1700px] mx-auto">
         {activeModule === 'dashboard' && (
           <DashboardView
             stats={stats}
@@ -464,8 +418,10 @@ export default function Home() {
             departments={departments}
             designations={designations}
             locations={locations}
-            initialTab={(subTab as any) || 'departments'}
+            initialTab={(subTab as any) || 'about'}
             onRefresh={loadData}
+            portalMode={portalMode}
+            employees={employees}
           />
         )}
 
@@ -496,7 +452,7 @@ export default function Home() {
         )}
         {activeModule === 'reports' && <ReportsModule />}
         {activeModule === 'audit-logs' && <AuditLogsModule />}
-        {activeModule === 'settings' && <SettingsModule />}
+        {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
         </main>
       </div>
@@ -526,6 +482,7 @@ export default function Home() {
         employee={selectedEmployee}
         isOpen={Boolean(selectedEmployee)}
         onClose={() => setSelectedEmployee(null)}
+        onRefresh={loadData}
       />
 
       <GlobalSearchModal
@@ -534,6 +491,7 @@ export default function Home() {
         employees={employees}
         onSelectEmployee={setSelectedEmployee}
         onNavigateModule={setActiveModule}
+        portalMode={portalMode}
       />
     </div>
   );

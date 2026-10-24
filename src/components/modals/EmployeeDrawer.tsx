@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { X, UserPlus, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { api } from '../../lib/api';
-import { Employee, Department, Designation } from '../../types/hrms';
+import { Employee, Department, Designation, Role } from '../../types/hrms';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -46,6 +46,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     emergencyRelationship: 'Spouse',
     emergencyPhone: '',
     taxId: '',
+    initialPassword: 'Password@123',
+    role: 'EMPLOYEE' as Role,
   });
 
   if (!isOpen) return null;
@@ -62,6 +64,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
+        password: formData.initialPassword || 'Password@123',
+        role: formData.role,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
         address: formData.address,
@@ -250,6 +254,23 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Initial Login Password / PIN
+                </label>
+                <input
+                  id="input-employee-initial-password"
+                  type="text"
+                  value={formData.initialPassword}
+                  onChange={(e) => setFormData({ ...formData, initialPassword: e.target.value })}
+                  placeholder="Password@123"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                />
+                <p className="text-[11px] text-indigo-600 mt-1 font-medium leading-snug">
+                  💡 This employee can directly sign in using their registered email or phone with this password, or activate their account anytime via Sign Up.
+                </p>
+              </div>
             </div>
           )}
 
@@ -274,7 +295,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Designation / Role
+                  Designation
                 </label>
                 <select
                   value={formData.designationId}
@@ -287,6 +308,30 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  System Access Role
+                </label>
+                <select
+                  id="select-employee-role"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium"
+                >
+                  <option value="EMPLOYEE">Employee (Standard Access)</option>
+                  <option value="TEAM_LEADER">Team Leader</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="HR_EXECUTIVE">HR Executive</option>
+                  <option value="HR_ADMIN">HR Admin (HR)</option>
+                  <option value="RECRUITER">Recruiter</option>
+                  <option value="FINANCE_ADMIN">Finance Admin</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Assign the system role (e.g., HR, Manager, Team Leader, Employee).
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

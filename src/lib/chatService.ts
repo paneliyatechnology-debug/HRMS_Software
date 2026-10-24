@@ -1,5 +1,4 @@
 import { ChatMessage, ChatConversation, ChatAttachment, User, Employee } from '../types/hrms';
-import { mockEmployees } from './mockData';
 import { getAllEmployees } from './employeeService';
 
 const CHAT_CONVERSATIONS_KEY = 'hrms_chat_conversations_records';
@@ -18,7 +17,7 @@ function getDefaultConversations(): ChatConversation[] {
       participantIds: ['all'],
       participantNames: { all: 'All Staff & Management' },
       title: '📢 General Staff Helpdesk & Broadcast',
-      lastMessage: 'Welcome everyone to the Paneliya HRMS team communication channel!',
+      lastMessage: 'Welcome everyone to the My Own HRMS team communication channel!',
       lastMessageTimestamp: '2026-10-22T09:00:00.000Z',
       lastSenderId: ADMIN_USER_ID,
       unreadCount: {},
@@ -39,7 +38,7 @@ function getDefaultMessages(): Record<string, ChatMessage[]> {
         senderRole: 'admin',
         recipientId: 'all',
         recipientName: 'All Staff',
-        content: 'Welcome everyone to the Paneliya HRMS team communication channel!',
+        content: 'Welcome everyone to the My Own HRMS team communication channel!',
         timestamp: '2026-10-22T09:00:00.000Z',
         status: 'read',
       },
@@ -434,4 +433,116 @@ export function deleteChatMessage(
   }
 
   return true;
+}
+
+/**
+ * Receives an incoming message broadcast from WebSocket Gateway.
+ */
+export function receiveIncomingSocketMessage(newMessage: ChatMessage, currentUserId?: string): void {
+  if (!newMessage || !newMessage.conversationId || !newMessage.id) return;
+
+  const messagesMap = getAllMessagesMap();
+  const currentMessages = messagesMap[newMessage.conversationId] || [];
+
+  // Deduplicate: if message with this ID already exists, don't append again
+  const exists = currentMessages.some((m) => m.id === newMessage.id);
+  if (exists) return;
+
+  messagesMap[newMessage.conversationId] = [...currentMessages, newMessage];
+  saveMessagesMap(messagesMap);
+
+  // Update conversation meta
+  const conversations = getAllConversations();
+  const convIndex = conversations.findIndex((c) => c.id === newMessage.conversationId);
+  const now = newMessage.timestamp || new Date().toISOString();
+
+  if (convIndex !== -1) {
+    const conv = { ...conversations[convIndex] };
+    conv.lastMessage = newMessage.content || (newMessage.attachments?.length ? 'Sent an attachment' : '');
+    conv.lastMessageTimestamp = now;
+    conv.lastSenderId = newMessage.senderId;
+    conv.updatedAt = now;
+
+    // Increment unread count if current user is not the sender
+    if (currentUserId && newMessage.senderId !== currentUserId) {
+      const unread = { ...(conv.unreadCount || {}) };
+      unread[currentUserId] = (unread[currentUserId] || 0) + 1;
+      conv.unreadCount = unread;
+    }
+
+    conversations.splice(convIndex, 1);
+    conversations.unshift(conv);
+    saveConversations(conversations);
+  }
+}
+
+/**
+ * Handles message edited event from WebSocket Gateway.
+ */
+export function receiveIncomingSocketEdit(payload: {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  isEdited?: boolean;
+  editedAt?: string;
+}): void {
+  if (!payload || !payload.conversationId || !payload.messageId) return;
+
+  const messagesMap = getAllMessagesMap();
+  const messages = messagesMap[payload.conversationId] || [];
+  const msgIndex = messages.findIndex((m) => m.id === payload.messageId);
+
+  if (msgIndex !== -1) {
+    messages[msgIndex] = {
+      ...messages[msgIndex],
+      content: payload.content,
+      isEdited: true,
+      editedAt: payload.editedAt || new Date().toISOString(),
+    };
+    messagesMap[payload.conversationId] = [...messages];
+    saveMessagesMap(messagesMap);
+
+    if (msgIndex === messages.length - 1) {
+      const conversations = getAllConversations();
+      const convIndex = conversations.findIndex((c) => c.id === payload.conversationId);
+      if (convIndex !== -1) {
+        conversations[convIndex].lastMessage = payload.content;
+        conversations[convIndex].updatedAt = new Date().toISOString();
+        saveConversations(conversations);
+      }
+    }
+  }
+}
+
+/**
+ * Handles message deleted event from WebSocket Gateway.
+ */
+export function receiveIncomingSocketDelete(payload: {
+  conversationId: string;
+  messageId: string;
+}): void {
+  if (!payload || !payload.conversationId || !payload.messageId) return;
+
+  const messagesMap = getAllMessagesMap();
+  const messages = messagesMap[payload.conversationId] || [];
+  const msgIndex = messages.findIndex((m) => m.id === payload.messageId);
+
+  if (msgIndex !== -1) {
+    messages.splice(msgIndex, 1);
+    messagesMap[payload.conversationId] = [...messages];
+    saveMessagesMap(messagesMap);
+
+    const conversations = getAllConversations();
+    const convIndex = conversations.findIndex((c) => c.id === payload.conversationId);
+    if (convIndex !== -1) {
+      if (messages.length > 0) {
+        const last = messages[messages.length - 1];
+        conversations[convIndex].lastMessage = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+        conversations[convIndex].lastMessageTimestamp = last.timestamp;
+      } else {
+        conversations[convIndex].lastMessage = 'No messages yet';
+      }
+      saveConversations(conversations);
+    }
+  }
 }

@@ -1,6 +1,5 @@
 import {
   mockDashboardStats,
-  mockEmployees,
   mockDepartments,
   mockDesignations,
   mockLocations,
@@ -19,7 +18,6 @@ import {
   mockNotifications,
   mockAuditLogs,
   mockSystemSettings,
-  mockUsers,
 } from './mockData';
 import {
   Employee,
@@ -112,7 +110,7 @@ export const api = {
     return fetchWithFallback('/health', undefined, {
       status: 'healthy',
       version: '1.0.0',
-      service: 'Paneliya Enterprise HRMS API',
+      service: 'My Own HRMS API',
       timestamp: new Date().toISOString(),
     });
   },
@@ -140,10 +138,20 @@ export const api = {
       }
 
       const errData = await res.json().catch(() => ({}));
-      const message =
-        errData?.error?.message ||
-        errData?.message ||
-        `Login failed with status ${res.status}`;
+      let message = 'Login failed';
+      if (typeof errData?.error?.message === 'string') {
+        message = errData.error.message;
+      } else if (typeof errData?.message === 'string') {
+        message = errData.message;
+      } else if (Array.isArray(errData?.message)) {
+        message = errData.message.join(', ');
+      } else if (typeof errData?.error === 'string') {
+        message = errData.error;
+      } else if (res.status === 401) {
+        message = 'Invalid email, phone, employee code, or password.';
+      } else {
+        message = `Login failed with status ${res.status}`;
+      }
       throw new Error(message);
     } catch (err: any) {
       throw err;
@@ -191,33 +199,21 @@ export const api = {
     }
   },
 
-  async getProfile(token?: string) {
-    return fetchWithFallback<User>(
-      '/auth/me',
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-      mockUsers[0]
-    );
+  async getMe(token?: string): Promise<User> {
+    return fetchWithFallback<User>('/auth/me', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
   },
 
   async switchRole(role: string) {
-    return fetchWithFallback<any>(
-      '/auth/switch-role',
-      {
-        method: 'POST',
-        body: JSON.stringify({ role }),
-      },
-      {
-        success: true,
-        activeRole: role,
-        accessToken: `jwt_switched_${role.toLowerCase()}_${Date.now()}`,
-      }
-    );
+    return fetchWithFallback<any>('/auth/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    });
   },
 
   async getAuthUsers() {
-    return fetchWithFallback<User[]>('/auth/users', undefined, mockUsers);
+    return fetchWithFallback<User[]>('/auth/users', undefined, []);
   },
 
   // =========================================================================
@@ -236,35 +232,15 @@ export const api = {
     if (params?.employmentType && params.employmentType !== 'All') query.set('employmentType', params.employmentType);
 
     const qs = query.toString();
-    const localEmployees = getAllEmployees();
     return fetchWithFallback<Employee[]>(
       `/employees${qs ? `?${qs}` : ''}`,
       undefined,
-      localEmployees
+      []
     );
   },
 
   async getEmployeeById(id: string) {
-    const all = getAllEmployees();
-    const fallback = all.find((e) => e.id === id || e.employeeCode === id) || all[0];
-    return fetchWithFallback<any>(`/employees/${id}`, undefined, {
-      ...fallback,
-      tabsData: {
-        attendance: [],
-        leaves: mockLeaveRequests.filter((l) => l.employeeId === fallback.id),
-        leaveBalance: mockLeaveBalances[0] || {
-          casualLeave: { total: 12, used: 2, remaining: 10 },
-          sickLeave: { total: 10, used: 1, remaining: 9 },
-          paidLeave: { total: 15, used: 3, remaining: 12 },
-        },
-        documents: [],
-        assets: mockCompanyAssets.filter((a) => a.assignedToEmployeeId === fallback.id),
-        performance: mockPerformanceReviews.filter((r) => r.employeeId === fallback.id),
-        trainings: mockTrainingEnrollments.filter((t) => t.employeeId === fallback.id),
-        payrolls: [],
-        activity: [],
-      },
-    });
+    return fetchWithFallback<any>(`/employees/${id}`);
   },
 
   async createEmployee(data: Partial<Employee>) {
@@ -281,7 +257,7 @@ export const api = {
     return fetchWithFallback<Employee>(
       `/employees/${id}`,
       { method: 'PUT', body: JSON.stringify(data) },
-      (updated || { ...mockEmployees[0], id, ...data }) as Employee
+      (updated || { id, ...data }) as Employee
     );
   },
 
@@ -1069,4 +1045,28 @@ export const api = {
       { ...mockSystemSettings, ...data, updatedAt: new Date().toISOString() }
     );
   },
+
+  // =========================================================================
+  // 20. SUPER ADMIN
+  // =========================================================================
+  async getSuperAdminUser(userId: string = 'user-1') {
+    return fetchWithFallback<any>(
+      `/super-admin/users/${userId}`,
+      undefined,
+      {
+        id: userId,
+        role: 'SUPER_ADMIN',
+        status: 'ACTIVE',
+      }
+    );
+  },
+
+  async updateSuperAdminUser(userId: string = 'user-1', data: any = {}) {
+    return fetchWithFallback<any>(
+      `/super-admin/users/${userId}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+      { id: userId, ...data }
+    );
+  },
 };
+

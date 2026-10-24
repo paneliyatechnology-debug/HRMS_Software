@@ -1,5 +1,4 @@
 import { Employee } from '../types/hrms';
-import { mockEmployees } from './mockData';
 
 const EMPLOYEES_STORAGE_KEY = 'hrms_employees_records';
 
@@ -7,28 +6,19 @@ const EMPLOYEES_STORAGE_KEY = 'hrms_employees_records';
  * Retrieve all employees from localStorage, initialized with mockEmployees
  */
 export function getAllEmployees(): Employee[] {
-  if (typeof window === 'undefined') return mockEmployees;
+  if (typeof window === 'undefined') return [];
   try {
     const saved = localStorage.getItem(EMPLOYEES_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Filter out legacy demo employees
-        const clean = parsed.filter(
-          (e) =>
-            e.id !== 'emp-2' &&
-            e.id !== 'emp-3' &&
-            !(e.firstName === 'Rahul' && e.lastName === 'Sharma') &&
-            !(e.firstName === 'Priya' && e.lastName === 'Patel')
-        );
-        return clean.length > 0 ? clean : mockEmployees;
+      if (Array.isArray(parsed)) {
+        return parsed;
       }
     }
-    localStorage.setItem(EMPLOYEES_STORAGE_KEY, JSON.stringify(mockEmployees));
-    return mockEmployees;
+    return [];
   } catch (err) {
     console.error('Failed to load employees from storage:', err);
-    return mockEmployees;
+    return [];
   }
 }
 
@@ -61,10 +51,11 @@ export function addEmployee(data: Partial<Employee>): Employee {
     lastName: data.lastName || 'Staff',
     email: data.email || `employee.${Date.now()}@paneliya.com`,
     phone: data.phone || '+91 98765 43210',
+    password: data.password || 'Password@123',
     avatarUrl: data.avatarUrl || '',
     gender: data.gender || 'Male',
     dateOfBirth: data.dateOfBirth || '1995-01-01',
-    address: data.address || 'Corporate Tower, Paneliya HRMS',
+    address: data.address || 'Corporate Tower, My Own HRMS',
     emergencyContact: data.emergencyContact || {
       name: 'Emergency Contact',
       relationship: 'Family',

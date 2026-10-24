@@ -1,5 +1,5 @@
 import { LeaveRequest, Employee } from '../types/hrms';
-import { mockLeaveRequests, mockEmployees } from './mockData';
+import { getAllEmployees } from './employeeService';
 
 const LEAVES_STORAGE_KEY = 'hrms_leave_requests';
 
@@ -57,7 +57,7 @@ export function applyForLeave(data: {
   let resolvedName = data.employeeName;
   let resolvedDept = data.departmentName;
   if (!resolvedName) {
-    const found = mockEmployees.find((e: Employee) => e.id === data.employeeId);
+    const found = getAllEmployees().find((e: Employee) => e.id === data.employeeId);
     if (found) {
       resolvedName = `${found.firstName} ${found.lastName || ''}`.trim();
       resolvedDept = resolvedDept || found.departmentName;

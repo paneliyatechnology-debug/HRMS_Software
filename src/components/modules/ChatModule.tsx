@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { Employee, ChatConversation, ChatMessage, ChatAttachment } from '../../types/hrms';
 import {
   getAllConversations,
@@ -47,6 +48,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   onClearInitialEmployee,
 }) => {
   const { user, portalMode } = useAuth();
+  const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping } = useSocket();
 
   // Determine current user chat identity
   const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || '';
@@ -61,6 +63,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+
+  // Real-time socket typing state
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const typingTimeoutRef = useRef<any>(null);
 
   // Edit and Delete Message states
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -150,6 +156,30 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Real-time remote typing indicator via WebSocket
+  useEffect(() => {
+    const handleRemoteTyping = (e: any) => {
+      const data = e.detail;
+      if (data && data.conversationId === activeConversationId && data.userId !== currentUserId) {
+        if (data.isTyping) {
+          setTypingUser(data.userName || 'Staff Member');
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => {
+            setTypingUser(null);
+          }, 3000);
+        } else {
+          setTypingUser(null);
+        }
+      }
+    };
+
+    window.addEventListener('hrms_chat_socket_typing', handleRemoteTyping);
+    return () => {
+      window.removeEventListener('hrms_chat_socket_typing', handleRemoteTyping);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [activeConversationId, currentUserId]);
+
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
   // Helper to determine the other participant's details in a 1-to-1 chat
@@ -205,7 +235,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
     const other = getOtherParticipantInfo(activeConversation);
 
-    sendChatMessage({
+    const sent = sendChatMessage({
       conversationId: activeConversation.id,
       senderId: currentUserId,
       senderName: currentUserName,
@@ -214,6 +244,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       recipientName: other.name,
       content: inputText.trim(),
       attachments: pendingAttachment ? [pendingAttachment] : undefined,
+    });
+
+    // Real-time broadcast through WebSocket
+    emitChatMessage(sent);
+    emitChatTyping({
+      conversationId: activeConversation.id,
+      userId: currentUserId,
+      userName: currentUserName,
+      isTyping: false,
     });
 
     setInputText('');
@@ -225,7 +264,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (!activeConversation) return;
     const other = getOtherParticipantInfo(activeConversation);
 
-    sendChatMessage({
+    const sent = sendChatMessage({
       conversationId: activeConversation.id,
       senderId: currentUserId,
       senderName: currentUserName,
@@ -234,6 +273,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       recipientName: other.name,
       content: text,
     });
+
+    // Real-time broadcast through WebSocket
+    emitChatMessage(sent);
   };
 
   const handleAddSampleAttachment = (type: 'document' | 'image') => {
@@ -263,7 +305,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (!activeConversation) return;
     if (!editingText.trim()) return;
 
-    editChatMessage(activeConversation.id, messageId, editingText, currentUserId);
+    const updated = editChatMessage(activeConversation.id, messageId, editingText, currentUserId);
+    if (updated) {
+      emitChatEdit({
+        conversationId: activeConversation.id,
+        messageId,
+        content: editingText,
+        isEdited: true,
+        editedAt: updated.editedAt,
+        editorUserId: currentUserId,
+      });
+    }
     setEditingMessageId(null);
     setEditingText('');
     setMessages(getMessagesForConversation(activeConversation.id));
@@ -272,7 +324,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const handleConfirmDelete = () => {
     if (!activeConversation || !deletingMessageId) return;
 
-    deleteChatMessage(activeConversation.id, deletingMessageId, currentUserId);
+    const success = deleteChatMessage(activeConversation.id, deletingMessageId, currentUserId);
+    if (success) {
+      emitChatDelete({
+        conversationId: activeConversation.id,
+        messageId: deletingMessageId,
+        deleterUserId: currentUserId,
+      });
+    }
     setDeletingMessageId(null);
     setMessages(getMessagesForConversation(activeConversation.id));
   };
@@ -530,9 +589,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 truncate">
                       {activeOtherInfo.name}
                     </h3>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/50">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Active now
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
+                        isConnected
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                      }`}
+                      title={isConnected ? 'Connected to WebSocket Gateway on port 4000' : 'Disconnected from WebSocket'}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                        }`}
+                      />
+                      <span>{isConnected ? 'Real-Time Socket Live' : 'Reconnecting...'}</span>
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 truncate">
@@ -761,6 +831,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               </div>
             )}
 
+            {/* Real-time Remote Typing Indicator */}
+            {typingUser && (
+              <div className="px-4 py-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50/80 border-t border-indigo-100 flex items-center gap-2 animate-in fade-in duration-150">
+                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                <span>✍️ {typingUser} is typing...</span>
+              </div>
+            )}
+
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
@@ -792,7 +870,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 id="input-chat-message"
                 type="text"
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setInputText(val);
+                  if (activeConversation) {
+                    emitChatTyping({
+                      conversationId: activeConversation.id,
+                      userId: currentUserId,
+                      userName: currentUserName,
+                      isTyping: val.length > 0,
+                    });
+                  }
+                }}
                 placeholder={`Message ${activeOtherInfo.name}... (Press Enter to send)`}
                 className="flex-1 py-2.5 px-3.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
               />

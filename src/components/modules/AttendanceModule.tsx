@@ -22,6 +22,7 @@ import {
   Sliders,
   Cpu,
   AlertTriangle,
+  Search,
 } from 'lucide-react';
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import {
@@ -34,13 +35,10 @@ import {
   getTodayDateString,
   saveAttendanceRecords,
 } from '../../lib/attendanceService';
-import {
-  getAllEmployeeActivities,
-  EmployeeActivityStatus,
-} from '../../lib/activityTracker';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -108,11 +106,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     updatedAt: '2026-01-01',
   };
 
-  const visibleEmployees = portalMode === 'employee'
+  const baseEmployees = portalMode === 'employee'
     ? (displayEmployees.length > 0 ? displayEmployees : [currentEmpFallback])
     : employees;
 
   const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
+  const [attendanceSearch, setAttendanceSearch] = useState('');
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedDesig, setSelectedDesig] = useState('All');
@@ -120,21 +119,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedYear, setSelectedYear] = useState('2026');
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
 
-  // Real-time Employee Activity status (mouse/screen movement)
-  const [activities, setActivities] = useState<Record<string, EmployeeActivityStatus>>({});
+  const attQ = attendanceSearch.trim().toLowerCase();
+  const visibleEmployees = attQ
+    ? baseEmployees.filter((emp) => {
+        const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+        const code = (emp.employeeCode || '').toLowerCase();
+        const dept = (emp.departmentName || '').toLowerCase();
+        const desig = (emp.designationTitle || '').toLowerCase();
+        return (
+          name.includes(attQ) ||
+          code.includes(attQ) ||
+          dept.includes(attQ) ||
+          desig.includes(attQ)
+        );
+      })
+    : baseEmployees;
 
-  useEffect(() => {
-    const syncActivities = () => {
-      setActivities(getAllEmployeeActivities());
-    };
-    syncActivities();
-    const interval = setInterval(syncActivities, 2000);
-    window.addEventListener('hrms_employee_activity_updated', syncActivities);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('hrms_employee_activity_updated', syncActivities);
-    };
-  }, []);
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -398,6 +398,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export CSV</span>
           </button>
+
+          {/* Quick Attendance Employee Search */}
+          {portalMode !== 'employee' && (
+            <div className="relative min-w-[210px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={attendanceSearch}
+                onChange={(e) => setAttendanceSearch(e.target.value)}
+                placeholder="Filter staff by name/ID..."
+                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+              />
+              {attendanceSearch && (
+                <button
+                  onClick={() => setAttendanceSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  title="Clear"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Filters dropdowns for Summary */}
@@ -514,6 +537,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
             )}
 
+            {/* Employee Weekly Tracked Hours Bar Chart */}
+            {portalMode === 'employee' && (
+              <TrackedHoursChart
+                employeeId={visibleEmployees[0]?.id || user.employeeId || user.id}
+                records={liveRecords}
+              />
+            )}
+
             {/* Live Table */}
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -552,7 +583,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
                       const isDone = rec && rec.isCompleted;
-                      const isIdle = activities[emp.id]?.isIdle || false;
 
                       const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                       const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -560,34 +590,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       return (
                         <tr
                           key={emp.id}
-                          className={`transition-colors ${
-                            isIdle
-                              ? 'bg-rose-50/50 hover:bg-rose-50/80 border-l-4 border-l-rose-500'
-                              : 'hover:bg-slate-50/70'
-                          }`}
+                          className="hover:bg-slate-50/70 transition-colors"
                         >
                           <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                            <div
-                              className={`w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 ${
-                                isIdle
-                                  ? 'bg-rose-100 border-rose-300 text-rose-700'
-                                  : 'bg-slate-100 border-slate-200 text-slate-700'
-                              }`}
-                            >
+                            <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
                               {emp.firstName?.[0] || 'E'}
                             </div>
                             <div>
-                              <p className={`font-semibold ${isIdle ? 'text-rose-900' : 'text-slate-900'}`}>
+                              <p className="font-semibold text-slate-900">
                                 {emp.firstName} {emp.lastName}
                               </p>
-                              {isIdle ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 border border-rose-400 animate-pulse">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
-                                  {emp.employeeCode} • IDLE &gt;5M
-                                </span>
-                              ) : (
-                                <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
-                              )}
+                              <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
@@ -599,7 +612,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </td>
                           <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                             {rec ? (
-                              <span className={isWorking ? (isIdle ? 'text-rose-700' : 'text-emerald-700') : 'text-slate-800'}>
+                              <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
                                 {formatSecondsToHMS(liveSecs)}
                               </span>
                             ) : (
@@ -616,12 +629,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            {isIdle ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1 w-fit animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
-                                Idle (&gt;5m No Mouse Activity)
-                              </span>
-                            ) : isWorking ? (
+                            {isWorking ? (
                               <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                 Working
@@ -655,7 +663,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       {/* TAB 1: Attendance Summary (31-day October 2026 Matrix) */}
       {activeTab === 'summary' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+        <div className="space-y-4">
+          {portalMode === 'employee' && (
+            <TrackedHoursChart
+              employeeId={visibleEmployees[0]?.id || user.employeeId || user.id}
+              records={liveRecords}
+            />
+          )}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
               <CalendarIcon className="w-4 h-4" />
@@ -775,6 +790,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       )}
 

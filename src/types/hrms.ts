@@ -3,6 +3,7 @@ export type Role =
   | 'HR_ADMIN'
   | 'HR_EXECUTIVE'
   | 'MANAGER'
+  | 'TEAM_LEADER'
   | 'EMPLOYEE'
   | 'RECRUITER'
   | 'FINANCE_ADMIN';
@@ -103,6 +104,8 @@ export interface Employee {
   id: string;
   employeeCode: string;
   userId?: string;
+  password?: string;
+  role?: Role;
   firstName: string;
   lastName: string;
   email: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -20,19 +20,14 @@ import {
   AlertCircle,
   Send,
   MessageSquare,
-  AlertTriangle,
-  MousePointer,
+  Shield,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
-import {
-  getAllEmployeeActivities,
-  simulateEmployeeIdle,
-  resetEmployeeIdle,
-  EmployeeActivityStatus,
-} from '../../lib/activityTracker';
+import { getRoleDefinition } from '../../lib/roleConfig';
+import { ChangeRoleModal } from '../modals/ChangeRoleModal';
 
 interface EmployeesModuleProps {
   employees: Employee[];
@@ -59,24 +54,23 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('Active');
   const [selectedJoining, setSelectedJoining] = useState('Any');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Real-time Employee Screen & Mouse Activity Map
-  const [activities, setActivities] = useState<Record<string, EmployeeActivityStatus>>({});
-
+  // Focus search on '/' key press
   useEffect(() => {
-    const syncActivities = () => {
-      setActivities(getAllEmployeeActivities());
+    const handleSlashKey = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
     };
-    syncActivities();
-    const interval = setInterval(syncActivities, 1500);
-    window.addEventListener('hrms_employee_activity_updated', syncActivities);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('hrms_employee_activity_updated', syncActivities);
-    };
+    window.addEventListener('keydown', handleSlashKey);
+    return () => window.removeEventListener('keydown', handleSlashKey);
   }, []);
-
-  const idleCount = Object.values(activities).filter((a) => a.isIdle).length;
 
   // State for removing employee
   const [removingEmp, setRemovingEmp] = useState<Employee | null>(null);
@@ -89,21 +83,41 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [noticePriority, setNoticePriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
   const [noticeLoading, setNoticeLoading] = useState(false);
 
-  const filtered = employees.filter((emp) => {
-    const matchesSearch =
-      `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      emp.email.toLowerCase().includes(search.toLowerCase()) ||
-      emp.employeeCode.toLowerCase().includes(search.toLowerCase());
+  // State for changing employee role
+  const [roleTargetEmp, setRoleTargetEmp] = useState<Employee | null>(null);
 
-    const isIdle = activities[emp.id]?.isIdle || false;
+  const handleOpenRoleModal = (emp: Employee) => {
+    setRoleTargetEmp(emp);
+  };
+
+  const handleRoleUpdated = (updated: Employee) => {
+    setRoleTargetEmp(null);
+    if (onRefresh) onRefresh();
+  };
+
+  const query = search.trim().toLowerCase();
+  const filtered = employees.filter((emp) => {
+    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+    const email = (emp.email || '').toLowerCase();
+    const code = (emp.employeeCode || '').toLowerCase();
+    const dept = (emp.departmentName || '').toLowerCase();
+    const desig = (emp.designationTitle || '').toLowerCase();
+    const phone = (emp.phone || '').toLowerCase();
+
+    const matchesSearch =
+      !query ||
+      fullName.includes(query) ||
+      email.includes(query) ||
+      code.includes(query) ||
+      dept.includes(query) ||
+      desig.includes(query) ||
+      phone.includes(query);
 
     let matchesStatus = true;
     if (selectedStatus === 'Active') {
-      matchesStatus = !isIdle && emp.status?.toLowerCase() !== 'inactive';
-    } else if (selectedStatus === 'Idle') {
-      matchesStatus = isIdle;
+      matchesStatus = (emp.status || '').toLowerCase() !== 'inactive';
     } else if (selectedStatus === 'Inactive') {
-      matchesStatus = emp.status?.toLowerCase() === 'inactive';
+      matchesStatus = (emp.status || '').toLowerCase() === 'inactive';
     } else if (selectedStatus === 'All') {
       matchesStatus = true;
     }
@@ -256,100 +270,32 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
       </div>
 
-      {/* 5-Min Inactivity Alert Banner for Admin */}
-      {portalMode === 'admin' && (
-        <div
-          className={`p-3.5 rounded-2xl border transition-all flex flex-wrap items-center justify-between gap-3 ${
-            idleCount > 0
-              ? 'bg-rose-50 border-rose-300 text-rose-900 shadow-xs'
-              : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                idleCount > 0 ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-200 text-slate-600'
-              }`}
-            >
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-slate-900">
-                  {idleCount > 0
-                    ? `⚠️ ${idleCount} Employee(s) Inactive for >5 Minutes (No Mouse Activity)`
-                    : 'Mouse & Screen Activity Monitor (5-Min Auto-Detection)'}
-                </span>
-                {idleCount > 0 && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
-                    ID Marked RED
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {idleCount > 0
-                  ? 'Employees who have not moved their mouse or interacted for >5 minutes have their IDs highlighted in bold RED so you can immediately see who is not working.'
-                  : 'Real-time detection: If any employee has no mouse movement, typing, or click activity for 5 minutes, their ID highlights in RED and admin receives an instant alert.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {idleCount > 0 && (
-              <button
-                onClick={() => setSelectedStatus(selectedStatus === 'Idle' ? 'All' : 'Idle')}
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors"
-              >
-                {selectedStatus === 'Idle' ? 'Show All Staff' : `Filter ${idleCount} Idle`}
-              </button>
-            )}
-            <button
-              onClick={() => {
-                const target = employees[1] || employees[0];
-                if (target) {
-                  const currentIsIdle = activities[target.id]?.isIdle;
-                  if (currentIsIdle) {
-                    resetEmployeeIdle(target.id);
-                    showToast({
-                      type: 'info',
-                      title: 'Employee Active',
-                      message: `${target.firstName} marked active (mouse movement detected).`,
-                    });
-                  } else {
-                    simulateEmployeeIdle(target.id, `${target.firstName} ${target.lastName}`, target.employeeCode || 'EMP-2');
-                    showToast({
-                      type: 'error',
-                      title: '⚠️ 5-Min Idle Alert Triggered',
-                      message: `${target.firstName} (${target.employeeCode || 'EMP-2'}) has been inactive for >5 mins. ID is now highlighted in RED!`,
-                    });
-                  }
-                }
-              }}
-              className="px-3 py-1.5 text-xs font-bold rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 shadow-2xs transition-colors flex items-center gap-1.5"
-              title="Test the 5-minute inactivity alert immediately without waiting"
-            >
-              <MousePointer className="w-3.5 h-3.5 text-slate-500" />
-              <span>Simulate 5m Test</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Filter and Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Search Input matching Clan.biz */}
         <div className="relative flex-1 max-w-lg">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search name, email or employee ID /"
+            placeholder="Search name, email, department, role, or ID (Press /)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+            className="w-full pl-9 pr-9 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono">
-            /
-          </span>
+          {search ? (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded transition"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono pointer-events-none">
+              /
+            </span>
+          )}
         </div>
 
         {/* Dropdown Filters and View Mode Controls */}
@@ -362,7 +308,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               className="appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 focus:outline-none cursor-pointer shadow-2xs"
             >
               <option value="Active">Active</option>
-              <option value="Idle">⚠️ Idle (&gt;5m No Mouse Activity) {idleCount > 0 ? `(${idleCount})` : ''}</option>
               <option value="All">All Statuses</option>
               <option value="Inactive">Inactive</option>
             </select>
@@ -448,16 +393,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   emp.email === (user.email || 'keyur.sangani1234@gmail.com') ||
                   emp.firstName === 'Keyur';
                 const isSelected = selectedRows.includes(emp.id);
-                const activity = activities[emp.id];
-                const isIdle = activity?.isIdle || false;
 
                 return (
                   <tr
                     key={emp.id}
                     className={`transition-colors cursor-pointer ${
-                      isIdle
-                        ? 'bg-rose-50/50 hover:bg-rose-50/80 border-l-4 border-l-rose-500'
-                        : isSelected
+                      isSelected
                         ? 'bg-indigo-50/30 hover:bg-slate-50/70'
                         : 'hover:bg-slate-50/70'
                     }`}
@@ -478,37 +419,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       />
                     </td>
                     <td className="py-3 px-4">
-                      {isIdle ? (
-                        <div
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-700 border-2 border-rose-500 shadow-sm animate-pulse font-black"
-                          title="⚠️ Inactive: No mouse/screen activity detected for > 5 minutes!"
-                        >
-                          <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                          <span className="text-rose-900 font-black tracking-wide text-xs">
-                            {emp.employeeCode || 'EMP-1'}
-                          </span>
-                          <span className="text-[9px] uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded font-black">
-                            IDLE &gt;5M
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="font-bold text-slate-900">{emp.employeeCode || 'EMP-1'}</span>
-                      )}
+                      <span className="font-bold text-slate-900">{emp.employeeCode || 'EMP-1'}</span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-8 h-8 rounded-full font-semibold text-xs border flex items-center justify-center shrink-0 ${
-                            isIdle
-                              ? 'bg-rose-100 text-rose-700 border-rose-300'
-                              : 'bg-slate-100 text-slate-700 border-slate-200'
-                          }`}
-                        >
+                        <div className="w-8 h-8 rounded-full font-semibold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200">
                           {emp.firstName[0]}
                           {emp.lastName ? emp.lastName[0] : ''}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`font-bold ${isIdle ? 'text-rose-900' : 'text-slate-900'}`}>
+                          <span className="font-bold text-slate-900">
                             {emp.firstName} {emp.lastName}
                           </span>
                           {isCurrentUser && (
@@ -525,25 +445,48 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <td className="py-3 px-4 text-slate-600 font-medium">
                       {emp.email}
                     </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
-                      <div className="flex items-center gap-1">
-                        <span>{emp.designationTitle || 'App Administrator'}</span>
-                        <Info className="w-3 h-3 text-slate-400" />
-                      </div>
+                    <td className="py-3 px-4">
+                      {(() => {
+                        const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
+                        return (
+                          <div className="flex flex-col gap-1 items-start">
+                            <button
+                              type="button"
+                              disabled={portalMode !== 'admin'}
+                              onClick={(e) => {
+                                if (portalMode === 'admin') {
+                                  e.stopPropagation();
+                                  handleOpenRoleModal(emp);
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                                roleDef.badgeClass
+                              } ${
+                                portalMode === 'admin'
+                                  ? 'hover:ring-2 hover:ring-indigo-400/50 hover:shadow-xs cursor-pointer'
+                                  : 'cursor-default'
+                              }`}
+                              title={
+                                portalMode === 'admin'
+                                  ? `Click to change role (Current: ${roleDef.label})`
+                                  : roleDef.description
+                              }
+                            >
+                              <Shield className="w-3 h-3 shrink-0" />
+                              <span>{roleDef.label}</span>
+                            </button>
+                            <span className="text-[10px] text-slate-400 font-medium truncate max-w-[150px]">
+                              {emp.designationTitle || 'Staff Member'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-4 text-slate-400">
                       {emp.reportingManagerName || '—'}
                     </td>
                     <td className="py-3 px-4">
-                      {isIdle ? (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 animate-pulse"
-                          title="Employee has stopped mouse and keyboard movement for more than 5 minutes"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
-                          <span>No Mouse Activity (&gt;5m)</span>
-                        </span>
-                      ) : emp.status?.toLowerCase() === 'inactive' ? (
+                      {emp.status?.toLowerCase() === 'inactive' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                           <span>Inactive</span>
@@ -562,37 +505,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           className="flex items-center justify-end gap-1.5"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {/* 1-Click Simulation for Instant 5m Test */}
-                          <button
-                            id={`btn-idle-${emp.id}`}
-                            onClick={() => {
-                              if (isIdle) {
-                                resetEmployeeIdle(emp.id);
-                                showToast({
-                                  type: 'info',
-                                  title: 'Mouse Activity Resumed',
-                                  message: `${emp.firstName} is active again. Red highlight cleared.`,
-                                });
-                              } else {
-                                simulateEmployeeIdle(emp.id, `${emp.firstName} ${emp.lastName}`, emp.employeeCode || 'EMP');
-                                showToast({
-                                  type: 'error',
-                                  title: '⚠️ 5-Min Inactivity Alert',
-                                  message: `${emp.firstName} (${emp.employeeCode}) has no mouse activity for >5m! ID highlighted in RED.`,
-                                });
-                              }
-                            }}
-                            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-2xs transition-colors ${
-                              isIdle
-                                ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
-                                : 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-                            }`}
-                            title={isIdle ? 'Simulate mouse movement to wake employee' : 'Simulate 5-minute inactivity test'}
-                          >
-                            <MousePointer className="w-3 h-3" />
-                            <span>{isIdle ? 'Wake' : 'Test Idle'}</span>
-                          </button>
-
                           <button
                             id={`btn-chat-${emp.id}`}
                             onClick={() => onOpenChatWithEmployee?.(emp.id)}
@@ -601,6 +513,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">Chat</span>
+                          </button>
+
+                          <button
+                            id={`btn-role-${emp.id}`}
+                            onClick={() => handleOpenRoleModal(emp)}
+                            className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            title="Change system role (Admin/HR/Manager/Team Leader/Employee)"
+                          >
+                            <Shield className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Role</span>
                           </button>
 
                           <button
@@ -817,6 +739,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* Change Role Modal */}
+      <ChangeRoleModal
+        isOpen={Boolean(roleTargetEmp)}
+        onClose={() => setRoleTargetEmp(null)}
+        employee={roleTargetEmp}
+        onSuccess={handleRoleUpdated}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Search, Filter, Clock, User, Globe, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Search, Filter, Clock, User, Globe, RefreshCw, X } from 'lucide-react';
 import { AuditLog } from '../../types/hrms';
 import { api } from '../../lib/api';
 
@@ -27,12 +27,17 @@ export const AuditLogsModule: React.FC = () => {
     loadLogs();
   }, [moduleFilter]);
 
+  const aq = search.trim().toLowerCase();
   const filtered = logs.filter((l) => {
-    const matchQ =
-      l.userName.toLowerCase().includes(search.toLowerCase()) ||
-      l.action.toLowerCase().includes(search.toLowerCase()) ||
-      (l.details || '').toLowerCase().includes(search.toLowerCase());
-    return matchQ;
+    const matchesModule = moduleFilter === 'ALL' || (l.module || '').toLowerCase() === moduleFilter.toLowerCase();
+    const matchesQuery =
+      !aq ||
+      (l.userName || '').toLowerCase().includes(aq) ||
+      (l.action || '').toLowerCase().includes(aq) ||
+      (l.details || '').toLowerCase().includes(aq) ||
+      (l.module || '').toLowerCase().includes(aq) ||
+      (l.ipAddress || '').toLowerCase().includes(aq);
+    return matchesModule && matchesQuery;
   });
 
   return (
@@ -71,8 +76,17 @@ export const AuditLogsModule: React.FC = () => {
               placeholder="Search audit trail..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                title="Clear"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto">

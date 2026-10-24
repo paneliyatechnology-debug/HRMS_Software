@@ -21,51 +21,13 @@ import {
   Resignation,
 } from '../types/hrms';
 
-export const mockUsers: User[] = [
-  {
-    id: 'user-1',
-    email: 'keyur.sangani1234@gmail.com',
-    firstName: 'Keyur',
-    lastName: 'Sangani',
-    role: 'SUPER_ADMIN',
-    employeeId: 'emp-1',
-    avatarUrl: '',
-  },
-];
+export const mockUsers: User[] = [];
 
-export const mockDepartments: Department[] = [
-  {
-    id: 'dept-1',
-    name: 'Administration & Management',
-    code: 'ADM',
-    headName: 'Keyur Sangani',
-    employeeCount: 1,
-    createdAt: '2026-10-19',
-  },
-];
+export const mockDepartments: Department[] = [];
 
-export const mockDesignations: Designation[] = [
-  {
-    id: 'des-1',
-    title: 'App Administrator',
-    departmentId: 'dept-1',
-    departmentName: 'Administration & Management',
-    minSalary: 80000,
-    maxSalary: 120000,
-    createdAt: '2026-10-19',
-  },
-];
+export const mockDesignations: Designation[] = [];
 
-export const mockLocations: Location[] = [
-  {
-    id: 'loc-1',
-    name: 'Corporate HQ',
-    city: 'Surat',
-    country: 'India',
-    address: 'paneliya technology, Surat, Gujarat',
-    isHeadquarter: true,
-  },
-];
+export const mockLocations: Location[] = [];
 
 export const mockEmployees: Employee[] = [];
 

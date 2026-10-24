@@ -2,8 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Bell, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
+import {
+  receiveIncomingSocketMessage,
+  receiveIncomingSocketEdit,
+  receiveIncomingSocketDelete,
+} from '../lib/chatService';
 
 export interface ToastItem {
   id: string;
@@ -15,17 +20,27 @@ export interface ToastItem {
 }
 
 interface SocketContextType {
+  socket: Socket | null;
   isConnected: boolean;
   toasts: ToastItem[];
   showToast: (toast: Omit<ToastItem, 'id' | 'timestamp'>) => void;
   removeToast: (id: string) => void;
+  emitChatMessage: (message: any) => void;
+  emitChatEdit: (payload: any) => void;
+  emitChatDelete: (payload: any) => void;
+  emitChatTyping: (payload: any) => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
+  socket: null,
   isConnected: false,
   toasts: [],
   showToast: () => {},
   removeToast: () => {},
+  emitChatMessage: () => {},
+  emitChatEdit: () => {},
+  emitChatDelete: () => {},
+  emitChatTyping: () => {},
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -51,6 +66,30 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const emitChatMessage = (message: any) => {
+    if (socket && isConnected) {
+      socket.emit('chat_send_message', message);
+    }
+  };
+
+  const emitChatEdit = (payload: any) => {
+    if (socket && isConnected) {
+      socket.emit('chat_edit_message', payload);
+    }
+  };
+
+  const emitChatDelete = (payload: any) => {
+    if (socket && isConnected) {
+      socket.emit('chat_delete_message', payload);
+    }
+  };
+
+  const emitChatTyping = (payload: any) => {
+    if (socket && isConnected) {
+      socket.emit('chat_typing', payload);
+    }
   };
 
   useEffect(() => {
@@ -82,6 +121,47 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       });
     });
 
+    // Real-Time Socket Chat Listeners
+    s.on('chat_message_received', (incomingMessage: any) => {
+      receiveIncomingSocketMessage(incomingMessage);
+      window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
+      window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
+    });
+
+    s.on('chat_message_edited', (payload: any) => {
+      receiveIncomingSocketEdit(payload);
+      window.dispatchEvent(new CustomEvent('hrms_chat_socket_edited', { detail: payload }));
+      window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
+    });
+
+    s.on('chat_message_deleted', (payload: any) => {
+      receiveIncomingSocketDelete(payload);
+      window.dispatchEvent(new CustomEvent('hrms_chat_socket_deleted', { detail: payload }));
+      window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
+    });
+
+    s.on('chat_typing_update', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_chat_socket_typing', { detail: payload }));
+    });
+
+    s.on('chat_notification', (payload: any) => {
+      try {
+        const rawUser = localStorage.getItem('hrms_auth_user');
+        const currentUser = rawUser ? JSON.parse(rawUser) : null;
+        const currentUserId = currentUser?.employeeId || currentUser?.id;
+        if (currentUserId && (payload.recipientId === currentUserId || payload.recipientId === 'all')) {
+          showToast({
+            title: `💬 New Message: ${payload.senderName || 'Staff Member'}`,
+            message: payload.content || 'Sent an attachment',
+            type: 'info',
+            module: 'chat',
+          });
+        }
+      } catch (err) {
+        // Ignore
+      }
+    });
+
     setSocket(s);
 
     return () => {
@@ -90,7 +170,19 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   return (
-    <SocketContext.Provider value={{ isConnected, toasts, showToast, removeToast }}>
+    <SocketContext.Provider
+      value={{
+        socket,
+        isConnected,
+        toasts,
+        showToast,
+        removeToast,
+        emitChatMessage,
+        emitChatEdit,
+        emitChatDelete,
+        emitChatTyping,
+      }}
+    >
       {children}
 
       {/* Floating Real-Time Toast Notifications Container */}
