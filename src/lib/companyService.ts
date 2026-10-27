@@ -1,4 +1,4 @@
-import { Employee } from '../types/hrms';
+import { Employee, Role } from '../types/hrms';
 import { getAllEmployees, saveEmployees } from './employeeService';
 
 export interface CompanyAdminUser {
@@ -288,6 +288,8 @@ export function addEmployeeToCompany(
     salaryBasic?: number;
     employmentType?: 'Full-time' | 'Remote' | 'Part-time';
     employeeCode?: string;
+    password?: string;
+    role?: Role;
   },
   primaryEmployees: Employee[]
 ): Employee {
@@ -301,6 +303,10 @@ export function addEmployeeToCompany(
   const newEmp: Employee = {
     id: newEmpId,
     employeeCode: code,
+    companyId: companyId,
+    companyName: company?.name || 'Paneliya Technology Inc.',
+    password: employeeData.password || 'Password@123',
+    role: employeeData.role || 'EMPLOYEE',
     firstName: employeeData.firstName,
     lastName: employeeData.lastName,
     email: employeeData.email,
@@ -358,3 +364,187 @@ export function removeEmployeeFromCompany(
   const updated = current.filter((e) => e.id !== employeeId && (e as any)._id !== employeeId);
   saveCompanyEmployees(companyId, updated);
 }
+
+export interface OrganizationMembership {
+  isMember: boolean;
+  companyId?: string;
+  companyName?: string;
+  employee?: Employee;
+  adminUser?: CompanyAdminUser;
+  role?: Role;
+  isCompanyAdmin?: boolean;
+  isSuperAdmin?: boolean;
+  matchedVia?: 'superadmin' | 'company_admin' | 'employee' | 'demo';
+  password?: string;
+}
+
+/**
+ * Checks whether the given email, phone, or employee code belongs to ANY company/organization.
+ * Returns organization details if found, or { isMember: false } if not linked to any company.
+ */
+export function findOrganizationByEmail(rawInput: string): OrganizationMembership {
+  if (!rawInput || typeof rawInput !== 'string') {
+    return { isMember: false };
+  }
+
+  const clean = rawInput.trim().toLowerCase();
+  const digitsOnly = rawInput.replace(/\D/g, '');
+
+  // 1. Check SuperAdmin accounts
+  const superAdminEmails = [
+    'superadmin@paneliya.com',
+    'keyursangani1210@gmail.com',
+    'keyur.sangani@paneliya.com',
+    'super@hrms.com',
+    'super@demo.com',
+    'superadmin',
+  ];
+  if (superAdminEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9999900000'))) {
+    return {
+      isMember: true,
+      companyId: 'comp-paneliya',
+      companyName: 'Paneliya Technology Inc.',
+      role: 'SUPER_ADMIN',
+      isCompanyAdmin: true,
+      isSuperAdmin: true,
+      matchedVia: 'superadmin',
+      password: 'superadmin123',
+    };
+  }
+
+  // 2. Check Demo Admin
+  const demoAdminEmails = [
+    'admin@paneliya.com',
+    'admin@hrms.com',
+    'admin@demo.com',
+    'admin',
+  ];
+  if (demoAdminEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9876543210'))) {
+    return {
+      isMember: true,
+      companyId: 'comp-paneliya',
+      companyName: 'Paneliya Technology Inc.',
+      role: 'HR_ADMIN',
+      isCompanyAdmin: true,
+      isSuperAdmin: false,
+      matchedVia: 'demo',
+      password: 'admin123',
+    };
+  }
+
+  // 3. Check Demo Employee
+  const demoEmployeeEmails = [
+    'employee@paneliya.com',
+    'rahul@paneliya.com',
+    'emp@demo.com',
+    'employee',
+    'emp',
+    'emp-101',
+    'emp101',
+  ];
+  if (demoEmployeeEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9876500001'))) {
+    return {
+      isMember: true,
+      companyId: 'comp-paneliya',
+      companyName: 'Paneliya Technology Inc.',
+      role: 'EMPLOYEE',
+      isCompanyAdmin: false,
+      isSuperAdmin: false,
+      matchedVia: 'demo',
+      password: 'emp123',
+    };
+  }
+
+  // 4. Check All Registered Companies (Admins and Contact Emails)
+  const allCompanies = getAllCompanies();
+  for (const comp of allCompanies) {
+    const adminEmail = comp.adminUser?.email?.trim().toLowerCase();
+    const contactEmail = comp.contactEmail?.trim().toLowerCase();
+    const adminPhoneDigits = comp.adminUser?.phone?.replace(/\D/g, '') || '';
+    const contactPhoneDigits = comp.contactPhone?.replace(/\D/g, '') || '';
+
+    if (
+      (adminEmail && adminEmail === clean) ||
+      (contactEmail && contactEmail === clean) ||
+      (digitsOnly && digitsOnly.length >= 7 && (adminPhoneDigits.endsWith(digitsOnly) || digitsOnly.endsWith(adminPhoneDigits))) ||
+      (digitsOnly && digitsOnly.length >= 7 && (contactPhoneDigits.endsWith(digitsOnly) || digitsOnly.endsWith(contactPhoneDigits)))
+    ) {
+      return {
+        isMember: true,
+        companyId: comp.id,
+        companyName: comp.name,
+        adminUser: comp.adminUser,
+        role: comp.adminUser?.role || 'HR_ADMIN',
+        isCompanyAdmin: true,
+        isSuperAdmin: comp.adminUser?.role === 'SUPER_ADMIN',
+        matchedVia: 'company_admin',
+        password: comp.adminUser?.password || 'Admin@123',
+      };
+    }
+  }
+
+  // 5. Check Primary Company Employees (comp-paneliya)
+  const primaryEmployees = getAllEmployees();
+  for (const emp of primaryEmployees) {
+    const empEmail = emp.email?.trim().toLowerCase();
+    const empCode = emp.employeeCode?.trim().toLowerCase();
+    const empPhoneDigits = emp.phone?.replace(/\D/g, '') || '';
+
+    if (
+      (empEmail && empEmail === clean) ||
+      (empCode && empCode === clean) ||
+      (digitsOnly && digitsOnly.length >= 7 && empPhoneDigits.endsWith(digitsOnly))
+    ) {
+      return {
+        isMember: true,
+        companyId: emp.companyId || 'comp-paneliya',
+        companyName: emp.companyName || 'Paneliya Technology Inc.',
+        employee: emp,
+        role: emp.role || 'EMPLOYEE',
+        isCompanyAdmin: emp.role === 'HR_ADMIN' || emp.role === 'SUPER_ADMIN',
+        isSuperAdmin: emp.role === 'SUPER_ADMIN',
+        matchedVia: 'employee',
+        password: emp.password || 'Password@123',
+      };
+    }
+  }
+
+  // 6. Check Multi-Tenant Company Employees
+  for (const comp of allCompanies) {
+    if (comp.id === 'comp-paneliya') continue;
+    const tenantEmps = getCompanyEmployees(comp.id, []);
+    for (const emp of tenantEmps) {
+      const empEmail = emp.email?.trim().toLowerCase();
+      const empCode = emp.employeeCode?.trim().toLowerCase();
+      const empPhoneDigits = emp.phone?.replace(/\D/g, '') || '';
+
+      if (
+        (empEmail && empEmail === clean) ||
+        (empCode && empCode === clean) ||
+        (digitsOnly && digitsOnly.length >= 7 && empPhoneDigits.endsWith(digitsOnly))
+      ) {
+        return {
+          isMember: true,
+          companyId: comp.id,
+          companyName: comp.name,
+          employee: emp,
+          role: emp.role || 'EMPLOYEE',
+          isCompanyAdmin: emp.role === 'HR_ADMIN' || emp.role === 'SUPER_ADMIN',
+          isSuperAdmin: emp.role === 'SUPER_ADMIN',
+          matchedVia: 'employee',
+          password: emp.password || 'Password@123',
+        };
+      }
+    }
+  }
+
+  return { isMember: false };
+}
+
+/**
+ * Quick boolean check if email is linked to any organization
+ */
+export function isEmailInAnyOrganization(rawInput: string): boolean {
+  return findOrganizationByEmail(rawInput).isMember;
+}
+

@@ -23,7 +23,17 @@ import {
   Cpu,
   AlertTriangle,
   Search,
+  MapPin,
+  LocateFixed,
+  Camera,
+  Smartphone,
+  Laptop,
+  Tablet,
+  Eye,
+  Fingerprint,
 } from 'lucide-react';
+import { PunchVerificationModal } from '../modals/PunchVerificationModal';
+import { BiometricHubModal } from '../modals/BiometricHubModal';
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import {
   getAllAttendanceRecords,
@@ -35,9 +45,18 @@ import {
   getTodayDateString,
   saveAttendanceRecords,
 } from '../../lib/attendanceService';
+import {
+  getOfficeGeofenceConfig,
+  saveOfficeGeofenceConfig,
+  getCurrentGPSLocation,
+  OfficeGeofenceConfig,
+  getEmployeeWFHMap,
+  setEmployeeWFHStatus,
+  isEmployeeWFHEnabled,
+} from '../../lib/geoService';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 
 interface AttendanceModuleProps {
@@ -63,6 +82,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const myEmpId = user?.employeeId || user?.id || '';
   const myEmpCode = (user as any)?.employeeCode || '';
   const myEmail = user?.email?.toLowerCase() || '';
+
+  const rawRole = (user?.role || '').toUpperCase();
+  const isAdminOrSuperAdmin =
+    rawRole === 'SUPER_ADMIN' ||
+    rawRole === 'ADMIN' ||
+    rawRole === 'HR_ADMIN' ||
+    isUserAdminRole(rawRole) ||
+    portalMode === 'admin';
 
   const displayEmployees = portalMode === 'employee'
     ? employees.filter((emp) =>
@@ -150,6 +177,65 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [bioDeviceId, setBioDeviceId] = useState('GATE-01-TERMINAL');
   const [bioEmployeeCode, setBioEmployeeCode] = useState('EMP-1');
   const [bioSyncing, setBioSyncing] = useState(false);
+
+  // Modal: Admin Geofence Settings (Admin & Super Admin ONLY)
+  const [isGeofenceModalOpen, setIsGeofenceModalOpen] = useState(false);
+  const [adminGeofenceConfig, setAdminGeofenceConfig] = useState<OfficeGeofenceConfig>(() => getOfficeGeofenceConfig());
+  const [geoCalibrating, setGeoCalibrating] = useState(false);
+  const [geoNotice, setGeoNotice] = useState('');
+
+  // Modal: Employee Punch Verification & Device Audit (Selfie & Device Hardware)
+  const [auditModalRecord, setAuditModalRecord] = useState<AttendanceRecord | null>(null);
+  const [auditModalEmployee, setAuditModalEmployee] = useState<Employee | null>(null);
+
+  // Work From Home (WFH) Map: employeeId -> boolean
+  const [wfhMap, setWfhMap] = useState<Record<string, boolean>>(() => getEmployeeWFHMap());
+  const [wfhNotice, setWfhNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleWFHUpdate = () => {
+      setWfhMap(getEmployeeWFHMap());
+    };
+    window.addEventListener('hrms_wfh_status_updated', handleWFHUpdate);
+    return () => window.removeEventListener('hrms_wfh_status_updated', handleWFHUpdate);
+  }, []);
+
+  const handleToggleWFH = (emp: Employee) => {
+    const current = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+    const next = !current;
+    setEmployeeWFHStatus(emp.id, next);
+    setWfhMap((prev) => ({ ...prev, [emp.id]: next, [emp.id.toLowerCase()]: next }));
+    const msg = next
+      ? `🏡 Work From Home ENABLED for ${emp.firstName} ${emp.lastName}. Geofencing is now turned OFF (Selfie punch only).`
+      : `🏢 Office Geofencing RESTORED for ${emp.firstName} ${emp.lastName}. Office radius required.`;
+    setWfhNotice(msg);
+    setTimeout(() => setWfhNotice(null), 5000);
+  };
+
+  const handleSaveGeofenceConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveOfficeGeofenceConfig(adminGeofenceConfig);
+    setGeoNotice(`Office perimeter configured to ${adminGeofenceConfig.radiusMeters}m radius for ${adminGeofenceConfig.officeName}.`);
+    setIsGeofenceModalOpen(false);
+  };
+
+  const handleAdminCalibrateGPS = async () => {
+    setGeoCalibrating(true);
+    try {
+      const coords = await getCurrentGPSLocation();
+      const updated: OfficeGeofenceConfig = {
+        ...adminGeofenceConfig,
+        latitude: Number(coords.latitude.toFixed(6)),
+        longitude: Number(coords.longitude.toFixed(6)),
+      };
+      setAdminGeofenceConfig(updated);
+      setGeoNotice('GPS position captured! Click "Save Configuration" to enforce these coordinates.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to capture GPS position.');
+    } finally {
+      setGeoCalibrating(false);
+    }
+  };
 
   const handleRegularizeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -315,44 +401,44 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+        {/* Tab Switcher (Scrollable on mobile) */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-full w-full sm:w-auto shrink-0">
           <button
             onClick={() => setActiveTab('today')}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'today'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
             Today's Live Tracker
           </button>
           <button
             onClick={() => setActiveTab('summary')}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'summary'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
             Monthly Summary
           </button>
           <button
             onClick={() => setActiveTab('roster')}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'roster'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
             Shift Roster
           </button>
           <button
             onClick={() => setActiveTab('holidays')}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'holidays'
-                ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
             Holiday Schedule
@@ -361,14 +447,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       </div>
 
       {/* Action Buttons Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={onOpenPunchModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Mark Attendance</span>
+            <span className="truncate">Mark Attendance</span>
           </button>
 
           {portalMode !== 'employee' && (
@@ -387,6 +473,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               >
                 <Cpu className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Biometric Sync</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setAdminGeofenceConfig(getOfficeGeofenceConfig());
+                  setGeoNotice('');
+                  setIsGeofenceModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-all shadow-xs cursor-pointer"
+              >
+                <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Geofence Controls</span>
               </button>
             </>
           )}
@@ -545,6 +643,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               />
             )}
 
+            {/* WFH Action Toast Notice */}
+            {wfhNotice && (
+              <div className="mb-3 p-3 rounded-2xl bg-purple-50 border-2 border-purple-400 text-purple-950 text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏡</span>
+                  <span>{wfhNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWfhNotice(null)}
+                  className="text-purple-700 hover:text-purple-950 font-bold ml-2 cursor-pointer text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Live Table */}
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -565,13 +680,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
 
               <div className="overflow-x-auto w-full [scrollbar-width:thin]">
-                <table className="w-full text-left text-xs min-w-[700px]">
+                <table className="w-full text-left text-xs min-w-[750px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
                     <tr>
                       <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
                       <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                      <th className="py-2.5 px-4 font-medium">WORK FROM HOME (WFH)</th>
                       <th className="py-2.5 px-4 font-medium">CHECK IN</th>
                       <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
+                      <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
                       <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
                       <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
                       <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
@@ -586,6 +703,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                       const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                       const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                      const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
 
                       return (
                         <tr
@@ -604,11 +722,128 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </div>
                           </td>
                           <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkIn || <span className="text-slate-400">—</span>}
+                          <td className="py-3 px-4">
+                            {isAdminOrSuperAdmin ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  id={`wfh-toggle-${emp.id}`}
+                                  aria-checked={isWfhActive}
+                                  onClick={() => handleToggleWFH(emp)}
+                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                    isWfhActive ? 'bg-purple-600' : 'bg-slate-300'
+                                  }`}
+                                  title={
+                                    isWfhActive
+                                      ? 'WFH Active: Click to turn OFF WFH (enforce office geofence)'
+                                      : 'Office Mode: Click to turn ON WFH (bypass office geofence)'
+                                  }
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                                      isWfhActive ? 'translate-x-4' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                                <span
+                                  className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${
+                                    isWfhActive
+                                      ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  {isWfhActive ? '🏡 WFH (Geofence OFF)' : '🏢 Office'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                                  isWfhActive
+                                    ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                                }`}
+                              >
+                                {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkOut || (isWorking ? <span className="text-emerald-600 font-medium">Working...</span> : <span className="text-slate-400">—</span>)}
+                            {rec?.checkIn ? (
+                              <div className="flex items-center gap-1.5">
+                                <span>{rec.checkIn}</span>
+                                {rec.checkInPhoto && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAuditModalRecord(rec);
+                                      setAuditModalEmployee(emp);
+                                    }}
+                                    className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-colors cursor-pointer"
+                                    title="Click to view Check-In Selfie & Device Audit"
+                                  >
+                                    <Camera className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-700">
+                            {rec?.checkOut ? (
+                              <div className="flex items-center gap-1.5">
+                                <span>{rec.checkOut}</span>
+                                {rec.checkOutPhoto && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAuditModalRecord(rec);
+                                      setAuditModalEmployee(emp);
+                                    }}
+                                    className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-colors cursor-pointer"
+                                    title="Click to view Check-Out Selfie & Device Audit"
+                                  >
+                                    <Camera className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : isWorking ? (
+                              <span className="text-emerald-600 font-medium">Working...</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {rec ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAuditModalRecord(rec);
+                                  setAuditModalEmployee(emp);
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-black bg-white hover:bg-[#FFE600] text-slate-900 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-[2px_2px_0px_0px_#000]"
+                                title="View Employee Punch & Device Hardware Details"
+                              >
+                                {rec.checkInDevice?.os?.includes('Biometric') || rec.remarks?.includes('Biometric') ? (
+                                  <Fingerprint className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                ) : rec.checkInDevice?.deviceType === 'Mobile' ? (
+                                  <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                ) : rec.checkInDevice?.deviceType === 'Tablet' ? (
+                                  <Tablet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                ) : (
+                                  <Laptop className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                )}
+                                <span className="truncate max-w-[110px]">
+                                  {rec.checkInDevice?.deviceModel || rec.checkInDevice?.os || 'Inspect Device'}
+                                </span>
+                                {rec.checkInPhoto && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Geotag Selfie Verified" />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
                           </td>
                           <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                             {rec ? (
@@ -1057,71 +1292,202 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
       )}
 
-      {/* Modal: Biometric Hardware Sync */}
-      {isBiometricModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+      {/* Modal: Biometric Hardware Hub (Multi-Company Ready) */}
+      <BiometricHubModal
+        isOpen={isBiometricModalOpen}
+        onClose={() => setIsBiometricModalOpen(false)}
+        employees={employees}
+        onRefreshAttendance={onRefresh}
+        currentCompanyId={(user as any)?.companyId || 'comp-paneliya'}
+        currentCompanyName={(user as any)?.companyName || 'Paneliya Technology Inc.'}
+      />
+
+      {/* Modal: Admin Geofence Settings & Calibration (Admin / Super Admin ONLY) */}
+      {isGeofenceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-emerald-600" />
-                Biometric Terminal Sync (ZKTeco / eSSL)
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-base">Office Geofence Controls</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-extrabold text-[10px]">
+                      ADMIN & SUPERADMIN
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Configure allowed perimeter for employee punch-ins</p>
+                </div>
+              </div>
               <button
-                onClick={() => setIsBiometricModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                onClick={() => setIsGeofenceModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleBiometricSyncSubmit} className="mt-4 space-y-4 text-xs">
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Machine Network Gateway</span>
-                <p className="font-mono text-slate-800 text-[11px]">TCP/IP Protocol • Port 4000 Hook</p>
-                <p className="text-[11px] text-emerald-600 font-semibold">Ready to pull batch buffer logs</p>
-              </div>
+            <form onSubmit={handleSaveGeofenceConfig} className="mt-4 space-y-4 text-xs">
+              {geoNotice && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                  {geoNotice}
+                </div>
+              )}
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Terminal Device Identifier</label>
-                <input
-                  type="text"
-                  value={bioDeviceId}
-                  onChange={(e) => setBioDeviceId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Employee Code Test Punch</label>
-                <input
-                  type="text"
-                  value={bioEmployeeCode}
-                  onChange={(e) => setBioEmployeeCode(e.target.value)}
-                  placeholder="e.g. EMP-1"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div>
+                  <span className="font-bold text-slate-900 text-sm block">Enforce Geofence Verification</span>
+                  <span className="text-slate-500 text-[11px]">
+                    When active, employees can only punch within the designated office perimeter
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setIsBiometricModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  id="toggle-geofence-enforce"
+                  role="switch"
+                  aria-checked={adminGeofenceConfig.enabled}
+                  onClick={() =>
+                    setAdminGeofenceConfig({
+                      ...adminGeofenceConfig,
+                      enabled: !adminGeofenceConfig.enabled,
+                    })
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
+                    adminGeofenceConfig.enabled ? 'bg-indigo-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      adminGeofenceConfig.enabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Office Name / Branch Label</label>
+                <input
+                  type="text"
+                  value={adminGeofenceConfig.officeName}
+                  onChange={(e) =>
+                    setAdminGeofenceConfig({ ...adminGeofenceConfig, officeName: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Office Latitude</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={adminGeofenceConfig.latitude}
+                    onChange={(e) =>
+                      setAdminGeofenceConfig({
+                        ...adminGeofenceConfig,
+                        latitude: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Office Longitude</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={adminGeofenceConfig.longitude}
+                    onChange={(e) =>
+                      setAdminGeofenceConfig({
+                        ...adminGeofenceConfig,
+                        longitude: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-slate-700">Allowed Punch Radius</label>
+                  <span className="font-extrabold text-indigo-600 font-mono text-sm">
+                    {adminGeofenceConfig.radiusMeters} meters
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[100, 250, 500, 1000].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() =>
+                        setAdminGeofenceConfig({ ...adminGeofenceConfig, radiusMeters: r })
+                      }
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        adminGeofenceConfig.radiusMeters === r
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {r}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleAdminCalibrateGPS}
+                  disabled={geoCalibrating}
+                  className="w-full py-2.5 px-4 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/90 text-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                >
+                  <LocateFixed className="w-4 h-4" />
+                  <span>
+                    {geoCalibrating
+                      ? 'Acquiring GPS Position...'
+                      : 'Set My Current Device GPS as Office HQ'}
+                  </span>
+                </button>
+                <p className="text-[11px] text-slate-500 text-center mt-1">
+                  Click while physically at the office to automatically save exact coordinates.
+                </p>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsGeofenceModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={bioSyncing}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-600/20 cursor-pointer"
                 >
-                  {bioSyncing ? 'Synchronizing...' : 'Execute Batch Sync'}
+                  Save Configuration
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Employee Punch Verification & Device Audit Modal */}
+      <PunchVerificationModal
+        isOpen={Boolean(auditModalRecord)}
+        onClose={() => {
+          setAuditModalRecord(null);
+          setAuditModalEmployee(null);
+        }}
+        record={auditModalRecord}
+        employee={auditModalEmployee}
+      />
     </div>
   );
 };

@@ -15,10 +15,10 @@ export default function DirectLoginPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading) {
+  if (isLoading && isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
+      <div className="h-screen w-full bg-[#FFFDF7] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-black border-t-[#FFE600] rounded-full animate-spin" />
       </div>
     );
   }

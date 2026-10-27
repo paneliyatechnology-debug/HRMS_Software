@@ -55,6 +55,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const myId = user.employeeId || user.id || '';
   const myEmail = user.email?.toLowerCase() || '';
   const myCode = ((user as any).employeeCode || '').toLowerCase();
+  const myName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
 
   const relevantLeaves =
     portalMode === 'employee'
@@ -62,6 +63,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           if (myId && l.employeeId === myId) return true;
           if (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail) return true;
           if (myCode && (l as any).employeeCode?.toLowerCase() === myCode) return true;
+          if (myName && l.employeeName?.toLowerCase() === myName) return true;
           return false;
         })
       : leaves;
@@ -69,6 +71,50 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const pendingLeaves = relevantLeaves.filter((l) => l.status === 'Pending');
   const approvedLeaves = relevantLeaves.filter((l) => l.status === 'Approved');
   const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
+
+  // Dynamic leave calculations for Employee Portal (Kitni leave hai & Kitni le li hai)
+  const calculateDays = (typeKeywords: string[], targetStatus: 'Approved' | 'Pending') => {
+    return relevantLeaves
+      .filter((l) => {
+        const type = (l.leaveType || '').toLowerCase();
+        const status = (l.status || '').toLowerCase();
+        const matchesType = typeKeywords.some((kw) => type.includes(kw.toLowerCase()));
+        return matchesType && status === targetStatus.toLowerCase();
+      })
+      .reduce((sum, l) => sum + (Number(l.daysCount) || 1), 0);
+  };
+
+  // Quotas for standard employee annual allowance
+  const CASUAL_QUOTA = 12;
+  const SICK_QUOTA = 12;
+  const PAID_QUOTA = 12;
+  const OTHER_QUOTA = 6;
+  const TOTAL_QUOTA = CASUAL_QUOTA + SICK_QUOTA + PAID_QUOTA + OTHER_QUOTA; // 42 days
+
+  // 1. Casual Leave (CL)
+  const casualTaken = calculateDays(['casual'], 'Approved');
+  const casualPending = calculateDays(['casual'], 'Pending');
+  const casualLeft = Math.max(0, CASUAL_QUOTA - casualTaken);
+
+  // 2. Sick Leave (SL)
+  const sickTaken = calculateDays(['sick', 'medical'], 'Approved');
+  const sickPending = calculateDays(['sick', 'medical'], 'Pending');
+  const sickLeft = Math.max(0, SICK_QUOTA - sickTaken);
+
+  // 3. Paid / Annual Leave (PL)
+  const paidTaken = calculateDays(['paid', 'annual', 'earned'], 'Approved');
+  const paidPending = calculateDays(['paid', 'annual', 'earned'], 'Pending');
+  const paidLeft = Math.max(0, PAID_QUOTA - paidTaken);
+
+  // 4. Other / Comp Off Leave
+  const otherTaken = calculateDays(['comp', 'unpaid', 'maternity', 'paternity', 'bereavement'], 'Approved');
+  const otherPending = calculateDays(['comp', 'unpaid', 'maternity', 'paternity', 'bereavement'], 'Pending');
+  const otherLeft = Math.max(0, OTHER_QUOTA - otherTaken);
+
+  // Overall Total
+  const totalTaken = casualTaken + sickTaken + paidTaken + otherTaken;
+  const totalPending = casualPending + sickPending + paidPending + otherPending;
+  const totalLeft = casualLeft + sickLeft + paidLeft + otherLeft;
 
   // Filter leaves according to current portal & filters
   const lq = search.trim().toLowerCase();
@@ -321,49 +367,189 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </button>
           </div>
 
-          {/* 4 Leave Balance Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Annual Leave
-              </span>
-              <p className="text-3xl font-black text-slate-900 mt-1">3.12</p>
-              <p className="text-[11px] text-slate-500 mt-1">out of 12 days available</p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-indigo-600 h-1.5 rounded-full w-[26%]" />
+          {/* Dynamic 4 Leave Balance & Consumption Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Card 1: Total Overall Leaves */}
+            <div className="p-4 rounded-2xl bg-white border-2 border-indigo-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <span className="text-[11px] font-black uppercase text-indigo-700 tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                    <span>Total Leaves</span>
+                  </span>
+                  <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                    ANNUAL
+                  </span>
+                </div>
+
+                {/* Prominent Taken/Total (3/12 format) */}
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{totalTaken}</span>
+                  <span className="text-2xl font-black text-slate-400">/{TOTAL_QUOTA}</span>
+                  <span className="text-xs font-bold text-indigo-600 ml-1.5">Used</span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-600">{totalTaken} Used</span>
+                  <span className="font-bold text-emerald-600">{totalLeft} Available</span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                  <span>{totalTaken}/{TOTAL_QUOTA} Days Used</span>
+                  <span className="text-emerald-700 font-extrabold">{totalLeft} Remaining</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                  <div
+                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round((totalTaken / TOTAL_QUOTA) * 100))}%` }}
+                  />
+                </div>
+                {totalPending > 0 && (
+                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>{totalPending} {totalPending === 1 ? 'day' : 'days'} pending review</span>
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Casual Leave
-              </span>
-              <p className="text-3xl font-black text-slate-900 mt-1">10</p>
-              <p className="text-[11px] text-slate-500 mt-1">out of 12 days available</p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-emerald-500 h-1.5 rounded-full w-[83%]" />
+            {/* Card 2: Casual Leave (CL) */}
+            <div className="p-4 rounded-2xl bg-white border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>Casual Leave (CL)</span>
+                  </span>
+                  <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                    CASUAL
+                  </span>
+                </div>
+
+                {/* Prominent Taken/Total (e.g. 3/12 format) */}
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{casualTaken}</span>
+                  <span className="text-2xl font-black text-slate-400">/{CASUAL_QUOTA}</span>
+                  <span className="text-xs font-bold text-emerald-700 ml-1.5">Used</span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-600">{casualTaken} Used</span>
+                  <span className="font-bold text-emerald-600">{casualLeft} Available</span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                  <span>{casualTaken}/{CASUAL_QUOTA} Days Used</span>
+                  <span className="text-emerald-700 font-extrabold">{casualLeft} Remaining</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                  <div
+                    className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round((casualTaken / CASUAL_QUOTA) * 100))}%` }}
+                  />
+                </div>
+                {casualPending > 0 && (
+                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>{casualPending} {casualPending === 1 ? 'day' : 'days'} pending review</span>
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Sick Leave
-              </span>
-              <p className="text-3xl font-black text-slate-900 mt-1">9</p>
-              <p className="text-[11px] text-slate-500 mt-1">out of 12 days available</p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-amber-500 h-1.5 rounded-full w-[75%]" />
+            {/* Card 3: Sick Leave (SL) */}
+            <div className="p-4 rounded-2xl bg-white border-2 border-amber-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <span className="text-[11px] font-black uppercase text-amber-800 tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>Sick Leave (SL)</span>
+                  </span>
+                  <span className="text-[10px] font-black bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                    MEDICAL
+                  </span>
+                </div>
+
+                {/* Prominent Taken/Total (e.g. 0/12 format) */}
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{sickTaken}</span>
+                  <span className="text-2xl font-black text-slate-400">/{SICK_QUOTA}</span>
+                  <span className="text-xs font-bold text-amber-700 ml-1.5">Used</span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-600">{sickTaken} Used</span>
+                  <span className="font-bold text-emerald-600">{sickLeft} Available</span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                  <span>{sickTaken}/{SICK_QUOTA} Days Used</span>
+                  <span className="text-emerald-700 font-extrabold">{sickLeft} Remaining</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                  <div
+                    className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round((sickTaken / SICK_QUOTA) * 100))}%` }}
+                  />
+                </div>
+                {sickPending > 0 && (
+                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>{sickPending} {sickPending === 1 ? 'day' : 'days'} pending review</span>
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Bereavement
-              </span>
-              <p className="text-3xl font-black text-slate-900 mt-1">3</p>
-              <p className="text-[11px] text-slate-500 mt-1">out of 3 days available</p>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-slate-500 h-1.5 rounded-full w-[100%]" />
+            {/* Card 4: Paid / Annual Leave (PL) */}
+            <div className="p-4 rounded-2xl bg-white border-2 border-violet-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <span className="text-[11px] font-black uppercase text-violet-800 tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-violet-600" />
+                    <span>Paid Leave (PL)</span>
+                  </span>
+                  <span className="text-[10px] font-black bg-violet-50 text-violet-800 px-2 py-0.5 rounded-full border border-violet-200">
+                    EARNED
+                  </span>
+                </div>
+
+                {/* Prominent Taken/Total (e.g. 0/12 format) */}
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{paidTaken}</span>
+                  <span className="text-2xl font-black text-slate-400">/{PAID_QUOTA}</span>
+                  <span className="text-xs font-bold text-violet-700 ml-1.5">Used</span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-rose-600">{paidTaken} Used</span>
+                  <span className="font-bold text-emerald-600">{paidLeft} Available</span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                  <span>{paidTaken}/{PAID_QUOTA} Days Used</span>
+                  <span className="text-emerald-700 font-extrabold">{paidLeft} Remaining</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                  <div
+                    className="bg-violet-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.round((paidTaken / PAID_QUOTA) * 100))}%` }}
+                  />
+                </div>
+                {paidPending > 0 && (
+                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>{paidPending} {paidPending === 1 ? 'day' : 'days'} pending review</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -374,8 +560,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       {/* FILTER BAR & STATUS TABS */}
       {/* ========================================================================= */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-        {/* Status Segmented Tabs */}
-        <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200/70 shadow-2xs overflow-x-auto">
+        {/* Status Segmented Tabs (Scrollable on mobile) */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/70 shadow-2xs overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 max-w-full">
           {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => {
             const count =
               tab === 'All'
@@ -391,10 +577,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               <button
                 key={tab}
                 onClick={() => setStatusFilter(tab)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                   isActive
                     ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900'
+                    : 'text-slate-500 hover:text-slate-900 font-medium'
                 }`}
               >
                 <span>{tab}</span>
@@ -411,8 +597,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         </div>
 
         {/* Search & Actions */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 min-w-[180px] sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -435,7 +621,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           {portalMode === 'admin' && (
             <button
               onClick={onOpenApplyModal}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Apply</span>
@@ -444,7 +630,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs"
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />

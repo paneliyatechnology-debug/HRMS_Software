@@ -109,6 +109,8 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
   const [editCompCity, setEditCompCity] = useState('');
   const [editCompState, setEditCompState] = useState('');
   const [editCompMaxEmps, setEditCompMaxEmps] = useState(100);
+  const [editCompPlan, setEditCompPlan] = useState<'Starter' | 'Growth' | 'Enterprise'>('Enterprise');
+  const [editCompBillingCycle, setEditCompBillingCycle] = useState<'Monthly' | 'Annual'>('Annual');
 
   // Load companies
   const refreshCompaniesList = () => {
@@ -275,6 +277,16 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
       return;
     }
 
+    const currentEmps = getCompanyEmployees(selectedCompanyId, primaryEmployees);
+    if (selectedCompany && currentEmps.length >= selectedCompany.maxEmployees) {
+      showToast({
+        type: 'error',
+        title: 'Plan Quota Exceeded',
+        message: `${selectedCompany.name} is on the ${selectedCompany.plan} plan (limit: ${selectedCompany.maxEmployees} employees). Upgrade plan in Company Settings to add more staff.`,
+      });
+      return;
+    }
+
     const added = addEmployeeToCompany(
       selectedCompanyId,
       {
@@ -329,6 +341,8 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
     setEditCompCity(selectedCompany.city);
     setEditCompState(selectedCompany.state);
     setEditCompMaxEmps(selectedCompany.maxEmployees);
+    setEditCompPlan((selectedCompany.plan as any) || 'Enterprise');
+    setEditCompBillingCycle(selectedCompany.billingCycle || 'Annual');
     setIsEditCompanyModalOpen(true);
   };
 
@@ -343,12 +357,14 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
       city: editCompCity,
       state: editCompState,
       maxEmployees: Number(editCompMaxEmps),
+      plan: editCompPlan,
+      billingCycle: editCompBillingCycle,
     });
 
     showToast({
       type: 'success',
-      title: 'Company Updated',
-      message: `${editCompName} details updated successfully.`,
+      title: 'Company & Subscription Updated',
+      message: `${editCompName} upgraded to ${editCompPlan} (${editCompBillingCycle} billing).`,
     });
 
     setIsEditCompanyModalOpen(false);
@@ -1529,15 +1545,51 @@ export const SuperAdminModule: React.FC<SuperAdminModuleProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Max Employee Quota</label>
-                <input
-                  type="number"
-                  value={editCompMaxEmps}
-                  onChange={(e) => setEditCompMaxEmps(Number(e.target.value))}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Subscription Plan</label>
+                    <select
+                      value={editCompPlan}
+                      onChange={(e) => {
+                        const val = e.target.value as 'Starter' | 'Growth' | 'Enterprise';
+                        setEditCompPlan(val);
+                        if (val === 'Starter') setEditCompMaxEmps(25);
+                        else if (val === 'Growth') setEditCompMaxEmps(100);
+                        else if (val === 'Enterprise') setEditCompMaxEmps(1000);
+                      }}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-white"
+                    >
+                      <option value="Starter">Starter (25 Staff)</option>
+                      <option value="Growth">Growth (100 Staff)</option>
+                      <option value="Enterprise">Enterprise (Unlimited)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Billing Cycle</label>
+                    <select
+                      value={editCompBillingCycle}
+                      onChange={(e) => setEditCompBillingCycle(e.target.value as 'Monthly' | 'Annual')}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-white"
+                    >
+                      <option value="Annual">Annual (Save 17%)</option>
+                      <option value="Monthly">Monthly</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Max Employee Quota Capacity</label>
+                  <input
+                    type="number"
+                    value={editCompMaxEmps}
+                    onChange={(e) => setEditCompMaxEmps(Number(e.target.value))}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Maximum employee accounts this tenant organization is allowed to onboard.
+                  </p>
+                </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button

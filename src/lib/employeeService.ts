@@ -47,6 +47,8 @@ export function addEmployee(data: Partial<Employee>): Employee {
   const newEmployee: Employee = {
     id: newId,
     employeeCode: code,
+    companyId: data.companyId || 'comp-paneliya',
+    companyName: data.companyName || 'Paneliya Technology Inc.',
     firstName: data.firstName || 'New',
     lastName: data.lastName || 'Staff',
     email: data.email || `employee.${Date.now()}@paneliya.com`,

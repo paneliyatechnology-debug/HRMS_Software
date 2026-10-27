@@ -220,34 +220,34 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {portalMode !== 'employee' && (
             <button
               onClick={() => setIsAddHolidayOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 text-blue-600" />
-              <span>Add Holiday</span>
+              <span className="truncate">Add Holiday</span>
             </button>
           )}
 
           {onOpenClockModal && (
             <button
               onClick={onOpenClockModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs"
             >
               <Clock className="w-3.5 h-3.5 text-slate-500" />
-              <span>Log Punch</span>
+              <span className="truncate">Log Punch</span>
             </button>
           )}
 
           {onOpenLeaveModal && (
             <button
               onClick={onOpenLeaveModal}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Apply Leave</span>
+              <span className="truncate">Apply Leave</span>
             </button>
           )}
         </div>
@@ -336,7 +336,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 onClick={() => {
                   if (item.isCurrentMonth) setSelectedDay(item.day);
                 }}
-                className={`min-h-[90px] sm:min-h-[110px] p-2 rounded-xl border border-slate-100 flex flex-col justify-between transition-all cursor-pointer ${badgeClass}`}
+                className={`min-h-[64px] sm:min-h-[110px] p-1.5 sm:p-2 rounded-lg sm:rounded-xl border border-slate-100 flex flex-col justify-between transition-all cursor-pointer ${badgeClass}`}
               >
                 <div className="flex items-center justify-between">
                   <span

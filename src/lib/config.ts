@@ -34,7 +34,7 @@ export function getApiBaseUrl(): string {
     return `${protocol}//${host}:4000/api`;
   }
 
-  return 'http://192.168.1.100:4000/api';
+  return 'http://192.168.1.110:4000/api';
 }
 
 export function getSocketBaseUrl(): string {
@@ -55,5 +55,5 @@ export function getSocketBaseUrl(): string {
     const protocol = window.location.protocol || 'http:';
     return `${protocol}//${host}:4000`;
   }
-  return 'http://192.168.1.100:4000';
+  return 'http://192.168.1.110:4000';
 }

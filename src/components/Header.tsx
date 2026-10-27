@@ -59,25 +59,33 @@ export const Header: React.FC<HeaderProps> = ({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
-    <header className="h-[66px] bg-white border-b border-[#e4eaf5] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
-      {/* Left: Mobile Toggle */}
-      <div className="flex items-center gap-2">
+    <header className="h-[62px] sm:h-[66px] bg-white border-b border-[#e4eaf5] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+      {/* Left: Mobile Toggle & Brand Logo */}
+      <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onOpenSidebar}
-          className="p-2 rounded-[9px] text-[#6e7b98] hover:text-[#152345] hover:bg-[#eef2ff] lg:hidden transition-colors"
-          title="Toggle navigation"
+          className="p-2 rounded-[9px] text-[#6e7b98] hover:text-[#152345] hover:bg-[#eef2ff] lg:hidden transition-colors cursor-pointer"
+          title="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#6576ff] to-[#7f4cdb] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0">
+            M
+          </div>
+          <span className="font-extrabold text-xs text-[#152345] tracking-tight hidden min-[360px]:inline">
+            HRMS
+          </span>
+        </div>
       </div>
 
       {/* Center: Live Digital Clock Widget */}
-      <div className="flex items-center justify-center px-2">
+      <div className="hidden sm:flex items-center justify-center px-2 min-w-0">
         <LiveClock onClick={onOpenClockModal} />
       </div>
 
       {/* Right: Actions, Role Pill, Notifications, Profile */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {/* Sleek Global Search Button (Opens Search Modal on click or Ctrl+K) */}
         {onOpenSearchModal && (
           <button

@@ -19,11 +19,17 @@ import {
   Building,
   Shield,
   Download,
+  Smartphone,
+  Laptop,
+  Tablet,
+  Camera,
+  ShieldCheck,
 } from 'lucide-react';
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { ChangeRoleModal } from './ChangeRoleModal';
+import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 
 interface EmployeeProfileModalProps {
   employee: Employee | null;
@@ -260,18 +266,105 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           )}
 
           {/* 4. Attendance */}
-          {activeTab === 'attendance' && (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500">Recent attendance punch entries for current cycle:</p>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+          {activeTab === 'attendance' && (() => {
+            const todayRec = getTodayRecordForEmployee(employee.id);
+            return (
+              <div className="space-y-4">
                 <div>
-                  <span className="font-bold text-slate-900">Oct 19, 2026</span>
-                  <span className="text-slate-400 ml-2">08:55 AM — 06:05 PM</span>
+                  <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-2">
+                    Today's Punch &amp; Hardware Verification
+                  </h4>
+                  {todayRec ? (
+                    <div className="p-4 rounded-2xl bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <span className="font-bold text-slate-900 text-xs">
+                          {todayRec.date} • {todayRec.isCompleted ? 'Shift Completed' : todayRec.isOnBreak ? 'On Break' : 'Active Working'}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-700 text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {formatSecondsToHMS(todayRec.activeSeconds || 0)} Worked
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check In Time</span>
+                          <p className="font-mono font-bold text-slate-900">{todayRec.checkIn || '—'}</p>
+                          {todayRec.checkInPhoto && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img
+                                src={todayRec.checkInPhoto}
+                                alt="Check-in selfie"
+                                className="w-10 h-10 rounded-lg object-cover border border-black shadow-xs shrink-0"
+                              />
+                              <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" /> Selfie Verified
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check Out Time</span>
+                          <p className="font-mono font-bold text-slate-900">{todayRec.checkOut || 'Pending'}</p>
+                          {todayRec.checkOutPhoto && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img
+                                src={todayRec.checkOutPhoto}
+                                alt="Check-out selfie"
+                                className="w-10 h-10 rounded-lg object-cover border border-black shadow-xs shrink-0"
+                              />
+                              <span className="text-[10px] text-rose-700 font-bold flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" /> Selfie Verified
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Device Hardware Info Card */}
+                      {todayRec.checkInDevice && (
+                        <div className="p-3 rounded-xl bg-[#FAF8F5] border border-black text-xs space-y-1">
+                          <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                            {todayRec.checkInDevice.deviceType === 'Mobile' ? (
+                              <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Laptop className="w-3.5 h-3.5 text-purple-600" />
+                            )}
+                            Punch Device Hardware Detected
+                          </span>
+                          <p className="font-black text-slate-900">
+                            {todayRec.checkInDevice.deviceModel} ({todayRec.checkInDevice.deviceType})
+                          </p>
+                          <p className="text-[11px] font-mono text-slate-600">
+                            {todayRec.checkInDevice.os} • {todayRec.checkInDevice.browser} • {todayRec.checkInDevice.screenResolution}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                      No check-in recorded for today yet.
+                    </div>
+                  )}
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">Present (8.5 hrs)</span>
+
+                <div>
+                  <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-2">
+                    Previous Cycle Logs
+                  </h4>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-slate-900">Oct 19, 2026</span>
+                      <span className="text-slate-400 ml-2">08:55 AM — 06:05 PM</span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
+                      Present (8.5 hrs)
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 5. Leave */}
           {activeTab === 'leave' && (

@@ -17,7 +17,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 export default function SuperAdminLoginPage() {
   const router = useRouter();
-  const { loginAsSuperAdmin, isAuthenticated, user } = useAuth();
+  const { loginAsSuperAdmin, loginWithDemoAccount, isAuthenticated, user } = useAuth();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -182,6 +182,34 @@ export default function SuperAdminLoginPage() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
+            </button>
+
+            {/* Quick Demo SuperAdmin Access */}
+            <button
+              id="btn-demo-superadmin-quick"
+              type="button"
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+                try {
+                  const res = await loginWithDemoAccount('superadmin');
+                  if (res.success) {
+                    setSuccessMessage('Logged in as Super Admin (Demo Mode)! Redirecting...');
+                    setTimeout(() => router.push('/superadmin'), 400);
+                  } else {
+                    setErrorMessage(res.message || 'Demo login failed');
+                  }
+                } catch (e: any) {
+                  setErrorMessage(e?.message || 'Demo login error');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="w-full mt-3 py-2 px-3 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/60 hover:bg-indigo-100/70 text-indigo-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <span>⚡ 1-Click Demo Login (No Database Needed)</span>
             </button>
           </form>
 

@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { X, UserPlus, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
+import { getCompanySubscription } from '../../lib/subscriptionService';
+import { useAuth } from '../../context/AuthContext';
+import { getAllCompanies, addEmployeeToCompany } from '../../lib/companyService';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -20,6 +23,17 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   departments,
   designations,
 }) => {
+  const { user } = useAuth();
+  const allComps = getAllCompanies();
+  const currentCompany =
+    allComps.find(
+      (c) =>
+        c.id === user?.companyId ||
+        c.adminUser?.email?.toLowerCase() === user?.email?.toLowerCase()
+    ) || allComps[0];
+  const adminCompanyId = user?.companyId || currentCompany?.id || 'comp-paneliya';
+  const adminCompanyName = user?.companyName || currentCompany?.name || 'Paneliya Technology Inc.';
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -56,16 +70,27 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     setLoading(true);
     setFormError(null);
     try {
+      const sub = getCompanySubscription(adminCompanyId);
+      if (sub.isQuotaFull) {
+        setFormError(
+          `Your company (${adminCompanyName}) has reached the maximum capacity of ${sub.maxEmployees} employees on the ${sub.plan.name} plan. Please upgrade to a higher tier in Settings > Subscription & Billing.`
+        );
+        setLoading(false);
+        return;
+      }
+
       const selectedDept = departments.find((d) => d.id === formData.departmentId);
       const selectedDes = designations.find((d) => d.id === formData.designationId);
 
       const employeePayload: Partial<Employee> = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
         password: formData.initialPassword || 'Password@123',
         role: formData.role,
+        companyId: adminCompanyId,
+        companyName: adminCompanyName,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
         address: formData.address,
@@ -75,7 +100,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         designationTitle: selectedDes?.title || 'Software Engineer',
         employmentType: formData.employmentType,
         workLocationId: formData.workLocationId,
-        workLocationName: 'Corporate Headquarters',
+        workLocationName: `${adminCompanyName} Office`,
         shift: formData.shift,
         salary: {
           basic: Number(formData.basicSalary),
@@ -100,6 +125,25 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           phone: formData.emergencyPhone || formData.phone,
         },
       };
+
+      if (adminCompanyId !== 'comp-paneliya') {
+        addEmployeeToCompany(
+          adminCompanyId,
+          {
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            email: formData.email.trim().toLowerCase(),
+            phone: formData.phone.trim(),
+            departmentName: selectedDept?.name || 'Engineering',
+            designationTitle: selectedDes?.title || 'Software Engineer',
+            salaryBasic: Number(formData.basicSalary) || 45000,
+            employmentType: formData.employmentType,
+            password: formData.initialPassword || 'Password@123',
+            role: formData.role,
+          },
+          []
+        );
+      }
 
       await api.createEmployee(employeePayload);
       onRefresh();
@@ -126,8 +170,15 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Add New Employee</h3>
-              <p className="text-xs text-slate-500">Step {step} of 3</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900">Add New Employee</h3>
+                <span className="text-[10px] font-black uppercase bg-[#FFE600] text-black px-2 py-0.5 rounded-full border border-black shadow-[1px_1px_0px_0px_#000]">
+                  {adminCompanyName}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Adding to {adminCompanyName} • Step {step} of 3
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600">

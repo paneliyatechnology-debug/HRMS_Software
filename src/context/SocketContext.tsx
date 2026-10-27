@@ -93,13 +93,19 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
+    // Only attempt socket connection if the user is logged in
+    const isAuth = typeof window !== 'undefined' && localStorage.getItem('hrms_is_authenticated') === 'true';
+    if (!isAuth) {
+      return;
+    }
+
     // Dynamically connect to WebSocket Gateway using URL from .env
     const socketUrl = getSocketBaseUrl();
     const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 2,
       reconnectionDelay: 2000,
-      timeout: 5000,
+      timeout: 3000,
     });
 
     s.on('connect', () => {

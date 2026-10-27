@@ -46,6 +46,8 @@ import {
   performCheckIn,
   performCheckOut,
   getTodayRecordForEmployee,
+  updateLocalRecordFromBackend,
+  syncBackendAttendanceRecords,
 } from './attendanceService';
 import {
   getAllLeaves,
@@ -71,8 +73,12 @@ const getApiBase = () => getApiBaseUrl();
 
 /**
  * Universal API fetcher that forwards JWT Bearer token and gracefully falls back to local data.
+ * Includes a 4-second fail-fast timeout so slow/unreachable network endpoints don't freeze mobile devices.
  */
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
   try {
     const token =
       typeof window !== 'undefined'
@@ -81,6 +87,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
 
     const res = await fetch(`${getApiBase()}${url}`, {
       cache: 'no-store',
+      signal: controller.signal,
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -99,6 +106,8 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
       return fallback;
     }
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -364,9 +373,34 @@ export const api = {
   // =========================================================================
   // 5. ATTENDANCE & PUNCH CLOCK
   // =========================================================================
+  async resolveAttendanceEmployeeId(idOrCode: string, employeeMeta?: any): Promise<string> {
+    if (idOrCode && idOrCode.startsWith('emp-')) return idOrCode;
+    if (employeeMeta?.employeeId && employeeMeta.employeeId.startsWith('emp-')) return employeeMeta.employeeId;
+    try {
+      const emps = await this.getEmployees();
+      if (Array.isArray(emps)) {
+        const found = emps.find((e: any) =>
+          e.id === idOrCode ||
+          e.userId === idOrCode ||
+          (employeeMeta?.email && e.email?.toLowerCase() === employeeMeta.email.toLowerCase()) ||
+          (employeeMeta?.employeeCode && e.employeeCode?.toLowerCase() === employeeMeta.employeeCode.toLowerCase()) ||
+          (employeeMeta?.firstName && `${e.firstName} ${e.lastName || ''}`.trim().toLowerCase() === `${employeeMeta.firstName} ${employeeMeta.lastName || ''}`.trim().toLowerCase())
+        );
+        if (found && found.id) return found.id;
+      }
+    } catch (e) {
+      console.warn('Could not resolve attendance employee ID from backend:', e);
+    }
+    return idOrCode;
+  },
+
   async getAttendance(params?: { employeeId?: string; date?: string; departmentId?: string }) {
     const localRecords = getAllAttendanceRecords();
-    return fetchWithFallback<AttendanceRecord[]>('/attendance', undefined, localRecords);
+    const records = await fetchWithFallback<AttendanceRecord[]>('/attendance', undefined, localRecords);
+    if (Array.isArray(records) && records.length > 0) {
+      syncBackendAttendanceRecords(records);
+    }
+    return records;
   },
 
   async getMyAttendanceStatus(employeeId: string) {
@@ -384,28 +418,122 @@ export const api = {
     });
   },
 
-  async checkIn(employeeId: string, remarks?: string, employeeMeta?: any) {
-    const res = performCheckIn({
-      id: employeeId,
-      firstName: employeeMeta?.firstName || 'Employee',
-      lastName: employeeMeta?.lastName || '',
-      employeeCode: employeeMeta?.employeeCode || employeeId,
-      departmentName: employeeMeta?.departmentName || 'General',
-    });
-    return fetchWithFallback<AttendanceRecord>(
-      '/attendance/check-in',
-      { method: 'POST', body: JSON.stringify({ employeeId, remarks }) },
-      res.record!
-    );
+  async checkIn(
+    employeeId: string,
+    remarks?: string,
+    employeeMeta?: any,
+    geoData?: {
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      distanceMeters?: number;
+      locationAddress?: string;
+      isGeofenceVerified?: boolean;
+      photo?: string;
+      device?: any;
+    }
+  ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
+    const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
+    const payload = {
+      employeeId: targetEmpId,
+      remarks: remarks || 'Work from office - morning shift',
+      latitude: geoData?.latitude,
+      longitude: geoData?.longitude,
+      accuracy: geoData?.accuracy,
+      distanceMeters: geoData?.distanceMeters,
+      locationAddress: geoData?.locationAddress || 'Office HQ',
+      isGeofenceVerified: geoData?.isGeofenceVerified ?? true,
+      photo: geoData?.photo,
+      selfiePhoto: geoData?.photo,
+      device: geoData?.device,
+      checkInDevice: geoData?.device,
+    };
+
+    let backendRecord: any = null;
+    try {
+      backendRecord = await fetchWithFallback<any>(
+        '/attendance/check-in',
+        { method: 'POST', body: JSON.stringify(payload) },
+        null
+      );
+    } catch (err) {
+      console.error('Check-in backend POST error:', err);
+    }
+
+    let localRecord: AttendanceRecord | null = null;
+    if (backendRecord && backendRecord.id) {
+      localRecord = updateLocalRecordFromBackend(backendRecord);
+    } else {
+      const res = performCheckIn({
+        id: targetEmpId,
+        firstName: employeeMeta?.firstName || 'Employee',
+        lastName: employeeMeta?.lastName || '',
+        employeeCode: employeeMeta?.employeeCode || targetEmpId,
+        departmentName: employeeMeta?.departmentName || 'General',
+      }, geoData);
+      localRecord = res.record || null;
+    }
+
+    return {
+      success: true,
+      message: 'Clocked in successfully!',
+      record: localRecord || backendRecord,
+    };
   },
 
-  async checkOut(employeeId: string, remarks?: string) {
-    const res = performCheckOut(employeeId);
-    return fetchWithFallback<AttendanceRecord>(
-      '/attendance/check-out',
-      { method: 'POST', body: JSON.stringify({ employeeId, remarks }) },
-      res.record!
-    );
+  async checkOut(
+    employeeId: string,
+    remarks?: string,
+    employeeMeta?: any,
+    geoData?: {
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      distanceMeters?: number;
+      locationAddress?: string;
+      photo?: string;
+      device?: any;
+    }
+  ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
+    const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
+    const payload = {
+      employeeId: targetEmpId,
+      remarks: remarks || 'Work day completed',
+      latitude: geoData?.latitude,
+      longitude: geoData?.longitude,
+      accuracy: geoData?.accuracy,
+      distanceMeters: geoData?.distanceMeters,
+      locationAddress: geoData?.locationAddress || 'Office HQ',
+      photo: geoData?.photo,
+      selfiePhoto: geoData?.photo,
+      device: geoData?.device,
+      checkOutDevice: geoData?.device,
+    };
+
+    let backendRecord: any = null;
+    try {
+      backendRecord = await fetchWithFallback<any>(
+        '/attendance/check-out',
+        { method: 'POST', body: JSON.stringify(payload) },
+        null
+      );
+    } catch (err) {
+      console.error('Check-out backend POST error:', err);
+    }
+
+    let localRecord: AttendanceRecord | null = null;
+    if (backendRecord && backendRecord.id) {
+      localRecord = updateLocalRecordFromBackend(backendRecord);
+    } else {
+      const res = performCheckOut(targetEmpId, geoData);
+      localRecord = res.record || null;
+    }
+
+    return {
+      success: true,
+      message: 'Clocked out successfully!',
+      record: localRecord || backendRecord,
+    };
   },
 
   async regularizeAttendance(data: {

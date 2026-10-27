@@ -21,10 +21,31 @@ import {
   CheckCircle2,
   AlertCircle,
   Volume2,
+  CreditCard,
+  Sparkles,
+  Download,
+  Zap,
+  TrendingUp,
+  ArrowUpRight,
+  Crown,
+  Fingerprint,
+  FileText,
+  RefreshCw,
+  Receipt,
+  ExternalLink,
+  Users,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
+import { UpgradePlanModal } from '../modals/UpgradePlanModal';
+import {
+  getCompanySubscription,
+  getCompanyInvoices,
+  SUBSCRIPTION_FEATURES_MATRIX,
+  SubscriptionInvoice,
+} from '../../lib/subscriptionService';
 
 interface SettingsModuleProps {
   portalMode?: 'employee' | 'admin';
@@ -37,10 +58,26 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac' | 'billing'>('company');
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'notifications' | 'security' | 'preferences'>('profile');
+
+  // Subscription state
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [subData, setSubData] = useState(() => getCompanySubscription('comp-paneliya'));
+  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices('comp-paneliya'));
+
+  const refreshSubscriptionData = () => {
+    setSubData(getCompanySubscription('comp-paneliya'));
+    setInvoices(getCompanyInvoices('comp-paneliya'));
+  };
+
+  useEffect(() => {
+    const handleUpdate = () => refreshSubscriptionData();
+    window.addEventListener('hrms_companies_updated', handleUpdate);
+    return () => window.removeEventListener('hrms_companies_updated', handleUpdate);
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
@@ -787,6 +824,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           { id: 'schedule', label: 'Working Hours & Shifts' },
           { id: 'leaves', label: 'Leave Policies' },
           { id: 'rbac', label: 'Role Permissions (RBAC)' },
+          { id: 'billing', label: 'Subscription & Billing 💎' },
         ].map((t) => (
           <button
             key={t.id}
@@ -1020,6 +1058,306 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           </div>
         </div>
       )}
+
+      {/* Tab 5: Subscription & Billing Management */}
+      {adminActiveTab === 'billing' && (
+        <div className="space-y-6 max-w-5xl animate-in fade-in duration-200">
+          {/* Active Plan Overview Hero Card */}
+          <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/30 relative overflow-hidden">
+            {/* Background glowing blobs */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-60 h-60 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-black tracking-wider uppercase flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Subscription Active
+                  </span>
+                  <span className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-bold">
+                    {subData.billingCycle} Billing
+                  </span>
+                </div>
+
+                <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                  <span>{subData.plan.name}</span>
+                  {subData.plan.id === 'Enterprise' && (
+                    <Crown className="w-6 h-6 text-amber-400" />
+                  )}
+                </h3>
+                <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
+                  {subData.plan.tagline}
+                </p>
+
+                <div className="pt-2 flex flex-wrap items-center gap-6 text-xs text-slate-300">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Next Auto-Renewal</span>
+                    <span className="font-bold text-white text-sm">{subData.nextRenewalDate}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Billing Rate</span>
+                    <span className="font-bold text-emerald-400 text-sm">
+                      ₹{subData.billingCycle === 'Annual' ? subData.plan.priceAnnualINR.toLocaleString('en-IN') : subData.plan.priceMonthlyINR.toLocaleString('en-IN')} / {subData.billingCycle === 'Annual' ? 'year' : 'month'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Tenant Code</span>
+                    <span className="font-mono font-bold text-white text-sm">{subData.company?.code || 'PANELIYA-HQ'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
+                <button
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="px-6 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-500/30 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>Upgrade or Change Plan</span>
+                </button>
+                <button
+                  onClick={() => {
+                    showToast({
+                      type: 'info',
+                      title: 'Support Desk',
+                      message: 'Priority billing support ticket opened (#PAN-8910).',
+                    });
+                  }}
+                  className="px-6 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Billing Support</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quota Usage Bar */}
+            <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
+              <div className="flex items-center justify-between text-xs font-bold mb-2">
+                <span className="text-slate-300 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-indigo-400" />
+                  Employee Quota Capacity
+                </span>
+                <span className="text-white">
+                  {subData.currentEmployeesCount} / {subData.maxEmployees >= 1000 ? 'Unlimited' : `${subData.maxEmployees}`} Employees ({subData.quotaPercent}% utilized)
+                </span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-slate-800/80 overflow-hidden border border-white/5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    subData.isQuotaFull
+                      ? 'bg-rose-500'
+                      : subData.quotaPercent > 80
+                      ? 'bg-amber-400'
+                      : 'bg-emerald-400'
+                  }`}
+                  style={{ width: `${Math.max(5, subData.quotaPercent)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Key Tier Capabilities 3-Card Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                <Fingerprint className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-900 text-sm">Biometric Machine Gateway</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Physical ZKTeco, eSSL & Realtime terminal cloud push integration enabled via ADMS.
+              </p>
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+                <Globe className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-900 text-sm">GPS Geofence & Live Selfie</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Office coordinate boundary locking, hardware device detection, and live camera verification.
+              </p>
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-slate-900 text-sm">Full Automated Payroll</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Direct salary calculation, EPF / ESIC deductions, and downloadable PDF payslips for all staff.
+              </p>
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature Access Matrix */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-black text-slate-900 text-sm">Feature Comparison Matrix</h4>
+                <p className="text-xs text-slate-500">
+                  Compare plan entitlements across Starter, Growth, and Enterprise tiers
+                </p>
+              </div>
+              <button
+                onClick={() => setIsUpgradeModalOpen(true)}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+              >
+                <span>View Full Comparison</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
+                    <th className="py-2.5 px-3">HRMS Feature</th>
+                    <th className="py-2.5 px-3">Category</th>
+                    <th className="py-2.5 px-3 text-center">Starter</th>
+                    <th className="py-2.5 px-3 text-center">Growth</th>
+                    <th className="py-2.5 px-3 text-center bg-indigo-50/50 rounded-t-xl font-bold text-indigo-900">
+                      Enterprise (Active)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {SUBSCRIPTION_FEATURES_MATRIX.slice(0, 7).map((feat, i) => (
+                    <tr key={i} className="hover:bg-slate-50/60 transition">
+                      <td className="py-2.5 px-3 font-semibold text-slate-800">
+                        {feat.name}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                        {feat.category}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {feat.includedInStarter ? (
+                          <Check className="w-4 h-4 text-emerald-600 mx-auto" />
+                        ) : (
+                          <span className="text-slate-300 font-bold">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {feat.includedInGrowth ? (
+                          <Check className="w-4 h-4 text-emerald-600 mx-auto" />
+                        ) : (
+                          <span className="text-slate-300 font-bold">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center bg-indigo-50/30">
+                        {feat.includedInEnterprise ? (
+                          <Check className="w-4 h-4 text-indigo-600 stroke-[2.5] mx-auto" />
+                        ) : (
+                          <span className="text-slate-300 font-bold">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Invoices & Billing History */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-black text-slate-900 text-sm">Invoices & Payment History</h4>
+                <p className="text-xs text-slate-500">
+                  Download official GST-compliant tax invoices and receipts
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">
+                GSTIN: 24AAACP1234F1Z5
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
+                    <th className="py-2.5 px-3">Invoice #</th>
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Plan & Tier</th>
+                    <th className="py-2.5 px-3">Billing Cycle</th>
+                    <th className="py-2.5 px-3">Amount</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50/60 transition">
+                      <td className="py-2.5 px-3">
+                        <span className="font-mono font-bold text-slate-900 block">{inv.invoiceNumber}</span>
+                        {inv.razorpayPaymentId && (
+                          <span className="text-[10px] text-blue-600 font-mono block">
+                            RZP: {inv.razorpayPaymentId}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600">{inv.date}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-bold text-slate-800 block">{inv.planName}</span>
+                        <span className="text-[10px] text-slate-400 block">{inv.paymentMethod || 'Razorpay Gateway'}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500">{inv.billingCycle}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        ₹{inv.amountINR.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          onClick={() => {
+                            showToast({
+                              type: 'success',
+                              title: 'Receipt Downloaded',
+                              message: `Invoice ${inv.invoiceNumber} receipt ${inv.razorpayPaymentId ? `(Ref: ${inv.razorpayPaymentId})` : ''} downloaded.`,
+                            });
+                          }}
+                          className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Receipt</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        companyId="comp-paneliya"
+        onPlanUpdated={refreshSubscriptionData}
+      />
     </div>
   );
 };

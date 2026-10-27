@@ -10,6 +10,7 @@ import { EmployeesModule } from '../components/modules/EmployeesModule';
 import { AttendanceModule } from '../components/modules/AttendanceModule';
 import { LeaveModule } from '../components/modules/LeaveModule';
 import { PayrollModule } from '../components/modules/PayrollModule';
+import { EmployeePayslipsModule } from '../components/modules/EmployeePayslipsModule';
 import { RecruitmentModule } from '../components/modules/RecruitmentModule';
 import { PerformanceModule } from '../components/modules/PerformanceModule';
 import { OrganizationModule } from '../components/modules/OrganizationModule';
@@ -31,6 +32,8 @@ import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal'
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
 import { LoginPage } from '../components/auth/LoginPage';
 import { LandingPage } from '../components/landing/LandingPage';
+import { MobileBottomNav } from '../components/common/MobileBottomNav';
+import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { api } from '../lib/api';
@@ -59,7 +62,18 @@ export default function Home() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
         router.push('/login');
+        return;
       }
+      const mod = urlParams.get('module') || (window.location.hash ? window.location.hash.replace('#', '') : '');
+      if (mod) {
+        setActiveModule(mod);
+      }
+      const handleHashChange = () => {
+        const h = window.location.hash.replace('#', '');
+        if (h) setActiveModule(h);
+      };
+      window.addEventListener('hashchange', handleHashChange);
+      return () => window.removeEventListener('hashchange', handleHashChange);
     }
   }, [router]);
 
@@ -108,7 +122,17 @@ export default function Home() {
     }
 
     if (portalMode === 'employee') {
-      const allowedInEmployee = ['dashboard', 'calendar', 'attendance', 'leaves', 'documents', 'announcements', 'chat', 'settings'];
+      const allowedInEmployee = [
+        'dashboard',
+        'calendar',
+        'attendance',
+        'leaves',
+        'organization',
+        'documents',
+        'announcements',
+        'chat',
+        'settings',
+      ];
       if (!allowedInEmployee.includes(activeModule)) {
         setActiveModule('dashboard');
       }
@@ -232,7 +256,7 @@ export default function Home() {
     return () => window.removeEventListener('hrms_auth_logout', handleLogout);
   }, []);
 
-  if (isLoading) {
+  if (isLoading && isAuthenticated) {
     return (
       <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
@@ -244,12 +268,21 @@ export default function Home() {
     return <LandingPage onOpenLogin={() => router.push('/login')} />;
   }
 
+  const navigateToModule = (mod: string) => {
+    setActiveModule(mod);
+    if (typeof window !== 'undefined') {
+      try {
+        window.location.hash = mod;
+      } catch (e) {}
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-[#f4f7fc] text-[#152345] flex font-sans antialiased overflow-hidden">
       {/* Left Sidebar (Full height from top to bottom) */}
       <Sidebar
         activeModule={activeModule}
-        setActiveModule={setActiveModule}
+        setActiveModule={navigateToModule}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
         onSelectSubTab={setSubTab}
@@ -314,7 +347,7 @@ export default function Home() {
           onNavigateSettings={() => setActiveModule('settings')}
           onOpenChat={() => setActiveModule('chat')}
           onOpenSearchModal={() => setSearchModalOpen(true)}
-          onNavigateModule={setActiveModule}
+          onNavigateModule={navigateToModule}
           onSelectEmployee={setSelectedEmployee}
           employees={employees}
           portalMode={portalMode}
@@ -322,7 +355,7 @@ export default function Home() {
           unreadChatCount={unreadChatCount}
         />
 
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full [scrollbar-width:thin] bg-[#f4f7fc]">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-[#f4f7fc]">
           <div className="max-w-[1700px] mx-auto">
         {activeModule === 'dashboard' && (
           <DashboardView
@@ -330,9 +363,7 @@ export default function Home() {
             employees={employees}
             leaves={leaves}
             attendance={attendance}
-            onNavigateModule={(mod) => {
-              setActiveModule(mod);
-            }}
+            onNavigateModule={navigateToModule}
             onOpenClockModal={() => setClockModalOpen(true)}
             onOpenLeaveModal={() => setLeaveModalOpen(true)}
             onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
@@ -391,11 +422,15 @@ export default function Home() {
           />
         )}
 
-        {activeModule === 'payroll' && (
-          <PayrollModule
-            payrollRecords={payroll}
-            onRefresh={loadData}
-          />
+        {(activeModule === 'payroll' || activeModule === 'payslips') && (
+          portalMode === 'employee' ? (
+            <EmployeePayslipsModule onRefresh={loadData} />
+          ) : (
+            <PayrollModule
+              payrollRecords={payroll}
+              onRefresh={loadData}
+            />
+          )
         )}
 
         {activeModule === 'recruitment' && (
@@ -455,6 +490,18 @@ export default function Home() {
         {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
         </main>
+
+        {/* Mobile App Bottom Navigation Bar */}
+        <MobileBottomNav
+          activeModule={activeModule}
+          setActiveModule={setActiveModule}
+          onOpenClockModal={() => setClockModalOpen(true)}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          portalMode={portalMode}
+          pendingLeavesCount={pendingLeavesCount}
+          unreadChatCount={unreadChatCount}
+          punchStatus={checkEmployeePunchEligibility(user?.employeeId || user?.id || '')?.status}
+        />
       </div>
 
       {/* Global Modals & Drawers */}

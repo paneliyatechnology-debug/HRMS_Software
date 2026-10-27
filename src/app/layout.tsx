@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { SocketProvider } from '../context/SocketContext';
+import { OfflineScreen } from '../components/common/OfflineScreen';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -66,6 +67,7 @@ export default function RootLayout({
         />
       </head>
       <body className="h-full bg-slate-50 text-slate-900 selection:bg-indigo-600 selection:text-white m-0 p-0 antialiased font-sans">
+        <OfflineScreen />
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>

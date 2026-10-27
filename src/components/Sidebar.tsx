@@ -26,6 +26,7 @@ import {
   User,
   PanelLeftClose,
   PanelLeftOpen,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -70,6 +71,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : internalCollapsed;
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const effectiveCollapsed = isCollapsed && isDesktop;
 
   const toggleCollapse = () => {
     const next = !isCollapsed;
@@ -106,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     const isActive = activeModule === id;
 
-    if (isCollapsed) {
+    if (effectiveCollapsed) {
       return (
         <button
           key={id}
@@ -164,21 +175,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full ${
-          isCollapsed ? 'w-[68px]' : 'w-[245px]'
+        className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] ${
+          isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
         } bg-gradient-to-b from-[#111d3b] to-[#101a34] text-[#eaf0ff] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#19284c] ${
           isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand Header */}
         <div
-          className={`h-[66px] border-b border-[#34415e]/80 shrink-0 ${
-            isCollapsed
+          className={`h-[62px] sm:h-[66px] border-b border-[#34415e]/80 shrink-0 ${
+            effectiveCollapsed
               ? 'px-2 flex items-center justify-center'
               : 'px-3 flex items-center justify-between'
           }`}
         >
-          {isCollapsed ? (
+          {effectiveCollapsed ? (
             <div className="flex items-center justify-center w-full">
               <button
                 id="btn-sidebar-logo-expand"
@@ -221,7 +232,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Close button for mobile */}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1 rounded text-[#aab8df] hover:text-white lg:hidden"
+                  className="p-1.5 rounded-lg text-[#aab8df] hover:text-white hover:bg-white/10 lg:hidden cursor-pointer"
+                  title="Close navigation"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -233,12 +245,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation list */}
         <div
           className={`flex-1 overflow-y-auto ${
-            isCollapsed ? 'px-2' : 'px-2.5'
-          } py-3 space-y-4 text-sm [scrollbar-width:thin]`}
+            effectiveCollapsed ? 'px-2' : 'px-2.5'
+          } py-3 space-y-4 text-sm [scrollbar-width:thin] pb-24 lg:pb-6`}
         >
           {/* Main workspace section */}
           <div className="space-y-0.5">
-            {!isCollapsed && (
+            {!effectiveCollapsed && (
               <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
                 {portalMode === 'admin' ? 'Administration' : 'Self-Service'}
               </p>
@@ -256,6 +268,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               ) : undefined
             )}
+            {portalMode === 'employee' && (
+              navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)
+            )}
             {navItem(
               'chat',
               'Team Chat',
@@ -272,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* HR Management (Only in Admin view) */}
           {portalMode === 'admin' && (
             <div className="space-y-0.5">
-              {isCollapsed ? (
+              {effectiveCollapsed ? (
                 <div className="my-2 border-t border-[#34415e]/50 mx-1" />
               ) : (
                 <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
@@ -280,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </p>
               )}
 
-              {isCollapsed ? (
+              {effectiveCollapsed ? (
                 <>
                   {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
                   {navItem('organization', 'Departments & Roles', <Layers className="w-4 h-4" />, undefined, 'departments')}
@@ -339,7 +354,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Company section */}
           <div className="space-y-0.5">
-            {isCollapsed ? (
+            {effectiveCollapsed ? (
               <div className="my-2 border-t border-[#34415e]/50 mx-1" />
             ) : (
               <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
@@ -356,10 +371,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Footer: User profile & Logout */}
         <div
           className={`border-t border-[#34415e]/80 bg-[#101a34]/60 ${
-            isCollapsed ? 'p-2' : 'p-3'
+            effectiveCollapsed ? 'p-2' : 'p-3'
           }`}
         >
-          {isCollapsed ? (
+          {effectiveCollapsed ? (
             <div className="flex flex-col items-center gap-2 py-1">
               <div
                 className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3548be] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer"

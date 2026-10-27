@@ -67,7 +67,13 @@ export interface User {
   lastName: string;
   role: Role;
   employeeId?: string;
+  employeeCode?: string;
+  phone?: string;
+  departmentName?: string;
+  designationTitle?: string;
   avatarUrl?: string;
+  companyId?: string;
+  companyName?: string;
 }
 
 export interface Department {
@@ -103,6 +109,8 @@ export interface Location {
 export interface Employee {
   id: string;
   employeeCode: string;
+  companyId?: string;
+  companyName?: string;
   userId?: string;
   password?: string;
   role?: Role;
@@ -122,6 +130,7 @@ export interface Employee {
   joiningDate: string;
   employmentType: 'Full-time' | 'Remote' | 'Part-time' | 'Contractual' | 'Hourly';
   status: EmployeeStatus;
+  isWFH?: boolean;
   departmentId: string;
   departmentName: string;
   designationId: string;
@@ -189,6 +198,33 @@ export interface AttendanceRecord {
   isCompleted?: boolean;
   lastActiveTimestamp?: number;
   lastBreakTimestamp?: number;
+  checkInLatitude?: number;
+  checkInLongitude?: number;
+  checkInAccuracy?: number;
+  checkInDistanceMeters?: number;
+  checkOutLatitude?: number;
+  checkOutLongitude?: number;
+  checkOutDistanceMeters?: number;
+  isGeofenceVerified?: boolean;
+  isWFH?: boolean;
+  checkInPhoto?: string;
+  checkOutPhoto?: string;
+  checkInDevice?: DevicePunchInfo;
+  checkOutDevice?: DevicePunchInfo;
+}
+
+export interface DevicePunchInfo {
+  deviceType: 'Mobile' | 'Tablet' | 'Desktop' | 'Unknown';
+  deviceModel: string;
+  os: string;
+  browser: string;
+  screenResolution: string;
+  orientation?: string;
+  userAgent?: string;
+  platform?: string;
+  language?: string;
+  timestamp?: string;
+  ipAddress?: string;
 }
 
 export interface LeaveRequest {

@@ -1,4 +1,5 @@
-import { AttendanceRecord, Employee } from '../types/hrms';
+import { AttendanceRecord, Employee, DevicePunchInfo } from '../types/hrms';
+import { detectUserDevice } from './deviceDetector';
 
 const STORAGE_KEY = 'hrms_daily_attendance_records';
 
@@ -170,13 +171,24 @@ export function checkEmployeePunchEligibility(employeeId: string): {
  * Action: Check In
  * Allowed ONLY ONCE per calendar day!
  */
-export function performCheckIn(employee: {
-  id: string;
-  firstName: string;
-  lastName?: string;
-  employeeCode?: string;
-  departmentName?: string;
-}): { success: boolean; message: string; record?: AttendanceRecord } {
+export function performCheckIn(
+  employee: {
+    id: string;
+    firstName: string;
+    lastName?: string;
+    employeeCode?: string;
+    departmentName?: string;
+  },
+  geoData?: {
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    distanceMeters?: number;
+    isGeofenceVerified?: boolean;
+    photo?: string;
+    device?: DevicePunchInfo;
+  }
+): { success: boolean; message: string; record?: AttendanceRecord } {
   const eligibility = checkEmployeePunchEligibility(employee.id);
 
   if (!eligibility.canCheckIn) {
@@ -195,6 +207,8 @@ export function performCheckIn(employee: {
     second: '2-digit',
     hour12: true,
   });
+
+  const device = geoData?.device || detectUserDevice();
 
   const newRecord: AttendanceRecord = {
     id: `att-${Date.now()}`,
@@ -217,6 +231,13 @@ export function performCheckIn(employee: {
     isCompleted: false,
     lastActiveTimestamp: Date.now(),
     lastBreakTimestamp: undefined,
+    checkInLatitude: geoData?.latitude,
+    checkInLongitude: geoData?.longitude,
+    checkInAccuracy: geoData?.accuracy,
+    checkInDistanceMeters: geoData?.distanceMeters,
+    isGeofenceVerified: geoData?.isGeofenceVerified ?? (geoData?.latitude !== undefined),
+    checkInPhoto: geoData?.photo,
+    checkInDevice: device,
   };
 
   const all = getAllAttendanceRecords();
@@ -337,7 +358,17 @@ export function performResumeWork(employeeId: string): {
  * Action: Check Out
  * Finalizes work & break hours, stops timer completely, blocks check-in until tomorrow
  */
-export function performCheckOut(employeeId: string): {
+export function performCheckOut(
+  employeeId: string,
+  geoData?: {
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    distanceMeters?: number;
+    photo?: string;
+    device?: DevicePunchInfo;
+  }
+): {
   success: boolean;
   message: string;
   record?: AttendanceRecord;
@@ -382,6 +413,8 @@ export function performCheckOut(employeeId: string): {
     hour12: true,
   });
 
+  const device = geoData?.device || detectUserDevice();
+
   record.checkOut = checkOutStr;
   record.isCompleted = true;
   record.isOnBreak = false;
@@ -390,6 +423,15 @@ export function performCheckOut(employeeId: string): {
   record.breakDurationMinutes = Math.round((record.breakSeconds || 0) / 60);
   record.workingHours = Number(((record.activeSeconds || 0) / 3600).toFixed(2));
   record.status = 'Present';
+  if (geoData?.latitude !== undefined) {
+    record.checkOutLatitude = geoData.latitude;
+    record.checkOutLongitude = geoData.longitude;
+    record.checkOutDistanceMeters = geoData.distanceMeters;
+  }
+  if (geoData?.photo) {
+    record.checkOutPhoto = geoData.photo;
+  }
+  record.checkOutDevice = device;
 
   all[idx] = record;
   saveAttendanceRecords(all);
@@ -402,3 +444,117 @@ export function performCheckOut(employeeId: string): {
     record,
   };
 }
+
+/**
+ * Update or insert a record returned from the backend (check-in, check-out, or sync)
+ */
+export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord | null {
+  if (!backendRec || !backendRec.employeeId) return null;
+  const all = getAllAttendanceRecords();
+  const today = backendRec.date || getTodayDateString();
+  const idx = all.findIndex(
+    (r) =>
+      (backendRec.id && r.id === backendRec.id) ||
+      (r.date === today &&
+        (r.employeeId === backendRec.employeeId ||
+          r.employeeId.toLowerCase() === backendRec.employeeId.toLowerCase()))
+  );
+
+  const hasCheckOut = Boolean(backendRec.checkOut && backendRec.checkOut.trim() !== '');
+
+  let updated: AttendanceRecord;
+
+  if (idx !== -1) {
+    const existing = all[idx];
+    const isCompleted = hasCheckOut || existing.isCompleted || false;
+
+    let activeSec = existing.activeSeconds || 0;
+    if (backendRec.workingHours && backendRec.workingHours > 0) {
+      activeSec = Math.round(backendRec.workingHours * 3600);
+    }
+
+    updated = {
+      ...existing,
+      id: backendRec.id || existing.id,
+      employeeId: backendRec.employeeId,
+      employeeName: backendRec.employeeName || existing.employeeName,
+      date: today,
+      checkIn: backendRec.checkIn || existing.checkIn,
+      checkOut: backendRec.checkOut || existing.checkOut,
+      status: backendRec.status || existing.status || 'Present',
+      remarks: backendRec.remarks || existing.remarks,
+      isCompleted,
+      isOnBreak: isCompleted ? false : existing.isOnBreak,
+      activeSeconds: activeSec,
+      breakDurationMinutes: backendRec.breakDurationMinutes ?? existing.breakDurationMinutes ?? 0,
+      breakSeconds: (backendRec.breakDurationMinutes ?? 0) * 60 || existing.breakSeconds || 0,
+      workingHours: backendRec.workingHours ?? existing.workingHours ?? 0,
+      overtimeHours: backendRec.overtimeHours ?? existing.overtimeHours ?? 0,
+      lastActiveTimestamp: isCompleted ? undefined : (existing.isOnBreak ? undefined : (existing.lastActiveTimestamp || Date.now())),
+      checkInLatitude: backendRec.latitude ?? backendRec.checkInLatitude ?? existing.checkInLatitude,
+      checkInLongitude: backendRec.longitude ?? backendRec.checkInLongitude ?? existing.checkInLongitude,
+      checkInAccuracy: backendRec.accuracy ?? backendRec.checkInAccuracy ?? existing.checkInAccuracy,
+      checkInDistanceMeters: backendRec.distanceMeters ?? backendRec.checkInDistanceMeters ?? existing.checkInDistanceMeters,
+      checkOutLatitude: backendRec.checkOutLatitude ?? existing.checkOutLatitude,
+      checkOutLongitude: backendRec.checkOutLongitude ?? existing.checkOutLongitude,
+      isGeofenceVerified: backendRec.isGeofenceVerified ?? existing.isGeofenceVerified ?? true,
+      checkInPhoto: backendRec.checkInPhoto ?? backendRec.photo ?? existing.checkInPhoto,
+      checkOutPhoto: backendRec.checkOutPhoto ?? existing.checkOutPhoto,
+      checkInDevice: backendRec.checkInDevice ?? existing.checkInDevice,
+      checkOutDevice: backendRec.checkOutDevice ?? existing.checkOutDevice,
+    };
+    all[idx] = updated;
+  } else {
+    const isCompleted = hasCheckOut;
+    let activeSec = 0;
+    if (backendRec.workingHours && backendRec.workingHours > 0) {
+      activeSec = Math.round(backendRec.workingHours * 3600);
+    }
+
+    updated = {
+      id: backendRec.id || `att-${Date.now()}`,
+      employeeId: backendRec.employeeId,
+      employeeName: backendRec.employeeName || 'Employee',
+      date: today,
+      checkIn: backendRec.checkIn,
+      checkOut: backendRec.checkOut || undefined,
+      status: backendRec.status || 'Present',
+      remarks: backendRec.remarks || '',
+      isCompleted,
+      isOnBreak: false,
+      activeSeconds: activeSec,
+      breakSeconds: (backendRec.breakDurationMinutes || 0) * 60,
+      breakDurationMinutes: backendRec.breakDurationMinutes || 0,
+      workingHours: backendRec.workingHours || 0,
+      overtimeHours: backendRec.overtimeHours || 0,
+      lastActiveTimestamp: isCompleted ? undefined : Date.now(),
+      createdAt: backendRec.createdAt || new Date().toISOString(),
+      checkInLatitude: backendRec.latitude ?? backendRec.checkInLatitude,
+      checkInLongitude: backendRec.longitude ?? backendRec.checkInLongitude,
+      checkInAccuracy: backendRec.accuracy ?? backendRec.checkInAccuracy,
+      checkInDistanceMeters: backendRec.distanceMeters ?? backendRec.checkInDistanceMeters,
+      checkOutLatitude: backendRec.checkOutLatitude,
+      checkOutLongitude: backendRec.checkOutLongitude,
+      isGeofenceVerified: backendRec.isGeofenceVerified ?? true,
+      checkInPhoto: backendRec.checkInPhoto ?? backendRec.photo,
+      checkOutPhoto: backendRec.checkOutPhoto,
+      checkInDevice: backendRec.checkInDevice,
+      checkOutDevice: backendRec.checkOutDevice,
+    };
+    all.push(updated);
+  }
+
+  saveAttendanceRecords(all);
+  return updated;
+}
+
+/**
+ * Bulk sync backend attendance records
+ */
+export function syncBackendAttendanceRecords(backendRecords: any[]): void {
+  if (!Array.isArray(backendRecords) || backendRecords.length === 0) return;
+  for (const bRec of backendRecords) {
+    updateLocalRecordFromBackend(bRec);
+  }
+}
+

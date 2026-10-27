@@ -102,39 +102,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#FFFDF7] text-black font-sans selection:bg-[#FFE600] selection:text-black">
       {/* ===================================================================== */}
-      {/* 1. TOP STICKY NAVBAR                                                  */}
+      {/* 1. TOP STICKY NAVBAR - NEO-BRUTALIST STYLE                             */}
       {/* ===================================================================== */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-0 z-40 bg-[#FFFDF7] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Brand Logo */}
           <div
             className="flex items-center gap-3 cursor-pointer group"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-violet-700 text-white flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-105 transition-transform ring-4 ring-indigo-50">
-              <Building2 className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-xl bg-[#FFE600] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[5px_5px_0px_0px_#000] transition-all">
+              <Building2 className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
-              <span className="text-xl font-black text-slate-900 tracking-tight block leading-tight">
+              <span className="text-xl font-black text-black tracking-tight block leading-tight">
                 My Own HRMS
               </span>
-              <span className="text-[10px] font-bold text-indigo-600 tracking-wider uppercase block">
-                Enterprise Cloud Suite
+              <span className="text-[10px] font-black text-black bg-[#00F0B5] px-1.5 py-0.2 rounded border border-black uppercase tracking-wider inline-block">
+                Neo Cloud Suite
               </span>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8 text-xs font-bold text-slate-600">
-            <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-indigo-600 transition-colors">How It Works</a>
-            <a href="#impact" className="hover:text-indigo-600 transition-colors">Impact</a>
-            <a href="#pricing" className="hover:text-indigo-600 transition-colors">Pricing</a>
-            <a href="#testimonials" className="hover:text-indigo-600 transition-colors">Testimonials</a>
-            <a href="#faq" className="hover:text-indigo-600 transition-colors">FAQ</a>
-            <a href="#contact" className="hover:text-indigo-600 transition-colors">Contact</a>
+          <nav className="hidden lg:flex items-center gap-6 text-xs font-black uppercase tracking-wider text-black">
+            <a href="#features" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">Features</a>
+            <a href="#how-it-works" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">How It Works</a>
+            <a href="#impact" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">Impact</a>
+            <a href="#pricing" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">Pricing</a>
+            <a href="#testimonials" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">Testimonials</a>
+            <a href="#faq" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">FAQ</a>
+            <a href="#contact" className="px-2.5 py-1 rounded-lg border border-transparent hover:border-black hover:bg-[#FFE600] hover:shadow-[2px_2px_0px_0px_#000] transition-all">Contact</a>
           </nav>
 
           {/* Action CTAs */}
@@ -145,56 +145,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 setDemoSubmitted(false);
                 setIsDemoModalOpen(true);
               }}
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 text-indigo-700 text-xs font-bold transition-all active:scale-95 shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-black bg-[#00F0B5] hover:bg-[#00e0a5] text-black text-xs font-black tracking-wide shadow-[3px_3px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Book a Demo</span>
             </button>
 
             <button
               id="btn-nav-login"
               onClick={onOpenLogin}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/25 active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-black bg-[#FFE600] hover:bg-[#ffd700] text-black text-xs font-black tracking-wide shadow-[3px_3px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
             >
               <span>Sign In / Login</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           </div>
         </div>
       </header>
 
       {/* ===================================================================== */}
-      {/* 2. HERO SECTION: "Build a Better Workplace"                            */}
+      {/* 2. HERO SECTION - NEO-BRUTALIST VIBRANT LAYOUT                         */}
       {/* ===================================================================== */}
-      <section className="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-slate-50/70 via-white to-white">
-        {/* Subtle decorative glow blobs */}
-        <div className="absolute top-10 left-1/4 w-[500px] h-[350px] bg-gradient-to-tr from-indigo-200/40 via-violet-200/30 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
-        <div className="absolute top-20 right-10 w-[400px] h-[300px] bg-gradient-to-bl from-purple-200/30 via-pink-100/20 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
+      <section className="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden bg-[#FFFDF7] border-b-[3px] border-black">
+        {/* Playful background decorative shapes */}
+        <div className="absolute top-12 left-10 w-24 h-24 rounded-full border-2 border-black bg-[#FFDE59]/40 -z-10 pointer-events-none" />
+        <div className="absolute bottom-16 right-16 w-32 h-32 border-2 border-black bg-[#00F0B5]/30 rotate-12 -z-10 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             
             {/* Left Column: Headline, Description & CTAs */}
             <div className="lg:col-span-7 text-left">
-              {/* Product Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold mb-6 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-                <span>Next-Gen Enterprise Workforce Management System 2026</span>
-              </div>
-
               {/* Main Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-black tracking-tight leading-[1.12]">
                 Build a Better Workplace with{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700">
+                <span className="inline-block bg-[#00F0B5] text-black border-2 border-black px-3 py-1 shadow-[4px_4px_0px_0px_#000] rotate-1 mt-1 sm:mt-0">
                   Intelligent HR
                 </span>
               </h1>
 
               {/* Subtitle */}
-              <p className="text-base sm:text-lg text-slate-600 mt-6 leading-relaxed max-w-xl">
+              <p className="text-base sm:text-lg text-black font-semibold mt-6 leading-relaxed max-w-xl">
                 Eliminate spreadsheets and fragmented tools. Experience unified biometric attendance, 
                 instant automated payroll, leave cycles, recruitment ATS, and real-time staff collaboration in 
-                one beautifully crafted workspace.
+                one high-powered, tactile workspace.
               </p>
 
               {/* CTA Buttons */}
@@ -205,175 +199,176 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                     setDemoSubmitted(false);
                     setIsDemoModalOpen(true);
                   }}
-                  className="px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold text-sm shadow-xl shadow-indigo-600/25 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2.5 text-center"
+                  className="px-7 py-3.5 rounded-2xl bg-[#FFE600] hover:bg-[#ffd700] text-black font-black text-sm border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2.5 text-center cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-indigo-200" />
+                  <Sparkles className="w-4 h-4 stroke-[2.5]" />
                   <span>Book a Personalized Demo</span>
                 </button>
 
                 <button
                   id="btn-hero-sign-in"
                   onClick={onOpenLogin}
-                  className="px-7 py-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-900 font-bold text-sm shadow-xs transition-all hover:border-slate-300 flex items-center justify-center gap-2 text-center"
+                  className="px-7 py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-black font-black text-sm border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 text-center cursor-pointer"
                 >
                   <span>Access Your Workspace</span>
-                  <ArrowRight className="w-4 h-4 text-slate-500" />
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
               {/* Micro Trust Checklist */}
-              <div className="mt-6 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs font-semibold text-slate-500">
-                <div className="flex items-center gap-1.5">
+              <div className="mt-6 flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-black text-black">
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                   <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
                   <span>No credit card required</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                   <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                  <span>Instant 15-minute deployment</span>
+                  <span>Instant 15-min setup</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                   <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                  <span>99.9% Uptime Guarantee</span>
+                  <span>99.9% Uptime SLA</span>
                 </div>
               </div>
 
               {/* Quick Stat Pill Highlights */}
-              <div className="mt-10 pt-8 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl">
-                <div>
-                  <p className="text-2xl font-black text-indigo-600">99.9%</p>
-                  <p className="text-[11px] font-semibold text-slate-500">Biometric Sync</p>
+              <div className="mt-10 pt-8 border-t-2 border-black grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl">
+                <div className="p-3 bg-[#FFE600] border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_#000]">
+                  <p className="text-2xl font-black text-black">99.9%</p>
+                  <p className="text-[11px] font-black uppercase text-black">Biometric Sync</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-violet-600">&lt; 2 Mins</p>
-                  <p className="text-[11px] font-semibold text-slate-500">Payroll Execution</p>
+                <div className="p-3 bg-[#A388EE] border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_#000]">
+                  <p className="text-2xl font-black text-black">&lt; 2 Mins</p>
+                  <p className="text-[11px] font-black uppercase text-black">Payroll Run</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-emerald-600">100%</p>
-                  <p className="text-[11px] font-semibold text-slate-500">Tax Compliant</p>
+                <div className="p-3 bg-[#00F0B5] border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_#000]">
+                  <p className="text-2xl font-black text-black">100%</p>
+                  <p className="text-[11px] font-black uppercase text-black">Compliant</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-slate-900">24/7</p>
-                  <p className="text-[11px] font-semibold text-slate-500">Priority Support</p>
+                <div className="p-3 bg-[#38BDF8] border-2 border-black rounded-xl shadow-[3px_3px_0px_0px_#000]">
+                  <p className="text-2xl font-black text-black">24/7</p>
+                  <p className="text-[11px] font-black uppercase text-black">Live Support</p>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: High-Impact Visual Mockup & Floating Cards */}
+            {/* Right Column: High-Impact Neo-Brutalist Visual Mockup */}
             <div className="lg:col-span-5 relative">
               <div className="relative mx-auto max-w-md lg:max-w-none">
-                {/* Background Ambient Glow */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 rounded-3xl blur-2xl transform -rotate-2 scale-105" />
-
+                
                 {/* Main Showcase Panel */}
-                <div className="relative rounded-3xl bg-white border border-slate-200/90 shadow-2xl p-5 overflow-hidden">
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="relative rounded-3xl bg-white border-[3px] border-black shadow-[8px_8px_0px_0px_#000] p-5 overflow-hidden">
+                  
+                  {/* Brutalist Window Header Bar */}
+                  <div className="flex items-center justify-between pb-3.5 border-b-2 border-black">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-rose-400" />
-                      <div className="w-3 h-3 rounded-full bg-amber-400" />
-                      <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                      <span className="ml-2 text-[11px] font-mono text-slate-400">app.myownhrms.com/live</span>
+                      <div className="w-3.5 h-3.5 rounded-full bg-[#FF6B4A] border-2 border-black" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-[#FFE600] border-2 border-black" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-[#00F0B5] border-2 border-black" />
+                      <span className="ml-2 text-[11px] font-mono font-bold text-black bg-[#FAF8F5] px-2 py-0.5 rounded border border-black">
+                        app.myownhrms.com/live
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      System Online
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-black bg-[#00F0B5] px-2.5 py-1 rounded-md border-2 border-black">
+                      <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
+                      SYSTEM ONLINE
                     </span>
                   </div>
 
-                  {/* Header Snapshot */}
-                  <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white">
-                    <p className="text-[11px] font-medium text-indigo-300">Total Workforce Overview</p>
+                  {/* Header Snapshot Block */}
+                  <div className="mt-4 p-4 rounded-2xl bg-[#18181B] border-2 border-black text-white shadow-[3px_3px_0px_0px_#000]">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-[#FFE600]">Total Workforce Overview</p>
                     <div className="flex items-baseline justify-between mt-1">
                       <h3 className="text-3xl font-black text-white">154 Staff Active</h3>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="text-xs font-black text-[#00F0B5] bg-black px-2 py-1 rounded border border-[#00F0B5] flex items-center gap-1">
                         <TrendingUp className="w-3.5 h-3.5" /> +12 this month
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-indigo-800/60">
+                    <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t-2 border-white/20">
                       <div>
-                        <p className="text-[10px] text-indigo-300">Today&apos;s Attendance</p>
-                        <p className="text-base font-extrabold text-white mt-0.5">96.8% (149 in)</p>
+                        <p className="text-[10px] font-bold text-slate-300 uppercase">Today&apos;s Attendance</p>
+                        <p className="text-base font-black text-white mt-0.5">96.8% (149 in)</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-indigo-300">Payroll Cycle Status</p>
-                        <p className="text-base font-extrabold text-emerald-400 mt-0.5">Approved &amp; Ready</p>
+                        <p className="text-[10px] font-bold text-slate-300 uppercase">Payroll Cycle Status</p>
+                        <p className="text-base font-black text-[#00F0B5] mt-0.5">Approved &amp; Ready</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Realtime Employee Punch Stream Preview */}
                   <div className="mt-4 space-y-2.5">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1">
+                    <p className="text-[11px] font-black text-black uppercase tracking-wider px-1">
                       Recent Biometric Check-Ins
                     </p>
 
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#FFFDF0] border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-[#FFE600] border-2 border-black text-black font-black text-xs flex items-center justify-center">
                           AU
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 leading-tight">Admin User</p>
-                          <p className="text-[10px] text-slate-500">Corporate HQ • Biometric Gate 1</p>
+                          <p className="text-xs font-black text-black leading-tight">Admin User</p>
+                          <p className="text-[10px] font-bold text-slate-700">Corporate HQ • Biometric Gate 1</p>
                         </div>
                       </div>
-                      <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
-                        09:02 AM • In
+                      <span className="px-2.5 py-1 rounded-lg bg-[#00F0B5] text-black text-[10px] font-black border-2 border-black">
+                        09:02 AM • IN
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F0FFF9] border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 font-bold text-xs flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-[#A388EE] border-2 border-black text-black font-black text-xs flex items-center justify-center">
                           SP
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 leading-tight">Sanjay Patel</p>
-                          <p className="text-[10px] text-slate-500">Engineering • Geofence Mobile</p>
+                          <p className="text-xs font-black text-black leading-tight">Sanjay Patel</p>
+                          <p className="text-[10px] font-bold text-slate-700">Engineering • Geofence Mobile</p>
                         </div>
                       </div>
-                      <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
-                        09:14 AM • In
+                      <span className="px-2.5 py-1 rounded-lg bg-[#00F0B5] text-black text-[10px] font-black border-2 border-black">
+                        09:14 AM • IN
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F0F9FF] border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl bg-[#FFDE59] border-2 border-black text-black font-black text-xs flex items-center justify-center">
                           RK
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 leading-tight">Ravi Khunt</p>
-                          <p className="text-[10px] text-slate-500">Design Team • Web Punch</p>
+                          <p className="text-xs font-black text-black leading-tight">Ravi Khunt</p>
+                          <p className="text-[10px] font-bold text-slate-700">Design Team • Web Punch</p>
                         </div>
                       </div>
-                      <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100">
-                        09:30 AM • In
+                      <span className="px-2.5 py-1 rounded-lg bg-[#38BDF8] text-black text-[10px] font-black border-2 border-black">
+                        09:30 AM • IN
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Floating Badge 1: Top Right */}
-                <div className="hidden sm:flex absolute -top-5 -right-5 items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl shadow-slate-200/50">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                    <CheckCircle className="w-5 h-5" />
+                {/* Neo-Brutalist Floating Sticker 1: Top Right */}
+                <div className="hidden sm:flex absolute -top-5 -right-5 items-center gap-3 px-4 py-2.5 rounded-2xl bg-[#FFE600] border-2 border-black shadow-[4px_4px_0px_0px_#000] rotate-3">
+                  <div className="w-8 h-8 rounded-lg bg-black text-[#FFE600] flex items-center justify-center shrink-0">
+                    <CheckCircle className="w-4 h-4 stroke-[3]" />
                   </div>
                   <div>
-                    <p className="text-xs font-black text-slate-900 leading-tight">Biometric Active</p>
-                    <p className="text-[10px] text-slate-500">99.8% Sync Success</p>
+                    <p className="text-xs font-black text-black leading-tight">Biometric Active</p>
+                    <p className="text-[10px] font-bold text-black">99.8% Sync Success</p>
                   </div>
                 </div>
 
-                {/* Floating Badge 2: Bottom Left */}
-                <div className="hidden sm:flex absolute -bottom-6 -left-6 items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl shadow-slate-200/50">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                    <DollarSign className="w-5 h-5" />
+                {/* Neo-Brutalist Floating Sticker 2: Bottom Left */}
+                <div className="hidden sm:flex absolute -bottom-6 -left-6 items-center gap-3 px-4 py-2.5 rounded-2xl bg-[#00F0B5] border-2 border-black shadow-[4px_4px_0px_0px_#000] -rotate-3">
+                  <div className="w-8 h-8 rounded-lg bg-black text-[#00F0B5] flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4 stroke-[3]" />
                   </div>
                   <div>
-                    <p className="text-xs font-black text-slate-900 leading-tight">₹42,50,000</p>
-                    <p className="text-[10px] text-emerald-600 font-bold">Payroll Auto-Processed</p>
+                    <p className="text-xs font-black text-black leading-tight">₹42,50,000</p>
+                    <p className="text-[10px] font-black text-black uppercase">Auto-Processed</p>
                   </div>
                 </div>
               </div>
@@ -384,224 +379,289 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ===================================================================== */}
-      {/* 3. TRUSTED BY 500+ COMPANIES SOCIAL PROOF STRIP                       */}
+      {/* 3. NEO-BRUTALIST TICKER BANNER                                        */}
       {/* ===================================================================== */}
-      <section className="py-12 border-y border-slate-100 bg-slate-50/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
-            Trusted by over 500+ forward-thinking teams across manufacturing, tech, retail &amp; corporate sectors
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-8 sm:gap-14 opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
-            <div className="flex items-center gap-2 font-black text-lg text-slate-700 tracking-tight">
-              <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs">▲</div>
-              <span>APEX GLOBAL</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-lg text-slate-700 tracking-tight">
-              <div className="w-6 h-6 rounded-lg bg-violet-600 text-white flex items-center justify-center text-xs">●</div>
-              <span>NOVASOFT</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-lg text-slate-700 tracking-tight">
-              <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs">■</div>
-              <span>PULSE HR</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-lg text-slate-700 tracking-tight">
-              <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs">◆</div>
-              <span>TECHCORP INC</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-lg text-slate-700 tracking-tight">
-              <div className="w-6 h-6 rounded-lg bg-amber-600 text-white flex items-center justify-center text-xs">★</div>
-              <span>ELEVATE INFRA</span>
-            </div>
-          </div>
+      <section className="py-4 bg-[#FFE600] border-b-[3px] border-black overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-center gap-6 sm:gap-10 font-black text-xs sm:text-sm uppercase tracking-widest text-black">
+          <span className="flex items-center gap-2">
+            <span className="text-base">★</span> TRUSTED BY 500+ ENTERPRISES
+          </span>
+          <span className="hidden md:inline text-black">|</span>
+          <span className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            APEX GLOBAL
+          </span>
+          <span className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            NOVASOFT
+          </span>
+          <span className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            PULSE HR
+          </span>
+          <span className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            TECHCORP INC
+          </span>
+          <span className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            ELEVATE INFRA
+          </span>
         </div>
       </section>
 
       {/* ===================================================================== */}
-      {/* 4. FEATURES SECTION: "Everything You Need in One Place" (6 CARDS)      */}
+      {/* 4. FEATURES SECTION - COLOR BLOCKED NEO-BRUTALIST CARDS (6 CARDS)     */}
       {/* ===================================================================== */}
-      <section id="features" className="py-24 bg-white">
+      <section id="features" className="py-24 bg-[#FAF8F5] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-              Powerful Capabilities
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight mt-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-black tracking-tight">
               Everything You Need in One Place
             </h2>
-            <p className="text-base text-slate-600 mt-4 leading-relaxed">
+            <p className="text-base font-medium text-slate-700 mt-4 leading-relaxed">
               Every department, rule, and workflow connects seamlessly. Say goodbye to manual exports, 
               disconnected biometric devices, and out-of-sync personnel files.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-16">
-            {/* Feature Card 1 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                <Users className="w-7 h-7" />
+            
+            {/* Feature Card 1: Directory */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FFE600] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <Users className="w-7 h-7 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#FFE600] px-2.5 py-1 rounded-md">
+                    ALL-IN-ONE
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">Workforce Directory</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Centralized employee records, personal KYC documents, reporting hierarchy, departmental structures, 
+                  and role permissions with full audit history.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Workforce Directory</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Centralized employee records, personal KYC documents, reporting hierarchy, departmental structures, 
-                and role permissions with full audit history.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Complete employee timeline &amp; documents
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Complete employee timeline &amp; documents</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Multi-branch departmental trees
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Multi-branch departmental hierarchy</span>
                 </li>
               </ul>
             </div>
 
-            {/* Feature Card 2 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                <Clock className="w-7 h-7" />
+            {/* Feature Card 2: Attendance */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#00F0B5] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <Clock className="w-7 h-7 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#00F0B5] px-2.5 py-1 rounded-md">
+                    LIVE SYNC
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">Biometric &amp; Geofence Attendance</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Live biometric clock in/out sync, mobile punches with GPS verification, late coming penalties, 
+                  overtime tracking, and seamless attendance regularization.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Biometric &amp; Geofence Attendance</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Live biometric clock in/out sync, mobile punches with GPS verification, late coming penalties, 
-                overtime tracking, and seamless attendance regularization.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Real-time biometric machine integration
+                  <div className="w-4 h-4 rounded-full bg-[#FFE600] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Real-time biometric machine integration</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Overtime &amp; shift auto-calculation
+                  <div className="w-4 h-4 rounded-full bg-[#FFE600] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Overtime &amp; shift auto-calculation</span>
                 </li>
               </ul>
             </div>
 
-            {/* Feature Card 3 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <DollarSign className="w-7 h-7" />
+            {/* Feature Card 3: Payroll */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FF6B4A] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <DollarSign className="w-7 h-7 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#FF6B4A] px-2.5 py-1 rounded-md">
+                    2-MIN RUN
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">Automated 1-Click Payroll</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Run salary disbursements in under 2 minutes. Automatic statutory computations (PF, ESI, TDS, PT), 
+                  allowances, deductions, bonuses, and professional PDF payslips.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Automated 1-Click Payroll</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Run salary disbursements in under 2 minutes. Automatic statutory computations (PF, ESI, TDS, PT), 
-                allowances, deductions, bonuses, and professional PDF payslips.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Instant salary register &amp; bank format
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Instant salary register &amp; bank format</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Downloadable encrypted employee payslips
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Downloadable encrypted employee payslips</span>
                 </li>
               </ul>
             </div>
 
-            {/* Feature Card 4 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                <Calendar className="w-7 h-7" />
+            {/* Feature Card 4: Leave & Shifts */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#A388EE] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <Calendar className="w-7 h-7 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#A388EE] px-2.5 py-1 rounded-md">
+                    WORKFLOW
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">Leave &amp; Shift Approvals</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Customizable leave policies (Casual, Sick, Paid, Maternity), multi-level manager approval workflows, 
+                  holiday calendars, and automatic balance accruals.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Leave &amp; Shift Approvals</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Customizable leave policies (Casual, Sick, Paid, Maternity), multi-level manager approval workflows, 
-                holiday calendars, and automatic balance accruals.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Multi-tier manager approval chains
+                  <div className="w-4 h-4 rounded-full bg-[#FFDE59] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Multi-tier manager approval chains</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Real-time team availability calendar
+                  <div className="w-4 h-4 rounded-full bg-[#FFDE59] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Real-time team availability calendar</span>
                 </li>
               </ul>
             </div>
 
-            {/* Feature Card 5 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Briefcase className="w-7 h-7" />
+            {/* Feature Card 5: ATS Recruitment */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#38BDF8] border-2 border-black text-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <Briefcase className="w-7 h-7 stroke-[2.5]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#38BDF8] px-2.5 py-1 rounded-md">
+                    KANBAN
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">ATS Recruitment &amp; Onboarding</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Post job openings, track applicants across Kanban stages (Screening, Interview, Offer), schedule 
+                  interviews, and convert hired candidates into active employees with 1 click.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">ATS Recruitment &amp; Onboarding</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Post job openings, track applicants across Kanban stages (Screening, Interview, Offer), schedule 
-                interviews, and convert hired candidates into active employees with 1 click.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Visual candidate pipeline Kanban
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Visual candidate pipeline Kanban</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> 1-Click candidate to employee conversion
+                  <div className="w-4 h-4 rounded-full bg-[#00F0B5] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>1-Click candidate to employee conversion</span>
                 </li>
               </ul>
             </div>
 
-            {/* Feature Card 6 */}
-            <div className="p-8 rounded-3xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
-                <Laptop className="w-7 h-7" />
+            {/* Feature Card 6: Assets */}
+            <div className="rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all duration-200 p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FF5E97] border-2 border-black text-white flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                    <Laptop className="w-7 h-7 stroke-[2.5] text-black" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-black text-[#FF5E97] px-2.5 py-1 rounded-md">
+                    ZERO LOSS
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-black mt-6">Hardware &amp; Asset Management</h3>
+                <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
+                  Track laptops, accessories, monitors, and company equipment assigned to team members. Monitor serial 
+                  numbers, repair warranties, and exit return checklists.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Hardware &amp; Asset Management</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Track laptops, accessories, monitors, and company equipment assigned to team members. Monitor serial 
-                numbers, repair warranties, and exit return checklists.
-              </p>
-              <ul className="mt-5 space-y-2 text-xs font-semibold text-slate-500">
+              <ul className="mt-6 pt-5 border-t-2 border-black space-y-2.5 text-xs font-bold text-black">
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Serialized hardware allocation &amp; receipts
+                  <div className="w-4 h-4 rounded-full bg-[#FFE600] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Serialized hardware allocation receipts</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" /> Automated offboarding asset returns
+                  <div className="w-4 h-4 rounded-full bg-[#FFE600] border border-black flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                  <span>Automated offboarding asset returns</span>
                 </li>
               </ul>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* ===================================================================== */}
-      {/* 5. IMPACT SECTION: "Trusted by Businesses Across the Globe" (DARK)    */}
+      {/* 5. IMPACT & GLOBAL SCALE SECTION - HIGH CONTRAST NEO-BRUTALIST       */}
       {/* ===================================================================== */}
-      <section id="impact" className="py-24 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white relative overflow-hidden">
-        {/* Glow lights */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
-
+      <section id="impact" className="py-24 bg-[#18181B] text-white border-b-[3px] border-black relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-extrabold text-indigo-400 uppercase tracking-widest bg-indigo-950/80 border border-indigo-800/80 px-4 py-1.5 rounded-full">
-              GLOBAL REACH &amp; SCALE
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight mt-5">
-              Trusted by Businesses Across the Globe
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
+              Proven Impact by the Numbers
             </h2>
-            <p className="text-base text-slate-400 mt-4 leading-relaxed">
+            <p className="text-base font-medium text-slate-300 mt-4 leading-relaxed">
               We empower high-performing companies worldwide to streamline HR workflows, guarantee biometric 
               attendance accuracy, and run zero-error payroll cycles.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-16 max-w-6xl mx-auto">
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 text-center hover:border-indigo-500/50 transition-all shadow-xl">
-              <div className="text-4xl sm:text-5xl font-black text-white tracking-tight">50,000+</div>
-              <p className="text-sm font-bold text-indigo-400 mt-2">Active Employees Managed</p>
-              <p className="text-xs text-slate-400 mt-1">Across multiple branches and subsidiaries</p>
+            <div className="p-8 rounded-3xl bg-[#FFE600] text-black border-[3px] border-black shadow-[6px_6px_0px_0px_#FFF] text-center hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight">50,000+</div>
+              <p className="text-sm font-black uppercase mt-2">Active Employees</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Across 12+ industry sectors</p>
             </div>
 
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 text-center hover:border-indigo-500/50 transition-all shadow-xl">
-              <div className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">99.9%</div>
-              <p className="text-sm font-bold text-indigo-400 mt-2">Biometric Gateway Uptime</p>
-              <p className="text-xs text-slate-400 mt-1">Instant continuous punch synchronization</p>
+            <div className="p-8 rounded-3xl bg-[#00F0B5] text-black border-[3px] border-black shadow-[6px_6px_0px_0px_#FFF] text-center hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight">99.9%</div>
+              <p className="text-sm font-black uppercase mt-2">Biometric Uptime</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Instant continuous punch sync</p>
             </div>
 
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 text-center hover:border-indigo-500/50 transition-all shadow-xl">
-              <div className="text-4xl sm:text-5xl font-black text-violet-400 tracking-tight">&lt; 2 Mins</div>
-              <p className="text-sm font-bold text-indigo-400 mt-2">Payroll Execution Time</p>
-              <p className="text-xs text-slate-400 mt-1">From attendance closing to bank transfer file</p>
+            <div className="p-8 rounded-3xl bg-[#38BDF8] text-black border-[3px] border-black shadow-[6px_6px_0px_0px_#FFF] text-center hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight">&lt; 2 Mins</div>
+              <p className="text-sm font-black uppercase mt-2">Payroll Run Time</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Attendance to bank payout file</p>
             </div>
 
-            <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 text-center hover:border-indigo-500/50 transition-all shadow-xl">
-              <div className="text-4xl sm:text-5xl font-black text-amber-400 tracking-tight">4.9 / 5</div>
-              <p className="text-sm font-bold text-indigo-400 mt-2">Enterprise Satisfaction</p>
-              <p className="text-xs text-slate-400 mt-1">Based on reviews from verified HR managers</p>
+            <div className="p-8 rounded-3xl bg-[#FF5E97] text-black border-[3px] border-black shadow-[6px_6px_0px_0px_#FFF] text-center hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="text-4xl sm:text-5xl font-black tracking-tight">4.9 / 5</div>
+              <p className="text-sm font-black uppercase mt-2">HR Rating</p>
+              <p className="text-xs font-bold text-slate-800 mt-1">Reviewed by 500+ managers</p>
             </div>
           </div>
         </div>
@@ -610,50 +670,47 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ===================================================================== */}
       {/* 6. "GET STARTED IN 3 SIMPLE STEPS" SECTION                            */}
       {/* ===================================================================== */}
-      <section id="how-it-works" className="py-24 bg-slate-50/70 border-b border-slate-200/80">
+      <section id="how-it-works" className="py-24 bg-[#FFFDF7] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-              Effortless Setup
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight mt-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-black tracking-tight">
               Get Started in 3 Simple Steps
             </h2>
-            <p className="text-base text-slate-600 mt-4 leading-relaxed">
+            <p className="text-base font-medium text-slate-700 mt-4 leading-relaxed">
               Modernizing your HR operations takes less than 15 minutes. No complex hardware installs or steep learning curves.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
             {/* Step 1 */}
-            <div className="p-8 rounded-3xl bg-white border border-slate-200 shadow-sm relative">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-indigo-600/30">
-                1
+            <div className="p-8 rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-[#FFE600] border-2 border-black text-black font-black text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                01
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Setup Your Organization</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              <h3 className="text-xl font-black text-black mt-6">Setup Your Organization</h3>
+              <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
                 Add your company details, branch offices, and departments. Import your entire employee directory with 1-click Excel/CSV upload.
               </p>
             </div>
 
             {/* Step 2 */}
-            <div className="p-8 rounded-3xl bg-white border border-slate-200 shadow-sm relative">
-              <div className="w-12 h-12 rounded-2xl bg-violet-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-violet-600/30">
-                2
+            <div className="p-8 rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-[#A388EE] border-2 border-black text-black font-black text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                02
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Connect Biometrics &amp; Shifts</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              <h3 className="text-xl font-black text-black mt-6">Connect Biometrics &amp; Shifts</h3>
+              <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
                 Plug in your biometric attendance machines or enable GPS-geofenced mobile check-ins. Assign custom shift rosters and leave allowances.
               </p>
             </div>
 
             {/* Step 3 */}
-            <div className="p-8 rounded-3xl bg-white border border-slate-200 shadow-sm relative">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-emerald-600/30">
-                3
+            <div className="p-8 rounded-3xl bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_#000] hover:shadow-[10px_10px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-[#00F0B5] border-2 border-black text-black font-black text-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+                03
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mt-6">Automate Payroll &amp; Relax</h3>
-              <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              <h3 className="text-xl font-black text-black mt-6">Automate Payroll &amp; Relax</h3>
+              <p className="text-sm font-medium text-slate-700 mt-2 leading-relaxed">
                 Attendance and overtime sync into payroll automatically. Generate payslips with compliant statutory deductions in under 2 minutes.
               </p>
             </div>
@@ -662,91 +719,94 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ===================================================================== */}
-      {/* 7. TESTIMONIALS SECTION                                               */}
+      {/* 7. TESTIMONIALS SECTION - BRUTALIST WALL OF LOVE                      */}
       {/* ===================================================================== */}
-      <section id="testimonials" className="py-24 bg-white">
+      <section id="testimonials" className="py-24 bg-[#FAF8F5] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-              Real Impact
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight mt-4">
-              Loved by HR Leaders &amp; Teams
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-black tracking-tight">
+              Loved by HR Leaders Everywhere
             </h2>
-            <p className="text-base text-slate-600 mt-4 leading-relaxed">
+            <p className="text-base font-medium text-slate-700 mt-4 leading-relaxed">
               Discover how enterprise leaders replaced messy spreadsheets and saved hundreds of operational hours.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
             {/* Testimonial 1 */}
-            <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between">
+            <div className="p-8 rounded-3xl bg-[#FFFDF0] border-[3px] border-black shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between hover:-translate-x-1 hover:-translate-y-1 transition-all">
               <div>
-                <div className="flex items-center gap-1 text-amber-400 mb-4">
+                <div className="flex items-center gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <div key={i} className="w-5 h-5 rounded bg-[#FFE600] border border-black flex items-center justify-center text-[10px] font-black">
+                      ★
+                    </div>
                   ))}
                 </div>
-                <p className="text-sm text-slate-700 italic leading-relaxed">
+                <p className="text-sm font-bold text-black leading-relaxed">
                   &ldquo;My Own HRMS completely transformed our end-of-month stress. Biometric attendance calculations 
                   that used to take 3 days of manual reconciliation are now done in under 5 minutes.&rdquo;
                 </p>
               </div>
-              <div className="mt-8 flex items-center gap-3 pt-4 border-t border-slate-200">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center">
+              <div className="mt-8 flex items-center gap-3 pt-5 border-t-2 border-black">
+                <div className="w-11 h-11 rounded-xl bg-[#FFE600] border-2 border-black text-black font-black text-xs flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
                   RC
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Rohan Contractor</p>
-                  <p className="text-xs text-slate-500">Head of People &amp; Culture, Apex Tech</p>
+                  <p className="text-sm font-black text-black">Rohan Contractor</p>
+                  <p className="text-xs font-bold text-slate-600">Head of People &amp; Culture, Apex Tech</p>
                 </div>
               </div>
             </div>
 
             {/* Testimonial 2 */}
-            <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between">
+            <div className="p-8 rounded-3xl bg-[#F0FFF9] border-[3px] border-black shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between hover:-translate-x-1 hover:-translate-y-1 transition-all">
               <div>
-                <div className="flex items-center gap-1 text-amber-400 mb-4">
+                <div className="flex items-center gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <div key={i} className="w-5 h-5 rounded bg-[#00F0B5] border border-black flex items-center justify-center text-[10px] font-black">
+                      ★
+                    </div>
                   ))}
                 </div>
-                <p className="text-sm text-slate-700 italic leading-relaxed">
+                <p className="text-sm font-bold text-black leading-relaxed">
                   &ldquo;The employee self-service portal and instant mobile check-ins are loved by our 200+ field 
                   engineers. Managing leave approvals and shifts is now a breeze.&rdquo;
                 </p>
               </div>
-              <div className="mt-8 flex items-center gap-3 pt-4 border-t border-slate-200">
-                <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-700 font-black text-xs flex items-center justify-center">
+              <div className="mt-8 flex items-center gap-3 pt-5 border-t-2 border-black">
+                <div className="w-11 h-11 rounded-xl bg-[#00F0B5] border-2 border-black text-black font-black text-xs flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
                   PN
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Pooja Naik</p>
-                  <p className="text-xs text-slate-500">HR Operations Director, Nova Logistics</p>
+                  <p className="text-sm font-black text-black">Pooja Naik</p>
+                  <p className="text-xs font-bold text-slate-600">HR Operations Director, Nova Logistics</p>
                 </div>
               </div>
             </div>
 
             {/* Testimonial 3 */}
-            <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between">
+            <div className="p-8 rounded-3xl bg-[#F5F3FF] border-[3px] border-black shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between hover:-translate-x-1 hover:-translate-y-1 transition-all">
               <div>
-                <div className="flex items-center gap-1 text-amber-400 mb-4">
+                <div className="flex items-center gap-1.5 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <div key={i} className="w-5 h-5 rounded bg-[#A388EE] border border-black flex items-center justify-center text-[10px] font-black">
+                      ★
+                    </div>
                   ))}
                 </div>
-                <p className="text-sm text-slate-700 italic leading-relaxed">
+                <p className="text-sm font-bold text-black leading-relaxed">
                   &ldquo;The multi-tenant governance allows us to manage three separate group entities from one 
                   central screen without mixing data. Super fast and reliable.&rdquo;
                 </p>
               </div>
-              <div className="mt-8 flex items-center gap-3 pt-4 border-t border-slate-200">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-black text-xs flex items-center justify-center">
+              <div className="mt-8 flex items-center gap-3 pt-5 border-t-2 border-black">
+                <div className="w-11 h-11 rounded-xl bg-[#A388EE] border-2 border-black text-black font-black text-xs flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
                   MK
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Manish Khandelwal</p>
-                  <p className="text-xs text-slate-500">Chief Operating Officer, Synthetix Corp</p>
+                  <p className="text-sm font-black text-black">Manish Khandelwal</p>
+                  <p className="text-xs font-bold text-slate-600">Chief Operating Officer, Synthetix Corp</p>
                 </div>
               </div>
             </div>
@@ -755,48 +815,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ===================================================================== */}
-      {/* 8. PRICING PLANS SECTION                                              */}
+      {/* 8. PRICING PLANS SECTION - TACTILE NEO-BRUTALIST CARDS               */}
       {/* ===================================================================== */}
-      <section id="pricing" className="py-24 bg-slate-50/70 border-t border-slate-100">
+      <section id="pricing" className="py-24 bg-[#FFFDF7] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-              Simple &amp; Transparent
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight mt-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-black tracking-tight">
               Plans Scaled to Your Business Size
             </h2>
-            <p className="text-base text-slate-600 mt-4 leading-relaxed">
+            <p className="text-base font-medium text-slate-700 mt-4 leading-relaxed">
               No hidden fees or surprise setup charges. Start small and upgrade smoothly as your organization grows.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-16 max-w-6xl mx-auto items-stretch">
+            
             {/* Starter Plan */}
-            <div className="p-8 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between hover:border-slate-300 transition-all shadow-xs">
+            <div className="p-8 rounded-3xl border-[3px] border-black bg-white flex flex-col justify-between shadow-[6px_6px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#000] transition-all">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Starter Plan</h3>
-                <p className="text-xs text-slate-500 mt-1">Perfect for startups and boutique teams.</p>
+                <h3 className="text-xl font-black text-black">Starter Plan</h3>
+                <p className="text-xs font-bold text-slate-600 mt-1">Perfect for startups and boutique teams.</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-slate-900">₹999</span>
-                  <span className="text-xs font-semibold text-slate-500">/ month</span>
+                  <span className="text-4xl font-black text-black">₹999</span>
+                  <span className="text-xs font-black text-black">/ month</span>
                 </div>
 
-                <ul className="mt-8 space-y-3.5 text-xs text-slate-700">
+                <ul className="mt-8 space-y-3.5 text-xs font-bold text-black">
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-emerald-600 stroke-[3] shrink-0" />
                     <span>Up to 25 Active Employees</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-emerald-600 stroke-[3] shrink-0" />
                     <span>Biometric &amp; Web Punch Attendance</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-emerald-600 stroke-[3] shrink-0" />
                     <span>Standard Automated Payroll &amp; Slips</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-emerald-600 stroke-[3] shrink-0" />
                     <span>Leave Approval Workflow</span>
                   </li>
                 </ul>
@@ -807,45 +865,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   setDemoData((prev) => ({ ...prev, teamSize: '1-20 employees' }));
                   setIsDemoModalOpen(true);
                 }}
-                className="w-full mt-8 py-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-900 font-bold text-xs transition-all text-center"
+                className="w-full mt-8 py-3.5 rounded-xl border-2 border-black bg-white hover:bg-[#FAF8F5] text-black font-black text-xs shadow-[3px_3px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
               >
                 Choose Starter
               </button>
             </div>
 
-            {/* Growth Plan (Popular) */}
-            <div className="p-8 rounded-3xl border-2 border-indigo-600 bg-gradient-to-b from-indigo-50/40 to-white flex flex-col justify-between shadow-xl shadow-indigo-600/10 relative">
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-extrabold text-[11px] uppercase tracking-wider shadow-sm">
-                Most Popular
+            {/* Growth Plan (Popular Featured) */}
+            <div className="p-8 rounded-3xl border-[3px] border-black bg-[#FFE600] flex flex-col justify-between shadow-[8px_8px_0px_0px_#000] relative scale-100 lg:scale-105 z-10 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_#000] transition-all">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-lg bg-black text-[#FFE600] font-black text-xs uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_#FFF] -rotate-1">
+                ★ MOST POPULAR ★
               </span>
 
               <div>
-                <h3 className="text-xl font-black text-slate-900">Growth Plan</h3>
-                <p className="text-xs text-slate-500 mt-1">For expanding teams needing complete automation.</p>
+                <h3 className="text-xl font-black text-black">Growth Plan</h3>
+                <p className="text-xs font-bold text-slate-800 mt-1">For expanding teams needing complete automation.</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-slate-900">₹2,499</span>
-                  <span className="text-xs font-semibold text-slate-500">/ month</span>
+                  <span className="text-4xl font-black text-black">₹2,499</span>
+                  <span className="text-xs font-black text-black">/ month</span>
                 </div>
 
-                <ul className="mt-8 space-y-3.5 text-xs text-slate-700">
+                <ul className="mt-8 space-y-3.5 text-xs font-bold text-black">
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <span className="font-semibold text-slate-900">Up to 100 Active Employees</span>
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
+                    <span>Up to 100 Active Employees</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Geofenced Mobile Clock In/Out</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Full ATS Candidate Pipeline</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Hardware Asset Tracking</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Team Communication &amp; Broadcast</span>
                   </li>
                 </ul>
@@ -856,36 +914,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   setDemoData((prev) => ({ ...prev, teamSize: '21-50 employees' }));
                   setIsDemoModalOpen(true);
                 }}
-                className="w-full mt-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all text-center"
+                className="w-full mt-8 py-3.5 rounded-xl bg-black hover:bg-slate-900 text-[#FFE600] font-black text-xs border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
               >
                 Choose Growth
               </button>
             </div>
 
             {/* Enterprise Suite */}
-            <div className="p-8 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between hover:border-slate-300 transition-all shadow-xs">
+            <div className="p-8 rounded-3xl border-[3px] border-black bg-[#00F0B5] flex flex-col justify-between shadow-[6px_6px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#000] transition-all">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Enterprise Suite</h3>
-                <p className="text-xs text-slate-500 mt-1">Multi-company groups with custom SLAs.</p>
+                <h3 className="text-xl font-black text-black">Enterprise Suite</h3>
+                <p className="text-xs font-bold text-slate-800 mt-1">Multi-company groups with custom SLAs.</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-slate-900">Custom</span>
+                  <span className="text-4xl font-black text-black">Custom</span>
                 </div>
 
-                <ul className="mt-8 space-y-3.5 text-xs text-slate-700">
+                <ul className="mt-8 space-y-3.5 text-xs font-bold text-black">
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Unlimited Employees &amp; Sub-Entities</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Dedicated Multi-Tenant Super Admin</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Custom Biometric Hardware Integrations</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-black stroke-[3] shrink-0" />
                     <span>Dedicated Account Manager &amp; 99.99% SLA</span>
                   </li>
                 </ul>
@@ -896,50 +954,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   setDemoData((prev) => ({ ...prev, teamSize: '500+ employees' }));
                   setIsDemoModalOpen(true);
                 }}
-                className="w-full mt-8 py-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-900 font-bold text-xs transition-all text-center"
+                className="w-full mt-8 py-3.5 rounded-xl border-2 border-black bg-white hover:bg-slate-50 text-black font-black text-xs shadow-[3px_3px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
               >
                 Contact Enterprise
               </button>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* ===================================================================== */}
-      {/* 9. FAQ ACCORDION SECTION                                              */}
+      {/* 9. FAQ ACCORDION SECTION - NEO-BRUTALIST ACCORDION                   */}
       {/* ===================================================================== */}
-      <section id="faq" className="py-24 bg-white">
+      <section id="faq" className="py-24 bg-[#FAF8F5] border-b-[3px] border-black">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-              Answers &amp; Clarity
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mt-4">
+            <h2 className="text-3xl sm:text-4xl font-black text-black tracking-tight">
               Frequently Asked Questions
             </h2>
           </div>
 
-          <div className="mt-12 space-y-3">
+          <div className="mt-12 space-y-4">
             {faqItems.map((item, index) => {
               const isOpen = openFaq === index;
               return (
                 <div
                   key={index}
-                  className="rounded-2xl border border-slate-200 overflow-hidden transition-colors"
+                  className="rounded-2xl border-[3px] border-black overflow-hidden shadow-[4px_4px_0px_0px_#000] bg-white transition-all"
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    className="w-full p-5 text-left flex items-center justify-between gap-4 bg-white hover:bg-slate-50 transition-colors"
+                    className={`w-full p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${
+                      isOpen ? 'bg-[#FFE600]' : 'bg-white hover:bg-slate-50'
+                    }`}
                   >
-                    <span className="text-sm font-bold text-slate-900">{item.q}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-500 transition-transform ${
-                        isOpen ? 'rotate-180 text-indigo-600' : ''
-                      }`}
-                    />
+                    <span className="text-sm font-black text-black">{item.q}</span>
+                    <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center shrink-0">
+                      <ChevronDown
+                        className={`w-4 h-4 stroke-[3] transition-transform ${
+                          isOpen ? 'rotate-180 text-[#FFE600]' : 'text-white'
+                        }`}
+                      />
+                    </div>
                   </button>
                   {isOpen && (
-                    <div className="px-5 pb-5 pt-1 text-xs text-slate-600 leading-relaxed bg-slate-50/50 border-t border-slate-100">
+                    <div className="px-5 pb-5 pt-3 text-xs font-medium text-slate-800 leading-relaxed bg-[#FFFDF7] border-t-2 border-black">
                       {item.a}
                     </div>
                   )}
@@ -951,53 +1011,51 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ===================================================================== */}
-      {/* 10. CONTACT US SECTION                                                */}
+      {/* 10. CONTACT US SECTION - NEO-BRUTALIST FORM & DETAILS                  */}
       {/* ===================================================================== */}
-      <section id="contact" className="py-24 bg-slate-50/70 border-t border-slate-100">
+      <section id="contact" className="py-24 bg-[#FFFDF7] border-b-[3px] border-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Left Info */}
+            
+            {/* Left Info Column */}
             <div>
-              <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                Get In Touch
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mt-4">
+              <h2 className="text-3xl sm:text-4xl font-black text-black tracking-tight">
                 Have Questions? We&apos;re Here to Help
               </h2>
-              <p className="text-sm text-slate-600 mt-3 leading-relaxed">
+              <p className="text-sm font-medium text-slate-700 mt-3 leading-relaxed">
                 Connect with our implementation specialists for custom enterprise quotes, hardware compatibility questions, or partner inquiries.
               </p>
 
               <div className="mt-8 space-y-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                    <Phone className="w-5 h-5" />
+                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+                  <div className="w-12 h-12 rounded-xl bg-[#FFE600] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                    <Phone className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Phone &amp; WhatsApp Support</p>
-                    <p className="text-sm font-semibold text-indigo-600 mt-0.5">+91 98765 43210</p>
-                    <p className="text-[11px] text-slate-500">Mon - Sat, 9:00 AM - 7:00 PM IST</p>
+                    <p className="text-xs font-black text-black">Phone &amp; WhatsApp Support</p>
+                    <p className="text-sm font-black text-black mt-0.5">+91 98765 43210</p>
+                    <p className="text-[11px] font-bold text-slate-600">Mon - Sat, 9:00 AM - 7:00 PM IST</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
-                    <Mail className="w-5 h-5" />
+                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+                  <div className="w-12 h-12 rounded-xl bg-[#00F0B5] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                    <Mail className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Email Inquiries</p>
-                    <p className="text-sm font-semibold text-indigo-600 mt-0.5">contact@myownhrms.com</p>
-                    <p className="text-[11px] text-slate-500">Response guaranteed within 2 hours</p>
+                    <p className="text-xs font-black text-black">Email Inquiries</p>
+                    <p className="text-sm font-black text-black mt-0.5">contact@myownhrms.com</p>
+                    <p className="text-[11px] font-bold text-slate-600">Response guaranteed within 2 hours</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5" />
+                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+                  <div className="w-12 h-12 rounded-xl bg-[#A388EE] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                    <MapPin className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Corporate Headquarters</p>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    <p className="text-xs font-black text-black">Corporate Headquarters</p>
+                    <p className="text-xs font-bold text-slate-700 mt-0.5 leading-relaxed">
                       Paneliya Technology Tech Park, Ring Road, Surat, Gujarat - 395002, India
                     </p>
                   </div>
@@ -1006,15 +1064,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             </div>
 
             {/* Right Message Form */}
-            <div className="bg-white p-8 rounded-3xl border border-slate-200/90 shadow-lg">
-              <h3 className="text-lg font-black text-slate-900">Send Us a Direct Message</h3>
-              <p className="text-xs text-slate-500 mt-1">Our executive engineering team will reply promptly.</p>
+            <div className="bg-white p-8 rounded-3xl border-[3px] border-black shadow-[8px_8px_0px_0px_#000]">
+              <h3 className="text-xl font-black text-black">Send Us a Direct Message</h3>
+              <p className="text-xs font-bold text-slate-600 mt-1">Our executive engineering team will reply promptly.</p>
 
               {contactSubmitted ? (
-                <div className="mt-6 p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center animate-in fade-in">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
-                  <p className="font-bold text-sm">Thank You for Reaching Out!</p>
-                  <p className="text-xs text-emerald-700 mt-1">
+                <div className="mt-6 p-6 rounded-2xl bg-[#00F0B5] border-2 border-black text-black text-center shadow-[4px_4px_0px_0px_#000]">
+                  <CheckCircle2 className="w-12 h-12 text-black mx-auto mb-2 stroke-[2.5]" />
+                  <p className="font-black text-base">Thank You for Reaching Out!</p>
+                  <p className="text-xs font-bold text-slate-900 mt-1">
                     Your inquiry has been received. Our solutions manager will connect with you shortly.
                   </p>
                 </div>
@@ -1022,46 +1080,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 <form onSubmit={handleContactSubmit} className="mt-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Your Name</label>
+                      <label className="block text-xs font-black text-black mb-1">Your Name</label>
                       <input
                         type="text"
                         required
                         value={contactData.name}
                         onChange={(e) => setContactData({ ...contactData, name: e.target.value })}
                         placeholder="Keyur Sangani"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[4px_4px_0px_0px_#000] transition-all bg-[#FAF8F5]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Work Email</label>
+                      <label className="block text-xs font-black text-black mb-1">Work Email</label>
                       <input
                         type="email"
                         required
                         value={contactData.email}
                         onChange={(e) => setContactData({ ...contactData, email: e.target.value })}
                         placeholder="keyur@example.com"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[4px_4px_0px_0px_#000] transition-all bg-[#FAF8F5]"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                      <label className="block text-xs font-black text-black mb-1">Phone Number</label>
                       <input
                         type="tel"
                         value={contactData.phone}
                         onChange={(e) => setContactData({ ...contactData, phone: e.target.value })}
                         placeholder="+91 98765 00000"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[4px_4px_0px_0px_#000] transition-all bg-[#FAF8F5]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
+                      <label className="block text-xs font-black text-black mb-1">Subject</label>
                       <select
                         value={contactData.subject}
                         onChange={(e) => setContactData({ ...contactData, subject: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-bold bg-[#FAF8F5] focus:outline-none focus:shadow-[4px_4px_0px_0px_#000] transition-all"
                       >
                         <option>General Inquiry</option>
                         <option>Enterprise Licensing</option>
@@ -1072,26 +1130,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Message</label>
+                    <label className="block text-xs font-black text-black mb-1">Message</label>
                     <textarea
                       rows={3}
                       required
                       value={contactData.message}
                       onChange={(e) => setContactData({ ...contactData, message: e.target.value })}
                       placeholder="Tell us about your organization size, current biometric machines, or custom needs..."
-                      className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+                      className="w-full p-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[4px_4px_0px_0px_#000] transition-all bg-[#FAF8F5]"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all"
+                    className="w-full h-12 rounded-xl bg-[#00F0B5] hover:bg-[#00e0a5] text-black font-black text-xs uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                   >
                     Submit Message
                   </button>
                 </form>
               )}
             </div>
+
           </div>
         </div>
       </section>
@@ -1099,12 +1158,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ===================================================================== */}
       {/* 11. PRE-FOOTER CALL TO ACTION BANNER                                  */}
       {/* ===================================================================== */}
-      <section className="py-20 bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-950 text-white relative overflow-hidden">
+      <section className="py-20 bg-[#FFE600] text-black border-b-[3px] border-black relative overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
             Ready to Build a Better Workplace?
           </h2>
-          <p className="text-slate-300 text-base max-w-xl mx-auto mt-4 leading-relaxed">
+          <p className="text-black font-bold text-base max-w-xl mx-auto mt-4 leading-relaxed">
             Join thousands of employees and administrators using My Own HRMS daily for effortless operations.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
@@ -1113,13 +1172,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 setDemoSubmitted(false);
                 setIsDemoModalOpen(true);
               }}
-              className="px-8 py-4 rounded-xl bg-white text-indigo-950 font-black text-sm hover:bg-slate-100 shadow-xl transition-all"
+              className="px-8 py-4 rounded-xl bg-white text-black font-black text-sm border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
             >
               Book a Free Live Demo
             </button>
             <button
               onClick={onOpenLogin}
-              className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm transition-all shadow-xl shadow-indigo-600/30"
+              className="px-8 py-4 rounded-xl bg-black text-[#FFE600] font-black text-sm border-[3px] border-black shadow-[5px_5px_0px_0px_#FFF] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#FFF] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
             >
               Sign In to Your Workspace →
             </button>
@@ -1130,145 +1189,137 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ===================================================================== */}
       {/* 12. ENTERPRISE FOOTER                                                 */}
       {/* ===================================================================== */}
-      <footer className="py-14 bg-white border-t border-slate-200 text-slate-600 text-xs">
+      <footer className="py-14 bg-white text-black text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-100">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                <Building2 className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-xl bg-[#FFE600] border-2 border-black text-black flex items-center justify-center font-black text-xs shadow-[3px_3px_0px_0px_#000]">
+                <Building2 className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div>
-                <p className="font-black text-slate-900 text-sm">My Own HRMS</p>
-                <p className="text-[11px] text-slate-400">Next-Generation Enterprise Workforce Cloud</p>
+                <p className="font-black text-black text-sm">My Own HRMS</p>
+                <p className="text-[11px] font-bold text-slate-600">Next-Gen Enterprise Workforce Operating Cloud</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 font-semibold">
-              <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-indigo-600 transition-colors">How It Works</a>
-              <a href="#impact" className="hover:text-indigo-600 transition-colors">Impact</a>
-              <a href="#pricing" className="hover:text-indigo-600 transition-colors">Pricing</a>
-              <a href="#testimonials" className="hover:text-indigo-600 transition-colors">Testimonials</a>
-              <a href="#contact" className="hover:text-indigo-600 transition-colors">Contact</a>
-              <button onClick={onOpenLogin} className="text-indigo-600 font-bold hover:underline">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-black uppercase tracking-wider text-xs">
+              <a href="#features" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">Features</a>
+              <a href="#how-it-works" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">How It Works</a>
+              <a href="#impact" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">Impact</a>
+              <a href="#pricing" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">Pricing</a>
+              <a href="#testimonials" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">Testimonials</a>
+              <a href="#contact" className="hover:bg-[#FFE600] px-2 py-1 rounded transition-colors">Contact</a>
+              <button onClick={onOpenLogin} className="bg-[#00F0B5] text-black px-3 py-1 rounded border border-black shadow-[2px_2px_0px_0px_#000] cursor-pointer">
                 Portal Sign In
               </button>
-            </div>
-          </div>
-
-          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
-            <p>&copy; {new Date().getFullYear()} Paneliya Technology - My Own HRMS. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <span>SOC-2 &amp; GDPR Compliant Architecture</span>
-              <span>256-Bit TLS Bank Encryption</span>
             </div>
           </div>
         </div>
       </footer>
 
       {/* ===================================================================== */}
-      {/* 13. INTERACTIVE "BOOK A DEMO" MODAL                                   */}
+      {/* 13. INTERACTIVE "BOOK A DEMO" MODAL - NEO-BRUTALIST                   */}
       {/* ===================================================================== */}
       {isDemoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#FFFDF7] rounded-3xl max-w-lg w-full p-6 sm:p-8 border-[3px] border-black shadow-[12px_12px_0px_0px_#000] relative animate-in fade-in zoom-in-95 duration-200">
             {/* Close Button */}
             <button
               onClick={() => setIsDemoModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-xl bg-[#FF5E97] border-2 border-black text-black hover:bg-[#ff4687] shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             {demoSubmitted ? (
               <div className="py-6 text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="w-8 h-8" />
+                <div className="w-16 h-16 rounded-2xl bg-[#00F0B5] border-2 border-black text-black flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0px_0px_#000]">
+                  <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900">Demo Scheduled Successfully!</h3>
-                <p className="text-xs text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
-                  Thank you, <span className="font-bold text-slate-900">{demoData.name}</span>. 
+                <h3 className="text-xl font-black text-black">Demo Scheduled Successfully!</h3>
+                <p className="text-xs font-semibold text-slate-800 mt-2 max-w-sm mx-auto leading-relaxed">
+                  Thank you, <span className="font-black text-black">{demoData.name}</span>. 
                   Our HRMS solutions architect will reach out to you at{' '}
-                  <span className="font-bold text-slate-900">{demoData.email}</span> with calendar invitations 
+                  <span className="font-black text-black">{demoData.email}</span> with calendar invitations 
                   and live walkthrough credentials.
                 </p>
                 <button
                   onClick={() => setIsDemoModalOpen(false)}
-                  className="mt-6 px-6 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-all"
+                  className="mt-6 px-6 py-3 rounded-xl bg-black text-[#FFE600] font-black text-xs border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                 >
                   Close &amp; Continue Browsing
                 </button>
               </div>
             ) : (
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFE600] border-2 border-black text-black flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
+                    <Sparkles className="w-4 h-4 stroke-[2.5]" />
                   </div>
-                  <h3 className="text-lg font-black text-slate-900">Book a Live 1-on-1 Demo</h3>
+                  <h3 className="text-xl font-black text-black">Book a Live 1-on-1 Demo</h3>
                 </div>
-                <p className="text-xs text-slate-500 mb-6">
+                <p className="text-xs font-bold text-slate-700 mb-6">
                   See how My Own HRMS automates your exact company attendance rules and payroll structure.
                 </p>
 
                 <form onSubmit={handleDemoSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
+                      <label className="block text-xs font-black text-black mb-1">Full Name *</label>
                       <input
                         type="text"
                         required
                         value={demoData.name}
                         onChange={(e) => setDemoData({ ...demoData, name: e.target.value })}
                         placeholder="e.g. Keyur Sangani"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Work Email *</label>
+                      <label className="block text-xs font-black text-black mb-1">Work Email *</label>
                       <input
                         type="email"
                         required
                         value={demoData.email}
                         onChange={(e) => setDemoData({ ...demoData, email: e.target.value })}
                         placeholder="name@company.com"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] bg-white"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Company Name *</label>
+                      <label className="block text-xs font-black text-black mb-1">Company Name *</label>
                       <input
                         type="text"
                         required
                         value={demoData.company}
                         onChange={(e) => setDemoData({ ...demoData, company: e.target.value })}
                         placeholder="e.g. Paneliya Tech Inc."
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
+                      <label className="block text-xs font-black text-black mb-1">Phone Number *</label>
                       <input
                         type="tel"
                         required
                         value={demoData.phone}
                         onChange={(e) => setDemoData({ ...demoData, phone: e.target.value })}
                         placeholder="+91 98765 43210"
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3.5 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] bg-white"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Team Size</label>
+                      <label className="block text-xs font-black text-black mb-1">Team Size</label>
                       <select
                         value={demoData.teamSize}
                         onChange={(e) => setDemoData({ ...demoData, teamSize: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3 rounded-xl border-2 border-black text-xs font-bold bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                       >
                         <option>1-20 employees</option>
                         <option>21-50 employees</option>
@@ -1278,11 +1329,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Time Slot</label>
+                      <label className="block text-xs font-black text-black mb-1">Preferred Time Slot</label>
                       <select
                         value={demoData.timeSlot}
                         onChange={(e) => setDemoData({ ...demoData, timeSlot: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-indigo-600"
+                        className="w-full h-11 px-3 rounded-xl border-2 border-black text-xs font-bold bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                       >
                         <option>11:00 AM - 12:00 PM</option>
                         <option>02:00 PM - 03:00 PM</option>
@@ -1293,19 +1344,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Specific Requirements or Modules of Interest</label>
+                    <label className="block text-xs font-black text-black mb-1">Specific Requirements or Modules of Interest</label>
                     <textarea
                       rows={2}
                       value={demoData.notes}
                       onChange={(e) => setDemoData({ ...demoData, notes: e.target.value })}
                       placeholder="e.g. Biometric device integration, shift rosters, custom payslip taxes..."
-                      className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600"
+                      className="w-full p-3 rounded-xl border-2 border-black text-xs font-medium focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] bg-white"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full h-11 mt-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all"
+                    className="w-full h-12 mt-2 rounded-xl bg-[#FFE600] hover:bg-[#ffd700] text-black font-black text-xs uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                   >
                     Confirm &amp; Schedule Demo
                   </button>
