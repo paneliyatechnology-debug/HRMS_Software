@@ -41,6 +41,11 @@ import {
   isEmployeeWFHEnabled,
 } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
+import { ModernDigitClock } from '../common/ModernDigitClock';
+import {
+  verifyShiftTimeWindow,
+  ShiftVerificationResult,
+} from '../../lib/shiftScheduleService';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -64,7 +69,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
-  const [remarks, setRemarks] = useState('Work from office - morning shift');
+  const [remarks, setRemarks] = useState('Morning shift clock-in');
+  const [lateReason, setLateReason] = useState('');
+  const [lateReasonError, setLateReasonError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Geofence states
@@ -89,6 +96,29 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     window.addEventListener('hrms_wfh_status_updated', handleWFHUpdate);
     return () => window.removeEventListener('hrms_wfh_status_updated', handleWFHUpdate);
   }, [currentEmpId]);
+
+  // Shift Timing Window & Buffer Verification state (Scoped strictly to employee's company)
+  const userCompanyId = user.companyId || (user as any).companyId || 'comp-paneliya';
+  const [shiftStatus, setShiftStatus] = useState<ShiftVerificationResult>(() =>
+    verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId)
+  );
+  const isLateArrival = Boolean(shiftStatus.enforceActive && shiftStatus.isLate && punchState.status === 'not_started');
+
+  useEffect(() => {
+    const handleScheduleUpdate = (e?: any) => {
+      if (e?.detail?.companyId && e.detail.companyId !== userCompanyId) {
+        return; // Ignore updates from other companies
+      }
+      setShiftStatus(verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId));
+    };
+    handleScheduleUpdate();
+    window.addEventListener('hrms_schedule_updated', handleScheduleUpdate);
+    const interval = setInterval(handleScheduleUpdate, 10000);
+    return () => {
+      window.removeEventListener('hrms_schedule_updated', handleScheduleUpdate);
+      clearInterval(interval);
+    };
+  }, [userCompanyId, currentEmpId]);
 
   // Selfie Camera states
   const [selfieMode, setSelfieMode] = useState<'idle' | 'check_in' | 'check_out'>('idle');
@@ -298,8 +328,23 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   const isGeofencePass = isWFH ? true : (geoResult?.isAllowed ?? false);
 
-  // Step 1: Open selfie camera for Check In
+  // Step 1: Open selfie camera for Check In (Strictly validated by Admin Shift Time & Buffer)
   const handleInitiateCheckIn = () => {
+    // 1. Enforce Admin Shift Time Early Lockout
+    const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
+    if (currentShift.enforceActive && currentShift.isEarly) {
+      alert(currentShift.reason || `Check-in is locked before ${currentShift.allowedStart}.`);
+      return;
+    }
+
+    // 2. Enforce Compulsory Late Reason if arriving late
+    if (isLateArrival && !lateReason.trim()) {
+      setLateReasonError('Late reason is compulsory! Please enter why you arrived late.');
+      return;
+    }
+    setLateReasonError('');
+
+    // 3. Enforce Geofence Verification
     if (!isWFH && geofenceConfig.enabled && !isGeofencePass) {
       alert(
         geoResult?.errorMessage ||
@@ -530,14 +575,20 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       };
 
       if (selfieMode === 'check_in') {
+        const fullRemarks = isLateArrival
+          ? `[Late Reason: ${lateReason.trim()}]${remarks && remarks !== 'Morning shift clock-in' ? ` • Note: ${remarks.trim()}` : ''}`
+          : (remarks || 'Morning shift clock-in');
+
         const res = await api.checkIn(
           currentEmpId,
-          remarks || 'Work from office - morning shift',
+          fullRemarks,
           {
             firstName: user.firstName || 'Employee',
             lastName: user.lastName || '',
             employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
             email: user.email,
+            companyId: userCompanyId,
+            lateReason: isLateArrival ? lateReason.trim() : undefined,
           },
           geoData
         );
@@ -552,9 +603,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           setCapturedPhoto(null);
         }
       } else if (selfieMode === 'check_out') {
+        const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
         await api.checkOut(
           currentEmpId,
-          'Work day completed',
+          fullRemarks,
           {
             email: user.email,
             employeeCode: (user as any).employeeCode,
@@ -603,9 +655,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onClick={(e) => {
         if (e.target === e.currentTarget) handleModalClose();
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in cursor-pointer"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-modal-backdrop cursor-pointer"
     >
-      <div className="bg-white rounded-none max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom">
         <button
           onClick={handleModalClose}
           className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-none hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
@@ -706,12 +758,36 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white p-5 text-center space-y-3 z-10">
                       <AlertTriangle className="w-8 h-8 text-rose-500" />
                       <p className="text-xs font-bold text-rose-300 max-w-xs">{cameraError}</p>
-                      <div className="flex items-center justify-center">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={startCamera}
                           className="px-4 py-2 rounded-none bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
                         >
                           Retry Camera
+                        </button>
+                        <button
+                          onClick={() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 640;
+                            canvas.height = 480;
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                              const bannerHeight = 105;
+                              const photoAreaHeight = canvas.height - bannerHeight;
+                              const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
+                              grad.addColorStop(0, '#1e1b4b');
+                              grad.addColorStop(0.6, '#0f172a');
+                              grad.addColorStop(1, '#1e293b');
+                              ctx.fillStyle = grad;
+                              ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
+                              drawWatermarkBanner(ctx, canvas.width, canvas.height);
+                              setCapturedPhoto(canvas.toDataURL('image/jpeg', 0.9));
+                              stopCameraStream();
+                            }
+                          }}
+                          className="px-4 py-2 rounded-none bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition cursor-pointer"
+                        >
+                          Use Digital ID Verification
                         </button>
                       </div>
                     </div>
@@ -800,36 +876,68 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               </p>
             </div>
 
-            {/* Digital Clock & Timer Display */}
-            <div className="bg-slate-50 rounded-none p-4 text-center border border-slate-200/80 my-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                {punchState.status === 'working'
-                  ? 'Active Shift Timer'
-                  : punchState.status === 'on_break'
-                  ? 'Timer Paused (On Break)'
-                  : punchState.status === 'completed'
-                  ? 'Today’s Finalized Shift'
-                  : 'Current Time'}
-              </p>
-
-              <div className="text-3xl font-mono font-bold text-slate-900 tracking-wider mt-1">
-                {punchState.status === 'working' || punchState.status === 'on_break'
-                  ? liveWorkedHMS
-                  : punchState.status === 'completed'
-                  ? formatSecondsToWords(punchState.record?.activeSeconds || 0)
-                  : time
-                  ? time.toLocaleTimeString('en-US')
-                  : '09:00:00 AM'}
-              </div>
-
-              <p className="text-xs text-slate-500 mt-1">
-                {punchState.status === 'on_break'
-                  ? `Break time: ${liveBreakWords}`
-                  : time
-                  ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                  : 'October 27, 2026'}
-              </p>
+            {/* Luxury Digital Clock & Timer Display */}
+            <div className="bg-gradient-to-br from-[#062d1f] via-[#083b28] to-[#041d14] rounded-2xl p-4 sm:p-5 text-center border border-[#0d4a34] shadow-md animate-clock-glow my-3 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#059669]" />
+              
+              <ModernDigitClock
+                time={punchState.status === 'not_started' || punchState.status === 'completed' ? time : undefined}
+                timeString={punchState.status === 'working' || punchState.status === 'on_break' ? liveWorkedHMS : undefined}
+                size="lg"
+                variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
+                showSweepRing={true}
+                label={
+                  punchState.status === 'working'
+                    ? 'Active Shift Chronometer'
+                    : punchState.status === 'on_break'
+                    ? 'Timer Paused (On Break)'
+                    : punchState.status === 'completed'
+                    ? 'Today’s Finalized Shift'
+                    : 'Live GPS Shift Chronometer'
+                }
+                subText={
+                  punchState.status === 'on_break'
+                    ? `Break duration: ${liveBreakWords}`
+                    : time
+                    ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                    : 'October 28, 2026'
+                }
+              />
             </div>
+
+            {/* Shift Timing Window & Buffer Card (Shows ONLY when employee arrives late, hidden at all other times!) */}
+            {isLateArrival && (
+              <div className="my-2.5 p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 shadow-xs space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-rose-900 font-extrabold">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span className="text-xs">Late Attendance: Outside Shift Buffer</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-rose-900 bg-rose-200 px-2.5 py-0.5 rounded-md border border-rose-300 shrink-0">
+                    LATE PUNCH
+                  </span>
+                </div>
+                <p className="text-[11px] text-rose-800 leading-relaxed">
+                  Your company admin has set office shift to <strong>{shiftStatus.shiftStart}</strong> with a <strong>{shiftStatus.config.gracePeriodMinutes}-minute buffer</strong>. Check-in was scheduled for <strong>{shiftStatus.allowedStart} – {shiftStatus.allowedEnd}</strong>.
+                </p>
+                <div className="text-[10px] text-slate-500 pt-1 border-t border-rose-200 flex items-center justify-between">
+                  <span>Current Time: <strong className="font-mono text-slate-800">{shiftStatus.currentTimeStr}</strong></span>
+                  <span className="text-rose-700 font-bold">Late reason is mandatory</span>
+                </div>
+              </div>
+            )}
+
+            {shiftStatus.enforceActive && shiftStatus.isEarly && punchState.status === 'not_started' && (
+              <div className="my-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Early Arrival: Office check-in window opens at <strong>{shiftStatus.allowedStart}</strong>.</span>
+                </div>
+                <span className="text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
+                  Locked
+                </span>
+              </div>
+            )}
 
             {/* Geofence Status Card */}
             <div className="my-3">
@@ -1076,9 +1184,46 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             {/* Action Buttons */}
             <div className="space-y-2">
               {punchState.status === 'not_started' && (
-                <div className="space-y-2 mb-3">
+                <div className="space-y-2.5 mb-3">
+                  {/* Compulsory Late Reason (ONLY shown when employee did not do attendance on time!) */}
+                  {isLateArrival && (
+                    <div className="p-3 rounded-xl bg-rose-50/90 border-2 border-rose-300 shadow-2xs space-y-1.5 animate-in fade-in">
+                      <label className="text-xs font-black text-rose-950 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>Reason for Late Arrival / लेट आने का कारण</span>
+                        </span>
+                        <span className="text-[10px] font-black uppercase text-rose-800 bg-rose-200 px-2 py-0.5 rounded border border-rose-300 shrink-0">
+                          Compulsory *
+                        </span>
+                      </label>
+                      <textarea
+                        value={lateReason}
+                        onChange={(e) => {
+                          setLateReason(e.target.value);
+                          if (lateReasonError) setLateReasonError('');
+                        }}
+                        rows={2}
+                        placeholder="Please write why you arrived late today (traffic jam, vehicle breakdown, emergency, personal reason)..."
+                        className={`w-full px-3 py-2 text-xs rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
+                          lateReasonError
+                            ? 'border-rose-500 focus:ring-rose-400 bg-rose-50/40'
+                            : 'border-rose-300 focus:ring-rose-500'
+                        }`}
+                      />
+                      {lateReasonError && (
+                        <p className="text-[11px] font-bold text-rose-700 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{lateReasonError}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500 mb-1 block">Remarks / Shift Note</label>
+                    <label className="text-[11px] font-medium text-slate-500 mb-1 block">
+                      {isLateArrival ? 'Additional Shift Notes (Optional)' : 'Remarks / Shift Note'}
+                    </label>
                     <input
                       type="text"
                       value={remarks}
@@ -1087,15 +1232,26 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       className="w-full px-3 py-2 text-xs rounded-none border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
                     />
                   </div>
+
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading || geoChecking || (geofenceConfig.enabled && !isGeofencePass)}
-                    className="w-full py-2.5 rounded-none bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    disabled={loading || geoChecking || (geofenceConfig.enabled && !isGeofencePass) || shiftStatus.isEarly}
+                    className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
+                      shiftStatus.isEarly
+                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
+                        : isLateArrival
+                        ? 'bg-rose-700 hover:bg-rose-800 text-white'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
                   >
                     <Camera className="w-4 h-4" />
                     <span>
-                      {geofenceConfig.enabled && !isGeofencePass
+                      {shiftStatus.isEarly
+                        ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
+                        : geofenceConfig.enabled && !isGeofencePass
                         ? 'Blocked (Outside Office)'
+                        : isLateArrival
+                        ? 'Take Selfie & Submit Late Attendance'
                         : 'Take Selfie & Check In'}
                     </span>
                   </button>

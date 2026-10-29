@@ -26,6 +26,7 @@ import {
   numberToWords,
 } from '../../lib/payrollService';
 import { getAllEmployees } from '../../lib/employeeService';
+import { api } from '../../lib/api';
 
 interface EmployeePayslipsModuleProps {
   onRefresh?: () => void;
@@ -56,20 +57,42 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
 
   // Load payslips on mount and on storage events
   useEffect(() => {
-    const load = () => {
-      const records = getEmployeePayslips(
+    let isMounted = true;
+    const load = async () => {
+      // 1. Initial immediate load from local storage
+      const localRecords = getEmployeePayslips(
         currentEmpId,
         currentEmpEmail,
         currentEmpCode,
         currentEmpName
       );
-      setPayslips(records);
+      if (isMounted && localRecords.length > 0) {
+        setPayslips(localRecords);
+      }
+
+      // 2. Fetch live records from backend Database
+      try {
+        if (currentEmpId) {
+          const apiRecords = await api.getPayroll({ employeeId: currentEmpId });
+          if (isMounted && Array.isArray(apiRecords) && apiRecords.length > 0) {
+            setPayslips(apiRecords);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Payslips API fallback to local cache:', err);
+      }
+
+      if (isMounted) {
+        setPayslips(localRecords);
+      }
     };
 
     load();
     window.addEventListener('hrms_payroll_updated', load);
     window.addEventListener('hrms_employees_updated', load);
     return () => {
+      isMounted = false;
       window.removeEventListener('hrms_payroll_updated', load);
       window.removeEventListener('hrms_employees_updated', load);
     };
@@ -145,9 +168,9 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 shrink-0 self-start sm:self-auto">
           <button
             onClick={() => setSelectedYear('All')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               selectedYear === 'All'
-                ? 'bg-white text-indigo-600 shadow-2xs'
+                ? 'bg-white text-emerald-700 shadow-2xs font-black'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -157,9 +180,9 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
             <button
               key={yr}
               onClick={() => setSelectedYear(yr)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedYear === yr
-                  ? 'bg-white text-indigo-600 shadow-2xs'
+                  ? 'bg-white text-emerald-700 shadow-2xs font-black'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -351,7 +374,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedPayslip(rec)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-2xs transition-all active:scale-95"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
                           title="View detailed payslip"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -365,7 +388,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
                               window.print();
                             }, 300);
                           }}
-                          className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-all"
+                          className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
                           title="Print / Save PDF"
                         >
                           <Printer className="w-3.5 h-3.5" />
@@ -389,7 +412,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
             {/* Modal Actions Header (Hidden when printing) */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 print:hidden">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+                <FileText className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-extrabold text-slate-900 text-base">
                   Employee Salary Slip • {formatMonthName(selectedPayslip.payrollMonth)}
                 </h3>
@@ -397,14 +420,14 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
                 >
                   <Printer className="w-4 h-4 stroke-[2.2]" />
                   <span>Print / Download PDF</span>
                 </button>
                 <button
                   onClick={() => setSelectedPayslip(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -417,14 +440,14 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-200">
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-black text-lg flex items-center justify-center shadow-xs">
                       P
                     </div>
                     <div>
                       <h2 className="text-xl font-black text-slate-900 tracking-tight">
                         Paneliya Technology Inc.
                       </h2>
-                      <p className="text-[11px] font-bold text-indigo-600">
+                      <p className="text-[11px] font-bold text-emerald-700">
                         Human Resource Management & Payroll Division
                       </p>
                     </div>
@@ -435,7 +458,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
                 </div>
 
                 <div className="sm:text-right">
-                  <span className="px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-black uppercase tracking-wider inline-block">
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black uppercase tracking-wider inline-block">
                     PAYSLIP CONFIRMATION
                   </span>
                   <p className="text-xs font-extrabold text-slate-900 mt-2">

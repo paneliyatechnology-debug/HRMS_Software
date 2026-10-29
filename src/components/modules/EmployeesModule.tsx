@@ -97,6 +97,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const query = search.trim().toLowerCase();
   const filtered = employees.filter((emp) => {
+    // Strictly hide Super Admin / Platform Developer account from employee directory
+    if (
+      emp.role === 'SUPER_ADMIN' ||
+      emp.id === 'emp-superadmin-1' ||
+      emp.id === 'demo-superadmin-1' ||
+      emp.id === 'admin-keyur' ||
+      emp.email?.toLowerCase().includes('superadmin') ||
+      emp.email?.toLowerCase().includes('keyur')
+    ) {
+      return false;
+    }
+
     const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
     const email = (emp.email || '').toLowerCase();
     const code = (emp.employeeCode || '').toLowerCase();
@@ -202,7 +214,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         targetEmployeeName: `${noticeTargetEmp.firstName} ${noticeTargetEmp.lastName}`,
         departmentName: noticeTargetEmp.departmentName,
         priority: noticePriority,
-        authorName: `${user.firstName || 'Keyur'} ${user.lastName || 'Sangani'} (HR & Admin)`,
+        authorName: `${user.firstName || 'HR'} ${user.lastName || 'Admin'} (HR & Admin)`,
         authorRole: 'Administration',
       });
 
@@ -390,8 +402,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             <tbody className="divide-y divide-slate-100 text-xs">
               {filtered.map((emp) => {
                 const isCurrentUser =
-                  emp.email === (user.email || 'keyur.sangani1234@gmail.com') ||
-                  emp.firstName === 'Keyur';
+                  emp.email === user.email ||
+                  emp.id === user.employeeId ||
+                  emp.id === user.id;
                 const isSelected = selectedRows.includes(emp.id);
 
                 return (
@@ -423,9 +436,15 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full font-semibold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200">
-                          {emp.firstName[0]}
-                          {emp.lastName ? emp.lastName[0] : ''}
+                        <div className="w-8 h-8 rounded-full font-semibold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200 overflow-hidden">
+                          {emp.avatarUrl ? (
+                            <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                          ) : (
+                            <>
+                              {emp.firstName[0]}
+                              {emp.lastName ? emp.lastName[0] : ''}
+                            </>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-bold text-slate-900">

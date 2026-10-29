@@ -4,11 +4,11 @@ import { getAllEmployees } from './employeeService';
 const CHAT_CONVERSATIONS_KEY = 'hrms_chat_conversations_records';
 const CHAT_MESSAGES_KEY = 'hrms_chat_messages_records';
 
-export const ADMIN_USER_ID = 'user-1';
-export const ADMIN_NAME = 'Keyur Sangani';
+export const ADMIN_USER_ID = 'company-admin';
+export const ADMIN_NAME = 'HR Administration';
 export const ADMIN_ROLE = 'admin' as const;
 
-// Seed initial realistic conversations
+// Seed initial clean conversations (with no mock messages)
 function getDefaultConversations(): ChatConversation[] {
   return [
     {
@@ -17,33 +17,52 @@ function getDefaultConversations(): ChatConversation[] {
       participantIds: ['all'],
       participantNames: { all: 'All Staff & Management' },
       title: '📢 General Staff Helpdesk & Broadcast',
-      lastMessage: 'Welcome everyone to the My Own HRMS team communication channel!',
-      lastMessageTimestamp: '2026-10-22T09:00:00.000Z',
+      lastMessage: '',
+      lastMessageTimestamp: new Date().toISOString(),
       lastSenderId: ADMIN_USER_ID,
       unreadCount: {},
-      updatedAt: '2026-10-22T09:00:00.000Z',
+      updatedAt: new Date().toISOString(),
     },
   ];
 }
 
-// Seed initial realistic messages
+// Default messages map is completely empty
 function getDefaultMessages(): Record<string, ChatMessage[]> {
-  return {
-    'conv-general': [
-      {
-        id: 'msg-gen-1',
-        conversationId: 'conv-general',
-        senderId: ADMIN_USER_ID,
-        senderName: 'Keyur Sangani',
-        senderRole: 'admin',
-        recipientId: 'all',
-        recipientName: 'All Staff',
-        content: 'Welcome everyone to the My Own HRMS team communication channel!',
-        timestamp: '2026-10-22T09:00:00.000Z',
-        status: 'read',
-      },
-    ],
-  };
+  return {};
+}
+
+// Auto-purge old seeded mock chat messages and remove any superadmin leaked conversations
+if (typeof window !== 'undefined') {
+  try {
+    const PURGE_KEY = 'hrms_chat_all_messages_purged_v10';
+    if (localStorage.getItem(PURGE_KEY) !== 'true') {
+      localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify({}));
+      const rawConvs = localStorage.getItem(CHAT_CONVERSATIONS_KEY);
+      if (rawConvs) {
+        try {
+          const parsed = JSON.parse(rawConvs);
+          if (Array.isArray(parsed)) {
+            const cleared = parsed
+              .filter(
+                (c: any) =>
+                  !c.id?.includes('keyur') &&
+                  !c.id?.includes('superadmin') &&
+                  !c.participantIds?.includes('admin-keyur') &&
+                  !c.participantIds?.includes('demo-superadmin-1') &&
+                  !c.participantIds?.includes('emp-superadmin-1')
+              )
+              .map((c: any) => ({
+                ...c,
+                lastMessage: '',
+                unreadCount: {},
+              }));
+            localStorage.setItem(CHAT_CONVERSATIONS_KEY, JSON.stringify(cleared.length > 0 ? cleared : getDefaultConversations()));
+          }
+        } catch {}
+      }
+      localStorage.setItem(PURGE_KEY, 'true');
+    }
+  } catch {}
 }
 
 export function getAllConversations(): ChatConversation[] {
@@ -61,6 +80,11 @@ export function getAllConversations(): ChatConversation[] {
         (c: ChatConversation) =>
           c.id !== 'conv-user-1-emp-2' &&
           c.id !== 'conv-user-1-emp-3' &&
+          !c.id?.includes('superadmin') &&
+          !c.id?.includes('admin-keyur') &&
+          !c.participantIds?.includes('admin-keyur') &&
+          !c.participantIds?.includes('demo-superadmin-1') &&
+          !c.participantIds?.includes('emp-superadmin-1') &&
           !c.participantIds?.includes('emp-2') &&
           !c.participantIds?.includes('emp-3')
       );
@@ -118,42 +142,65 @@ export function getMessagesForConversation(conversationId: string): ChatMessage[
 }
 
 /**
- * Returns or creates a direct conversation between Admin and a given Employee.
+ * Returns or creates a direct conversation between Company Admin and a given Employee.
  */
 export function getOrCreateDirectConversation(employee: Employee): ChatConversation {
+  // Super Admin details are confidential and meant only for developer portal
+  if (
+    employee.role === 'SUPER_ADMIN' ||
+    employee.id === 'admin-keyur' ||
+    employee.id === 'demo-superadmin-1' ||
+    employee.email?.toLowerCase().includes('superadmin') ||
+    employee.email?.toLowerCase().includes('keyur')
+  ) {
+    const all = getAllConversations();
+    return all[0] || getDefaultConversations()[0];
+  }
+
   const conversations = getAllConversations();
-  const convId = `conv-user-1-${employee.id}`;
+  const convId = `conv-${ADMIN_USER_ID}-${employee.id}`;
+  const empFullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'Staff Member';
 
   const existing = conversations.find((c) => c.id === convId);
   if (existing) {
+    if (existing.participantNames?.[employee.id] !== empFullName || existing.title !== empFullName) {
+      existing.title = empFullName;
+      existing.participantNames = {
+        ...existing.participantNames,
+        [ADMIN_USER_ID]: ADMIN_NAME,
+        [employee.id]: empFullName,
+      };
+      saveConversations(conversations);
+    }
     return existing;
   }
 
   const newConv: ChatConversation = {
     id: convId,
     type: 'direct',
+    title: empFullName,
     participantIds: [ADMIN_USER_ID, employee.id],
     participantNames: {
       [ADMIN_USER_ID]: ADMIN_NAME,
-      [employee.id]: `${employee.firstName} ${employee.lastName}`,
+      [employee.id]: empFullName,
     },
     participantRoles: {
       [ADMIN_USER_ID]: 'admin',
       [employee.id]: 'employee',
     },
     participantCodes: {
-      [ADMIN_USER_ID]: 'ADMIN-01',
+      [ADMIN_USER_ID]: 'ADM-01',
       [employee.id]: employee.employeeCode,
     },
     participantEmails: {
-      [ADMIN_USER_ID]: 'keyur.sangani1234@gmail.com',
+      [ADMIN_USER_ID]: 'hr@paneliya.com',
       [employee.id]: employee.email,
     },
     participantDesignations: {
-      [ADMIN_USER_ID]: 'Super Admin',
+      [ADMIN_USER_ID]: 'Company HR & Management',
       [employee.id]: employee.designationTitle || 'Staff Member',
     },
-    lastMessage: 'Conversation started',
+    lastMessage: '',
     lastMessageTimestamp: new Date().toISOString(),
     lastSenderId: ADMIN_USER_ID,
     unreadCount: { [ADMIN_USER_ID]: 0, [employee.id]: 0 },
@@ -166,7 +213,7 @@ export function getOrCreateDirectConversation(employee: Employee): ChatConversat
 }
 
 /**
- * Ensures conversations exist for all current employees in the system.
+ * Ensures conversations exist for all current employees in the system with distinct names.
  */
 export function syncConversationsWithEmployees(employees?: Employee[]): ChatConversation[] {
   const currentEmployees = employees && employees.length > 0 ? employees : getAllEmployees();
@@ -174,43 +221,86 @@ export function syncConversationsWithEmployees(employees?: Employee[]): ChatConv
   let modified = false;
 
   currentEmployees.forEach((emp) => {
-    // Skip if employee is Keyur Sangani himself
-    if (emp.id === 'emp-1' || emp.email === 'keyur.sangani1234@gmail.com') return;
+    // Strictly exclude Super Admin / developer accounts from chat and workforce visibility
+    if (
+      emp.role === 'SUPER_ADMIN' ||
+      emp.id === 'emp-1' ||
+      emp.id === 'admin-keyur' ||
+      emp.id === 'demo-superadmin-1' ||
+      emp.id === 'emp-superadmin-1' ||
+      emp.email?.toLowerCase().includes('keyur') ||
+      emp.email?.toLowerCase().includes('superadmin')
+    ) {
+      return;
+    }
 
-    const convId = `conv-user-1-${emp.id}`;
-    const exists = conversations.some((c) => c.id === convId);
-    if (!exists) {
+    const convId = `conv-${ADMIN_USER_ID}-${emp.id}`;
+    const empFullName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Staff Member';
+    const convIndex = conversations.findIndex((c) => c.id === convId);
+
+    if (convIndex === -1) {
       conversations.push({
         id: convId,
         type: 'direct',
+        title: empFullName,
         participantIds: [ADMIN_USER_ID, emp.id],
         participantNames: {
           [ADMIN_USER_ID]: ADMIN_NAME,
-          [emp.id]: `${emp.firstName} ${emp.lastName}`,
+          [emp.id]: empFullName,
         },
         participantRoles: {
           [ADMIN_USER_ID]: 'admin',
           [emp.id]: 'employee',
         },
         participantCodes: {
-          [ADMIN_USER_ID]: 'ADMIN-01',
-          [emp.id]: emp.employeeCode,
+          [ADMIN_USER_ID]: 'ADM-01',
+          [emp.id]: emp.employeeCode || 'EMP',
         },
         participantEmails: {
-          [ADMIN_USER_ID]: 'keyur.sangani1234@gmail.com',
-          [emp.id]: emp.email,
+          [ADMIN_USER_ID]: 'hr@paneliya.com',
+          [emp.id]: emp.email || '',
         },
         participantDesignations: {
-          [ADMIN_USER_ID]: 'Super Admin',
+          [ADMIN_USER_ID]: 'Company HR & Management',
           [emp.id]: emp.designationTitle || 'Staff Member',
         },
-        lastMessage: 'Conversation opened',
+        lastMessage: '',
         lastMessageTimestamp: new Date().toISOString(),
         lastSenderId: ADMIN_USER_ID,
         unreadCount: { [ADMIN_USER_ID]: 0, [emp.id]: 0 },
         updatedAt: new Date().toISOString(),
       });
       modified = true;
+    } else {
+      // Re-synchronize name if missing or outdated
+      const existing = conversations[convIndex];
+      if (
+        existing.participantNames?.[emp.id] !== empFullName ||
+        existing.title !== empFullName
+      ) {
+        conversations[convIndex] = {
+          ...existing,
+          title: empFullName,
+          participantNames: {
+            ...existing.participantNames,
+            [ADMIN_USER_ID]: ADMIN_NAME,
+            [emp.id]: empFullName,
+          },
+          participantCodes: {
+            ...existing.participantCodes,
+            [emp.id]: emp.employeeCode || existing.participantCodes?.[emp.id] || 'EMP',
+          },
+          participantEmails: {
+            ...existing.participantEmails,
+            [emp.id]: emp.email || existing.participantEmails?.[emp.id] || '',
+          },
+          participantDesignations: {
+            ...existing.participantDesignations,
+            [emp.id]: emp.designationTitle || existing.participantDesignations?.[emp.id] || 'Staff Member',
+          },
+        };
+        modified = true;
+      }
     }
   });
 
@@ -426,7 +516,7 @@ export function deleteChatMessage(
       conversations[convIndex].lastMessageTimestamp = last.timestamp;
       conversations[convIndex].lastSenderId = last.senderId;
     } else {
-      conversations[convIndex].lastMessage = 'No messages yet';
+      conversations[convIndex].lastMessage = '';
       conversations[convIndex].lastMessageTimestamp = conversations[convIndex].updatedAt;
     }
     saveConversations(conversations);
@@ -540,9 +630,42 @@ export function receiveIncomingSocketDelete(payload: {
         conversations[convIndex].lastMessage = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
         conversations[convIndex].lastMessageTimestamp = last.timestamp;
       } else {
-        conversations[convIndex].lastMessage = 'No messages yet';
+        conversations[convIndex].lastMessage = '';
       }
       saveConversations(conversations);
     }
   }
+}
+
+/**
+ * Clears all messages in a specific conversation.
+ */
+export function clearConversationMessages(conversationId: string): void {
+  const messagesMap = getAllMessagesMap();
+  delete messagesMap[conversationId];
+  saveMessagesMap(messagesMap);
+
+  const conversations = getAllConversations();
+  const convIndex = conversations.findIndex((c) => c.id === conversationId);
+  if (convIndex !== -1) {
+    conversations[convIndex].lastMessage = '';
+    conversations[convIndex].unreadCount = {};
+    saveConversations(conversations);
+  }
+}
+
+/**
+ * Clears ALL messages across all conversations and resets all message counters.
+ */
+export function clearAllChats(): void {
+  saveMessagesMap({});
+
+  const conversations = getAllConversations();
+  const cleared = conversations.map((c) => ({
+    ...c,
+    lastMessage: '',
+    unreadCount: {},
+    lastMessageTimestamp: new Date().toISOString(),
+  }));
+  saveConversations(cleared);
 }

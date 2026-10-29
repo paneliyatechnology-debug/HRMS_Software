@@ -61,7 +61,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
 
   // Interview Form State
   const [interviewRound, setInterviewRound] = useState('Technical Architecture Round');
-  const [interviewerName, setInterviewerName] = useState('Keyur Sangani (Lead Architect)');
+  const [interviewerName, setInterviewerName] = useState('Technical Hiring Lead');
   const [interviewScheduledAt, setInterviewScheduledAt] = useState('2026-10-25 10:00 AM IST');
   const [interviewSubmitting, setInterviewSubmitting] = useState(false);
 
@@ -182,7 +182,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   const handleHireToEmployee = async (candidate: Candidate) => {
     setConvertingId(candidate.id);
     try {
-      await api.convertCandidateToEmployee(candidate.id, 'Keyur Sangani');
+      await api.convertCandidateToEmployee(candidate.id, 'HR Administration');
       showToast?.({
         title: 'Hired & Onboarded!',
         message: `${candidate.fullName} has been converted into an active employee roster.`,

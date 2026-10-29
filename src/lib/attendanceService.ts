@@ -1,5 +1,6 @@
 import { AttendanceRecord, Employee, DevicePunchInfo } from '../types/hrms';
 import { detectUserDevice } from './deviceDetector';
+import { verifyShiftTimeWindow } from './shiftScheduleService';
 
 const STORAGE_KEY = 'hrms_daily_attendance_records';
 
@@ -129,15 +130,30 @@ export function checkEmployeePunchEligibility(employeeId: string): {
   status: 'not_started' | 'working' | 'on_break' | 'completed';
   message: string;
   record: AttendanceRecord | null;
+  shiftWindowInfo?: any;
 } {
   const record = getTodayRecordForEmployee(employeeId);
 
   if (!record) {
+    const shiftCheck = verifyShiftTimeWindow(undefined, undefined, employeeId);
+    if (shiftCheck.isEarly) {
+      return {
+        canCheckIn: false,
+        status: 'not_started',
+        message: shiftCheck.reason || 'Check-in is locked before the shift window starts.',
+        record: null,
+        shiftWindowInfo: shiftCheck,
+      };
+    }
+
     return {
       canCheckIn: true,
       status: 'not_started',
-      message: 'You have not checked in today. Please click Check In to begin your shift.',
+      message: shiftCheck.isLate
+        ? 'Late arrival detected. Reason for being late is compulsory to check in.'
+        : 'You have not checked in today. Please click Check In to begin your shift.',
       record: null,
+      shiftWindowInfo: shiftCheck,
     };
   }
 
@@ -169,7 +185,7 @@ export function checkEmployeePunchEligibility(employeeId: string): {
 
 /**
  * Action: Check In
- * Allowed ONLY ONCE per calendar day!
+ * Allowed ONLY ONCE per calendar day within designated shift window!
  */
 export function performCheckIn(
   employee: {
@@ -178,6 +194,9 @@ export function performCheckIn(
     lastName?: string;
     employeeCode?: string;
     departmentName?: string;
+    companyId?: string;
+    lateReason?: string;
+    remarks?: string;
   },
   geoData?: {
     latitude?: number;
@@ -189,6 +208,23 @@ export function performCheckIn(
     device?: DevicePunchInfo;
   }
 ): { success: boolean; message: string; record?: AttendanceRecord } {
+  // 1. Check shift timing window configured by Admin for this specific company
+  const shiftCheck = verifyShiftTimeWindow(undefined, employee.companyId, employee.id);
+  if (shiftCheck.isEarly) {
+    return {
+      success: false,
+      message: shiftCheck.reason || 'Attendance Denied: Too early for shift check-in.',
+    };
+  }
+
+  if (shiftCheck.isLate && !employee.lateReason?.trim()) {
+    return {
+      success: false,
+      message: 'Late reason is compulsory. Please enter why you arrived late.',
+    };
+  }
+
+  // 2. Check general punch eligibility
   const eligibility = checkEmployeePunchEligibility(employee.id);
 
   if (!eligibility.canCheckIn) {
@@ -222,8 +258,9 @@ export function performCheckIn(
     breakDurationMinutes: 0,
     workingHours: 0,
     overtimeHours: 0,
-    status: 'Present',
-    remarks: 'Self portal check-in',
+    status: shiftCheck.isLate ? 'Late' : 'Present',
+    remarks: employee.remarks || (shiftCheck.isLate ? `[Late Reason: ${employee.lateReason?.trim()}]` : 'Self portal check-in'),
+    lateReason: shiftCheck.isLate ? employee.lateReason?.trim() : undefined,
     createdAt: now.toISOString(),
     activeSeconds: 0,
     breakSeconds: 0,

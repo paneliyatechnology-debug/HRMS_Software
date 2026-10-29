@@ -40,38 +40,7 @@ export interface CompanyTenant {
 const COMPANIES_STORAGE_KEY = 'hrms_multi_tenant_companies';
 const TENANT_EMPLOYEES_STORAGE_KEY = 'hrms_tenant_company_employees';
 
-export const initialCompanies: CompanyTenant[] = [
-  {
-    id: 'comp-paneliya',
-    name: 'Paneliya Technology Inc.',
-    code: 'PANELIYA-HQ',
-    industry: 'Software Engineering & Cloud Architecture',
-    plan: 'Enterprise',
-    status: 'Active',
-    createdAt: '2026-01-10',
-    billingCycle: 'Annual',
-    maxEmployees: 100,
-    contactEmail: 'contact@paneliya.com',
-    contactPhone: '+91 9876543210',
-    address: 'Paneliya Tech Park, Ring Road',
-    city: 'Surat',
-    state: 'Gujarat',
-    country: 'India',
-    adminUser: {
-      id: 'admin-keyur',
-      fullName: 'Keyur Sangani',
-      email: 'keyursangani1210@gmail.com',
-      phone: '+91 9876543210',
-      designation: 'Founder & Chief Executive Officer',
-      role: 'SUPER_ADMIN',
-      lastLogin: 'Just now',
-    },
-    departments: [],
-    employeesCount: 0,
-    monthlyPayrollEstimate: 0,
-    activePunchesToday: 0,
-  },
-];
+export const initialCompanies: CompanyTenant[] = [];
 
 // Initial mock employees for sub-companies (strictly empty, data comes only from real additions / API)
 const initialTenantEmployees: Record<string, Employee[]> = {};
@@ -97,6 +66,18 @@ export function getAllCompanies(): CompanyTenant[] {
           )
           .map((c: any) => ({
             ...c,
+            adminUser:
+              c.adminUser?.id === 'admin-keyur' || c.adminUser?.fullName === 'Keyur Sangani'
+                ? {
+                    id: 'admin-paneliya',
+                    fullName: 'Paneliya Admin',
+                    email: 'admin@paneliya.com',
+                    phone: '+91 9876543210',
+                    designation: 'Company Director & HR Head',
+                    role: 'HR_ADMIN',
+                    lastLogin: 'Just now',
+                  }
+                : c.adminUser,
             departments: Array.isArray(c.departments)
               ? Array.from(new Set(c.departments.filter(Boolean)))
               : [],
@@ -390,14 +371,9 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
   const clean = rawInput.trim().toLowerCase();
   const digitsOnly = rawInput.replace(/\D/g, '');
 
-  // 1. Check SuperAdmin accounts
+  // 1. Check SuperAdmin accounts (Strict platform administration only)
   const superAdminEmails = [
     'superadmin@paneliya.com',
-    'keyursangani1210@gmail.com',
-    'keyur.sangani@paneliya.com',
-    'super@hrms.com',
-    'super@demo.com',
-    'superadmin',
   ];
   if (superAdminEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9999900000'))) {
     return {
@@ -408,50 +384,6 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
       isCompanyAdmin: true,
       isSuperAdmin: true,
       matchedVia: 'superadmin',
-      password: 'superadmin123',
-    };
-  }
-
-  // 2. Check Demo Admin
-  const demoAdminEmails = [
-    'admin@paneliya.com',
-    'admin@hrms.com',
-    'admin@demo.com',
-    'admin',
-  ];
-  if (demoAdminEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9876543210'))) {
-    return {
-      isMember: true,
-      companyId: 'comp-paneliya',
-      companyName: 'Paneliya Technology Inc.',
-      role: 'HR_ADMIN',
-      isCompanyAdmin: true,
-      isSuperAdmin: false,
-      matchedVia: 'demo',
-      password: 'admin123',
-    };
-  }
-
-  // 3. Check Demo Employee
-  const demoEmployeeEmails = [
-    'employee@paneliya.com',
-    'rahul@paneliya.com',
-    'emp@demo.com',
-    'employee',
-    'emp',
-    'emp-101',
-    'emp101',
-  ];
-  if (demoEmployeeEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9876500001'))) {
-    return {
-      isMember: true,
-      companyId: 'comp-paneliya',
-      companyName: 'Paneliya Technology Inc.',
-      role: 'EMPLOYEE',
-      isCompanyAdmin: false,
-      isSuperAdmin: false,
-      matchedVia: 'demo',
-      password: 'emp123',
     };
   }
 

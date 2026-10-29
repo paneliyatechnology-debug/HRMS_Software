@@ -30,9 +30,11 @@ import { LeaveModal } from '../components/modals/LeaveModal';
 import { EmployeeDrawer } from '../components/modals/EmployeeDrawer';
 import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal';
 import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
+import { MobileConnectModal } from '../components/modals/MobileConnectModal';
 import { LoginPage } from '../components/auth/LoginPage';
 import { LandingPage } from '../components/landing/LandingPage';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
+import { WavyBackground } from '../components/common/WavyBackground';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -106,6 +108,7 @@ export default function Home() {
   const [addEmployeeModalOpen, setAddEmployeeModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [mobileModalOpen, setMobileModalOpen] = useState(false);
 
   // Chat integration state
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
@@ -127,6 +130,8 @@ export default function Home() {
         'calendar',
         'attendance',
         'leaves',
+        'payslips',
+        'resignations',
         'organization',
         'documents',
         'announcements',
@@ -195,7 +200,16 @@ export default function Home() {
       ]);
 
       if (statsData) setStats(statsData);
-      setEmployees(Array.isArray(employeesData) ? employeesData : []);
+      const safeEmployees = Array.isArray(employeesData)
+        ? employeesData.filter(
+            (emp) =>
+              emp.role !== 'SUPER_ADMIN' &&
+              emp.id !== 'demo-superadmin-1' &&
+              emp.id !== 'emp-superadmin-1' &&
+              !emp.email?.toLowerCase().includes('superadmin')
+          )
+        : [];
+      setEmployees(safeEmployees);
       setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
       setDesignations(Array.isArray(designationsData) ? designationsData : []);
       setLeaves(Array.isArray(leavesData) ? leavesData : []);
@@ -278,7 +292,10 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen w-full bg-[#f4f7fc] text-[#152345] flex font-sans antialiased overflow-hidden">
+    <div className="h-screen w-full bg-[#f2f9f5] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
+      {/* Random Wavy Line Luxury Background Layer */}
+      <WavyBackground />
+
       {/* Left Sidebar (Full height from top to bottom) */}
       <Sidebar
         activeModule={activeModule}
@@ -299,6 +316,7 @@ export default function Home() {
           onOpenClockModal={() => setClockModalOpen(true)}
           onOpenLeaveModal={() => setLeaveModalOpen(true)}
           onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+          onOpenMobileModal={() => setMobileModalOpen(true)}
           onOpenProfile={() => {
             const myEmp = employees.find((e) =>
               (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
@@ -355,8 +373,8 @@ export default function Home() {
           unreadChatCount={unreadChatCount}
         />
 
-        <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-[#f4f7fc]">
-          <div className="max-w-[1700px] mx-auto">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-transparent relative z-10">
+          <div key={activeModule} className="max-w-[1700px] mx-auto animate-module-fade-in">
         {activeModule === 'dashboard' && (
           <DashboardView
             stats={stats}
@@ -474,7 +492,7 @@ export default function Home() {
           />
         )}
         {activeModule === 'assets' && <AssetsModule />}
-        {activeModule === 'resignations' && <ResignationsModule />}
+        {activeModule === 'resignations' && <ResignationsModule portalMode={portalMode} />}
         {activeModule === 'announcements' && (
           <AnnouncementsModule employees={employees} portalMode={portalMode} />
         )}
@@ -483,6 +501,7 @@ export default function Home() {
             employees={employees}
             initialEmployeeId={targetChatEmployeeId}
             onClearInitialEmployee={() => setTargetChatEmployeeId(null)}
+            portalMode={portalMode}
           />
         )}
         {activeModule === 'reports' && <ReportsModule />}
@@ -539,6 +558,11 @@ export default function Home() {
         onSelectEmployee={setSelectedEmployee}
         onNavigateModule={setActiveModule}
         portalMode={portalMode}
+      />
+
+      <MobileConnectModal
+        isOpen={mobileModalOpen}
+        onClose={() => setMobileModalOpen(false)}
       />
     </div>
   );

@@ -137,9 +137,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     try {
       await api.approveLeave(
         id,
-        'SUPER_ADMIN',
-        'Keyur Sangani',
-        'Approved by Keyur Sangani (HR & Admin)'
+        'HR_ADMIN',
+        user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
+        'Approved by HR Administration'
       );
       showToast({
         type: 'success',
@@ -171,7 +171,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     try {
       await api.rejectLeave(
         leaveId,
-        'Keyur Sangani',
+        user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
         rejectionReason || 'Rejected by HR Admin'
       );
       showToast({
@@ -402,7 +402,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
                   <div
-                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                    className="bg-emerald-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((totalTaken / TOTAL_QUOTA) * 100))}%` }}
                   />
                 </div>

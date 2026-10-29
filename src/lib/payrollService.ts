@@ -56,29 +56,11 @@ export function generateSeedPayrollRecords(): PayrollRecord[] {
   const employees = getAllEmployees();
   const records: PayrollRecord[] = [];
 
-  // If no employees found in localStorage, create default for current employee
-  const employeeList = employees.length > 0 ? employees : [
-    {
-      id: 'emp-1',
-      employeeCode: 'EMP-001',
-      firstName: 'Paneliya',
-      lastName: 'Employee',
-      email: 'employee@paneliya.com',
-      departmentName: 'Engineering',
-      designationTitle: 'Software Engineer',
-      salary: {
-        basic: 50000,
-        hra: 20000,
-        allowances: 10000,
-        bonus: 0,
-        pf: 6000,
-        tax: 4000,
-        professionalTax: 200,
-        gross: 80000,
-        net: 69800,
-      },
-    } as any,
-  ];
+  if (employees.length === 0) {
+    return [];
+  }
+
+  const employeeList = employees;
 
   employeeList.forEach((emp) => {
     const salary = calculateEmployeeSalary(emp);

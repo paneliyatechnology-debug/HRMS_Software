@@ -49,9 +49,9 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const [companySettings, setCompanySettings] = useState({
     name: 'Paneliya Technology Inc.',
     tagline: 'Enterprise Cloud & Next-Gen Software Engineering',
-    ownerName: 'Keyur Sangani',
-    ownerRole: 'Founder & Managing Director / Super Admin',
-    ownerEmail: 'keyursangani1210@gmail.com',
+    ownerName: 'Paneliya Management',
+    ownerRole: 'Executive Operations & HR',
+    ownerEmail: 'contact@paneliya.com',
     supportEmail: 'support@paneliya.com',
     phone: '+91 6352486893',
     address: 'Paneliya Tech Park, Ring Road, Surat, Gujarat, India',

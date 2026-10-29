@@ -1,24 +1,4 @@
-import {
-  mockDashboardStats,
-  mockDepartments,
-  mockDesignations,
-  mockLocations,
-  mockLeaveRequests,
-  mockLeaveBalances,
-  mockHolidays,
-  mockJobs,
-  mockCandidates,
-  mockPerformanceCycles,
-  mockPerformanceReviews,
-  mockTrainingPrograms,
-  mockTrainingEnrollments,
-  mockCompanyAssets,
-  mockResignations,
-  mockAnnouncements,
-  mockNotifications,
-  mockAuditLogs,
-  mockSystemSettings,
-} from './mockData';
+
 import {
   Employee,
   Department,
@@ -77,7 +57,7 @@ const getApiBase = () => getApiBaseUrl();
  */
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
     const token =
@@ -90,6 +70,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
       signal: controller.signal,
       ...options,
       headers: {
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options?.headers || {}),
@@ -97,7 +78,13 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
     });
 
     if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}`);
+      let errorMsg = `HTTP error ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson?.error?.message) errorMsg = errJson.error.message;
+        else if (errJson?.message) errorMsg = errJson.message;
+      } catch (_) {}
+      throw new Error(errorMsg);
     }
 
     return (await res.json()) as T;
@@ -226,6 +213,56 @@ export const api = {
   },
 
   // =========================================================================
+  // USER PROFILE & PHOTO
+  // =========================================================================
+  async uploadProfilePhoto(file: File | Blob): Promise<{ success: boolean; avatarUrl: string; user?: any }> {
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
+        : null;
+
+    const formData = new FormData();
+    formData.append('profilePhoto', file);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const res = await fetch(`${getApiBase()}/users/profile/photo`, {
+        method: 'PATCH',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let errorMsg = `HTTP error ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson?.error?.message) errorMsg = errJson.error.message;
+          else if (errJson?.message) errorMsg = errJson.message;
+        } catch (_) {}
+        throw new Error(errorMsg);
+      }
+
+      const data = await res.json();
+      const newAvatarUrl =
+        data.avatarUrl || data.photoUrl || data.cloudinaryUrl || (data.user && data.user.avatarUrl) || '';
+
+      return {
+        success: true,
+        avatarUrl: newAvatarUrl,
+        user: data.user,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  },
+
+  // =========================================================================
   // 3. EMPLOYEES & WORKFORCE DOSSIER
   // =========================================================================
   async getEmployees(params?: {
@@ -283,7 +320,7 @@ export const api = {
   // 4. ORGANIZATION (DEPARTMENTS, DESIGNATIONS, LOCATIONS, HIERARCHY)
   // =========================================================================
   async getDepartments() {
-    return fetchWithFallback<Department[]>('/organization/departments', undefined, mockDepartments);
+    return fetchWithFallback<Department[]>('/organization/departments', undefined, []);
   },
 
   async createDepartment(data: {
@@ -297,7 +334,7 @@ export const api = {
       id: `dept-${Date.now()}`,
       name: data.name,
       code: data.code,
-      headName: data.headName || 'Keyur Sangani',
+      headName: data.headName || 'HR Administration',
       employeeCount: 0,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -318,16 +355,15 @@ export const api = {
       description?: string;
     }
   ) {
-    const fallback = mockDepartments.find((d) => d.id === id) || mockDepartments[0];
     return fetchWithFallback<Department>(
       `/organization/departments/${id}`,
       { method: 'PUT', body: JSON.stringify(data) },
-      { ...fallback, ...data }
+      { id, ...data } as Department
     );
   },
 
   async getDesignations() {
-    return fetchWithFallback<Designation[]>('/organization/designations', undefined, mockDesignations);
+    return fetchWithFallback<Designation[]>('/organization/designations', undefined, []);
   },
 
   async createDesignation(data: {
@@ -336,12 +372,11 @@ export const api = {
     minSalary?: number;
     maxSalary?: number;
   }) {
-    const matchedDept = mockDepartments.find((d) => d.id === data.departmentId) || mockDepartments[0];
     const newDes: Designation = {
       id: `des-${Date.now()}`,
       title: data.title,
       departmentId: data.departmentId,
-      departmentName: matchedDept.name,
+      departmentName: 'Department',
       minSalary: data.minSalary || 50000,
       maxSalary: data.maxSalary || 100000,
       createdAt: new Date().toISOString().split('T')[0],
@@ -354,20 +389,11 @@ export const api = {
   },
 
   async getLocations() {
-    return fetchWithFallback<Location[]>('/organization/locations', undefined, mockLocations);
+    return fetchWithFallback<Location[]>('/organization/locations', undefined, []);
   },
 
   async getHierarchy() {
-    return fetchWithFallback<any>('/organization/hierarchy', undefined, {
-      id: 'org-root',
-      name: 'Paneliya Technology Inc.',
-      head: 'Keyur Sangani',
-      departments: mockDepartments.map((d) => ({
-        ...d,
-        totalHeadcount: d.employeeCount,
-        managers: [],
-      })),
-    });
+    return fetchWithFallback<any>('/organization/hierarchy', undefined, null);
   },
 
   // =========================================================================
@@ -395,12 +421,12 @@ export const api = {
   },
 
   async getAttendance(params?: { employeeId?: string; date?: string; departmentId?: string }) {
-    const localRecords = getAllAttendanceRecords();
-    const records = await fetchWithFallback<AttendanceRecord[]>('/attendance', undefined, localRecords);
-    if (Array.isArray(records) && records.length > 0) {
-      syncBackendAttendanceRecords(records);
-    }
-    return records;
+    const query = new URLSearchParams();
+    if (params?.employeeId) query.set('employeeId', params.employeeId);
+    if (params?.date) query.set('date', params.date);
+    if (params?.departmentId) query.set('departmentId', params.departmentId);
+    const qs = query.toString();
+    return fetchWithFallback<AttendanceRecord[]>(`/attendance${qs ? `?${qs}` : ''}`, undefined, []);
   },
 
   async getMyAttendanceStatus(employeeId: string) {
@@ -434,19 +460,10 @@ export const api = {
     }
   ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
     const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
+    const finalRemarks = remarks || 'Morning shift clock-in';
     const payload = {
       employeeId: targetEmpId,
-      remarks: remarks || 'Work from office - morning shift',
-      latitude: geoData?.latitude,
-      longitude: geoData?.longitude,
-      accuracy: geoData?.accuracy,
-      distanceMeters: geoData?.distanceMeters,
-      locationAddress: geoData?.locationAddress || 'Office HQ',
-      isGeofenceVerified: geoData?.isGeofenceVerified ?? true,
-      photo: geoData?.photo,
-      selfiePhoto: geoData?.photo,
-      device: geoData?.device,
-      checkInDevice: geoData?.device,
+      remarks: finalRemarks,
     };
 
     let backendRecord: any = null;
@@ -462,7 +479,20 @@ export const api = {
 
     let localRecord: AttendanceRecord | null = null;
     if (backendRecord && backendRecord.id) {
-      localRecord = updateLocalRecordFromBackend(backendRecord);
+      localRecord = updateLocalRecordFromBackend({
+        ...backendRecord,
+        ...(geoData
+          ? {
+              checkInLatitude: geoData.latitude,
+              checkInLongitude: geoData.longitude,
+              checkInAccuracy: geoData.accuracy,
+              checkInDistanceMeters: geoData.distanceMeters,
+              isGeofenceVerified: geoData.isGeofenceVerified ?? true,
+              checkInPhoto: geoData.photo,
+              checkInDevice: geoData.device,
+            }
+          : {}),
+      });
     } else {
       const res = performCheckIn({
         id: targetEmpId,
@@ -470,7 +500,17 @@ export const api = {
         lastName: employeeMeta?.lastName || '',
         employeeCode: employeeMeta?.employeeCode || targetEmpId,
         departmentName: employeeMeta?.departmentName || 'General',
+        companyId: employeeMeta?.companyId || employeeMeta?.company,
+        lateReason: employeeMeta?.lateReason,
+        remarks: finalRemarks,
       }, geoData);
+      if (!res.success) {
+        return {
+          success: false,
+          message: res.message,
+          record: undefined,
+        };
+      }
       localRecord = res.record || null;
     }
 
@@ -496,18 +536,10 @@ export const api = {
     }
   ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
     const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
+    const finalRemarks = remarks || 'Evening clock-out';
     const payload = {
       employeeId: targetEmpId,
-      remarks: remarks || 'Work day completed',
-      latitude: geoData?.latitude,
-      longitude: geoData?.longitude,
-      accuracy: geoData?.accuracy,
-      distanceMeters: geoData?.distanceMeters,
-      locationAddress: geoData?.locationAddress || 'Office HQ',
-      photo: geoData?.photo,
-      selfiePhoto: geoData?.photo,
-      device: geoData?.device,
-      checkOutDevice: geoData?.device,
+      remarks: finalRemarks,
     };
 
     let backendRecord: any = null;
@@ -523,7 +555,17 @@ export const api = {
 
     let localRecord: AttendanceRecord | null = null;
     if (backendRecord && backendRecord.id) {
-      localRecord = updateLocalRecordFromBackend(backendRecord);
+      localRecord = updateLocalRecordFromBackend({
+        ...backendRecord,
+        ...(geoData
+          ? {
+              checkOutLatitude: geoData.latitude,
+              checkOutLongitude: geoData.longitude,
+              checkOutPhoto: geoData.photo,
+              checkOutDevice: geoData.device,
+            }
+          : {}),
+      });
     } else {
       const res = performCheckOut(targetEmpId, geoData);
       localRecord = res.record || null;
@@ -567,8 +609,11 @@ export const api = {
   // 6. LEAVES & TIME-OFF MANAGEMENT
   // =========================================================================
   async getLeaves(params?: { employeeId?: string; status?: string }) {
-    const localLeaves = getAllLeaves();
-    return fetchWithFallback<LeaveRequest[]>('/leaves', undefined, localLeaves);
+    const query = new URLSearchParams();
+    if (params?.employeeId) query.set('employeeId', params.employeeId);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return fetchWithFallback<LeaveRequest[]>(`/leaves${qs ? `?${qs}` : ''}`, undefined, []);
   },
 
   async applyLeave(data: {
@@ -594,15 +639,21 @@ export const api = {
   },
 
   async getLeaveBalances(employeeId: string) {
-    const fallback = mockLeaveBalances.find((b) => b.employeeId === employeeId) || mockLeaveBalances[0];
     return fetchWithFallback<LeaveBalance>(
       `/leaves/balances/${employeeId}`,
       undefined,
-      fallback
+      {
+        id: `lb-${employeeId}`,
+        employeeId,
+        year: new Date().getFullYear(),
+        casualLeave: { total: 0, used: 0, remaining: 0 },
+        sickLeave: { total: 0, used: 0, remaining: 0 },
+        paidLeave: { total: 0, used: 0, remaining: 0 },
+      }
     );
   },
 
-  async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'Keyur Sangani', comments?: string) {
+  async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'HR Administration', comments?: string) {
     const res = approveLeaveRequest(id, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/approve`,
@@ -611,7 +662,7 @@ export const api = {
     );
   },
 
-  async rejectLeave(id: string, approverName = 'Keyur Sangani', reason?: string) {
+  async rejectLeave(id: string, approverName = 'HR Administration', reason?: string) {
     const res = rejectLeaveRequest(id, reason, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/reject`,
@@ -680,7 +731,7 @@ export const api = {
   // 8. RECRUITMENT & TALENT PIPELINE (ATS)
   // =========================================================================
   async getJobs() {
-    return fetchWithFallback<JobOpening[]>('/recruitment/jobs', undefined, mockJobs);
+    return fetchWithFallback<JobOpening[]>('/recruitment/jobs', undefined, []);
   },
 
   async createJob(data: Partial<JobOpening>) {
@@ -710,7 +761,7 @@ export const api = {
 
   async getCandidates(jobId?: string) {
     const query = jobId && jobId !== 'ALL' ? `?jobId=${jobId}` : '';
-    return fetchWithFallback<Candidate[]>(`/recruitment/candidates${query}`, undefined, mockCandidates);
+    return fetchWithFallback<Candidate[]>(`/recruitment/candidates${query}`, undefined, []);
   },
 
   async createCandidate(data: Partial<Candidate>) {
@@ -769,7 +820,7 @@ export const api = {
   // 9. PERFORMANCE & APPRAISALS
   // =========================================================================
   async getPerformanceCycles() {
-    return fetchWithFallback<any[]>('/performance/cycles', undefined, mockPerformanceCycles);
+    return fetchWithFallback<any[]>('/performance/cycles', undefined, []);
   },
 
   async getPerformanceReviews(employeeId?: string) {
@@ -777,7 +828,7 @@ export const api = {
     return fetchWithFallback<PerformanceReview[]>(
       `/performance/reviews${query}`,
       undefined,
-      mockPerformanceReviews
+      []
     );
   },
 
@@ -804,7 +855,7 @@ export const api = {
   // 10. TRAINING & UPSKILLING
   // =========================================================================
   async getTrainingPrograms() {
-    return fetchWithFallback<TrainingProgram[]>('/training/programs', undefined, mockTrainingPrograms);
+    return fetchWithFallback<TrainingProgram[]>('/training/programs', undefined, []);
   },
 
   async createTrainingProgram(data: {
@@ -840,7 +891,7 @@ export const api = {
     return fetchWithFallback<any[]>(
       `/training/enrollments${query}`,
       undefined,
-      mockTrainingEnrollments
+      []
     );
   },
 
@@ -878,7 +929,7 @@ export const api = {
   // =========================================================================
   async getAssets(category?: string) {
     const query = category && category !== 'ALL' ? `?category=${category}` : '';
-    return fetchWithFallback<CompanyAsset[]>(`/assets${query}`, undefined, mockCompanyAssets);
+    return fetchWithFallback<CompanyAsset[]>(`/assets${query}`, undefined, []);
   },
 
   async createAsset(data: {
@@ -938,23 +989,30 @@ export const api = {
   // 12. RESIGNATIONS & OFFBOARDING
   // =========================================================================
   async getResignations() {
-    return fetchWithFallback<Resignation[]>('/resignations', undefined, mockResignations);
+    return fetchWithFallback<Resignation[]>('/resignations', undefined, []);
   },
 
   async submitResignation(data: {
     employeeId: string;
     reason: string;
-    noticePeriodDays: number;
+    noticePeriodDays?: number;
   }) {
+    const targetEmpId = await this.resolveAttendanceEmployeeId(data.employeeId);
+    const noticePeriod = Number(data.noticePeriodDays) || 30;
+    const payload = {
+      employeeId: targetEmpId,
+      reason: data.reason,
+      noticePeriodDays: noticePeriod,
+    };
     const newRes: Resignation = {
       id: `res-${Date.now()}`,
-      employeeId: data.employeeId,
+      employeeId: targetEmpId,
       employeeName: 'Employee',
-      employeeCode: data.employeeId,
+      employeeCode: targetEmpId,
       departmentName: 'Paneliya Technology',
       resignationDate: new Date().toISOString().split('T')[0],
-      lastWorkingDay: new Date(Date.now() + data.noticePeriodDays * 86400000).toISOString().split('T')[0],
-      noticePeriodDays: data.noticePeriodDays,
+      lastWorkingDay: new Date(Date.now() + noticePeriod * 86400000).toISOString().split('T')[0],
+      noticePeriodDays: noticePeriod,
       reason: data.reason,
       status: 'Submitted' as any,
       managerApproval: { status: 'Pending' },
@@ -967,9 +1025,21 @@ export const api = {
     };
     return fetchWithFallback<Resignation>(
       '/resignations/submit',
-      { method: 'POST', body: JSON.stringify(data) },
+      { method: 'POST', body: JSON.stringify(payload) },
       newRes
     );
+  },
+
+  async approveResignation(id: string, actorName = 'HR Admin') {
+    return this.updateResignationClearance(id, {
+      clearance: {
+        departmentClearance: true,
+        assetReturned: true,
+        financeSettlement: true,
+        exitInterviewCompleted: true,
+      },
+      actorName,
+    });
   },
 
   async updateResignationClearance(
@@ -997,7 +1067,7 @@ export const api = {
     return fetchWithFallback<any>(
       `/resignations/${id}/clearance`,
       { method: 'PUT', body: JSON.stringify({ clearance, actorName: actor }) },
-      { id, clearance, actorName: actor, status: 'In Clearance' }
+      { id, clearance, actorName: actor, status: 'Completed' }
     );
   },
 
@@ -1005,7 +1075,7 @@ export const api = {
   // 13. HOLIDAYS & CALENDAR
   // =========================================================================
   async getHolidays() {
-    return fetchWithFallback<Holiday[]>('/holidays', undefined, mockHolidays);
+    return fetchWithFallback<Holiday[]>('/holidays', undefined, []);
   },
 
   async createHoliday(data: {
@@ -1091,10 +1161,11 @@ export const api = {
   // 15. ANNOUNCEMENTS & NOTICES
   // =========================================================================
   async getAnnouncements(employeeId?: string, departmentName?: string) {
-    const local = employeeId
-      ? getNoticesForEmployee(employeeId, departmentName)
-      : getAllAnnouncements();
-    return fetchWithFallback<Announcement[]>('/announcements', undefined, local);
+    const query = new URLSearchParams();
+    if (employeeId) query.set('employeeId', employeeId);
+    if (departmentName) query.set('departmentName', departmentName);
+    const qs = query.toString();
+    return fetchWithFallback<Announcement[]>(`/announcements${qs ? `?${qs}` : ''}`, undefined, []);
   },
 
   async createAnnouncement(data: {
@@ -1129,7 +1200,7 @@ export const api = {
   // 16. NOTIFICATIONS CENTER
   // =========================================================================
   async getNotifications() {
-    return fetchWithFallback<NotificationItem[]>('/notifications', undefined, mockNotifications);
+    return fetchWithFallback<NotificationItem[]>('/notifications', undefined, []);
   },
 
   async markNotificationRead(id: string) {
@@ -1145,14 +1216,14 @@ export const api = {
   // =========================================================================
   async getAuditLogs(module?: string) {
     const query = module && module !== 'ALL' ? `?module=${module}` : '';
-    return fetchWithFallback<AuditLog[]>(`/audit-logs${query}`, undefined, mockAuditLogs);
+    return fetchWithFallback<AuditLog[]>(`/audit-logs${query}`, undefined, []);
   },
 
   // =========================================================================
   // 18. REPORTS & DASHBOARD ANALYTICS & BULK EXPORT
   // =========================================================================
   async getDashboardStats() {
-    return fetchWithFallback('/reports/dashboard-stats', undefined, mockDashboardStats);
+    return fetchWithFallback('/reports/dashboard-stats', undefined, null);
   },
 
   async exportReport(type: 'attendance' | 'employees' | 'leaves' | 'payroll') {
@@ -1163,14 +1234,14 @@ export const api = {
   // 19. ENTERPRISE SETTINGS & POLICIES
   // =========================================================================
   async getSettings() {
-    return fetchWithFallback<any>('/settings', undefined, mockSystemSettings);
+    return fetchWithFallback<any>('/settings', undefined, null);
   },
 
   async updateSettings(data: any) {
     return fetchWithFallback<any>(
       '/settings',
       { method: 'PUT', body: JSON.stringify(data) },
-      { ...mockSystemSettings, ...data, updatedAt: new Date().toISOString() }
+      { ...data, updatedAt: new Date().toISOString() }
     );
   },
 

@@ -78,28 +78,48 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
-
-  const myEmpId = user?.employeeId || user?.id || '';
-  const myEmpCode = (user as any)?.employeeCode || '';
-  const myEmail = user?.email?.toLowerCase() || '';
-
-  const rawRole = (user?.role || '').toUpperCase();
-  const isAdminOrSuperAdmin =
+  // Strict role check: If role is not an admin, user MUST be in employee self-service view
+  const rawRole = (user?.role || '').trim().toUpperCase();
+  const userIsAdminRole =
     rawRole === 'SUPER_ADMIN' ||
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
-    isUserAdminRole(rawRole) ||
-    portalMode === 'admin';
+    rawRole === 'COMPANY_ADMIN' ||
+    rawRole === 'ORG_ADMIN' ||
+    rawRole === 'FINANCE_ADMIN' ||
+    isUserAdminRole(rawRole);
 
-  const displayEmployees = portalMode === 'employee'
-    ? employees.filter((emp) =>
-        (myEmpId && (emp.id === myEmpId || (emp as any)._id === myEmpId)) ||
-        (myEmpCode && emp.employeeCode === myEmpCode) ||
-        (myEmail && emp.email?.toLowerCase() === myEmail)
-      )
-    : employees;
+  const isEmployeeView = portalMode === 'employee' || !userIsAdminRole;
+  const isAdminOrSuperAdmin = !isEmployeeView && userIsAdminRole;
 
-  const currentEmpFallback: Employee = {
+  const myEmpId = String(user?.employeeId || user?.id || '').trim();
+  const myEmpCode = String((user as any)?.employeeCode || '').trim();
+  const myEmail = String(user?.email || '').trim().toLowerCase();
+  const myFirst = String(user?.firstName || '').trim().toLowerCase();
+  const myLast = String(user?.lastName || '').trim().toLowerCase();
+  const myFullName = `${myFirst} ${myLast}`.trim();
+
+  // Match the logged in employee from employees list
+  const matchedEmployee = React.useMemo(() => {
+    return employees.find((emp) => {
+      const eId = String(emp.id || (emp as any)._id || '').trim();
+      const eUserId = String((emp as any).userId || '').trim();
+      const eCode = String(emp.employeeCode || '').trim();
+      const eEmail = String(emp.email || '').trim().toLowerCase();
+      const eName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase();
+
+      return (
+        (myEmpId && (eId.toLowerCase() === myEmpId.toLowerCase() || eUserId.toLowerCase() === myEmpId.toLowerCase())) ||
+        (user?.id && (eId.toLowerCase() === String(user.id).toLowerCase() || eUserId.toLowerCase() === String(user.id).toLowerCase())) ||
+        (myEmpCode && eCode.toLowerCase() === myEmpCode.toLowerCase()) ||
+        (myEmail && eEmail === myEmail) ||
+        (myFullName && eName === myFullName)
+      );
+    });
+  }, [employees, myEmpId, user?.id, myEmpCode, myEmail, myFullName]);
+
+  // Current employee fallback in case employee not registered in employees list
+  const currentEmpFallback: Employee = React.useMemo(() => ({
     id: myEmpId || 'emp-self',
     employeeCode: myEmpCode || 'EMP-SELF',
     firstName: user?.firstName || 'Employee',
@@ -131,11 +151,32 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
     createdAt: '2026-01-01',
     updatedAt: '2026-01-01',
-  };
+  }), [myEmpId, myEmpCode, user]);
 
-  const baseEmployees = portalMode === 'employee'
-    ? (displayEmployees.length > 0 ? displayEmployees : [currentEmpFallback])
-    : employees;
+  const selfEmployee: Employee = matchedEmployee || currentEmpFallback;
+
+  // Set of all identifier keys for this employee to match attendance records accurately
+  const myCandidateIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (selfEmployee.id) ids.add(selfEmployee.id.toLowerCase());
+    if (matchedEmployee?.id) ids.add(matchedEmployee.id.toLowerCase());
+    if ((matchedEmployee as any)?._id) ids.add(String((matchedEmployee as any)._id).toLowerCase());
+    if ((matchedEmployee as any)?.userId) ids.add(String((matchedEmployee as any).userId).toLowerCase());
+    if (user?.employeeId) ids.add(String(user.employeeId).toLowerCase());
+    if (user?.id) ids.add(String(user.id).toLowerCase());
+    if (myEmpId) ids.add(myEmpId.toLowerCase());
+    return ids;
+  }, [selfEmployee.id, matchedEmployee, user?.employeeId, user?.id, myEmpId]);
+
+  const isMyAttendanceRecord = (r: AttendanceRecord): boolean => {
+    if (!r) return false;
+    const recEmpId = String(r.employeeId || '').toLowerCase().trim();
+    if (recEmpId && myCandidateIds.has(recEmpId)) return true;
+    if ((r as any).userId && myCandidateIds.has(String((r as any).userId).toLowerCase().trim())) return true;
+    if (r.employeeName && myFullName && r.employeeName.toLowerCase().trim() === myFullName) return true;
+    if (matchedEmployee && r.employeeName && `${matchedEmployee.firstName} ${matchedEmployee.lastName}`.toLowerCase().trim() === r.employeeName.toLowerCase().trim()) return true;
+    return false;
+  };
 
   const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
   const [attendanceSearch, setAttendanceSearch] = useState('');
@@ -147,20 +188,43 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
 
   const attQ = attendanceSearch.trim().toLowerCase();
-  const visibleEmployees = attQ
-    ? baseEmployees.filter((emp) => {
-        const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
-        const code = (emp.employeeCode || '').toLowerCase();
-        const dept = (emp.departmentName || '').toLowerCase();
-        const desig = (emp.designationTitle || '').toLowerCase();
-        return (
-          name.includes(attQ) ||
-          code.includes(attQ) ||
-          dept.includes(attQ) ||
-          desig.includes(attQ)
-        );
-      })
-    : baseEmployees;
+
+  // In employee view, visibleEmployees MUST ONLY contain the single logged-in employee!
+  const visibleEmployees = React.useMemo(() => {
+    if (isEmployeeView) {
+      return [selfEmployee];
+    }
+    return attQ
+      ? employees.filter((emp) => {
+          const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+          const code = (emp.employeeCode || '').toLowerCase();
+          const dept = (emp.departmentName || '').toLowerCase();
+          const desig = (emp.designationTitle || '').toLowerCase();
+          return (
+            name.includes(attQ) ||
+            code.includes(attQ) ||
+            dept.includes(attQ) ||
+            desig.includes(attQ)
+          );
+        })
+      : employees;
+  }, [isEmployeeView, selfEmployee, attQ, employees]);
+
+  const getEmpTodayRecord = (emp: Employee): AttendanceRecord | null => {
+    let rec = getTodayRecordForEmployee(emp.id);
+    if (rec) return rec;
+
+    if (isEmployeeView) {
+      for (const candId of Array.from(myCandidateIds)) {
+        rec = getTodayRecordForEmployee(candId);
+        if (rec) return rec;
+      }
+      const today = getTodayDateString();
+      const live = liveRecords.find((r) => r.date === today && isMyAttendanceRecord(r));
+      if (live) return live;
+    }
+    return null;
+  };
 
 
   // Modal: HR Regularization
@@ -411,7 +475,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            Today's Live Tracker
+            {isEmployeeView ? "My Today's Punch" : "Today's Live Tracker"}
           </button>
           <button
             onClick={() => setActiveTab('summary')}
@@ -421,7 +485,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            Monthly Summary
+            {isEmployeeView ? "My Monthly Summary" : "Monthly Summary"}
           </button>
           <button
             onClick={() => setActiveTab('roster')}
@@ -431,7 +495,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
           >
-            Shift Roster
+            {isEmployeeView ? "My Shift Schedule" : "Shift Roster"}
           </button>
           <button
             onClick={() => setActiveTab('holidays')}
@@ -457,7 +521,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <span className="truncate">Mark Attendance</span>
           </button>
 
-          {portalMode !== 'employee' && (
+          {!isEmployeeView && (
             <>
               <button
                 onClick={() => setIsRegModalOpen(true)}
@@ -494,11 +558,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export CSV</span>
+            <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
           </button>
 
           {/* Quick Attendance Employee Search */}
-          {portalMode !== 'employee' && (
+          {!isEmployeeView && (
             <div className="relative min-w-[210px]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -541,7 +605,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       {/* TAB: Today's Live Attendance & Break Tracker */}
       {activeTab === 'today' && (() => {
         const todayDate = getTodayDateString();
-        const todayRecords = liveRecords.filter((r) => r.date === todayDate);
+        const todayRecords = isEmployeeView
+          ? liveRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
+          : liveRecords.filter((r) => r.date === todayDate);
         const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
         const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
         const completedCount = todayRecords.filter((r) => r.isCompleted).length;
@@ -549,10 +615,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         return (
           <div className="space-y-4">
             {/* KPI Metrics */}
-            {portalMode === 'employee' ? (
+            {isEmployeeView ? (
               (() => {
-                const selfEmp = visibleEmployees[0];
-                const rec = selfEmp ? getTodayRecordForEmployee(selfEmp.id) : null;
+                const selfEmp = visibleEmployees[0] || selfEmployee;
+                const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
                 const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
                 const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
                 const isDone = rec && rec.isCompleted;
@@ -635,13 +701,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
             )}
 
-            {/* Employee Weekly Tracked Hours Bar Chart */}
-            {portalMode === 'employee' && (
-              <TrackedHoursChart
-                employeeId={visibleEmployees[0]?.id || user.employeeId || user.id}
-                records={liveRecords}
-              />
-            )}
 
             {/* WFH Action Toast Notice */}
             {wfhNotice && (
@@ -665,10 +724,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
-                    {portalMode === 'employee' ? "My Today's Shift & Attendance Log" : "Today's Live Workforce Shift Log"}
+                    {isEmployeeView ? "My Today's Shift & Attendance Log" : "Today's Live Workforce Shift Log"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {portalMode === 'employee' ? "Your live punch and break intervals for today" : "Live work timers and break intervals updating every second"}
+                    {isEmployeeView ? "Your live punch and break intervals for today" : "Live work timers and break intervals updating every second"}
                   </p>
                 </div>
                 <button
@@ -696,7 +755,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {visibleEmployees.map((emp) => {
-                      const rec = getTodayRecordForEmployee(emp.id);
+                      const rec = getEmpTodayRecord(emp);
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
                       const isDone = rec && rec.isCompleted;
@@ -899,19 +958,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       {/* TAB 1: Attendance Summary (31-day October 2026 Matrix) */}
       {activeTab === 'summary' && (
         <div className="space-y-4">
-          {portalMode === 'employee' && (
-            <TrackedHoursChart
-              employeeId={visibleEmployees[0]?.id || user.employeeId || user.id}
-              records={liveRecords}
-            />
-          )}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
               <CalendarIcon className="w-4 h-4" />
             </div>
             <h2 className="text-sm font-bold text-slate-900">
-              {portalMode === 'employee' ? "My Attendance Summary (October 2026)" : "Attendance Summary (October 2026)"}
+              {isEmployeeView ? "My Attendance Summary (October 2026)" : "Attendance Summary (October 2026)"}
             </h2>
           </div>
 
@@ -984,9 +1037,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       {daysInMonth.map(({ day }) => {
                         const dayStr = String(day).padStart(2, '0');
                         const dateStr = `2026-10-${dayStr}`;
-                        const record = records.find(
-                          (r) => r.employeeId === emp.id && r.date === dateStr
-                        );
+                        const record = isEmployeeView
+                          ? (records.find((r) => r.date === dateStr && isMyAttendanceRecord(r)) ||
+                             liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r)))
+                          : (records.find((r) => r.employeeId === emp.id && r.date === dateStr) ||
+                             liveRecords.find((r) => r.employeeId === emp.id && r.date === dateStr));
 
                         let icon = <span className="text-slate-300">-</span>;
 
@@ -1039,15 +1094,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  {portalMode === 'employee' ? "My Shift Schedule" : "Shift Roster & Work Schedules"}
+                  {isEmployeeView ? "My Shift Schedule" : "Shift Roster & Work Schedules"}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {portalMode === 'employee' ? "Your assigned shift timings and weekly off days" : "Assigned employee shifts and weekly off days"}
+                  {isEmployeeView ? "Your assigned shift timings and weekly off days" : "Assigned employee shifts and weekly off days"}
                 </p>
               </div>
             </div>
 
-            {portalMode !== 'employee' && (
+            {!isEmployeeView && (
               <button
                 onClick={() => alert('Opening shift assignment dialog')}
                 className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs"
@@ -1066,7 +1121,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <th className="py-3 px-4">TIMING</th>
                   <th className="py-3 px-4">GRACE PERIOD</th>
                   <th className="py-3 px-4">WEEKLY OFF</th>
-                  {portalMode !== 'employee' && <th className="py-3 px-4 text-right">ACTION</th>}
+                  {!isEmployeeView && <th className="py-3 px-4 text-right">ACTION</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1096,7 +1151,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         Saturday, Sunday
                       </span>
                     </td>
-                    {portalMode !== 'employee' && (
+                    {!isEmployeeView && (
                       <td className="py-3.5 px-4 text-right">
                         <button
                           onClick={() => alert(`Editing shift for ${emp.firstName}`)}
@@ -1128,7 +1183,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
             </div>
 
-            {portalMode !== 'employee' && (
+            {!isEmployeeView && (
               <button
                 onClick={() => alert('New holiday added to schedule')}
                 className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs"

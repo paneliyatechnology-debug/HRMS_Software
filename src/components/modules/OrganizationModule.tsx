@@ -68,7 +68,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   // Department form state
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
-  const [deptHeadName, setDeptHeadName] = useState('Keyur Sangani');
+  const [deptHeadName, setDeptHeadName] = useState('Department Head');
   const [deptDescription, setDeptDescription] = useState('');
   const [deptSubmitting, setDeptSubmitting] = useState(false);
 
@@ -245,17 +245,17 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   </span>
                 </div>
 
-                {/* Founder Profile */}
-                <div className="p-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-amber-50/30">
+                {/* Executive Leadership Profile */}
+                <div className="p-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-emerald-50/30">
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #f59e0b, #7c3aed)' }}>
-                      KS
+                      style={{ background: 'linear-gradient(135deg, #059669, #064e3b)' }}>
+                      EX
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-base font-black text-slate-900">Keyur Sangani</h4>
-                      <p className="text-xs font-bold text-indigo-600">Founder, Owner & Managing Director</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Paneliya Technology • Surat, Gujarat</p>
+                      <h4 className="text-base font-black text-slate-900">Executive Management</h4>
+                      <p className="text-xs font-bold text-emerald-700">Company Board & Managing Director</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Corporate Headquarters</p>
                     </div>
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
                       <Mail className="w-3 h-3" /> Direct Email
                     </div>
-                    <p className="text-xs font-bold text-indigo-600 truncate select-all">keyur@paneliya.com</p>
+                    <p className="text-xs font-bold text-emerald-700 truncate select-all">contact@paneliya.com</p>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
@@ -571,9 +571,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               <div className="px-6 py-4 rounded-2xl text-white shadow-xl max-w-xs w-full"
                 style={{ background: 'linear-gradient(135deg, #1e1b4b, #3730a3)' }}>
                 <div className="text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Executive Leadership</div>
-                <div className="text-base font-black">Keyur Sangani</div>
-                <div className="text-xs text-indigo-300 mt-0.5">Super Administrator & Technical Lead</div>
-                <div className="text-[10px] text-indigo-400 mt-1">Founder & Owner</div>
+                <div className="text-base font-black">Company Director</div>
+                <div className="text-xs text-indigo-300 mt-0.5">Managing Director & HR Head</div>
+                <div className="text-[10px] text-indigo-400 mt-1">Executive Board</div>
               </div>
             </div>
 

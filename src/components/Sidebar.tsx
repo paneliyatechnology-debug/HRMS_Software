@@ -29,6 +29,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getAllCompanies } from '../lib/companyService';
 
 interface SidebarProps {
   activeModule: string;
@@ -60,6 +61,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
   });
+
+  // Dynamic White-label Company Branding
+  const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
+    name: 'Paneliya Technology',
+  });
+
+  useEffect(() => {
+    const updateBrand = () => {
+      try {
+        const companies = getAllCompanies();
+        let matched = companies.find((c) => c.id === user?.companyId);
+        if (!matched && user?.companyName) {
+          matched = companies.find(
+            (c) => c.name.toLowerCase() === user.companyName?.toLowerCase()
+          );
+        }
+        if (!matched && user?.email) {
+          matched = companies.find(
+            (c) => c.adminUser?.email?.toLowerCase() === user.email.toLowerCase()
+          );
+        }
+        const customName = localStorage.getItem('hrms_company_name');
+        const customLogo = localStorage.getItem('hrms_company_logo');
+
+        const resolvedName =
+          customName ||
+          matched?.name ||
+          user?.companyName ||
+          'Paneliya Technology';
+        const resolvedLogo = customLogo || matched?.logoUrl;
+
+        setCompanyInfo({
+          name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
+          logoUrl: resolvedLogo,
+        });
+      } catch {
+        // fallback
+      }
+    };
+
+    updateBrand();
+    window.addEventListener('hrms_companies_updated', updateBrand);
+    return () => {
+      window.removeEventListener('hrms_companies_updated', updateBrand);
+    };
+  }, [user]);
+
+  // Dynamic Work Availability Status
+  const [workStatus, setWorkStatus] = useState<string>('Working in Office');
+  useEffect(() => {
+    const updatePrefs = () => {
+      try {
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.workStatus) {
+            setWorkStatus(parsed.workStatus);
+          }
+        }
+      } catch {}
+    };
+    updatePrefs();
+    window.addEventListener('hrms_preferences_updated', updatePrefs);
+    return () => window.removeEventListener('hrms_preferences_updated', updatePrefs);
+  }, []);
+
+  const displayCompanyName = companyInfo.name || 'Paneliya Technology';
+  const companyInitial = (displayCompanyName[0] || 'P').toUpperCase();
+  const companyLogo = companyInfo.logoUrl;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -125,17 +195,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => handleNav(id, subTab)}
           title={label}
           aria-label={label}
-          className={`w-full relative flex items-center justify-center h-10 rounded-[8px] transition-all duration-150 cursor-pointer group ${
+          className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${
             isActive
-              ? 'bg-[#4e5de0] text-white shadow-xs'
-              : 'text-[#c8d4f2] hover:bg-[#4e5de0]/80 hover:text-white'
+              ? 'bg-[#064e3b] text-white shadow-xs'
+              : 'text-[#475569] hover:bg-[#ecfdf5] hover:text-[#064e3b] hover:scale-105'
           }`}
         >
-          <span className={`w-5 h-5 flex items-center justify-center ${isActive ? 'text-white' : 'text-[#aab8df] group-hover:text-white'}`}>
+          <span className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#059669] group-hover:text-[#064e3b]'}`}>
             {icon}
           </span>
           {badge && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#f39a3f] ring-2 ring-[#111d3b]" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#f59e0b] ring-2 ring-white animate-pulse" />
           )}
         </button>
       );
@@ -146,14 +216,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         key={id}
         id={`nav-item-${id}`}
         onClick={() => handleNav(id, subTab)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-[13px] transition-all duration-150 ${
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-all duration-200 cursor-pointer group active:scale-[0.98] ${
           isActive
-            ? 'bg-[#4e5de0] text-white font-semibold shadow-xs'
-            : 'text-[#c8d4f2] hover:bg-[#4e5de0]/80 hover:text-white font-medium'
+            ? 'bg-[#064e3b] text-white font-bold shadow-xs translate-x-0.5'
+            : 'text-[#334155] hover:bg-[#ecfdf5] hover:text-[#064e3b] hover:translate-x-1 font-medium'
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <span className={`w-5 flex justify-center ${isActive ? 'text-white' : 'text-[#aab8df]'}`}>
+          <span className={`w-5 flex justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#059669] group-hover:text-[#064e3b]'}`}>
             {icon}
           </span>
           <span className="truncate">{label}</span>
@@ -168,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-[#111d3b]/60 backdrop-blur-xs z-40 lg:hidden"
+          className="fixed inset-0 bg-[#062d1f]/70 backdrop-blur-xs z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -177,13 +247,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         id="sidebar"
         className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] ${
           isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
-        } bg-gradient-to-b from-[#111d3b] to-[#101a34] text-[#eaf0ff] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#19284c] ${
+        } bg-white text-[#0d271d] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r-2 border-[#064e3b] shadow-xs ${
           isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand Header */}
         <div
-          className={`h-[62px] sm:h-[66px] border-b border-[#34415e]/80 shrink-0 ${
+          className={`h-[62px] sm:h-[66px] border-b-2 border-[#064e3b] shrink-0 bg-white ${
             effectiveCollapsed
               ? 'px-2 flex items-center justify-center'
               : 'px-3 flex items-center justify-between'
@@ -194,37 +264,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 id="btn-sidebar-logo-expand"
                 onClick={toggleCollapse}
-                className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#6576ff] to-[#7f4cdb] flex items-center justify-center font-black text-white text-xl shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer relative group"
-                title="Expand sidebar"
+                className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xl shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer relative group overflow-hidden"
+                title={`${displayCompanyName} (by MyOwnHRMS)`}
               >
-                M
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#111d3b] border border-[#6576ff] flex items-center justify-center text-[10px] text-white shadow-xs">
+                {companyLogo ? (
+                  <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
+                ) : (
+                  companyInitial
+                )}
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white border border-[#064e3b] flex items-center justify-center text-[10px] text-[#064e3b] shadow-xs">
                   <PanelLeftOpen className="w-2.5 h-2.5" />
                 </span>
               </button>
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2.5">
-                <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#6576ff] to-[#7f4cdb] flex items-center justify-center font-black text-white text-xl shadow-md shrink-0">
-                  M
+              <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xl shadow-md shrink-0 overflow-hidden">
+                  {companyLogo ? (
+                    <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
+                  ) : (
+                    companyInitial
+                  )}
                 </div>
-                <div>
-                  <b className="text-[17px] tracking-[0.5px] text-white block leading-tight font-black">
-                    MY OWN
+                <div className="min-w-0 flex-1">
+                  <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#0d271d] block leading-tight font-black truncate" title={displayCompanyName}>
+                    {displayCompanyName}
                   </b>
-                  <small className="text-[10px] tracking-[2px] text-[#aab8df] block uppercase font-bold">
-                    H R M S
+                  <small className="text-[10px] tracking-[0.4px] text-[#059669] block font-bold leading-none mt-0.5">
+                    by MyOwnHRMS
                   </small>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 {/* Desktop Collapse Button */}
                 <button
                   id="btn-sidebar-toggle-collapse"
                   onClick={toggleCollapse}
-                  className="hidden lg:flex p-1.5 rounded-lg text-[#aab8df] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  className="hidden lg:flex p-1.5 rounded-lg text-[#065f46] hover:text-[#0d271d] hover:bg-[#ecfdf5] transition-colors cursor-pointer"
                   title="Collapse sidebar (icons only)"
                 >
                   <PanelLeftClose className="w-4 h-4" />
@@ -232,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Close button for mobile */}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg text-[#aab8df] hover:text-white hover:bg-white/10 lg:hidden cursor-pointer"
+                  className="p-1.5 rounded-lg text-[#065f46] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden cursor-pointer"
                   title="Close navigation"
                 >
                   <X className="w-5 h-5" />
@@ -251,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Main workspace section */}
           <div className="space-y-0.5">
             {!effectiveCollapsed && (
-              <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
+              <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px]">
                 {portalMode === 'admin' ? 'Administration' : 'Self-Service'}
               </p>
             )}
@@ -263,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
               <CalendarOff className="w-4 h-4" />,
               portalMode === 'admin' && pendingLeavesCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#f39a3f] text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#f59e0b] text-white text-[10px] font-bold">
                   {pendingLeavesCount}
                 </span>
               ) : undefined
@@ -271,12 +349,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {portalMode === 'employee' && (
               navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)
             )}
+            {portalMode === 'employee' && (
+              navItem('resignations', 'My Resignation', <LogOut className="w-4 h-4" />)
+            )}
             {navItem(
               'chat',
               'Team Chat',
               <MessageSquare className="w-4 h-4" />,
               unreadChatCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#16a779] text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#10b981] text-white text-[10px] font-bold">
                   {unreadChatCount}
                 </span>
               ) : undefined
@@ -288,9 +369,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {portalMode === 'admin' && (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#34415e]/50 mx-1" />
+                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
               ) : (
-                <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
                   Workforce
                 </p>
               )}
@@ -304,39 +385,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div>
                   <button
                     onClick={() => toggleSection('people')}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-[13px] font-medium text-[#c8d4f2] hover:bg-[#4e5de0]/80 hover:text-white transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#334155] hover:bg-[#ecfdf5] hover:text-[#064e3b] transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="w-5 flex justify-center text-[#aab8df]">
+                      <span className="w-5 flex justify-center text-[#059669] group-hover:text-[#064e3b]">
                         <Users className="w-4 h-4" />
                       </span>
                       <span>Employees</span>
                     </div>
                     <ChevronDown
-                      className={`w-3.5 h-3.5 text-[#aab8df] transition-transform ${
+                      className={`w-3.5 h-3.5 text-[#059669] transition-transform ${
                         openSections.people ? 'rotate-180' : ''
                       }`}
                     />
                   </button>
 
                   {openSections.people && (
-                    <div className="ml-5 pl-3 space-y-0.5 border-l border-[#34415e] my-1">
+                    <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#064e3b]/30 my-1">
                       <button
                         onClick={() => handleNav('employees')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${
                           activeModule === 'employees'
-                            ? 'text-white font-semibold bg-[#4e5de0]'
-                            : 'text-[#c8d4f2] hover:text-white hover:bg-white/10'
+                            ? 'text-white font-bold bg-[#064e3b]'
+                            : 'text-[#475569] hover:text-[#064e3b] hover:bg-[#ecfdf5]'
                         }`}
                       >
                         Directory
                       </button>
                       <button
                         onClick={() => handleNav('organization', 'departments')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${
                           activeModule === 'organization'
-                            ? 'text-white font-semibold bg-[#4e5de0]'
-                            : 'text-[#c8d4f2] hover:text-white hover:bg-white/10'
+                            ? 'text-white font-bold bg-[#064e3b]'
+                            : 'text-[#475569] hover:text-[#064e3b] hover:bg-[#ecfdf5]'
                         }`}
                       >
                         Departments & Roles
@@ -348,6 +429,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
               {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
+              {navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)}
               {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
             </div>
           )}
@@ -355,9 +437,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Company section */}
           <div className="space-y-0.5">
             {effectiveCollapsed ? (
-              <div className="my-2 border-t border-[#34415e]/50 mx-1" />
+              <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
             ) : (
-              <p className="px-3 pb-1 text-[11px] font-semibold text-[#9baedb] uppercase tracking-[1px]">
+              <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
                 Company
               </p>
             )}
@@ -370,14 +452,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer: User profile & Logout */}
         <div
-          className={`border-t border-[#34415e]/80 bg-[#101a34]/60 ${
+          className={`border-t-2 border-[#064e3b] bg-[#f8faf9] ${
             effectiveCollapsed ? 'p-2' : 'p-3'
           }`}
         >
           {effectiveCollapsed ? (
             <div className="flex flex-col items-center gap-2 py-1">
               <div
-                className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3548be] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer"
+                className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer overflow-hidden border border-[#a7f3d0]"
                 title={`${
                   user.firstName
                     ? `${user.firstName} ${user.lastName || ''}`.trim()
@@ -388,12 +470,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : (user as any).designationTitle || 'Staff Employee'
                 })`}
               >
-                {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                {user.lastName?.[0] || ''}
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                    {user.lastName?.[0] || ''}
+                  </>
+                )}
               </div>
               <button
                 onClick={logout}
-                className="p-2 rounded-[7px] text-[#aab8df] hover:text-[#ed626c] hover:bg-red-500/10 transition-colors cursor-pointer"
+                className="p-2 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -401,37 +489,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between p-1.5 rounded-[8px] hover:bg-white/5 transition-colors">
+              <div className="flex items-center justify-between p-1.5 rounded-[8px] hover:bg-[#ecfdf5] transition-colors">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3548be] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                    {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                    {user.lastName?.[0] || ''}
+                  <div className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs overflow-hidden border border-[#a7f3d0]">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <>
+                        {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                        {user.lastName?.[0] || ''}
+                      </>
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">
+                    <p className="text-xs font-bold text-[#0d271d] truncate">
                       {user.firstName
                         ? `${user.firstName} ${user.lastName || ''}`.trim()
                         : user.email || 'User'}
                     </p>
-                    <p className="text-[10px] text-[#aab8df] truncate">
-                      {portalMode === 'admin'
-                        ? 'Administrator'
-                        : (user as any).designationTitle || 'Staff Employee'}
+                    <p className="text-[10px] text-[#475569] truncate flex items-center gap-1">
+                      <span>{portalMode === 'admin' ? 'Administrator' : (user as any).designationTitle || 'Staff Employee'}</span>
+                      <span className="opacity-60">•</span>
+                      <span className="text-[#059669] font-bold">{workStatus}</span>
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={logout}
-                  className="p-1.5 rounded-[7px] text-[#aab8df] hover:text-[#ed626c] hover:bg-red-500/10 transition-colors"
+                  className="p-1.5 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
                   title="Sign Out"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="mt-2 pt-2 border-t border-[#34415e]/40 px-1 text-[10px] text-[#aab8df] flex justify-between items-center">
-                <span>My Own HRMS</span>
-                <span className="text-[#6576ff] font-semibold">People · Work</span>
+              <div className="mt-2 pt-2 border-t border-[#064e3b]/20 px-1 text-[10px] text-[#475569] flex justify-between items-center">
+                <span className="truncate max-w-[125px] font-medium" title={displayCompanyName}>{displayCompanyName}</span>
+                <span className="text-[#059669] font-bold">by MyOwnHRMS</span>
               </div>
             </>
           )}

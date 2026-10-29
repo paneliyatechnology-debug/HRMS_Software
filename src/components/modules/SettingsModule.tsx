@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Shield,
+  ShieldCheck,
   Clock,
   Calendar,
   Check,
@@ -35,10 +36,14 @@ import {
   ExternalLink,
   Users,
   ChevronRight,
+  Camera,
+  Upload,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
+import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { UpgradePlanModal } from '../modals/UpgradePlanModal';
 import {
   getCompanySubscription,
@@ -46,19 +51,27 @@ import {
   SUBSCRIPTION_FEATURES_MATRIX,
   SubscriptionInvoice,
 } from '../../lib/subscriptionService';
+import {
+  getWorkScheduleConfig,
+  saveWorkScheduleConfig,
+  formatMinutesToTimeString,
+  parseTimeToMinutes,
+  WorkScheduleConfig,
+} from '../../lib/shiftScheduleService';
 
 interface SettingsModuleProps {
   portalMode?: 'employee' | 'admin';
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: propPortalMode }) => {
-  const { user, portalMode: authPortalMode } = useAuth();
+  const { user, portalMode: authPortalMode, updateUserProfile } = useAuth();
   const { showToast } = useSocket();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac' | 'billing'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac' | 'billing' | 'preferences'>('company');
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'notifications' | 'security' | 'preferences'>('profile');
@@ -93,12 +106,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     address: '100 Silicon Vista Blvd, Suite 800, San Francisco, CA 94105',
   });
 
-  const [scheduleData, setScheduleData] = useState({
-    defaultShift: '09:00 AM - 06:00 PM',
-    gracePeriodMinutes: 15,
-    halfDayHours: 4,
-    workingHoursPerDay: 8,
-  });
+  const adminCompanyId = user.companyId || (user as any).companyId || 'comp-paneliya';
+  const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
 
   const [leavePolicyData, setLeavePolicyData] = useState({
     casualLeaveAnnual: 12,
@@ -142,41 +151,50 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    // Always load preferences, notifications, and profile extras from localStorage for all users (Admin & Employee)
+    if (typeof window !== 'undefined') {
+      try {
+        const savedNotifs = localStorage.getItem('hrms_emp_notifications');
+        if (savedNotifs) setEmpNotifications(JSON.parse(savedNotifs));
+
+        const savedPrefs = localStorage.getItem('hrms_emp_preferences');
+        if (savedPrefs) setEmpPreferences(JSON.parse(savedPrefs));
+
+        const savedProf = localStorage.getItem('hrms_emp_profile_extra');
+        if (savedProf) setEmpProfile((prev) => ({ ...prev, ...JSON.parse(savedProf) }));
+      } catch (e) {
+        console.error('Failed to load user preferences:', e);
+      }
+    }
+
     if (!isEmployee) {
       const loadSettings = async () => {
         try {
           const data = await api.getSettings();
           if (data) {
             if (data.company) setCompanyData((prev) => ({ ...prev, ...data.company }));
-            if (data.workSchedule) setScheduleData((prev) => ({ ...prev, ...data.workSchedule }));
+            if (data.workSchedule) {
+              setScheduleData((prev) => ({ ...prev, ...data.workSchedule }));
+            } else {
+              setScheduleData(getWorkScheduleConfig(adminCompanyId));
+            }
             if (data.leavePolicy) setLeavePolicyData((prev) => ({ ...prev, ...data.leavePolicy }));
+          } else {
+            setScheduleData(getWorkScheduleConfig(adminCompanyId));
           }
         } catch (err) {
           console.error('Failed to load settings:', err);
+          setScheduleData(getWorkScheduleConfig(adminCompanyId));
         }
       };
       loadSettings();
-    } else {
-      if (typeof window !== 'undefined') {
-        try {
-          const savedNotifs = localStorage.getItem('hrms_emp_notifications');
-          if (savedNotifs) setEmpNotifications(JSON.parse(savedNotifs));
-
-          const savedPrefs = localStorage.getItem('hrms_emp_preferences');
-          if (savedPrefs) setEmpPreferences(JSON.parse(savedPrefs));
-
-          const savedProf = localStorage.getItem('hrms_emp_profile_extra');
-          if (savedProf) setEmpProfile((prev) => ({ ...prev, ...JSON.parse(savedProf) }));
-        } catch (e) {
-          console.error(e);
-        }
-      }
     }
   }, [isEmployee, user]);
 
   const handleAdminSave = async () => {
     setLoading(true);
     try {
+      saveWorkScheduleConfig(scheduleData, adminCompanyId);
       await api.updateSettings({
         company: companyData,
         workSchedule: scheduleData,
@@ -206,6 +224,61 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      showToast({ type: 'error', title: 'Invalid Image', message: validation.error || 'Please select a valid image.' });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      let newAvatarUrl = '';
+      try {
+        const res = await api.uploadProfilePhoto(file);
+        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
+      } catch (err) {
+        console.warn('Backend photo upload failed, using local compression fallback:', err);
+      }
+
+      if (!newAvatarUrl) {
+        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
+      }
+
+      updateUserProfile({ avatarUrl: newAvatarUrl });
+      const empId = user.employeeId || user.id;
+      if (empId) {
+        await api.updateEmployee(empId, { avatarUrl: newAvatarUrl });
+      }
+      window.dispatchEvent(new Event('hrms_employees_updated'));
+      showToast({ type: 'success', title: 'Profile Picture Updated', message: 'Your profile picture has been saved successfully.' });
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Upload Failed', message: err.message || 'Could not update profile picture.' });
+    } finally {
+      setUploadingAvatar(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setUploadingAvatar(true);
+    try {
+      updateUserProfile({ avatarUrl: '' });
+      const empId = user.employeeId || user.id;
+      if (empId) {
+        await api.updateEmployee(empId, { avatarUrl: '' });
+      }
+      window.dispatchEvent(new Event('hrms_employees_updated'));
+      showToast({ type: 'success', title: 'Photo Removed', message: 'Your profile picture has been cleared.' });
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Action Failed', message: err.message || 'Could not remove profile picture.' });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleEmpProfileSave = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('hrms_emp_profile_extra', JSON.stringify(empProfile));
@@ -232,15 +305,34 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     setTimeout(() => setSavedMessage(false), 3000);
   };
 
-  const handleEmpPrefSave = () => {
+  const handleEmpPrefSave = async () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('hrms_emp_preferences', JSON.stringify(empPreferences));
+      localStorage.setItem('hrms_work_status', empPreferences.workStatus);
+      localStorage.setItem('hrms_time_format', empPreferences.timeFormat);
+      localStorage.setItem('hrms_date_format', empPreferences.dateFormat);
+      localStorage.setItem('hrms_language', empPreferences.language);
+
+      // System-wide broadcast to LiveClock, Header, and Sidebar
+      window.dispatchEvent(new Event('hrms_preferences_updated'));
+      window.dispatchEvent(new Event('hrms_employees_updated'));
     }
+
+    // Sync workStatus to backend database for the user's employee record
+    const empId = user?.employeeId || user?.id;
+    if (empId) {
+      try {
+        await api.updateEmployee(empId, { workStatus: empPreferences.workStatus });
+      } catch (err) {
+        console.warn('Could not sync work status to employee API:', err);
+      }
+    }
+
     setSavedMessage(true);
     showToast({
       type: 'success',
-      title: 'Preferences Updated',
-      message: 'Work and regional display preferences saved.',
+      title: 'Preferences Saved & Applied',
+      message: `Work status set to "${empPreferences.workStatus}" & live displays updated!`,
     });
     setTimeout(() => setSavedMessage(false), 3000);
   };
@@ -280,6 +372,331 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { module: 'Hardware Assets', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
     { module: 'System Audit Logs', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
   ];
+
+  // =========================================================================
+  // SHARED: Work Availability & Display Preferences Luxury Green Panel
+  // =========================================================================
+  const renderWorkAndDisplayPanel = () => {
+    const workStatusOptions = [
+      {
+        id: 'Working in Office',
+        icon: '🏢',
+        title: 'Working in Office',
+        desc: 'Present at the official workstation. Available for face-to-face team discussions and offline meetings.',
+        badge: 'In Office',
+        accentColor: 'border-emerald-500 bg-emerald-50/60 text-emerald-950',
+      },
+      {
+        id: 'Working Remotely',
+        icon: '🏠',
+        title: 'Working Remotely',
+        desc: 'Operating from home or remote base. Readily reachable via chat, video conference, and enterprise email.',
+        badge: 'Remote',
+        accentColor: 'border-blue-500 bg-blue-50/60 text-blue-950',
+      },
+      {
+        id: 'In Client Meeting',
+        icon: '🤝',
+        title: 'In Client Meeting',
+        desc: 'Occupied with external customer consultation, sales demo, or client negotiations. Responses may be delayed.',
+        badge: 'Client Visit',
+        accentColor: 'border-amber-500 bg-amber-50/60 text-amber-950',
+      },
+      {
+        id: 'Focus / Deep Work',
+        icon: '🎯',
+        title: 'Focus / Deep Work',
+        desc: 'Heads-down on high-priority development or architecture. Notifications muted; urgent queries only.',
+        badge: 'Do Not Disturb',
+        accentColor: 'border-purple-500 bg-purple-50/60 text-purple-950',
+      },
+    ];
+
+    const sampleNow = new Date();
+    const is24 = empPreferences.timeFormat === '24h';
+    const sampleTime = is24
+      ? sampleNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      : sampleNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+    let sampleDateStr = '';
+    const day = String(sampleNow.getDate()).padStart(2, '0');
+    const month = String(sampleNow.getMonth() + 1).padStart(2, '0');
+    const year = sampleNow.getFullYear();
+    if (empPreferences.dateFormat === 'MM/DD/YYYY') {
+      sampleDateStr = `${month}/${day}/${year}`;
+    } else if (empPreferences.dateFormat === 'YYYY-MM-DD') {
+      sampleDateStr = `${year}-${month}-${day}`;
+    } else {
+      sampleDateStr = `${day}/${month}/${year}`;
+    }
+
+    return (
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-7 max-w-4xl animate-in fade-in">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]">
+                <Sliders className="w-5 h-5 text-[#059669]" />
+              </span>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                Work Availability & Display Preferences
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Select your real-time presence status, configure system 12h/24h time formatting, and regional date layouts.
+            </p>
+          </div>
+
+          <button
+            onClick={handleEmpPrefSave}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Save & Apply Preferences</span>
+          </button>
+        </div>
+
+        {/* Section 1: Work Presence Status */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-700">
+                1. Today's Presence Status (Live across Header & Directory)
+              </label>
+              <p className="text-[11px] text-slate-400">
+                Displayed in the top navigation bar, employee directory, and profile status tags.
+              </p>
+            </div>
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+              Current: {empPreferences.workStatus}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {workStatusOptions.map((opt) => {
+              const isSelected = empPreferences.workStatus === opt.id;
+              return (
+                <div
+                  key={opt.id}
+                  onClick={() => setEmpPreferences({ ...empPreferences, workStatus: opt.id })}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                    isSelected
+                      ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/30`
+                      : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-2xl p-1.5 rounded-xl bg-white shadow-2xs border border-slate-100 shrink-0">
+                        {opt.icon}
+                      </span>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-900 leading-snug">
+                          {opt.title}
+                        </h4>
+                        <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          {opt.badge}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
+                          : 'border-slate-300 bg-white'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5" />}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
+                    {opt.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section 2: Clock & Time Format */}
+        <div className="space-y-3 pt-2">
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-700">
+              2. Digital Clock Time Format
+            </label>
+            <p className="text-[11px] text-slate-400">
+              Applies to the live pulse clock in the header, attendance punch records, and timesheets.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* 12-Hour */}
+            <div
+              onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '12h' })}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                empPreferences.timeFormat === '12h'
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/30'
+                  : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-white border border-slate-100 text-emerald-600">
+                    <Clock className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900">
+                      12-Hour Format (AM / PM)
+                    </h4>
+                    <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">
+                      09:30:45 AM
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center border ${
+                    empPreferences.timeFormat === '12h'
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {empPreferences.timeFormat === '12h' && <Check className="w-3.5 h-3.5" />}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Standard commercial time format with morning (AM) and evening (PM) indicators.
+              </p>
+            </div>
+
+            {/* 24-Hour */}
+            <div
+              onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '24h' })}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                empPreferences.timeFormat === '24h'
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/30'
+                  : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-white border border-slate-100 text-emerald-600">
+                    <Clock className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900">
+                      24-Hour Format (Military / Railway)
+                    </h4>
+                    <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">
+                      14:30:45
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center border ${
+                    empPreferences.timeFormat === '24h'
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {empPreferences.timeFormat === '24h' && <Check className="w-3.5 h-3.5" />}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Continuous 24-hour military/railway system format (e.g. 18:00 for 06:00 PM).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Date Format & Language */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Calendar Date Format</span>
+            </label>
+            <select
+              value={empPreferences.dateFormat}
+              onChange={(e) => setEmpPreferences({ ...empPreferences, dateFormat: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium text-xs cursor-pointer"
+            >
+              <option value="DD/MM/YYYY">DD/MM/YYYY — 29/10/2026 (Indian & UK Standard)</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY — 10/29/2026 (US Standard)</option>
+              <option value="YYYY-MM-DD">YYYY-MM-DD — 2026-10-29 (ISO Database Standard)</option>
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">Used across leaves, payroll disbursement & attendance calendars.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Display Language</span>
+            </label>
+            <select
+              value={empPreferences.language}
+              onChange={(e) => setEmpPreferences({ ...empPreferences, language: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium text-xs cursor-pointer"
+            >
+              <option value="English">English (United States / Global)</option>
+              <option value="Hindi">Hindi (हिंदी - भारत)</option>
+              <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">Controls locale date representations, number formats, and labels.</p>
+          </div>
+        </div>
+
+        {/* Section 4: Realtime Preview Banner */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>REAL-TIME PREVIEW OF YOUR SELECTIONS</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                Here is how your presence pill and clock appear across the application right now:
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/15">
+              {/* Status Pill Preview */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{empPreferences.workStatus}</span>
+              </div>
+
+              {/* Time Preview */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 border border-white/10 text-white text-xs font-mono font-bold">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{sampleTime}</span>
+              </div>
+
+              {/* Date Preview */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 border border-white/10 text-slate-200 text-xs font-medium">
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{sampleDateStr}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-xs text-slate-500">
+            Clicking save will instantly synchronize all open browser tabs, Header, and Sidebar.
+          </span>
+          <button
+            onClick={handleEmpPrefSave}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Save & Apply Preferences</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // =========================================================================
   // EMPLOYEE VIEW: Personal Profile, Notifications, Password, Display
@@ -361,21 +778,82 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         {/* Tab 1: Profile & Contact */}
         {empActiveTab === 'profile' && (
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 max-w-3xl">
-            <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#4f5fe8] to-[#7f4cdb] text-white font-black text-2xl flex items-center justify-center shadow-md">
-                {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'E'}
-                {user.lastName?.[0] || ''}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="relative group/avatar shrink-0">
+                  <div className="w-18 h-18 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-emerald-800 font-extrabold text-2xl flex items-center justify-center shadow-xs overflow-hidden">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>
+                        {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'E'}
+                        {user.lastName?.[0] || ''}
+                      </span>
+                    )}
+                  </div>
+                  <label
+                    className="absolute inset-0 rounded-2xl bg-black/55 backdrop-blur-2xs text-white opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
+                    title="Change Profile Picture"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span className="text-[10px] font-bold mt-1">Upload</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingAvatar}
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <label
+                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all"
+                    title="Upload Photo"
+                  >
+                    <Camera className="w-3 h-3 stroke-[2.5]" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingAvatar}
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {(user as any).designationTitle || 'Staff Member'} • {(user as any).departmentName || 'General'}
+                  </p>
+                  <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold mt-1">
+                    Active Employee
+                  </span>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">
-                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {(user as any).designationTitle || 'Staff Member'} • {(user as any).departmentName || 'General'}
-                </p>
-                <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold mt-1">
-                  Active Employee
-                </span>
+
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{user.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingAvatar}
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </label>
+                {user.avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={handleAvatarRemove}
+                    disabled={uploadingAvatar}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95 cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
 
@@ -715,81 +1193,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         )}
 
         {/* Tab 4: Work & Display Preferences */}
-        {empActiveTab === 'preferences' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 max-w-3xl">
-            <div>
-              <h3 className="text-base font-black text-slate-900">
-                Work Availability & Display Preferences
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Configure your time formatting, language, and colleague status
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Today's Work Status</label>
-                <select
-                  value={empPreferences.workStatus}
-                  onChange={(e) => setEmpPreferences({ ...empPreferences, workStatus: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
-                >
-                  <option value="Working in Office">🏢 Working in Office</option>
-                  <option value="Working Remotely">🏠 Working Remotely</option>
-                  <option value="In Client Meeting">🤝 In Client Meeting</option>
-                  <option value="Focus / Deep Work">🎯 Focus / Deep Work</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Display Language</label>
-                <select
-                  value={empPreferences.language}
-                  onChange={(e) => setEmpPreferences({ ...empPreferences, language: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
-                >
-                  <option value="English">English (United States)</option>
-                  <option value="Hindi">Hindi (हिंदी)</option>
-                  <option value="Gujarati">Gujarati (ગુજરાતી)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Time Format</label>
-                <select
-                  value={empPreferences.timeFormat}
-                  onChange={(e) => setEmpPreferences({ ...empPreferences, timeFormat: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
-                >
-                  <option value="12h">12-Hour Format (09:00 AM)</option>
-                  <option value="24h">24-Hour Format (09:00)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Date Format</label>
-                <select
-                  value={empPreferences.dateFormat}
-                  onChange={(e) => setEmpPreferences({ ...empPreferences, dateFormat: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
-                >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY (24/10/2026)</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY (10/24/2026)</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD (2026-10-24)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={handleEmpPrefSave}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
-              >
-                Save Display Preferences
-              </button>
-            </div>
-          </div>
-        )}
+        {empActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
       </div>
     );
   }
@@ -818,20 +1222,21 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-semibold overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-semibold overflow-x-auto [scrollbar-width:none]">
         {[
           { id: 'company', label: 'Company Profile' },
           { id: 'schedule', label: 'Working Hours & Shifts' },
           { id: 'leaves', label: 'Leave Policies' },
           { id: 'rbac', label: 'Role Permissions (RBAC)' },
           { id: 'billing', label: 'Subscription & Billing 💎' },
+          { id: 'preferences', label: 'Work & Display ⚙️' },
         ].map((t) => (
           <button
             key={t.id}
             onClick={() => setAdminActiveTab(t.id as any)}
-            className={`px-3.5 py-1.5 rounded-full transition cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-full transition cursor-pointer whitespace-nowrap ${
               adminActiveTab === t.id
-                ? 'bg-blue-50 text-blue-600 font-bold'
+                ? 'bg-[#ecfdf5] text-[#065f46] font-bold border border-[#a7f3d0]'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -905,50 +1310,195 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         </div>
       )}
 
-      {/* Tab 2: Working Hours */}
+      {/* Tab 2: Working Hours & Shifts */}
       {adminActiveTab === 'schedule' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
-          <h3 className="text-sm font-bold text-slate-900">Shift & Attendance Rules</h3>
-
-          <div className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium mb-1 text-slate-700">Standard Daily Working Hours</label>
-                <input
-                  type="number"
-                  value={scheduleData.workingHoursPerDay}
-                  onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
-                />
-              </div>
-              <div>
-                <label className="block font-medium mb-1 text-slate-700">Grace Period (Minutes)</label>
-                <input
-                  type="number"
-                  value={scheduleData.gracePeriodMinutes}
-                  onChange={(e) => setScheduleData({ ...scheduleData, gracePeriodMinutes: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
-                />
-              </div>
-            </div>
-
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6 max-w-3xl animate-in fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
-              <label className="block font-medium mb-1 text-slate-700">Default Shift Window</label>
-              <input
-                type="text"
-                value={scheduleData.defaultShift}
-                onChange={(e) => setScheduleData({ ...scheduleData, defaultShift: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900 focus:outline-hidden"
-              />
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]">
+                  <Clock className="w-5 h-5 text-[#059669]" />
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                    Office Shifts & Attendance Buffer Window
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#065f46] border border-emerald-300 text-[10px] font-bold">
+                    {companyData.name || 'Your Company'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Configure official shift timings and punch buffer minutes. These buffer rules apply exclusively to employees of <strong>{companyData.name || 'your company'}</strong>.
+              </p>
             </div>
 
             <button
               onClick={handleAdminSave}
               disabled={loading}
-              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-sm hover:shadow transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
             >
-              {loading ? 'Saving...' : 'Save Attendance Rules'}
+              <Check className="w-4 h-4" />
+              <span>{loading ? 'Saving...' : 'Save Shift Rules'}</span>
             </button>
+          </div>
+
+          <div className="space-y-4 text-xs">
+            {/* Shift Timings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">Office Shift Start Time *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:00 AM"
+                  value={scheduleData.shiftStartTime || '09:00 AM'}
+                  onChange={(e) => setScheduleData({ ...scheduleData, shiftStartTime: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Official time work begins in the morning.</p>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">Office Shift End Time *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 06:00 PM"
+                  value={scheduleData.shiftEndTime || '06:00 PM'}
+                  onChange={(e) => setScheduleData({ ...scheduleData, shiftEndTime: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Official time employees punch out at shift end.</p>
+              </div>
+            </div>
+
+            {/* Buffers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">
+                  Early Arrival Buffer (Minutes)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="180"
+                    value={scheduleData.earlyBufferMinutes ?? 30}
+                    onChange={(e) => setScheduleData({ ...scheduleData, earlyBufferMinutes: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <span className="text-slate-500 font-medium text-xs">Mins</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  How early employees are permitted to check in before shift starts.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">
+                  Late Grace Buffer (Minutes) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="180"
+                    value={scheduleData.gracePeriodMinutes ?? 15}
+                    onChange={(e) => setScheduleData({ ...scheduleData, gracePeriodMinutes: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <span className="text-slate-500 font-medium text-xs">Mins</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Buffer time after shift start up to which check-in is allowed.
+                </p>
+              </div>
+            </div>
+
+            {/* Standard Work Hours & Half Day */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">Standard Daily Work Hours</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="16"
+                  value={scheduleData.workingHoursPerDay || 8}
+                  onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1.5 text-slate-700">Half-Day Threshold Hours</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="8"
+                  value={scheduleData.halfDayHours || 4}
+                  onChange={(e) => setScheduleData({ ...scheduleData, halfDayHours: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+            </div>
+
+            {/* Strict Enforcement Toggle Card */}
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <span>Enforce Strict Shift Timing Window</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  When enabled, attendance punch is <strong>strictly locked</strong> outside the buffer window. Employees attempting to punch in before the early buffer or after the late grace buffer will be blocked and required to request HR Regularization.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={scheduleData.enforceShiftWindow !== false}
+                onChange={(e) => setScheduleData({ ...scheduleData, enforceShiftWindow: e.target.checked })}
+                className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer mt-0.5 shrink-0"
+              />
+            </div>
+
+            {/* Real-time Calculated Allowed Punch Window Card */}
+            {(() => {
+              const startMins = parseTimeToMinutes(scheduleData.shiftStartTime || '09:00 AM');
+              const allowedStart = formatMinutesToTimeString(startMins - Number(scheduleData.earlyBufferMinutes || 30));
+              const allowedEnd = formatMinutesToTimeString(startMins + Number(scheduleData.gracePeriodMinutes || 15));
+              return (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] shadow-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">
+                        Calculated Attendance Check-In Window
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40">
+                      {scheduleData.enforceShiftWindow !== false ? '🔒 Strict Lock Active' : 'Flexible Attendance'}
+                    </span>
+                  </div>
+                  <div className="text-xl font-mono font-black text-white tracking-tight flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-emerald-400" />
+                    <span>{allowedStart} — {allowedEnd}</span>
+                  </div>
+                  <p className="text-[11px] text-[#a7f3d0]/80">
+                    Employees can check in starting at <strong>{allowedStart}</strong> until <strong>{allowedEnd}</strong> ({scheduleData.gracePeriodMinutes || 15} min grace buffer). Outside this timeframe, punch will be {scheduleData.enforceShiftWindow !== false ? 'strictly blocked' : 'allowed with late flag'}.
+                  </p>
+                </div>
+              );
+            })()}
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={handleAdminSave}
+                disabled={loading}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                <span>{loading ? 'Saving...' : 'Save Shift Rules & Buffer'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1350,6 +1900,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           </div>
         </div>
       )}
+
+      {/* Tab 6: Work & Display Preferences */}
+      {adminActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
 
       {/* Upgrade Plan Modal */}
       <UpgradePlanModal

@@ -30,6 +30,8 @@ import {
   sendChatMessage,
   editChatMessage,
   deleteChatMessage,
+  clearConversationMessages,
+  clearAllChats,
   markConversationAsRead,
   syncConversationsWithEmployees,
   ADMIN_USER_ID,
@@ -40,19 +42,25 @@ interface ChatModuleProps {
   employees?: Employee[];
   initialEmployeeId?: string | null;
   onClearInitialEmployee?: () => void;
+  portalMode?: 'admin' | 'employee';
 }
 
 export const ChatModule: React.FC<ChatModuleProps> = ({
   employees = [],
   initialEmployeeId,
   onClearInitialEmployee,
+  portalMode: propPortalMode,
 }) => {
-  const { user, portalMode } = useAuth();
+  const { user, portalMode: authPortalMode } = useAuth();
+  const portalMode = propPortalMode || authPortalMode || 'admin';
   const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping } = useSocket();
 
   // Determine current user chat identity
   const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || '';
-  const currentUserName = portalMode === 'admin' ? ADMIN_NAME : `${user.firstName || 'Staff'} ${user.lastName || 'Member'}`.trim();
+  const currentUserName =
+    portalMode === 'admin'
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || ADMIN_NAME
+      : `${user.firstName || 'Staff'} ${user.lastName || 'Member'}`.trim();
   const currentUserRole = portalMode === 'admin' ? ('admin' as const) : ('employee' as const);
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -187,7 +195,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (conv.type === 'broadcast') {
       return {
         id: 'all',
-        name: conv.title || 'General Staff Helpdesk',
+        name: conv.title || '📢 General Staff Helpdesk & Broadcast',
         role: 'Broadcast Channel',
         code: 'ALL-STAFF',
         email: 'helpdesk@paneliya.com',
@@ -196,36 +204,82 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       };
     }
 
-    if (portalMode === 'admin') {
-      // The other participant is the employee
-      const empId = conv.participantIds.find((id) => id !== ADMIN_USER_ID) || '';
-      const name = conv.participantNames[empId] || 'Staff Member';
-      const code = conv.participantCodes?.[empId] || 'EMP';
-      const email = conv.participantEmails?.[empId] || '';
-      const designation = conv.participantDesignations?.[empId] || 'Employee';
-      const initials = name
-        .split(' ')
-        .map((p) => p[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
-      return { id: empId, name, role: 'Staff Member', code, email, designation, initials };
-    } else {
-      // The other participant is typically Admin
-      const otherId = conv.participantIds.find((id) => id !== currentUserId) || ADMIN_USER_ID;
-      const isOtherAdmin = otherId === ADMIN_USER_ID;
-      const name = conv.participantNames[otherId] || (isOtherAdmin ? 'Keyur Sangani (Admin)' : 'Colleague');
-      const code = isOtherAdmin ? 'ADMIN' : conv.participantCodes?.[otherId] || 'STAFF';
-      const email = conv.participantEmails?.[otherId] || 'admin@paneliya.com';
-      const designation = isOtherAdmin ? 'Super Administrator & HR' : conv.participantDesignations?.[otherId] || 'Staff';
-      const initials = name
-        .split(' ')
-        .map((p) => p[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
-      return { id: otherId, name, role: isOtherAdmin ? 'Admin' : 'Staff', code, email, designation, initials };
+    // Direct 1-to-1 conversation
+    // 1. Identify the non-admin participant ID in this conversation
+    const nonAdminId = conv.participantIds?.find(
+      (id) => id !== ADMIN_USER_ID && id !== 'user-1' && id !== 'admin-keyur' && id !== 'demo-admin-1'
+    );
+
+    // If current user is an employee chatting directly with admin
+    const isDirectWithAdmin =
+      portalMode === 'employee' &&
+      (conv.id === `conv-user-1-${currentUserId}` ||
+        (conv.participantIds?.includes(currentUserId) && conv.participantIds?.includes(ADMIN_USER_ID)));
+
+    if (isDirectWithAdmin) {
+      const adminName = conv.participantNames?.[ADMIN_USER_ID] || ADMIN_NAME || 'HR Administration';
+      return {
+        id: ADMIN_USER_ID,
+        name: adminName.includes('(Admin)') ? adminName : `${adminName} (Admin)`,
+        role: 'Admin',
+        code: 'ADM-01',
+        email: conv.participantEmails?.[ADMIN_USER_ID] || 'hr@paneliya.com',
+        designation: 'Company HR & Management',
+        initials: 'HR',
+      };
     }
+
+    // Identify target employee ID
+    let targetId = nonAdminId;
+    if (!targetId) {
+      targetId = conv.participantIds?.find((id) => id !== currentUserId) || conv.participantIds?.[0] || '';
+    }
+
+    // Match with actual employee from directory
+    const matchedEmp = employees.find(
+      (e) =>
+        e.id === targetId ||
+        e.employeeCode === targetId ||
+        (conv.id && conv.id.endsWith(e.id))
+    );
+
+    let name = '';
+    let role = 'Staff Member';
+    let code = 'EMP';
+    let email = '';
+    let designation = 'Staff Member';
+
+    if (matchedEmp) {
+      name = `${matchedEmp.firstName || ''} ${matchedEmp.lastName || ''}`.trim();
+      code = matchedEmp.employeeCode || 'EMP';
+      email = matchedEmp.email || '';
+      designation = matchedEmp.designationTitle || 'Staff Member';
+      role = 'Staff Member';
+    } else if (targetId && conv.participantNames?.[targetId] && conv.participantNames[targetId] !== ADMIN_NAME) {
+      name = conv.participantNames[targetId];
+      code = conv.participantCodes?.[targetId] || 'EMP';
+      email = conv.participantEmails?.[targetId] || '';
+      designation = conv.participantDesignations?.[targetId] || 'Staff Member';
+      role = conv.participantRoles?.[targetId] || 'Staff Member';
+    } else if (conv.title && conv.title !== '📢 General Staff Helpdesk & Broadcast') {
+      name = conv.title;
+      code = conv.participantCodes?.[targetId] || 'EMP';
+      email = conv.participantEmails?.[targetId] || '';
+      designation = conv.participantDesignations?.[targetId] || 'Staff Member';
+    } else {
+      name = 'Staff Member';
+    }
+
+    const initials =
+      name
+        .split(' ')
+        .filter(Boolean)
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'ST';
+
+    return { id: targetId || conv.id, name, role, code, email, designation, initials };
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -336,8 +390,36 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     setMessages(getMessagesForConversation(activeConversation.id));
   };
 
+  const handleClearActiveConversation = () => {
+    if (!activeConversation) return;
+    if (window.confirm('Are you sure you want to clear all messages in this conversation?')) {
+      clearConversationMessages(activeConversation.id);
+      setMessages([]);
+      loadConversations();
+    }
+  };
+
+  const handleClearAllChats = () => {
+    if (window.confirm('Are you sure you want to delete all chat history across all conversations?')) {
+      clearAllChats();
+      setMessages([]);
+      loadConversations();
+    }
+  };
+
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
+    // Strictly hide any confidential Super Admin / Developer accounts from chat
+    if (
+      conv.id?.includes('superadmin') ||
+      conv.id?.includes('admin-keyur') ||
+      conv.participantIds?.includes('admin-keyur') ||
+      conv.participantIds?.includes('demo-superadmin-1') ||
+      conv.participantIds?.includes('emp-superadmin-1')
+    ) {
+      return false;
+    }
+
     if (filterTab === 'direct' && conv.type !== 'direct') return false;
     if (filterTab === 'broadcast' && conv.type !== 'broadcast') return false;
 
@@ -399,9 +481,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-              {conversations.length} chats
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                {conversations.length} chats
+              </span>
+              <button
+                type="button"
+                id="btn-clear-all-chats"
+                onClick={handleClearAllChats}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Clear all chat history"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Search bar */}
@@ -612,11 +705,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               </div>
 
-              {/* Status / Channel pill */}
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200/60">
+              {/* Status / Channel pill & Clear Chat */}
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200/60">
                   {activeConversation.type === 'broadcast' ? 'All Staff Group' : 'Direct Encrypted Chat'}
                 </span>
+                <button
+                  type="button"
+                  id="btn-clear-conversation-chat"
+                  onClick={handleClearActiveConversation}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 rounded-lg transition-colors cursor-pointer"
+                  title="Clear all messages in this conversation"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Clear Chat</span>
+                </button>
               </div>
             </div>
 

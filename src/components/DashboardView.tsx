@@ -58,7 +58,9 @@ import {
   getTodayRecordForEmployee,
   getTodayDateString,
 } from '../lib/attendanceService';
+import { verifyShiftTimeWindow, getWorkScheduleConfig } from '../lib/shiftScheduleService';
 import { verifyCurrentGeofence } from '../lib/geoService';
+import { ModernDigitClock } from './common/ModernDigitClock';
 
 interface DashboardViewProps {
   stats: any;
@@ -201,7 +203,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string) => {
     setProcessingLeaveId(id);
     try {
-      await api.approveLeave(id, 'SUPER_ADMIN', 'Keyur Sangani', 'Approved from Dashboard');
+      await api.approveLeave(id, 'HR_ADMIN', 'HR Administration', 'Approved from Dashboard');
       showToast({
         type: 'success',
         title: 'Approved',
@@ -229,7 +231,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const { id, empName } = rejectModalData;
     setProcessingLeaveId(id);
     try {
-      await api.rejectLeave(id, 'Keyur Sangani', rejectReason || 'Operational requirements');
+      await api.rejectLeave(id, 'HR Administration', rejectReason || 'Operational requirements');
       showToast({
         type: 'warning',
         title: 'Rejected',
@@ -321,7 +323,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         targetEmployeeName: `${noticeTargetEmpDashboard.firstName} ${noticeTargetEmpDashboard.lastName}`,
         departmentName: noticeTargetEmpDashboard.departmentName,
         priority: dashNoticePriority,
-        authorName: `${user.firstName || 'Keyur'} ${user.lastName || 'Sangani'} (HR & Admin)`,
+        authorName: `${user.firstName || 'HR'} ${user.lastName || 'Admin'} (HR & Admin)`,
         authorRole: 'Administration',
       });
 
@@ -422,7 +424,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       const res = await api.checkOut(
         activeEmpId,
-        'Work day completed',
+        'Evening clock-out',
         {
           email: user.email,
           employeeCode: currentEmp?.employeeCode || (user as any).employeeCode,
@@ -452,15 +454,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-5 pb-12 w-full max-w-full overflow-hidden">
       {/* Welcome & Section Head */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#e4eaf5]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#d8ebd9]">
         <div>
-          <div className="text-xs text-[#6e7b98] font-medium">
+          <div className="text-xs text-[#4e6a5d] font-medium">
             {currentDateString} &bull; {portalMode === 'admin' ? 'Admin workspace' : 'Employee workspace'}
           </div>
-          <h1 className="text-2xl sm:text-[27px] font-bold text-[#152345] tracking-tight mt-0.5">
-            Good morning, {user.firstName || (portalMode === 'admin' ? 'Keyur' : 'Employee')}! 👋
+          <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
+            hello, {user.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee')}! 👋
           </h1>
-          <div className="text-xs text-[#6e7b98] mt-0.5">
+          <div className="text-xs text-[#4e6a5d] mt-0.5">
             Here&apos;s what&apos;s happening across your workspace today.
           </div>
         </div>
@@ -493,9 +495,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div
               onClick={() => onNavigateModule('employees')}
-              className="stat cursor-pointer hover:border-[#4f5fe8]/40 transition-colors"
+              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
             >
-              <div className="stat-icon" style={{ background: '#eaf0ff', color: '#4f5fe8' }}>
+              <div className="stat-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
                 <Users className="w-5 h-5" />
               </div>
               <div>
@@ -507,9 +509,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div
               onClick={() => onNavigateModule('attendance')}
-              className="stat cursor-pointer hover:border-[#16a779]/40 transition-colors"
+              className="stat cursor-pointer hover:border-[#10b981]/40 transition-colors"
             >
-              <div className="stat-icon" style={{ background: '#e4faf5', color: '#16a779' }}>
+              <div className="stat-icon" style={{ background: '#dcfce7', color: '#166534' }}>
                 <Clock className="w-5 h-5" />
               </div>
               <div>
@@ -521,9 +523,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div
               onClick={() => onNavigateModule('leaves')}
-              className="stat cursor-pointer hover:border-[#f39a3f]/40 transition-colors"
+              className="stat cursor-pointer hover:border-[#f59e0b]/40 transition-colors"
             >
-              <div className="stat-icon" style={{ background: '#fff2e4', color: '#f39a3f' }}>
+              <div className="stat-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
                 <Shield className="w-5 h-5" />
               </div>
               <div>
@@ -535,9 +537,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div
               onClick={() => onNavigateModule('chat')}
-              className="stat cursor-pointer hover:border-[#8c60e8]/40 transition-colors"
+              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
             >
-              <div className="stat-icon" style={{ background: '#f1eaff', color: '#8c60e8' }}>
+              <div className="stat-icon" style={{ background: '#f0fdf4', color: '#047857' }}>
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div>
@@ -554,38 +556,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <section className="panel sm:col-span-2">
               <h3>
                 <span className="flex items-center gap-2">
-                  <span>📊</span> Attendance overview
+                  <span className="text-base">📊</span> Attendance Rate & Turnout
                 </span>
-                <span className="tag">Last 7 days</span>
+                <span className="tag">Last 7 Days</span>
               </h3>
-              <div className="flex items-end gap-3 h-[145px] px-2 pt-3 pb-2 border-b border-[#e4eaf5]">
+              <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
                 {[
-                  { day: '17 Oct', val: 78, count: `${Math.max(1, Math.round(employees.length * 0.78))} Present` },
-                  { day: '18 Oct', val: 85, count: `${Math.max(1, Math.round(employees.length * 0.85))} Present` },
-                  { day: '19 Oct', val: 82, count: `${Math.max(1, Math.round(employees.length * 0.82))} Present` },
-                  { day: '20 Oct', val: 92, count: `${Math.max(1, Math.round(employees.length * 0.92))} Present` },
-                  { day: '21 Oct', val: 75, count: `${Math.max(1, Math.round(employees.length * 0.75))} Present` },
-                  { day: '22 Oct', val: 88, count: `${Math.max(1, Math.round(employees.length * 0.88))} Present` },
-                  { day: '23 Oct', val: Math.min(100, Math.round((todayRecords.length / Math.max(1, employees.length)) * 100)) || 94, count: `${todayRecords.length || employees.length} Present` },
+                  { day: '22 Oct', val: 92, count: `${Math.max(1, Math.round(employees.length * 0.92))} Present` },
+                  { day: '23 Oct', val: 88, count: `${Math.max(1, Math.round(employees.length * 0.88))} Present` },
+                  { day: '24 Oct', val: 95, count: `${Math.max(1, Math.round(employees.length * 0.95))} Present` },
+                  { day: '25 Oct', val: 90, count: `${Math.max(1, Math.round(employees.length * 0.90))} Present` },
+                  { day: '26 Oct', val: 85, count: `${Math.max(1, Math.round(employees.length * 0.85))} Present` },
+                  { day: '27 Oct', val: 94, count: `${Math.max(1, Math.round(employees.length * 0.94))} Present` },
+                  {
+                    day: 'Today',
+                    val: Math.min(100, Math.round((todayRecords.length / Math.max(1, employees.length)) * 100)) || 96,
+                    count: `${todayRecords.length || employees.length} Present`,
+                    isToday: true,
+                  },
                 ].map((item, idx) => (
-                  <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group">
-                    <div className="text-[10px] text-[#6e7b98] font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
+                    <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
                       {item.val}%
                     </div>
                     <div
                       style={{ height: `${item.val}%` }}
-                      className="w-full max-w-[38px] bg-gradient-to-t from-[#20b38a] to-[#6b7bf7] rounded-t-[6px] transition-all group-hover:brightness-110 shadow-xs"
+                      className={`w-full max-w-[42px] rounded-t-lg transition-all shadow-xs ${item.isToday
+                          ? 'bg-gradient-to-t from-[#047857] to-[#10b981] ring-2 ring-[#10b981]/50'
+                          : 'bg-gradient-to-t from-[#059669] to-[#34d399] group-hover:brightness-110'
+                        }`}
                       title={item.count}
                     />
-                    <small className="text-[11px] text-[#6e7b98] font-medium">{item.day}</small>
+                    <small
+                      className={`text-[11px] font-bold mt-1 ${item.isToday ? 'text-[#059669]' : 'text-[#4e6a5d]'
+                        }`}
+                    >
+                      {item.day}
+                    </small>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between text-[11px] text-[#6e7b98] mt-2.5">
-                <span>{todayRecords.length} checked-in out of {employees.length} employees today</span>
+              <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
+                <span className="font-medium">
+                  <strong className="text-[#0d271d]">{todayRecords.length || employees.length}</strong> checked-in out of{' '}
+                  <strong className="text-[#0d271d]">{employees.length}</strong> team members today
+                </span>
                 <button
                   onClick={() => onNavigateModule('attendance')}
-                  className="text-[#4f5fe8] font-semibold hover:underline"
+                  className="text-[#059669] font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   Open Timesheets &rarr;
                 </button>
@@ -885,7 +903,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               <span className="hidden sm:inline">Notice</span>
                             </button>
 
-                            {emp.email !== user.email && emp.firstName !== 'Keyur' && (
+                            {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                               <button
                                 id={`btn-dash-remove-${emp.id}`}
                                 onClick={() => setRemovingEmpDashboard(emp)}
@@ -912,32 +930,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-5">
 
           {/* ═══ 1. HERO BANNER ═══ */}
-          <div className="relative rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 45%, #0c1445 100%)' }}>
+          <div className="relative rounded-3xl overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}>
             {/* Animated glow blobs */}
-            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.25), transparent 70%)' }} />
-            <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.2), transparent 70%)' }} />
-            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%)' }} />
+            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.25), transparent 70%)' }} />
+            <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.2), transparent 70%)' }} />
+            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(5,150,105,0.15), transparent 70%)' }} />
 
             <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
               {/* Employee info */}
               <div className="flex items-center gap-5">
                 <div className="relative shrink-0">
                   <div className="w-18 h-18 w-[72px] h-[72px] rounded-2xl flex items-center justify-center font-black text-2xl text-white shadow-xl border border-white/20 overflow-hidden"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7)' }}>
+                    style={{ background: 'linear-gradient(135deg, #10b981, #059669, #047857)' }}>
                     {currentEmp?.avatarUrl ? (
                       <img src={currentEmp.avatarUrl} alt={currentEmp.firstName} className="w-full h-full object-cover" />
                     ) : (
                       <span>{currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}</span>
                     )}
                   </div>
-                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#0f172a] flex items-center justify-center"
-                    style={{ background: punchState.status === 'working' ? '#10b981' : punchState.status === 'on_break' ? '#f59e0b' : punchState.status === 'completed' ? '#6366f1' : '#64748b' }}>
+                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
+                    style={{ background: punchState.status === 'working' ? '#10b981' : punchState.status === 'on_break' ? '#f59e0b' : punchState.status === 'completed' ? '#059669' : '#4e6a5d' }}>
                     <span className="w-2 h-2 rounded-full bg-white"></span>
                   </span>
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/10 text-indigo-200 border border-white/15 font-mono uppercase tracking-wide">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/10 text-emerald-200 border border-white/15 font-mono uppercase tracking-wide">
                       {currentEmp?.employeeCode || 'EMP-1'}
                     </span>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${empRoleDef.badgeClass}`}>
@@ -948,11 +966,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
                     {currentEmp?.firstName || user.firstName} {currentEmp?.lastName || user.lastName}
                   </h2>
-                  <p className="text-xs text-indigo-300 mt-1 flex flex-wrap items-center gap-1.5">
+                  <p className="text-xs text-emerald-300 mt-1 flex flex-wrap items-center gap-1.5">
                     <span className="font-bold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
-                    <span className="text-indigo-500">•</span>
+                    <span className="text-emerald-500">•</span>
                     <span>{currentEmp?.departmentName || 'Engineering'}</span>
-                    <span className="text-indigo-500">•</span>
+                    <span className="text-emerald-500">•</span>
                     <span className="text-emerald-400 font-semibold">{currentEmp?.shift || 'General Shift'}</span>
                   </p>
                 </div>
@@ -961,22 +979,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {/* Action buttons */}
               <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button id="btn-emp-apply-leave" onClick={onOpenLeaveModal}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-indigo-50 active:scale-95 text-indigo-900 font-bold text-xs shadow-md transition-all flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 active:scale-95 text-[#065f46] font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                  <Calendar className="w-3.5 h-3.5 text-[#059669]" />
                   Apply Leave
                 </button>
                 <button id="btn-emp-payslips" onClick={() => onNavigateModule('payslips')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-indigo-300" />
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                  <Receipt className="w-3.5 h-3.5 text-emerald-300" />
                   My Payslips
                 </button>
                 <button id="btn-emp-chat" onClick={() => onNavigateModule('chat')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5">
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
                   <MessageSquare className="w-3.5 h-3.5" />
                   Team Chat
                 </button>
                 <button id="btn-emp-profile" onClick={() => onSelectEmployee(currentEmp)}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5">
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
                   <User className="w-3.5 h-3.5" />
                   My Profile
                 </button>
@@ -1004,10 +1022,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                 {/* Stat 1: Attendance status */}
-                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
+                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all">
+                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
                   <div className="flex items-center gap-3 mt-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${punchState.status === 'working' ? 'bg-emerald-50 text-emerald-600' : punchState.status === 'on_break' ? 'bg-amber-50 text-amber-600' : punchState.status === 'completed' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${punchState.status === 'working' ? 'bg-emerald-50 text-emerald-600' : punchState.status === 'on_break' ? 'bg-amber-50 text-amber-600' : punchState.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       <Clock className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
@@ -1019,7 +1037,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {/* Stat 2: Leave Balance */}
-                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer">
+                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
                   <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
                   <div className="flex items-center gap-3 mt-2">
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -1034,16 +1052,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {/* Stat 3: Salary & Payslips */}
-                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-violet-200 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#8b5cf6,#7c3aed)' }} />
+                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
+                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
                   <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                       <Receipt className="w-5 h-5" />
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
                       <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '₹45,000'}</p>
-                      <p className="text-[11px] text-violet-600 font-semibold">View Payslips &rarr;</p>
+                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
                     </div>
                   </div>
                 </div>
@@ -1057,7 +1075,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Keyur Sangani'}</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'HR Administration'}</p>
                       <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
                     </div>
                   </div>
@@ -1071,12 +1089,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {/* Left 7 Cols: Shift Punch Console */}
             <div className="lg:col-span-7 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between overflow-hidden bg-white">
               {/* Colorful top bar */}
-              <div className="h-1.5 w-full" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#6366f1)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : 'linear-gradient(90deg,#6366f1,#8b5cf6)' }} />
+              <div className="h-1.5 w-full" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#059669)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#059669,#10b981)' }} />
               <div className="p-6 flex flex-col flex-1">
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
                         <Clock className="w-4 h-4 text-white" />
                       </div>
                       <div>
@@ -1085,34 +1103,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="hidden sm:flex items-center gap-1.5 text-xs font-mono font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl">
-                        <Clock className="w-3 h-3" /> {currentTime || '10:00:00 AM'}
-                      </span>
+                      <div className="hidden sm:flex items-center">
+                        <ModernDigitClock
+                          timeString={currentTime}
+                          size="sm"
+                          variant="light"
+                          showLabels={false}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Status Hero Box */}
                   <div className="my-5">
                     {punchState.status === 'not_started' && (
-                      <div className="p-6 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-center space-y-3">
-                        <div className="w-12 h-12 rounded-full bg-white text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
-                          <Clock className="w-6 h-6" />
+                      <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-4">
+                        <div className="flex justify-center">
+                          <ModernDigitClock
+                            timeString={currentTime}
+                            size="md"
+                            variant="light"
+                            showSweepRing={true}
+                            label="Current Live Time"
+                          />
                         </div>
-                        <h4 className="text-lg font-black text-slate-900">
-                          Ready to Start Today's Shift
-                        </h4>
-                        <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                          General Shift: <strong>09:30 AM – 06:30 PM (9.0 Hours)</strong>. Click the button below to record your check-in timestamp.
-                        </p>
-                        <div className="pt-2">
+                        {(() => {
+                          const shiftCheck = verifyShiftTimeWindow();
+                          return (
+                            <>
+                              <h4 className="text-lg font-black text-slate-900">
+                                {shiftCheck.isAllowed ? "Ready to Start Today's Shift" : "Shift Check-In Currently Locked"}
+                              </h4>
+                              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                                Office Shift: <strong>{shiftCheck.shiftStart} – {shiftCheck.shiftEnd}</strong> (Grace Buffer: {shiftCheck.config.gracePeriodMinutes} mins).
+                              </p>
+                              {shiftCheck.isAllowed ? (
+                                <p className="text-[11px] text-emerald-800 font-extrabold bg-emerald-100/90 border border-emerald-300 py-1 px-3 rounded-full inline-block mt-1">
+                                  Allowed Window: {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-rose-800 font-extrabold bg-rose-100/90 border border-rose-300 py-1 px-3 rounded-full inline-block mt-1">
+                                  Locked: Check-in only allowed from {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                        <div className="pt-1">
                           <button
                             id="btn-emp-check-in-main"
                             onClick={handleCheckInAction}
                             disabled={actionLoading}
-                            className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-sm shadow-md shadow-indigo-600/25 transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 max-w-full text-center"
+                            className={`w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-2xl active:scale-95 font-black text-sm transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 max-w-full text-center ${
+                              !verifyShiftTimeWindow().isAllowed
+                                ? 'bg-rose-700 hover:bg-rose-800 text-white shadow-md shadow-rose-700/20'
+                                : 'bg-[#059669] hover:bg-[#047857] text-white shadow-md shadow-[#059669]/25'
+                            }`}
                           >
                             <Play className="w-4 h-4 fill-current shrink-0" />
-                            <span className="truncate">Start Work (Check In Now)</span>
+                            <span className="truncate">
+                              {!verifyShiftTimeWindow().isAllowed ? 'Shift Locked (View Timing)' : 'Start Work (Check In Now)'}
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -1125,8 +1176,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <span className="truncate">Shift is Active • In at {punchState.record?.checkIn}</span>
                         </div>
 
-                        <div className="text-3xl sm:text-5xl font-mono font-black text-slate-900 tracking-wider">
-                          {liveWorkedHMS}
+                        <div className="py-2 flex justify-center">
+                          <ModernDigitClock
+                            timeString={liveWorkedHMS}
+                            size="xl"
+                            variant="light"
+                            showSweepRing={true}
+                            label="Active Worked Timer"
+                          />
                         </div>
                         <p className="text-xs text-slate-600">
                           Worked time recorded today • Shift target: 9.0 Hours
@@ -1162,8 +1219,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <span className="truncate">Break in Progress • Work Timer Paused</span>
                         </div>
 
-                        <div className="text-3xl sm:text-5xl font-mono font-black text-amber-900 tracking-wider">
-                          {liveBreakWords}
+                        <div className="py-2 flex justify-center">
+                          <ModernDigitClock
+                            timeString={liveWorkedHMS}
+                            size="xl"
+                            variant="amber"
+                            showSweepRing={true}
+                            label="Timer Paused (On Break)"
+                            subText={`Break Duration: ${liveBreakWords}`}
+                          />
                         </div>
                         <p className="text-xs text-slate-600">
                           Enjoy your break! Click resume when you are back at your workstation.
@@ -1242,12 +1306,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Employee Weekly Tracked Hours Graph */}
-              <TrackedHoursChart
-                employeeId={activeEmpId}
-                records={allAttendance}
-              />
             </div>
 
             {/* Right 5 Cols: Profile + Workplace Cards */}
@@ -1255,11 +1313,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Profile Card */}
               <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7)' }} />
+                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669,#047857)' }} />
                 <div className="p-5">
                   <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-md shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                      style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
                       {currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}
                     </div>
                     <div className="min-w-0">
@@ -1280,10 +1338,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     <button onClick={() => onSelectEmployee(currentEmp)}
-                      className="py-2.5 px-3 rounded-xl text-xs font-bold text-center transition-colors hover:opacity-90"
-                      style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff' }}>My Profile</button>
+                      className="py-2.5 px-3 rounded-xl text-xs font-bold text-center transition-colors hover:opacity-90 cursor-pointer"
+                      style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>My Profile</button>
                     <button onClick={() => onNavigateModule('documents')}
-                      className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs text-center transition-colors">Documents</button>
+                      className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-800 font-bold text-xs text-center transition-colors cursor-pointer">Documents</button>
                   </div>
                 </div>
               </div>
@@ -1317,8 +1375,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     ))}
                   </div>
                   <button onClick={() => onNavigateModule('organization')}
-                    className="w-full mt-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90"
-                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff' }}>
+                    className="w-full mt-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>
                     <Building2 className="w-3.5 h-3.5" />
                     About Organisation
                   </button>
@@ -1332,7 +1390,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left 7: Attendance table */}
             <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#6366f1)' }} />
+              <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
               <div className="p-6">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                   <div className="flex items-center gap-2">

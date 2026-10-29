@@ -96,7 +96,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         targetEmployeeId: audienceType === 'Individual' ? targetEmployeeId : undefined,
         targetEmployeeName: selectedEmpName,
         departmentName: selectedDept,
-        authorName: `${user.firstName || 'Keyur'} ${user.lastName || 'Sangani'} (HR & Admin)`,
+        authorName: `${user.firstName || 'HR'} ${user.lastName || 'Admin'} (HR & Admin)`,
         authorRole: 'Administration',
       });
 

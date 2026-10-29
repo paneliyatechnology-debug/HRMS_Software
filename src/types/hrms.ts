@@ -74,6 +74,7 @@ export interface User {
   avatarUrl?: string;
   companyId?: string;
   companyName?: string;
+  workStatus?: string;
 }
 
 export interface Department {
@@ -131,6 +132,7 @@ export interface Employee {
   employmentType: 'Full-time' | 'Remote' | 'Part-time' | 'Contractual' | 'Hourly';
   status: EmployeeStatus;
   isWFH?: boolean;
+  workStatus?: string;
   departmentId: string;
   departmentName: string;
   designationId: string;
@@ -191,6 +193,7 @@ export interface AttendanceRecord {
   overtimeHours: number;
   status: AttendanceStatus;
   remarks?: string;
+  lateReason?: string;
   createdAt: string;
   activeSeconds?: number;
   breakSeconds?: number;

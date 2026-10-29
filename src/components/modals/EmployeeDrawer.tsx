@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, UserPlus, Check, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, UserPlus, Check, ChevronRight, ChevronLeft, Camera, Upload, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { getCompanySubscription } from '../../lib/subscriptionService';
 import { useAuth } from '../../context/AuthContext';
 import { getAllCompanies, addEmployeeToCompany } from '../../lib/companyService';
+import { compressImage, validateImageFile } from '../../lib/imageUtils';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -62,6 +63,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     taxId: '',
     initialPassword: 'Password@123',
     role: 'EMPLOYEE' as Role,
+    avatarUrl: '',
   });
 
   if (!isOpen) return null;
@@ -89,6 +91,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         phone: formData.phone.trim(),
         password: formData.initialPassword || 'Password@123',
         role: formData.role,
+        avatarUrl: formData.avatarUrl,
         companyId: adminCompanyId,
         companyName: adminCompanyName,
         gender: formData.gender,
@@ -172,7 +175,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-slate-900">Add New Employee</h3>
-                <span className="text-[10px] font-black uppercase bg-[#FFE600] text-black px-2 py-0.5 rounded-full border border-black shadow-[1px_1px_0px_0px_#000]">
+                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200">
                   {adminCompanyName}
                 </span>
               </div>
@@ -212,6 +215,68 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in">
+              {/* Profile Photo Upload Option */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-13 h-13 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold overflow-hidden shrink-0">
+                    {formData.avatarUrl ? (
+                      <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-emerald-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Profile Picture (Optional)</p>
+                    <p className="text-[10px] text-slate-500">Upload employee photo for directory & attendance</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer transition active:scale-95 shadow-xs">
+                    <span>{formData.avatarUrl ? 'Change' : 'Upload'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const val = validateImageFile(file);
+                        if (!val.valid) {
+                          setFormError(val.error || 'Invalid file');
+                          return;
+                        }
+                        try {
+                          let photoUrl = '';
+                          try {
+                            const up = await api.uploadProfilePhoto(file);
+                            if (up.avatarUrl) photoUrl = up.avatarUrl;
+                          } catch (_) {}
+                          if (!photoUrl) {
+                            photoUrl = await compressImage(file, 360, 360, 0.85);
+                          }
+                          setFormData((prev) => ({ ...prev, avatarUrl: photoUrl }));
+                          setFormError(null);
+                        } catch (err: any) {
+                          setFormError(err.message || 'Could not process photo');
+                        }
+                        if (e.target) e.target.value = '';
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                  {formData.avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, avatarUrl: '' }))}
+                      className="p-1.5 text-rose-500 hover:text-rose-700"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">

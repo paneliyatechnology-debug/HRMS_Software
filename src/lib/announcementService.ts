@@ -68,7 +68,7 @@ export function sendNotice(data: {
     targetEmployeeName: data.targetEmployeeName,
     departmentName: data.departmentName,
     priority: data.priority || 'Medium',
-    authorName: data.authorName || 'Keyur Sangani (HR & Admin)',
+    authorName: data.authorName || 'HR & Management',
     authorRole: data.authorRole || 'Human Resources',
   };
 

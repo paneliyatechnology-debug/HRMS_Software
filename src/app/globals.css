@@ -2,24 +2,28 @@
 
 @layer base {
   :root {
-    --navy: #111d3b;
-    --navy2: #19284c;
-    --blue: #4f5fe8;
-    --bg: #f4f7fc;
-    --ink: #152345;
-    --muted: #6e7b98;
-    --line: #e4eaf5;
-    --white: #fff;
-    --green: #16a779;
-    --orange: #f39a3f;
-    --red: #ed626c;
-    --purple: #8c60e8;
+    /* ═══════════════════════════════════════════════════════════ */
+    /* LUXURY GREEN DESIGN SYSTEM (Dark Green, Light Green, White) */
+    /* ═══════════════════════════════════════════════════════════ */
+    --navy: #062d1f;          /* Deep Forest Dark Green (Sidebar & Headers) */
+    --navy2: #0b3b29;         /* Dark Pine Green (Hover & Secondary Panels) */
+    --blue: #059669;          /* Emerald Green Primary (Buttons & Active elements) */
+    --blue-hover: #047857;    /* Rich Dark Emerald */
+    --bg: #f2f9f5;            /* Ultra-clean Light Mint Tinted Canvas */
+    --ink: #0d271d;           /* Deep Forest Slate Ink for Headings & Crisp Body */
+    --muted: #4e6a5d;         /* Sage Muted Secondary Text */
+    --line: #d8ebd9;          /* Subtle Light Green / Mint Border */
+    --white: #ffffff;         /* Crisp White Surface */
+    --green: #10b981;         /* Vibrant Mint / Emerald Accent */
+    --orange: #f59e0b;        /* Warm Amber */
+    --red: #ef4444;           /* Coral Rose */
+    --purple: #059669;
 
-    --bg-page: #f4f7fc;
+    --bg-page: #f2f9f5;
     --surface: #ffffff;
-    --border-color: #e4eaf5;
-    --text-primary: #152345;
-    --text-secondary: #6e7b98;
+    --border-color: #d8ebd9;
+    --text-primary: #0d271d;
+    --text-secondary: #4e6a5d;
   }
 
   html, body {
@@ -41,19 +45,22 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #a7f3d0;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #6ee7b7;
 }
 
-/* Nexora Signature Design System */
+/* Paneliya Luxury Green Design System */
 .stat, .panel, .tile {
   background: white;
   border: 1px solid var(--line);
   border-radius: 13px;
-  box-shadow: 0 2px 8px rgba(35, 61, 105, 0.04);
+  box-shadow: 0 2px 10px rgba(6, 45, 31, 0.04);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s ease;
 }
 
 .stat {
@@ -61,10 +68,11 @@
   display: flex;
   gap: 13px;
   align-items: center;
-  transition: all 0.2s ease;
 }
-.stat:hover {
-  box-shadow: 0 4px 14px rgba(35, 61, 105, 0.07);
+.stat:hover, .panel:hover, .tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(6, 45, 31, 0.09), 0 2px 6px -1px rgba(6, 45, 31, 0.04);
+  border-color: #a7f3d0;
 }
 
 .stat-icon {
@@ -74,7 +82,8 @@
   display: grid;
   place-items: center;
   font-size: 20px;
-  background: #eaf0ff;
+  background: #ecfdf5;
+  color: #059669;
   flex-shrink: 0;
 }
 
@@ -126,7 +135,7 @@
 
 .item {
   padding: 11px 0;
-  border-bottom: 1px solid #edf1f8;
+  border-bottom: 1px solid #edf6f0;
 }
 .item:last-child {
   border-bottom: 0;
@@ -136,21 +145,22 @@
   font-size: 11px;
   border-radius: 20px;
   padding: 4px 8px;
-  background: #edf1ff;
-  color: #4353ca;
+  background: #ecfdf5;
+  color: #065f46;
   font-weight: 600;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border: 1px solid #d1fae5;
 }
-.tag.green { background: #e5f8f0; color: #13865f; }
-.tag.orange { background: #fff3e5; color: #b46a15; }
-.tag.red { background: #fff0f1; color: #bd3e49; }
+.tag.green { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.tag.orange { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+.tag.red { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
 
 .bar {
   height: 7px;
-  background: #edf1fa;
+  background: #e6f4ec;
   border-radius: 10px;
   overflow: hidden;
   min-width: 60px;
@@ -158,7 +168,7 @@
 .bar i {
   height: 100%;
   display: block;
-  background: linear-gradient(90deg, #6373f6, #1fb58a);
+  background: linear-gradient(90deg, #10b981, #059669);
   border-radius: 10px;
 }
 
@@ -176,15 +186,15 @@
 .data th, .data td {
   text-align: left;
   padding: 13px 14px;
-  border-bottom: 1px solid #edf1f7;
+  border-bottom: 1px solid #edf6f0;
   font-size: 13px;
 }
 .data th {
   font-size: 11px;
   letter-spacing: .4px;
   text-transform: uppercase;
-  color: #74809a;
-  background: #f9fbff;
+  color: #3f5f4f;
+  background: #f4faf6;
   font-weight: 700;
 }
 .data tr:last-child td {
@@ -202,39 +212,39 @@
 .face-stage {
   margin-top: 15px;
   padding: 24px 18px;
-  background: #f8f9ff;
-  border: 1px dashed #c9cff8;
+  background: #f4faf6;
+  border: 1px dashed #a7f3d0;
   border-radius: 13px;
   text-align: center;
 }
 .face-ring {
   width: 106px;
   height: 106px;
-  border: 3px solid #a5adfa;
+  border: 3px solid #34d399;
   border-radius: 50%;
   display: grid;
   place-items: center;
   margin: 0 auto 14px;
   background: #fff;
-  color: #4f5fe8;
+  color: #059669;
   font-size: 40px;
-  box-shadow: 0 0 0 8px #efefff;
+  box-shadow: 0 0 0 8px #ecfdf5;
 }
 .face-ring.success {
-  border-color: #16a779;
-  color: #16a779;
-  box-shadow: 0 0 0 8px #e4f8ef;
+  border-color: #10b981;
+  color: #10b981;
+  box-shadow: 0 0 0 8px #d1fae5;
 }
 .face-ring.failed {
-  border-color: #ed626c;
-  color: #ed626c;
-  box-shadow: 0 0 0 8px #fff0f1;
+  border-color: #ef4444;
+  color: #ef4444;
+  box-shadow: 0 0 0 8px #fee2e2;
 }
 
 .face-kpi {
   padding: 13px;
   border-radius: 10px;
-  background: #f8faff;
+  background: #f4faf6;
   border: 1px solid var(--line);
 }
 .face-kpi small {
@@ -251,7 +261,7 @@
 
 /* Button styles */
 .btn-primary {
-  background: var(--blue);
+  background: #059669;
   color: white;
   border-radius: 9px;
   padding: 10px 14px;
@@ -262,31 +272,34 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  cursor: pointer;
 }
 .btn-primary:hover {
-  background: #3f4fd6;
+  background: #047857;
 }
 
 .btn-secondary {
-  background: #eef2ff;
-  color: #3446bd;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
   border-radius: 9px;
   padding: 9px 13px;
   font-weight: 650;
   font-size: 13px;
-  border: 0;
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
 }
 .btn-secondary:hover {
-  background: #e0e7ff;
+  background: #d1fae5;
 }
 
 .btn-ghost {
   background: white;
-  color: #34415f;
+  color: #1e3a2b;
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 8px 12px;
@@ -296,16 +309,17 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
 }
 .btn-ghost:hover {
-  background: #f8fafc;
-  color: #152345;
+  background: #f0fdf4;
+  color: #042f1a;
 }
 
 .btn-danger {
-  background: #fff0f1;
-  color: #c13d49;
-  border: 1px solid #ffd5d8;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
   border-radius: 9px;
   padding: 8px 12px;
   font-weight: 600;
@@ -314,12 +328,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
 }
 .btn-danger:hover {
-  background: #ffe3e6;
+  background: #fee2e2;
 }
 
-/* Toolbar & Form System matching Nexora HTML */
+/* Toolbar & Form System */
 .toolbar {
   display: flex;
   gap: 8px;
@@ -341,7 +356,7 @@
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #5e6b86;
+  color: #4e6a5d;
   font-weight: 650;
 }
 .formgrid .full {
@@ -392,6 +407,191 @@ button, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
     -webkit-overflow-scrolling: touch;
     border-radius: 10px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* LUXURY CLOCK & TIME DIGIT ANIMATIONS                        */
+/* ═══════════════════════════════════════════════════════════ */
+@keyframes clockColonPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes clockGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2), inset 0 0 8px rgba(16, 185, 129, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.4), inset 0 0 14px rgba(16, 185, 129, 0.16);
+  }
+}
+
+@keyframes clockDigitFlip {
+  0% {
+    transform: translateY(-2px) scale(0.98);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes clockRadarPing {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-clock-colon {
+  animation: clockColonPulse 1s ease-in-out infinite;
+}
+
+.animate-clock-glow {
+  animation: clockGlowPulse 2.5s ease-in-out infinite;
+}
+
+.animate-digit-tick {
+  animation: clockDigitFlip 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-radar-dot {
+  animation: clockRadarPing 2s infinite cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ENTERPRISE UI ANIMATION SUITE                              */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* 1. Module & Page View Entrance Animation */
+@keyframes moduleFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-module-fade-in {
+  animation: moduleFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 2. Global Button Tactile Feedback & Micro-Interactions */
+button:not(:disabled),
+.btn-primary:not(:disabled),
+.btn-secondary:not(:disabled),
+.btn-ghost:not(:disabled) {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.18s ease,
+              background-color 0.18s ease,
+              border-color 0.18s ease;
+}
+
+button:not(:disabled):hover,
+.btn-primary:not(:disabled):hover,
+.btn-secondary:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active,
+.btn-primary:not(:disabled):active,
+.btn-secondary:not(:disabled):active {
+  transform: scale(0.97) translateY(0);
+}
+
+/* 3. Table Rows Smooth Hover Highlight */
+table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+table tbody tr:hover {
+  background-color: rgba(236, 253, 245, 0.65);
+}
+
+/* 4. Smooth Focus Ring for Inputs & Selects */
+input, select, textarea {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+/* 5. Modals & Drawers Smooth Entrance */
+@keyframes modalBackdropFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes modalZoomIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-backdrop {
+  animation: modalBackdropFade 0.22s ease-out forwards;
+}
+
+.animate-modal-zoom {
+  animation: modalZoomIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 6. Notification Bell Wiggle on Hover */
+@keyframes bellWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(3deg); }
+}
+
+.hover-bell-wiggle:hover {
+  animation: bellWiggle 0.75s ease-in-out;
+}
+
+/* 7. Subtle Float & Ambient Glow for Badges / Active Pills */
+@keyframes floatSubtle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 4s ease-in-out infinite;
+}
+
+@keyframes pulseGlowRing {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlowRing 2.5s infinite;
 }
 
 

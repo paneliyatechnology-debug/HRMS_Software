@@ -24,12 +24,19 @@ import {
   Tablet,
   Camera,
   ShieldCheck,
+  Upload,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { ChangeRoleModal } from './ChangeRoleModal';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
+import { compressImage, validateImageFile } from '../../lib/imageUtils';
+import { api } from '../../lib/api';
 
 interface EmployeeProfileModalProps {
   employee: Employee | null;
@@ -44,14 +51,96 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   onClose,
   onRefresh,
 }) => {
-  const { portalMode } = useAuth();
+  const { portalMode, user, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [currentEmp, setCurrentEmp] = useState<Employee | null>(employee);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   React.useEffect(() => {
     setCurrentEmp(employee);
   }, [employee]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentEmp) return;
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setPhotoError(validation.error || 'Invalid image file.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      let newAvatarUrl = '';
+      try {
+        const res = await api.uploadProfilePhoto(file);
+        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
+      } catch (uploadErr) {
+        console.warn('Backend photo upload failed, using local compression fallback:', uploadErr);
+      }
+
+      if (!newAvatarUrl) {
+        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
+      }
+
+      await api.updateEmployee(currentEmp.id, { avatarUrl: newAvatarUrl });
+      setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: newAvatarUrl } : null));
+
+      // If logged in user is this employee (or updating their own profile)
+      const isSelf =
+        (user.email && user.email.toLowerCase() === currentEmp.email?.toLowerCase()) ||
+        (user.id && (user.id === currentEmp.id || user.id === currentEmp.userId)) ||
+        (user.employeeId && user.employeeId === currentEmp.id);
+
+      if (isSelf) {
+        updateUserProfile({ avatarUrl: newAvatarUrl });
+      }
+
+      window.dispatchEvent(new Event('hrms_employees_updated'));
+      onRefresh?.();
+      setPhotoSuccess('Profile picture updated successfully!');
+      setTimeout(() => setPhotoSuccess(null), 3500);
+    } catch (err: any) {
+      setPhotoError(err.message || 'Failed to update profile picture.');
+    } finally {
+      setUploadingPhoto(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!currentEmp) return;
+    setUploadingPhoto(true);
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    try {
+      await api.updateEmployee(currentEmp.id, { avatarUrl: '' });
+      setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: '' } : null));
+
+      const isSelf =
+        (user.email && user.email.toLowerCase() === currentEmp.email?.toLowerCase()) ||
+        (user.id && (user.id === currentEmp.id || user.id === currentEmp.userId)) ||
+        (user.employeeId && user.employeeId === currentEmp.id);
+
+      if (isSelf) {
+        updateUserProfile({ avatarUrl: '' });
+      }
+
+      window.dispatchEvent(new Event('hrms_employees_updated'));
+      onRefresh?.();
+      setPhotoSuccess('Profile picture removed.');
+      setTimeout(() => setPhotoSuccess(null), 3000);
+    } catch (err: any) {
+      setPhotoError(err.message || 'Failed to remove picture.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (!isOpen || !employee || !currentEmp) return null;
 
@@ -76,9 +165,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm animate-in fade-in flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-modal-backdrop flex items-center justify-center p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default">
+      <div className="bg-white rounded-3xl max-w-4xl w-full h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
         {/* Header Profile Hero */}
         <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
           <button
@@ -88,18 +177,100 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex flex-wrap items-center gap-5">
-            {employee.avatarUrl ? (
-              <img
-                src={employee.avatarUrl}
-                alt={employee.firstName}
-                className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-100 shadow-2xs"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 font-semibold text-lg shadow-xs">
-                {employee.firstName?.[0] || 'K'}{employee.lastName?.[0] || 'S'}
+          {/* Status Message Banners */}
+          {photoSuccess && (
+            <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{photoSuccess}</span>
               </div>
-            )}
+              <button onClick={() => setPhotoSuccess(null)} className="text-emerald-700 hover:text-emerald-900 font-bold text-sm">&times;</button>
+            </div>
+          )}
+
+          {photoError && (
+            <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-semibold">{photoError}</span>
+              </div>
+              <button onClick={() => setPhotoError(null)} className="text-rose-700 hover:text-rose-900 font-bold text-sm">&times;</button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-5">
+            {/* Interactive Avatar with camera upload badge & remove button */}
+            <div className="flex flex-col items-center">
+              <div className="relative group/avatar shrink-0">
+                <div className="w-18 h-18 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center text-emerald-800 font-extrabold text-xl shadow-xs overflow-hidden">
+                  {currentEmp.avatarUrl ? (
+                    <img
+                      src={currentEmp.avatarUrl}
+                      alt={currentEmp.firstName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>
+                      {currentEmp.firstName?.[0] || 'E'}{currentEmp.lastName?.[0] || ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Upload trigger button overlay on hover */}
+                <label
+                  className="absolute inset-0 rounded-2xl bg-black/55 backdrop-blur-2xs text-white opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
+                  title="Click to change profile picture"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-5 h-5 stroke-[2.2]" />
+                      <span className="text-[10px] font-bold mt-1">Upload</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingPhoto}
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Small camera badge button on bottom right */}
+                <label
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all"
+                  title="Upload Photo"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Camera className="w-3 h-3 stroke-[2.5]" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingPhoto}
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {currentEmp.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={uploadingPhoto}
+                  className="text-[10px] text-rose-600 hover:text-rose-700 font-semibold hover:underline flex items-center gap-1 mt-1.5 cursor-pointer"
+                  title="Remove photo"
+                >
+                  <Trash2 className="w-2.5 h-2.5" />
+                  <span>Remove</span>
+                </button>
+              )}
+            </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-xl font-bold tracking-tight">
@@ -206,6 +377,58 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 2. Personal Information */}
           {activeTab === 'personal' && (
             <div className="grid grid-cols-2 gap-4">
+              {/* Profile Photo Management Card */}
+              <div className="col-span-2 p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+                    {currentEmp.avatarUrl ? (
+                      <img src={currentEmp.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-emerald-800 font-bold text-lg">
+                        {currentEmp.firstName?.[0] || 'E'}{currentEmp.lastName?.[0] || ''}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Employee Profile Picture</h4>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      Used for attendance clocking identification, team chat, and employee directory.
+                    </p>
+                    <span className="text-[10px] text-slate-500 mt-1 inline-block">
+                      Supported formats: PNG, JPG, JPEG, WEBP (Auto-optimized)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
+                    {uploadingPhoto ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    <span>{currentEmp.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingPhoto}
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {currentEmp.avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={uploadingPhoto}
+                      className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Date of Birth</span>
                 <p className="text-sm font-bold text-slate-900 mt-1">{employee.dateOfBirth}</p>

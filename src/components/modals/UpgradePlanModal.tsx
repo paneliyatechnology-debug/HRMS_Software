@@ -164,8 +164,8 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           }
         },
         prefill: {
-          name: currentSub.company?.adminUser.fullName || 'Keyur Sangani',
-          email: currentSub.company?.adminUser.email || 'keyursangani1210@gmail.com',
+          name: currentSub.company?.adminUser.fullName || 'Company Administrator',
+          email: currentSub.company?.adminUser.email || 'admin@paneliya.com',
           contact: currentSub.company?.adminUser.phone || '+91 9876543210',
         },
         notes: {

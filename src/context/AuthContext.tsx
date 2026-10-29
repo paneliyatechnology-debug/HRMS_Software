@@ -11,6 +11,8 @@ export const isUserAdminRole = (role?: string): boolean => {
   return (
     normalized === 'SUPER_ADMIN' ||
     normalized === 'HR_ADMIN' ||
+    normalized === 'COMPANY_ADMIN' ||
+    normalized === 'ORG_ADMIN' ||
     normalized === 'FINANCE_ADMIN' ||
     normalized === 'ADMIN'
   );
@@ -41,77 +43,7 @@ export interface DemoUserAccount {
   user: User;
 }
 
-export const DEMO_USERS: DemoUserAccount[] = [
-  {
-    key: 'admin',
-    label: 'Company Admin / HR',
-    badge: 'HR_ADMIN',
-    identifier: 'admin@paneliya.com',
-    aliases: ['admin', 'admin@hrms.com', '+919876543210', '9876543210', 'admin@demo.com'],
-    password: 'admin123',
-    role: 'HR_ADMIN',
-    portal: 'admin',
-    user: {
-      id: 'demo-admin-1',
-      employeeId: 'emp-admin-1',
-      employeeCode: 'ADM-001',
-      firstName: 'Paneliya',
-      lastName: 'Admin',
-      email: 'admin@paneliya.com',
-      phone: '+91 98765 43210',
-      role: 'HR_ADMIN',
-      departmentName: 'Executive HR',
-      designationTitle: 'HR Director',
-      avatarUrl: '',
-    },
-  },
-  {
-    key: 'employee',
-    label: 'Staff Employee',
-    badge: 'EMPLOYEE',
-    identifier: 'employee@paneliya.com',
-    aliases: ['emp-101', 'emp101', 'emp', 'employee', 'rahul@paneliya.com', '+919876500001', '9876500001', 'emp@demo.com'],
-    password: 'emp123',
-    role: 'EMPLOYEE',
-    portal: 'employee',
-    user: {
-      id: 'demo-emp-101',
-      employeeId: 'emp-101',
-      employeeCode: 'EMP-101',
-      firstName: 'Rahul',
-      lastName: 'Patel',
-      email: 'employee@paneliya.com',
-      phone: '+91 98765 00001',
-      role: 'EMPLOYEE',
-      departmentName: 'Engineering',
-      designationTitle: 'Senior Software Engineer',
-      avatarUrl: '',
-    },
-  },
-  {
-    key: 'superadmin',
-    label: 'Super Admin',
-    badge: 'SUPER_ADMIN',
-    identifier: 'superadmin@paneliya.com',
-    aliases: ['superadmin', 'super@hrms.com', '+919999900000', '9999900000', 'super@demo.com'],
-    password: 'superadmin123',
-    role: 'SUPER_ADMIN',
-    portal: 'admin',
-    user: {
-      id: 'demo-superadmin-1',
-      employeeId: 'emp-superadmin-1',
-      employeeCode: 'SUP-001',
-      firstName: 'System',
-      lastName: 'SuperAdmin',
-      email: 'superadmin@paneliya.com',
-      phone: '+91 99999 00000',
-      role: 'SUPER_ADMIN',
-      departmentName: 'Global Administration',
-      designationTitle: 'System Architect & SuperAdmin',
-      avatarUrl: '',
-    },
-  },
-];
+export const DEMO_USERS: DemoUserAccount[] = [];
 
 interface AuthContextType {
   user: User;
@@ -136,6 +68,7 @@ interface AuthContextType {
     designationId?: string;
   }) => Promise<{ success: boolean; message?: string; user?: any; notInOrganization?: boolean }>;
   switchRole: (newRole: Role) => void;
+  updateUserProfile: (updates: Partial<User>) => void;
   hasPermission: (action: string) => boolean;
   allUsers: User[];
   logout: () => void;
@@ -189,24 +122,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       : null;
     const storedAuth = typeof window !== 'undefined' ? localStorage.getItem('hrms_is_authenticated') : null;
 
-    if (storedAuth === 'true' && token) {
-      // 1. Direct restore for demo session (No database connection needed)
-      if (token.startsWith('demo_token_')) {
-        const savedUserStr = typeof window !== 'undefined' ? localStorage.getItem('hrms_auth_user') : null;
-        if (savedUserStr) {
-          try {
-            const parsedUser = JSON.parse(savedUserStr);
-            setUser(parsedUser);
-            setIsAuthenticated(true);
-            const userRole = parsedUser.role || 'EMPLOYEE';
-            setPortalModeState(determinePortalMode(userRole));
-            setIsLoading(false);
-            return;
-          } catch (e) {
-            console.error('Failed to parse demo user session:', e);
+    if (typeof window !== 'undefined') {
+      try {
+        const PURGE_ALL_MOCKS_KEY = 'hrms_pure_database_sync_v4';
+        if (localStorage.getItem(PURGE_ALL_MOCKS_KEY) !== 'true') {
+          // 1. Purge any stale demo or fake offline sessions
+          const savedToken = localStorage.getItem('hrms_auth_token') || '';
+          if (
+            savedToken.startsWith('demo_token_') ||
+            savedToken.startsWith('token_admin-') ||
+            savedToken.startsWith('token_emp-')
+          ) {
+            localStorage.removeItem('hrms_auth_token');
+            localStorage.removeItem('bearerToken');
+            localStorage.removeItem('hrms_is_authenticated');
+            localStorage.removeItem('hrms_auth_user');
+            localStorage.removeItem('hrms_current_role');
+            localStorage.removeItem('hrms_portal_mode');
           }
+
+          // 2. Clear all local mock caches so data is strictly fetched from backend database
+          localStorage.removeItem('hrms_employees_records');
+          localStorage.removeItem('hrms_daily_attendance_records');
+          localStorage.removeItem('hrms_leave_requests');
+          localStorage.removeItem('hrms_payroll_records');
+          localStorage.removeItem('hrms_notices_records');
+          localStorage.removeItem('hrms_multi_tenant_companies');
+          localStorage.removeItem('hrms_tenant_company_employees');
+
+          localStorage.setItem(PURGE_ALL_MOCKS_KEY, 'true');
         }
-      }
+      } catch {}
+    }
+
+    if (token && token.startsWith('demo_token_')) {
+      localStorage.removeItem('hrms_auth_token');
+      localStorage.removeItem('bearerToken');
+      localStorage.removeItem('hrms_is_authenticated');
+      localStorage.removeItem('hrms_auth_user');
+      localStorage.removeItem('hrms_current_role');
+      localStorage.removeItem('hrms_portal_mode');
+    }
+
+    if (storedAuth === 'true' && token && !token.startsWith('demo_token_')) {
 
       const safetyTimer = setTimeout(() => {
         setIsLoading(false);
@@ -260,26 +218,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('hrms_portal_mode', mode);
   };
 
-  // 1-Click Instant Demo Login (Zero Database Connection Required)
+  // 1-Click Instant Demo Login (Disabled in production mode)
   const loginWithDemoAccount = async (
-    accountKey: 'admin' | 'employee' | 'superadmin'
+    _accountKey: 'admin' | 'employee' | 'superadmin'
   ): Promise<{ success: boolean; role?: string; message?: string }> => {
-    const demo = DEMO_USERS.find((d) => d.key === accountKey);
-    if (!demo) return { success: false, message: 'Demo account not found.' };
-
-    setUser(demo.user);
-    setPortalModeState(demo.portal);
-    setIsAuthenticated(true);
-    localStorage.setItem('hrms_is_authenticated', 'true');
-    localStorage.setItem('hrms_portal_mode', demo.portal);
-    localStorage.setItem('hrms_current_role', demo.role);
-    localStorage.setItem('hrms_auth_user', JSON.stringify(demo.user));
-    localStorage.setItem('hrms_auth_token', `demo_token_${demo.key}`);
-    localStorage.setItem('bearerToken', `demo_token_${demo.key}`);
-    if (demo.role === 'SUPER_ADMIN') {
-      localStorage.setItem('hrms_initial_module', 'super_admin');
-    }
-    return { success: true, role: demo.role };
+    return { success: false, message: 'Demo accounts have been permanently removed.' };
   };
 
   const login = async (
@@ -289,31 +232,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = identifier.trim().toLowerCase();
     const trimmedPass = (password || '').trim();
 
-    // 1. Strict organization membership check
-    const org = findOrganizationByEmail(identifier);
-    if (!org.isMember) {
-      return {
-        success: false,
-        notInOrganization: true,
-        message: 'You are not part of any organization. Please contact your company administrator to add your email.',
-      };
-    }
-
-    // 2. Check demo accounts
-    const demoMatch = DEMO_USERS.find(
-      (d) =>
-        (d.identifier.toLowerCase() === trimmedInput ||
-          d.aliases.some((a) => a.toLowerCase() === trimmedInput)) &&
-        (!trimmedPass || trimmedPass === d.password || trimmedPass === '123456' || trimmedPass === 'demo')
-    );
-    if (demoMatch) {
-      return loginWithDemoAccount(demoMatch.key);
-    }
-
     if (!password || password.trim().length === 0) {
       return { success: false, message: 'Password is required.' };
     }
 
+    const org = findOrganizationByEmail(identifier);
+
+    // 1. Direct login via backend API & database
     try {
       const res = await api.login(identifier.trim(), password);
       if (res && res.user) {
@@ -321,8 +246,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: org.companyId || res.user.companyId || 'comp-paneliya',
-          companyName: org.companyName || res.user.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
+          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
 
         if (userRole === 'SUPER_ADMIN') {
@@ -347,48 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, message: res?.message || 'Invalid credentials.' };
     } catch (err: any) {
-      // Offline fallback: Check password against organization employee/admin record
-      const expectedPass = org.password || (org.isCompanyAdmin ? 'Admin@123' : 'Password@123');
-      const passMatches =
-        trimmedPass === expectedPass ||
-        trimmedPass === '123456' ||
-        trimmedPass === 'demo' ||
-        (org.isCompanyAdmin && trimmedPass === 'admin123') ||
-        (org.isSuperAdmin && trimmedPass === 'superadmin123') ||
-        (org.role === 'EMPLOYEE' && trimmedPass === 'emp123');
-
-      if (passMatches) {
-        const userRole = org.role || (org.isCompanyAdmin ? 'HR_ADMIN' : 'EMPLOYEE');
-        const targetPortal = determinePortalMode(userRole);
-        const emp = org.employee;
-        const localUser: User = {
-          id: emp?.id || org.adminUser?.id || `user-${Date.now()}`,
-          employeeId: emp?.id,
-          employeeCode: emp?.employeeCode,
-          firstName: emp?.firstName || org.adminUser?.fullName?.split(' ')[0] || 'User',
-          lastName: emp?.lastName || org.adminUser?.fullName?.split(' ').slice(1).join(' ') || '',
-          email: emp?.email || org.adminUser?.email || trimmedInput,
-          phone: emp?.phone || org.adminUser?.phone || '',
-          role: userRole,
-          departmentName: emp?.departmentName || 'General',
-          designationTitle: emp?.designationTitle || org.adminUser?.designation || 'Staff',
-          avatarUrl: emp?.avatarUrl || '',
-          companyId: org.companyId,
-          companyName: org.companyName,
-        };
-        setUser(localUser);
-        setPortalModeState(targetPortal);
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(localUser));
-        localStorage.setItem('hrms_auth_token', `token_${localUser.id}`);
-        localStorage.setItem('bearerToken', `token_${localUser.id}`);
-        return { success: true, role: userRole };
-      }
-
-      return { success: false, message: 'Invalid credentials. Password is incorrect.' };
+      return { success: false, message: err?.message || 'Invalid credentials. User not found in database.' };
     }
   };
 
@@ -399,35 +283,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = emailOrPhone.trim().toLowerCase();
     const trimmedPass = (password || '').trim();
 
-    // Check organization membership
-    const org = findOrganizationByEmail(emailOrPhone);
-    if (!org.isMember) {
-      return {
-        success: false,
-        notInOrganization: true,
-        message: 'You are not part of any organization. Please contact your company administrator to add your email.',
-      };
-    }
-
-    if (!org.isSuperAdmin && org.role !== 'SUPER_ADMIN') {
-      return { success: false, message: 'Access denied: You do not have Super Admin privileges.' };
-    }
-
-    // Check demo accounts first
-    const demoMatch = DEMO_USERS.find(
-      (d) =>
-        d.key === 'superadmin' &&
-        (d.identifier.toLowerCase() === trimmedInput ||
-          d.aliases.some((a) => a.toLowerCase() === trimmedInput)) &&
-        (!trimmedPass || trimmedPass === d.password || trimmedPass === '123456' || trimmedPass === 'demo')
-    );
-    if (demoMatch) {
-      return loginWithDemoAccount(demoMatch.key);
-    }
-
     if (!password || password.trim().length === 0) {
       return { success: false, message: 'Password is required.' };
     }
+
+    const org = findOrganizationByEmail(emailOrPhone);
 
     try {
       const res = await api.login(emailOrPhone.trim(), password);
@@ -448,8 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: org.companyId || 'comp-paneliya',
-          companyName: org.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
+          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
         setUser(enriched);
         setPortalModeState('admin');
@@ -463,11 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, message: res?.message || 'Invalid Super Admin credentials.' };
     } catch (err: any) {
-      const expectedPass = org.password || 'superadmin123';
-      if (trimmedPass === expectedPass || trimmedPass === 'superadmin123' || trimmedPass === '123456') {
-        return loginWithDemoAccount('superadmin');
-      }
-      return { success: false, message: 'Invalid Super Admin credentials.' };
+      return { success: false, message: err?.message || 'Invalid Super Admin credentials.' };
     }
   };
 
@@ -478,46 +334,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmedInput = emailOrPhone.trim().toLowerCase();
     const trimmedPass = (password || '').trim();
 
-    // 1. Strict organization membership check
-    const org = findOrganizationByEmail(emailOrPhone);
-    if (!org.isMember) {
-      return {
-        success: false,
-        notInOrganization: true,
-        message: 'You are not part of any organization. Please contact your company administrator to add your email.',
-      };
-    }
-
-    // 2. Privilege check
-    if (!org.isCompanyAdmin && !org.isSuperAdmin && !isUserAdminRole(org.role)) {
-      return {
-        success: false,
-        message: 'Access denied: You are registered as an Employee. Please use the Staff Employee Login tab.',
-      };
-    }
-
-    // 3. Check demo accounts first
-    const demoMatch = DEMO_USERS.find(
-      (d) =>
-        (d.key === 'admin' || d.key === 'superadmin') &&
-        (d.identifier.toLowerCase() === trimmedInput ||
-          d.aliases.some((a) => a.toLowerCase() === trimmedInput)) &&
-        (!trimmedPass || trimmedPass === d.password || trimmedPass === '123456' || trimmedPass === 'demo')
-    );
-    if (demoMatch) {
-      return loginWithDemoAccount(demoMatch.key);
-    }
-
     if (!password || password.trim().length === 0) {
       return { success: false, message: 'Password is required.' };
     }
+
+    const org = findOrganizationByEmail(emailOrPhone);
 
     try {
       const res = await api.login(emailOrPhone.trim(), password);
       if (res && res.user) {
         const userRole = res.user.role || org.role || 'HR_ADMIN';
         if (!isUserAdminRole(userRole)) {
-          return { success: false, message: 'Access denied: You do not have Admin privileges. Please use Staff Login.' };
+          return { success: false, message: 'Access denied: You are registered as an Employee. Please use the Staff Employee Login tab.' };
         }
         if (userRole === 'SUPER_ADMIN') {
           try {
@@ -532,8 +360,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: org.companyId || res.user.companyId || 'comp-paneliya',
-          companyName: org.companyName || res.user.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
+          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
         setUser(enriched);
         setPortalModeState('admin');
@@ -547,42 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, message: res?.message || 'Invalid Admin credentials.' };
     } catch (err: any) {
-      // Offline fallback
-      const expectedPass = org.password || (org.isSuperAdmin ? 'superadmin123' : 'Admin@123');
-      const passMatches =
-        trimmedPass === expectedPass ||
-        trimmedPass === '123456' ||
-        trimmedPass === 'demo' ||
-        trimmedPass === 'admin123' ||
-        (org.isSuperAdmin && trimmedPass === 'superadmin123');
-
-      if (passMatches) {
-        const userRole = org.role || (org.isSuperAdmin ? 'SUPER_ADMIN' : 'HR_ADMIN');
-        const localUser: User = {
-          id: org.adminUser?.id || `admin-${Date.now()}`,
-          firstName: org.adminUser?.fullName?.split(' ')[0] || 'Company',
-          lastName: org.adminUser?.fullName?.split(' ').slice(1).join(' ') || 'Admin',
-          email: org.adminUser?.email || trimmedInput,
-          phone: org.adminUser?.phone || '',
-          role: userRole,
-          designationTitle: org.adminUser?.designation || 'Company Administrator',
-          companyId: org.companyId,
-          companyName: org.companyName,
-        };
-        setUser(localUser);
-        setPortalModeState('admin');
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_initial_module', userRole === 'SUPER_ADMIN' ? 'super_admin' : 'dashboard');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(localUser));
-        localStorage.setItem('hrms_auth_token', `token_${localUser.id}`);
-        localStorage.setItem('bearerToken', `token_${localUser.id}`);
-        return { success: true };
-      }
-
-      return { success: false, message: 'Invalid Admin credentials. Please verify your password.' };
+      return { success: false, message: err?.message || 'Invalid Admin credentials. User not found in database.' };
     }
   };
 
@@ -593,31 +386,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmed = codeOrEmail.trim().toLowerCase();
     const trimmedPass = (passwordOrPin || '').trim();
 
-    // 1. Strict organization membership check
-    const org = findOrganizationByEmail(codeOrEmail);
-    if (!org.isMember) {
-      return {
-        success: false,
-        notInOrganization: true,
-        message: 'You are not part of any organization. Please contact your company administrator to add your email.',
-      };
-    }
-
-    // 2. Check demo accounts first
-    const demoMatch = DEMO_USERS.find(
-      (d) =>
-        d.key === 'employee' &&
-        (d.identifier.toLowerCase() === trimmed ||
-          d.aliases.some((a) => a.toLowerCase() === trimmed)) &&
-        (!trimmedPass || trimmedPass === d.password || trimmedPass === '123456' || trimmedPass === 'demo')
-    );
-    if (demoMatch) {
-      return loginWithDemoAccount(demoMatch.key);
-    }
-
     if (!passwordOrPin || passwordOrPin.trim().length === 0) {
       return { success: false, message: 'Password / PIN is required.' };
     }
+
+    const org = findOrganizationByEmail(codeOrEmail);
 
     try {
       const res = await api.login(codeOrEmail.trim(), passwordOrPin);
@@ -626,8 +399,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: org.companyId || res.user.companyId || 'comp-paneliya',
-          companyName: org.companyName || res.user.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
+          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
         setUser(enriched);
         setPortalModeState(targetPortal);
@@ -640,46 +413,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, message: res?.message || 'Invalid employee credentials.' };
     } catch (err: any) {
-      // Offline fallback: Check password against organization employee record
-      const expectedPass = org.password || (org.employee as any)?.password || 'Password@123';
-      const passMatches =
-        trimmedPass === expectedPass ||
-        trimmedPass === '123456' ||
-        trimmedPass === 'demo' ||
-        trimmedPass === 'emp123';
-
-      if (passMatches) {
-        const emp = org.employee;
-        const userRole = org.role || 'EMPLOYEE';
-        const targetPortal = determinePortalMode(userRole);
-        const localUser: User = {
-          id: emp?.id || `emp-${Date.now()}`,
-          employeeId: emp?.id,
-          employeeCode: emp?.employeeCode || 'EMP-101',
-          firstName: emp?.firstName || 'Staff',
-          lastName: emp?.lastName || 'Employee',
-          email: emp?.email || trimmed,
-          phone: emp?.phone || '',
-          role: userRole,
-          departmentName: emp?.departmentName || 'General',
-          designationTitle: emp?.designationTitle || 'Staff',
-          avatarUrl: emp?.avatarUrl || '',
-          companyId: org.companyId,
-          companyName: org.companyName,
-        };
-        setUser(localUser);
-        setPortalModeState(targetPortal);
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(localUser));
-        localStorage.setItem('hrms_auth_token', `token_${localUser.id}`);
-        localStorage.setItem('bearerToken', `token_${localUser.id}`);
-        return { success: true };
-      }
-
-      return { success: false, message: 'Invalid credentials. Password or PIN is incorrect.' };
+      return { success: false, message: err?.message || 'Invalid employee credentials. User not found in database.' };
     }
   };
 
@@ -693,17 +427,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     departmentId?: string;
     designationId?: string;
   }): Promise<{ success: boolean; message?: string; user?: any; notInOrganization?: boolean }> => {
-    // Check organization membership
-    const requestedRole = data.role || 'EMPLOYEE';
     const org = findOrganizationByEmail(data.email);
-
-    if (requestedRole === 'EMPLOYEE' && !org.isMember) {
-      return {
-        success: false,
-        notInOrganization: true,
-        message: 'You are not part of any organization. Your email has not been added by any company administrator yet. Please ask your company HR/Admin to add your email first.',
-      };
-    }
 
     try {
       const res = await api.register(data);
@@ -712,8 +436,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: org.companyId || res.user.companyId || 'comp-paneliya',
-          companyName: org.companyName || res.user.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
+          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
 
         setUser(enriched);
@@ -782,6 +506,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('hrms_auth_user', JSON.stringify(updated));
   };
 
+  const updateUserProfile = (updates: Partial<User>) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...updates };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hrms_auth_user', JSON.stringify(updated));
+        window.dispatchEvent(new Event('hrms_auth_user_updated'));
+      }
+      return updated;
+    });
+  };
+
   const logout = () => {
     setIsAuthenticated(false);
     setUser(emptyUser);
@@ -834,6 +569,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithDemoAccount,
         registerUser,
         switchRole,
+        updateUserProfile,
         hasPermission,
         allUsers: [],
         logout,

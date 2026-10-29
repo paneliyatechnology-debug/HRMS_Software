@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
+    "mobile": "npx localtunnel --port 3000 --subdomain paneliya-hrms",
+    "tunnel": "npx localtunnel --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

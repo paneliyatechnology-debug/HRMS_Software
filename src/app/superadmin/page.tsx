@@ -77,7 +77,7 @@ export default function SuperAdminPortalPage() {
   return (
     <div className="min-h-screen bg-[#f4f7fc] text-[#152345] flex flex-col font-sans select-none">
       {/* Top Super Admin Header */}
-      <header className="h-[66px] bg-white border-b border-[#e4eaf5] px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+      <header className="h-[66px] bg-white border-b-2 border-[#064e3b] px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#6576ff] to-[#7f4cdb] text-white flex items-center justify-center shadow-md font-black text-lg">
             M

@@ -83,9 +83,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm animate-in fade-in flex items-start justify-center pt-20 p-4 cursor-pointer"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-modal-backdrop flex items-start justify-center pt-20 p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
         {/* Search Input Bar */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
           <Search className="w-5 h-5 text-[#4f5fe8] shrink-0" />
