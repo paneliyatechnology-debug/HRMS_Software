@@ -357,18 +357,21 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </div>
                 <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Net Monthly Salary</span>
-                  <p className="text-base font-bold text-slate-900 mt-1">${employee.salary.net.toLocaleString()}</p>
+                  <p className="text-base font-bold text-slate-900 mt-1">${(employee.salary?.net ?? 0).toLocaleString()}</p>
                 </div>
               </div>
 
               <div>
                 <h4 className="font-bold text-slate-900 text-sm mb-2">Core Skills & Competencies</h4>
                 <div className="flex flex-wrap gap-2">
-                  {employee.skills.map((skill) => (
+                  {(employee.skills || []).map((skill) => (
                     <span key={skill} className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs">
                       {skill}
                     </span>
                   ))}
+                  {(!employee.skills || employee.skills.length === 0) && (
+                    <span className="text-xs text-slate-400 italic">No skills listed</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -444,7 +447,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Emergency Contact</span>
                 <p className="text-sm font-bold text-slate-900 mt-1">
-                  {employee.emergencyContact.name} ({employee.emergencyContact.relationship}) — {employee.emergencyContact.phone}
+                  {employee.emergencyContact?.name || '—'} {employee.emergencyContact?.relationship ? `(${employee.emergencyContact.relationship})` : ''} {employee.emergencyContact?.phone ? `— ${employee.emergencyContact.phone}` : ''}
                 </p>
               </div>
             </div>
@@ -616,15 +619,15 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 <h4 className="font-bold text-slate-900 mb-2">Salary Structure Breakdown</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <span className="text-slate-500">Basic Salary:</span>
-                  <span className="font-bold">${employee.salary.basic.toLocaleString()}</span>
+                  <span className="font-bold">${(employee.salary?.basic ?? 0).toLocaleString()}</span>
                   <span className="text-slate-500">HRA Allowance:</span>
-                  <span className="font-bold">${employee.salary.hra.toLocaleString()}</span>
+                  <span className="font-bold">${(employee.salary?.hra ?? 0).toLocaleString()}</span>
                   <span className="text-slate-500">Special Allowances:</span>
-                  <span className="font-bold">${employee.salary.allowances.toLocaleString()}</span>
+                  <span className="font-bold">${(employee.salary?.allowances ?? 0).toLocaleString()}</span>
                   <span className="text-slate-500">PF Deduction (12%):</span>
-                  <span className="font-bold text-rose-500">-${employee.salary.pf.toLocaleString()}</span>
+                  <span className="font-bold text-rose-500">-${(employee.salary?.pf ?? 0).toLocaleString()}</span>
                   <span className="text-slate-500">Net Take-Home:</span>
-                  <span className="font-extrabold text-emerald-600 text-sm">${employee.salary.net.toLocaleString()}</span>
+                  <span className="font-extrabold text-emerald-600 text-sm">${(employee.salary?.net ?? 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>

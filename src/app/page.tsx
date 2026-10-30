@@ -66,16 +66,15 @@ export default function Home() {
         router.push('/login');
         return;
       }
-      const mod = urlParams.get('module') || (window.location.hash ? window.location.hash.replace('#', '') : '');
+      const hashModule = window.location.hash ? window.location.hash.replace('#', '') : '';
+      const mod = urlParams.get('module') || hashModule;
       if (mod) {
         setActiveModule(mod);
       }
-      const handleHashChange = () => {
-        const h = window.location.hash.replace('#', '');
-        if (h) setActiveModule(h);
-      };
-      window.addEventListener('hashchange', handleHashChange);
-      return () => window.removeEventListener('hashchange', handleHashChange);
+      // Remove any #hash from address bar so URL stays completely clean
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     }
   }, [router]);
 
@@ -339,9 +338,10 @@ export default function Home() {
 
   const navigateToModule = (mod: string) => {
     setActiveModule(mod);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      // Keep URL clean without #hash
       try {
-        window.location.hash = mod;
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch (e) {}
     }
   };

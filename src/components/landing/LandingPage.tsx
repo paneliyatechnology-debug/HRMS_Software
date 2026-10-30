@@ -79,14 +79,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Remove #pricing or invalid hashes from the URL
-      if (window.location.hash === '#pricing') {
-        window.history.replaceState(null, '', window.location.pathname);
-      } else if (window.location.hash) {
+      // Remove any #hash from the URL so it stays completely clean
+      if (window.location.hash) {
         const hashId = window.location.hash.replace('#', '');
         if (navItems.some((n) => n.id === hashId)) {
           setActiveSection(hashId);
         }
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
 
       const handleScroll = () => {
@@ -122,7 +121,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
         top: offsetPosition,
         behavior: 'smooth',
       });
-      window.history.replaceState(null, '', `#${id}`);
+      // Keep URL clean without #hash
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     }
   };
 
@@ -1161,161 +1163,163 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               ))}
               <Link href="/login" onClick={onOpenLogin} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer">
                 Portal Sign In
-              </button>
-            </div>
+            </Link>
           </div>
         </div>
-      </footer>
+    </div>
+      </footer >
 
-      {/* ===================================================================== */}
-      {/* 13. INTERACTIVE "BOOK A DEMO" MODAL - LUXURY EMERALD                  */}
-      {/* ===================================================================== */}
-      {isDemoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            {/* Close Button */}
+  {/* ===================================================================== */ }
+{/* 13. INTERACTIVE "BOOK A DEMO" MODAL - LUXURY EMERALD                  */ }
+{/* ===================================================================== */ }
+{
+  isDemoModalOpen && (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        {/* Close Button */}
+        <button
+          onClick={() => setIsDemoModalOpen(false)}
+          className="absolute top-5 right-5 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+        >
+          <X className="w-5 h-5 stroke-[2]" />
+        </button>
+
+        {demoSubmitted ? (
+          <div className="py-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-[#059669] border border-emerald-200 flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <CheckCircle2 className="w-8 h-8 stroke-[2]" />
+            </div>
+            <h3 className="text-xl font-bold text-[#062d1f]">Demo Scheduled Successfully!</h3>
+            <p className="text-xs font-normal text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
+              Thank you, <span className="font-bold text-[#062d1f]">{demoData.name}</span>.
+              Our HRMS solutions architect will reach out to you at{' '}
+              <span className="font-bold text-[#062d1f]">{demoData.email}</span> with calendar invitations
+              and live walkthrough credentials.
+            </p>
             <button
               onClick={() => setIsDemoModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+              className="mt-6 px-6 py-3 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white font-bold text-xs shadow-md shadow-emerald-900/20 active:scale-98 transition-all cursor-pointer"
             >
-              <X className="w-5 h-5 stroke-[2]" />
+              Close &amp; Continue Browsing
             </button>
-
-            {demoSubmitted ? (
-              <div className="py-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-[#059669] border border-emerald-200 flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <CheckCircle2 className="w-8 h-8 stroke-[2]" />
-                </div>
-                <h3 className="text-xl font-bold text-[#062d1f]">Demo Scheduled Successfully!</h3>
-                <p className="text-xs font-normal text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
-                  Thank you, <span className="font-bold text-[#062d1f]">{demoData.name}</span>.
-                  Our HRMS solutions architect will reach out to you at{' '}
-                  <span className="font-bold text-[#062d1f]">{demoData.email}</span> with calendar invitations
-                  and live walkthrough credentials.
-                </p>
-                <button
-                  onClick={() => setIsDemoModalOpen(false)}
-                  className="mt-6 px-6 py-3 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white font-bold text-xs shadow-md shadow-emerald-900/20 active:scale-98 transition-all cursor-pointer"
-                >
-                  Close &amp; Continue Browsing
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#059669] border border-emerald-200 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 stroke-[2]" />
-                  </div>
-                  <h3 className="text-xl font-bold text-[#062d1f]">Book a Live 1-on-1 Demo</h3>
-                </div>
-                <p className="text-xs text-slate-500 mb-6">
-                  See how My Own HRMS automates your exact company attendance rules and payroll structure.
-                </p>
-
-                <form onSubmit={handleDemoSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={demoData.name}
-                        onChange={(e) => setDemoData({ ...demoData, name: e.target.value })}
-                        placeholder="e.g. Rajesh Kumar"
-                        className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Work Email *</label>
-                      <input
-                        type="email"
-                        required
-                        value={demoData.email}
-                        onChange={(e) => setDemoData({ ...demoData, email: e.target.value })}
-                        placeholder="name@company.com"
-                        className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Company Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={demoData.company}
-                        onChange={(e) => setDemoData({ ...demoData, company: e.target.value })}
-                        placeholder="e.g. Paneliya Tech Inc."
-                        className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
-                      <input
-                        type="tel"
-                        required
-                        value={demoData.phone}
-                        onChange={(e) => setDemoData({ ...demoData, phone: e.target.value })}
-                        placeholder="+91 98765 43210"
-                        className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Team Size</label>
-                      <select
-                        value={demoData.teamSize}
-                        onChange={(e) => setDemoData({ ...demoData, teamSize: e.target.value })}
-                        className="w-full h-11 px-3 rounded-xl border border-[#d8ebd9] text-xs font-semibold bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-700"
-                      >
-                        <option>1-20 employees</option>
-                        <option>21-50 employees</option>
-                        <option>51-200 employees</option>
-                        <option>201-500 employees</option>
-                        <option>500+ employees</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Time Slot</label>
-                      <select
-                        value={demoData.timeSlot}
-                        onChange={(e) => setDemoData({ ...demoData, timeSlot: e.target.value })}
-                        className="w-full h-11 px-3 rounded-xl border border-[#d8ebd9] text-xs font-semibold bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-700"
-                      >
-                        <option>11:00 AM - 12:00 PM</option>
-                        <option>02:00 PM - 03:00 PM</option>
-                        <option>04:00 PM - 05:00 PM</option>
-                        <option>06:00 PM - 07:00 PM</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Specific Requirements or Modules of Interest</label>
-                    <textarea
-                      rows={2}
-                      value={demoData.notes}
-                      onChange={(e) => setDemoData({ ...demoData, notes: e.target.value })}
-                      placeholder="e.g. Biometric device integration, shift rosters, custom payslip taxes..."
-                      className="w-full p-3 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-emerald-900/20 hover:shadow-lg active:scale-98 transition-all cursor-pointer"
-                  >
-                    Confirm &amp; Schedule Demo
-                  </button>
-                </form>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        ) : (
+          <div>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#059669] border border-emerald-200 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 stroke-[2]" />
+              </div>
+              <h3 className="text-xl font-bold text-[#062d1f]">Book a Live 1-on-1 Demo</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-6">
+              See how My Own HRMS automates your exact company attendance rules and payroll structure.
+            </p>
+
+            <form onSubmit={handleDemoSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={demoData.name}
+                    onChange={(e) => setDemoData({ ...demoData, name: e.target.value })}
+                    placeholder="e.g. Rajesh Kumar"
+                    className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Work Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={demoData.email}
+                    onChange={(e) => setDemoData({ ...demoData, email: e.target.value })}
+                    placeholder="name@company.com"
+                    className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={demoData.company}
+                    onChange={(e) => setDemoData({ ...demoData, company: e.target.value })}
+                    placeholder="e.g. Paneliya Tech Inc."
+                    className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={demoData.phone}
+                    onChange={(e) => setDemoData({ ...demoData, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="w-full h-11 px-3.5 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Team Size</label>
+                  <select
+                    value={demoData.teamSize}
+                    onChange={(e) => setDemoData({ ...demoData, teamSize: e.target.value })}
+                    className="w-full h-11 px-3 rounded-xl border border-[#d8ebd9] text-xs font-semibold bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-700"
+                  >
+                    <option>1-20 employees</option>
+                    <option>21-50 employees</option>
+                    <option>51-200 employees</option>
+                    <option>201-500 employees</option>
+                    <option>500+ employees</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Time Slot</label>
+                  <select
+                    value={demoData.timeSlot}
+                    onChange={(e) => setDemoData({ ...demoData, timeSlot: e.target.value })}
+                    className="w-full h-11 px-3 rounded-xl border border-[#d8ebd9] text-xs font-semibold bg-slate-50/50 focus:bg-white focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-700"
+                  >
+                    <option>11:00 AM - 12:00 PM</option>
+                    <option>02:00 PM - 03:00 PM</option>
+                    <option>04:00 PM - 05:00 PM</option>
+                    <option>06:00 PM - 07:00 PM</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Specific Requirements or Modules of Interest</label>
+                <textarea
+                  rows={2}
+                  value={demoData.notes}
+                  onChange={(e) => setDemoData({ ...demoData, notes: e.target.value })}
+                  placeholder="e.g. Biometric device integration, shift rosters, custom payslip taxes..."
+                  className="w-full p-3 rounded-xl border border-[#d8ebd9] text-xs font-medium focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50 focus:bg-white transition-all"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-emerald-900/20 hover:shadow-lg active:scale-98 transition-all cursor-pointer"
+              >
+                Confirm &amp; Schedule Demo
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+    </div >
   );
 };
