@@ -367,11 +367,136 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       {/* Main Table */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden">
         {/* Table info header */}
-        <div className="px-4 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium">
-          1–{filtered.length} of {filtered.length}
+        <div className="px-4 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium flex items-center justify-between">
+          <span>1–{filtered.length} of {filtered.length}</span>
+          <span className="text-[11px] text-slate-400 md:hidden">Tap card to view full profile</span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Cards Roster (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No employees found matching &quot;{search}&quot;
+            </div>
+          ) : (
+            filtered.map((emp, empIdx) => {
+              const isCurrentUser =
+                emp.email === user.email ||
+                emp.id === user.employeeId ||
+                emp.id === user.id;
+              const isSelected = selectedRows.includes(emp.id);
+              const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
+
+              return (
+                <div
+                  key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
+                  className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
+                    isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'
+                  }`}
+                  onClick={() => onSelectEmployee(emp)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full font-bold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200 overflow-hidden">
+                        {emp.avatarUrl ? (
+                          <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                        ) : (
+                          <>
+                            {emp.firstName[0]}
+                            {emp.lastName ? emp.lastName[0] : ''}
+                          </>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-xs text-slate-900 truncate">
+                            {emp.firstName} {emp.lastName}
+                          </span>
+                          {isCurrentUser && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          {emp.employeeCode || 'EMP'} • {emp.departmentName || 'General'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {emp.status?.toLowerCase() === 'inactive' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          <span>Inactive</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>Active</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-500 gap-2 pt-1 border-t border-slate-50">
+                    <span className="truncate text-[11px]">{emp.email}</span>
+                    <button
+                      type="button"
+                      disabled={portalMode !== 'admin'}
+                      onClick={(e) => {
+                        if (portalMode === 'admin') {
+                          e.stopPropagation();
+                          handleOpenRoleModal(emp);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shrink-0 ${roleDef.badgeClass}`}
+                    >
+                      <Shield className="w-2.5 h-2.5 shrink-0" />
+                      <span>{roleDef.label}</span>
+                    </button>
+                  </div>
+
+                  {portalMode === 'admin' && (
+                    <div className="flex items-center justify-end gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                      {onOpenChatWithEmployee && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenChatWithEmployee(emp.id)}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1"
+                          title="Chat"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Chat</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenNoticeModal(emp)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1"
+                        title="Send Notice"
+                      >
+                        <Bell className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Notice</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRemoveModal(emp)}
+                        className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold"
+                        title="Remove Employee"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">

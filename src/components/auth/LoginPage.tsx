@@ -242,7 +242,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-hidden">
+    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-3 sm:px-6 py-6 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-hidden">
       
       {/* Elegant ambient light mint / emerald glows */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
@@ -279,13 +279,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
         </div>
 
         {/* Luxury Green Main Card */}
-        <div className="bg-white rounded-3xl border border-[#d8ebd9] shadow-[0_12px_40px_rgba(6,45,31,0.06)] p-6 sm:p-8">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d8ebd9] shadow-[0_12px_40px_rgba(6,45,31,0.06)] p-4 sm:p-8">
           
           {/* Top Header Row for Signup Mode */}
           {viewMode === 'signup' && (
-            <div className="flex items-center justify-between mb-5 pb-3 border-b border-[#d8ebd9]">
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 mb-5 pb-3 border-b border-[#d8ebd9]">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#059669]">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#059669] shrink-0">
                   <Building2 className="w-4 h-4" />
                 </div>
                 <div>
@@ -301,7 +301,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   setErrorMessage(null);
                   setSuccessMessage(null);
                 }}
-                className="text-xs font-semibold text-[#059669] hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                className="text-xs font-semibold text-[#059669] hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer shrink-0"
               >
                 ← Back to Login
               </button>
@@ -538,7 +538,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-[#0d271d] mb-1">City</label>
                     <input
@@ -573,7 +573,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-[#0d271d] mb-1">
                       First Name <span className="text-red-500">*</span>

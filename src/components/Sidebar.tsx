@@ -245,7 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] ${
+        className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] max-w-[85vw] ${
           isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
         } bg-white text-[#0d271d] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r-2 border-[#064e3b] shadow-xs ${
           isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'

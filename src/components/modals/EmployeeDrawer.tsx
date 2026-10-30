@@ -238,50 +238,50 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     >
       <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-100 cursor-default">
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
               <UserPlus className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-slate-900">Add New Employee</h3>
-                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Add New Employee</h3>
+                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 truncate max-w-[140px]">
                   {adminCompanyName}
                 </span>
                 {nextEmployeeCode && (
-                  <span className="text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                  <span className="text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
                     {nextEmployeeCode}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate">
                 Adding to {adminCompanyName} • Step {step} of 3
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 shrink-0 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Steps indicator */}
-        <div className="px-6 py-3 bg-slate-50 flex items-center justify-between text-xs font-semibold">
-          <span className={step === 1 ? 'text-blue-600 font-bold' : 'text-slate-400'}>
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-slate-50 flex items-center justify-between text-[11px] sm:text-xs font-semibold overflow-x-auto">
+          <span className={step === 1 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
             1. Personal Info
           </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-          <span className={step === 2 ? 'text-blue-600 font-bold' : 'text-slate-400'}>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span className={step === 2 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
             2. Employment
           </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-          <span className={step === 3 ? 'text-blue-600 font-bold' : 'text-slate-400'}>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span className={step === 3 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
             3. Compensation & Bank
           </span>
         </div>
 
         {/* Form Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {formError && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between">
               <span>{formError}</span>
@@ -353,7 +353,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     First Name
@@ -405,7 +405,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Mobile / Phone Number <span className="text-red-500">*</span>
@@ -530,7 +530,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Employment Type
@@ -582,7 +582,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Bank Name
@@ -608,7 +608,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Emergency Contact Name

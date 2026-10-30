@@ -656,7 +656,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }}
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-modal-backdrop cursor-pointer"
     >
-      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom">
         <button
           onClick={handleModalClose}
           className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-none hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
@@ -1258,11 +1258,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {punchState.status === 'working' && (
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
                   <button
                     onClick={handleTakeBreak}
                     disabled={loading}
-                    className="py-3 px-2 rounded-none bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                    className="py-3 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                   >
                     <Coffee className="w-4 h-4 shrink-0" />
                     <span className="truncate">Take Break</span>
@@ -1270,7 +1270,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   <button
                     onClick={handleInitiateCheckOut}
                     disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
-                    className="py-3 px-2 rounded-none bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Camera className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">Selfie Check Out</span>
@@ -1279,11 +1279,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {punchState.status === 'on_break' && (
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
                   <button
                     onClick={handleResumeWork}
                     disabled={loading}
-                    className="py-3 px-2 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
+                    className="py-3 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
                   >
                     <Play className="w-4 h-4 fill-current shrink-0" />
                     <span className="truncate">Resume Work</span>
@@ -1291,7 +1291,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   <button
                     onClick={handleInitiateCheckOut}
                     disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
-                    className="py-3 px-2 rounded-none bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Camera className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">Selfie Check Out</span>

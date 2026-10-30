@@ -800,7 +800,116 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </button>
               </div>
 
-              <div className="overflow-x-auto w-full [scrollbar-width:thin]">
+              {/* Mobile Cards View (Visible on < md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {visibleEmployees.map((emp) => {
+                  const rec = getEmpTodayRecord(emp);
+                  const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
+                  const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                  const isDone = rec && rec.isCompleted;
+
+                  const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                  const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                  const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+
+                  return (
+                    <div key={emp.id} className="p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                            {emp.firstName?.[0] || 'E'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-900 truncate">
+                              {emp.firstName} {emp.lastName}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
+                          </div>
+                        </div>
+
+                        {/* Status badge */}
+                        <div className="shrink-0">
+                          {isWorking ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Working
+                            </span>
+                          ) : isOnBreak ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                              <Pause className="w-3 h-3 text-amber-600" />
+                              On Break
+                            </span>
+                          ) : isDone ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                              <Check className="w-3 h-3 text-slate-600" />
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                              Not Punched
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                          <span className="font-semibold text-slate-800 text-[11px]">
+                            {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                          <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                            {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* WFH and Device row */}
+                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          {isAdminUser ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleWFH(emp)}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
+                                isWfhActive
+                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {isWfhActive ? '🏡 WFH' : '🏢 Office'}
+                            </span>
+                          )}
+                        </div>
+
+                        {rec && (rec.checkInDevice || rec.checkInPhoto) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuditModalRecord(rec);
+                              setAuditModalEmployee(emp);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                          >
+                            <Camera className="w-3 h-3 text-slate-500" />
+                            <span>Audit Details</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View (Visible on >= md) */}
+              <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
                 <table className="w-full text-left text-xs min-w-[750px]">
                   <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
                     <tr>
@@ -1170,7 +1279,116 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto [scrollbar-width:thin]">
+                <>
+                  {/* Mobile Scorecard Cards (Visible on < md) */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {visibleEmployees.map((emp) => {
+                      const metrics = getEmployeeMonthlyMetrics(emp);
+                      const todayRec = getEmpTodayRecord(emp);
+                      const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                      const isDoneToday = todayRec && todayRec.isCompleted;
+
+                      return (
+                        <div
+                          key={emp.id}
+                          className="p-4 space-y-3 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                          onClick={() => setDetailEmp(emp)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                                {emp.avatarUrl ? (
+                                  <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>
+                                    {emp.firstName?.[0] || 'E'}
+                                    {emp.lastName?.[0] || ''}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs text-slate-900 truncate">
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                  {emp.employeeCode || emp.id} • {emp.departmentName || 'Staff'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Attendance Score Badge */}
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-black shrink-0 ${
+                              metrics.score >= 90
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : metrics.score >= 75
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            }`}>
+                              {metrics.score}% Score
+                            </span>
+                          </div>
+
+                          {/* 3-Column Micro Metrics Grid */}
+                          <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Present</span>
+                              <span className="font-bold text-emerald-700 text-xs">{metrics.presentDays} Days</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Late</span>
+                              <span className={`font-bold text-xs ${metrics.lateDays > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                                {metrics.lateDays}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Leaves/Off</span>
+                              <span className={`font-bold text-xs ${metrics.onLeaveDays + metrics.absentDays > 0 ? 'text-purple-700' : 'text-slate-400'}`}>
+                                {metrics.onLeaveDays + metrics.absentDays}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar & Logged Hours */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                              <span>Total Hours: <strong className="text-slate-800">{metrics.totalHours} hrs</strong> (~{metrics.avgDailyHours} h/d)</span>
+                              <span className="font-semibold text-emerald-700">
+                                {isWorkingNow ? '🟢 Currently Working' : isDoneToday ? 'Shift Done' : 'Not Punched Today'}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  metrics.score >= 90
+                                    ? 'bg-emerald-500'
+                                    : metrics.score >= 75
+                                    ? 'bg-amber-500'
+                                    : 'bg-rose-500'
+                                }`}
+                                style={{ width: `${metrics.score}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Tap Action */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDetailEmp(emp);
+                            }}
+                            className="w-full py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Full Monthly Log</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Scorecard Table (Visible on >= md) */}
+                  <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1333,59 +1551,66 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
+        )}
 
-          {/* VIEW 2: 31-Day Calendar Grid View (With Improved Visuals) */}
-          {summaryViewMode === 'grid' && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                    <CalendarIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">
-                      31-Day Calendar Matrix ({selectedMonth} {selectedYear})
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Horizontal timeline of daily punch records across all team members.
-                    </p>
-                  </div>
+        {/* VIEW 2: 31-Day Calendar Grid View (With Improved Visuals) */}
+        {summaryViewMode === 'grid' && (
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                  <CalendarIcon className="w-4 h-4" />
                 </div>
-
-                {/* Status Legend Row */}
-                <div className="hidden lg:flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-600">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
-                    <span>Holiday</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Day Off</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                    <span>Present</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">!</span>
-                    <span>Late</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <X className="w-3.5 h-3.5 text-slate-500 stroke-[3]" />
-                    <span>Absent</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Plane className="w-3.5 h-3.5 text-purple-600" />
-                    <span>On Leave</span>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    31-Day Calendar Matrix ({selectedMonth} {selectedYear})
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Horizontal timeline of daily punch records across all team members.
+                  </p>
                 </div>
               </div>
 
-              {/* Matrix Table */}
-              <div className="overflow-x-auto border border-slate-100 rounded-xl [scrollbar-width:thin]">
+              {/* Status Legend Row (Visible on ALL devices) */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-semibold text-slate-600 pt-1 sm:pt-0">
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 fill-indigo-500 shrink-0" />
+                  <span>Holiday</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500 shrink-0" />
+                  <span>Day Off</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] shrink-0" />
+                  <span>Present</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">!</span>
+                  <span>Late</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <X className="w-3.5 h-3.5 text-slate-500 stroke-[3] shrink-0" />
+                  <span>Absent</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span>On Leave</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Swipe Hint */}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium sm:hidden px-1">
+              <span>👉</span>
+              <span>Swipe horizontally to view days 1 to 31</span>
+            </div>
+
+            {/* Matrix Table */}
+            <div className="overflow-x-auto border border-slate-100 rounded-xl [scrollbar-width:thin] pb-3">
                 <table className="w-full text-center border-collapse">
                   <thead>
                     <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50">

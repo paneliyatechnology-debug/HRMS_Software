@@ -653,7 +653,93 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Leave Requests Cards (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {displayedLeaves.length === 0 ? (
+            <div className="py-12 text-center text-slate-500 font-medium text-xs">
+              No leave applications matching your search or filter.
+            </div>
+          ) : (
+            displayedLeaves.map((leave) => {
+              const isProcessing = processingId === leave.id;
+              return (
+                <div key={leave.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
+                        {leave.employeeName?.[0] || 'E'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-slate-900 truncate">{leave.employeeName}</p>
+                        <p className="text-[10px] text-slate-400">{leave.departmentName || 'General'}</p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+                        leave.status === 'Approved'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : leave.status === 'Pending'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}
+                    >
+                      {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
+                      {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
+                      {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
+                      <span>{leave.status}</span>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-medium block">Dates</span>
+                      <span className="font-semibold text-slate-800 text-[11px]">
+                        {leave.startDate} {leave.endDate !== leave.startDate ? `→ ${leave.endDate}` : ''}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-medium block">Type & Duration</span>
+                      <span className="font-semibold text-indigo-700 text-[11px]">
+                        {leave.leaveType} ({leave.daysCount}d)
+                      </span>
+                    </div>
+                  </div>
+
+                  {leave.reason && (
+                    <p className="text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-100 italic">
+                      &ldquo;{leave.reason}&rdquo;
+                    </p>
+                  )}
+
+                  {portalMode === 'admin' && leave.status === 'Pending' && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType)}
+                        disabled={isProcessing}
+                        className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenRejectModal(leave)}
+                        disabled={isProcessing}
+                        className="flex-1 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Reject</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
