@@ -11,7 +11,7 @@ export default function DirectLoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [isAuthenticated, isLoading, router]);
 

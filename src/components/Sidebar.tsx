@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllCompanies } from '../lib/companyService';
+import { readableInitials, readablePersonName } from '../lib/displayName';
 
 interface SidebarProps {
   activeModule: string;
@@ -460,11 +461,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-center gap-2 py-1">
               <div
                 className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer overflow-hidden border border-[#a7f3d0]"
-                title={`${
-                  user.firstName
-                    ? `${user.firstName} ${user.lastName || ''}`.trim()
-                    : user.email || 'User'
-                } (${
+                title={`${readablePersonName(user.firstName, user.lastName, user.email)} (${
                   portalMode === 'admin'
                     ? 'Administrator'
                     : (user as any).designationTitle || 'Staff Employee'
@@ -474,8 +471,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <>
-                    {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                    {user.lastName?.[0] || ''}
+                    {readableInitials(user.firstName, user.lastName, user.email)}
                   </>
                 )}
               </div>
@@ -496,16 +492,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <>
-                        {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                        {user.lastName?.[0] || ''}
+                        {readableInitials(user.firstName, user.lastName, user.email)}
                       </>
                     )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#0d271d] truncate">
-                      {user.firstName
-                        ? `${user.firstName} ${user.lastName || ''}`.trim()
-                        : user.email || 'User'}
+                      {readablePersonName(user.firstName, user.lastName, user.email)}
                     </p>
                     <p className="text-[10px] text-[#475569] truncate flex items-center gap-1">
                       <span>{portalMode === 'admin' ? 'Administrator' : (user as any).designationTitle || 'Staff Employee'}</span>

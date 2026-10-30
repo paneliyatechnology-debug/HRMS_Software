@@ -16,11 +16,11 @@ import {
   MessageSquare,
   AlertTriangle,
   Search,
-  Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
+import { readableInitials, readablePersonName } from '../lib/displayName';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -31,7 +31,6 @@ interface HeaderProps {
   onNavigateSettings?: () => void;
   onOpenChat?: () => void;
   onOpenSearchModal?: () => void;
-  onOpenMobileModal?: () => void;
   onNavigateModule?: (moduleName: string) => void;
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
@@ -49,7 +48,6 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateSettings,
   onOpenChat,
   onOpenSearchModal,
-  onOpenMobileModal,
   onNavigateModule,
   onSelectEmployee,
   employees = [],
@@ -133,9 +131,9 @@ export const Header: React.FC<HeaderProps> = ({
   const companyLogo = companyInfo.logoUrl;
 
   return (
-    <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+    <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs w-full max-w-full overflow-hidden gap-2">
       {/* Left: Mobile Toggle & Brand Logo */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <button
           onClick={onOpenSidebar}
           className="p-1.5 sm:p-2 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden transition-colors cursor-pointer shrink-0"
@@ -164,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center: Live Digital Clock Widget */}
-      <div className="hidden md:flex items-center justify-center px-2 min-w-0">
+      <div className="hidden lg:flex items-center justify-center px-2 min-w-0 overflow-hidden">
         <LiveClock onClick={onOpenClockModal} />
       </div>
 
@@ -179,30 +177,17 @@ export const Header: React.FC<HeaderProps> = ({
             title="Search HRMS modules, staff & records (Ctrl+K)"
           >
             <Search className="w-4 h-4 text-[#059669] group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden sm:inline text-xs font-semibold text-[#4e6a5d] group-hover:text-[#0d271d]">Search...</span>
+            <span className="hidden xl:inline text-xs font-semibold text-[#4e6a5d] group-hover:text-[#0d271d]">Search...</span>
             <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-emerald-100 rounded shadow-2xs">
               ⌘K
             </kbd>
           </button>
         )}
 
-        {/* Mobile & Multi-Device Access Button */}
-        {onOpenMobileModal && (
-          <button
-            id="btn-header-mobile"
-            onClick={onOpenMobileModal}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer group shrink-0"
-            title="Open HRMS on Mobile or other devices (Scan QR or direct IP)"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-emerald-700 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden min-[500px]:inline">Mobile Connect</span>
-          </button>
-        )}
-
         {/* Quick Clock Button */}
         <button
           onClick={onOpenClockModal}
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+          className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
           title="Attendance Punch"
         >
           <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
@@ -249,12 +234,12 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <>{user.firstName?.[0] || 'U'}{user.lastName?.[0] || ''}</>
+                <>{readableInitials(user.firstName, user.lastName, user.email)}</>
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
               <span className="text-xs font-bold text-[#0d271d] leading-tight block truncate">
-                {user.firstName || 'User'} {user.lastName || ''}
+                {readablePersonName(user.firstName, user.lastName, user.email)}
               </span>
               <span className="text-[10px] text-[#4e6a5d] leading-none block truncate">
                 {portalMode === 'admin' ? 'Administrator' : 'Employee'}
@@ -270,12 +255,12 @@ export const Header: React.FC<HeaderProps> = ({
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <>{user.firstName?.[0] || 'U'}{user.lastName?.[0] || ''}</>
+                    <>{readableInitials(user.firstName, user.lastName, user.email)}</>
                   )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-[#0d271d] truncate">
-                    {user.firstName || 'User'} {user.lastName || ''}
+                    {readablePersonName(user.firstName, user.lastName, user.email)}
                   </p>
                   <p className="text-[11px] text-[#4e6a5d] truncate">
                     {user.email || ''}
@@ -309,19 +294,6 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <Settings className="w-3.5 h-3.5 text-[#4e6a5d]" />
                   Settings
-                </button>
-              )}
-
-              {onOpenMobileModal && (
-                <button
-                  onClick={() => {
-                    setProfileMenuOpen(false);
-                    onOpenMobileModal();
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                  Mobile & Multi-Device
                 </button>
               )}
 

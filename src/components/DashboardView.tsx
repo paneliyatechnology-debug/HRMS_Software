@@ -39,8 +39,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
+import { Employee, LeaveRequest, AttendanceRecord, Announcement } from '../types/hrms';
 import { api } from '../lib/api';
+import { readableInitials, readablePersonName } from '../lib/displayName';
 import { getRoleDefinition } from '../lib/roleConfig';
 import { ChangeRoleModal } from './modals/ChangeRoleModal';
 import { TrackedHoursChart } from './attendance/TrackedHoursChart';
@@ -54,7 +55,6 @@ import {
   formatSecondsToWords,
   getLiveActiveSeconds,
   getLiveBreakSeconds,
-  getAllAttendanceRecords,
   getTodayRecordForEmployee,
   getTodayDateString,
 } from '../lib/attendanceService';
@@ -157,15 +157,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
-  const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
   const activeEmpId = currentEmp.id || currentEmpId;
 
   // Sync and tick timer every second
   const refreshAttendanceState = () => {
-    const records = getAllAttendanceRecords();
-    setAllAttendance(records);
     const eligibility = checkEmployeePunchEligibility(activeEmpId);
     setPunchState(eligibility);
 
@@ -194,7 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [activeEmpId, currentEmpId, user.email]);
 
   // Leave processing state for admin
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
+  const pendingLeaves = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending');
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
   const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
   const [rejectModalData, setRejectModalData] = useState<{ id: string; empName: string } | null>(null);
@@ -444,9 +441,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Admin stats computation
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [leaveDaysLeft, setLeaveDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getAnnouncements().then((list) => {
+      if (!cancelled) setAnnouncements(Array.isArray(list) ? list.slice(0, 3) : []);
+    }).catch(() => {
+      if (!cancelled) setAnnouncements([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.companyId, employees.length]);
+
+  useEffect(() => {
+    if (portalMode === 'admin') return;
+    const employeeId = currentEmp.id;
+    if (!employeeId || employeeId === 'emp-self') {
+      setLeaveDaysLeft(null);
+      return;
+    }
+    let cancelled = false;
+    api.getLeaveBalances(employeeId).then((balance) => {
+      if (cancelled || !balance) return;
+      const remaining =
+        (balance.casualLeave?.remaining || 0) +
+        (balance.sickLeave?.remaining || 0) +
+        (balance.paidLeave?.remaining || 0);
+      setLeaveDaysLeft(remaining);
+    }).catch(() => {
+      if (!cancelled) setLeaveDaysLeft(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [portalMode, currentEmp.id]);
+
   const todayDate = getTodayDateString();
-  const todayRecords = allAttendance.filter((a) => a.date === todayDate);
+  const teamIds = new Set(employees.map((emp) => emp.id));
+  const isPresent = (record: AttendanceRecord) => {
+    const status = String(record.status || '').toLowerCase();
+    return Boolean(record.checkIn) || status === 'present' || status === 'late' || status === 'half day';
+  };
+  const weekBars = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const presentIds = new Set(
+      attendance
+        .filter((record) => String(record.date || '').slice(0, 10) === iso && teamIds.has(record.employeeId) && isPresent(record))
+        .map((record) => record.employeeId),
+    );
+    const count = presentIds.size;
+    const rate = employees.length === 0 ? 0 : Math.round((count / employees.length) * 100);
+    return {
+      day: index === 6 ? 'Today' : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      val: rate,
+      count: `${count} Present`,
+      isToday: index === 6,
+    };
+  });
+  const todayRecords = attendance.filter(
+    (record) => String(record.date || '').slice(0, 10) === todayDate && teamIds.has(record.employeeId) && isPresent(record),
+  );
   const activeWorkingCount = todayRecords.filter((a) => !a.isCompleted && !a.isOnBreak).length;
   const onBreakCount = todayRecords.filter((a) => !a.isCompleted && a.isOnBreak).length;
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;
@@ -460,7 +520,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {currentDateString} &bull; {portalMode === 'admin' ? 'Admin workspace' : 'Employee workspace'}
           </div>
           <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
-            hello, {user.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee')}! 👋
+            hello, {readablePersonName(user.firstName, user.lastName, user.email)}! 👋
           </h1>
           <div className="text-xs text-[#4e6a5d] mt-0.5">
             Here&apos;s what&apos;s happening across your workspace today.
@@ -561,20 +621,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="tag">Last 7 Days</span>
               </h3>
               <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
-                {[
-                  { day: '22 Oct', val: 92, count: `${Math.max(1, Math.round(employees.length * 0.92))} Present` },
-                  { day: '23 Oct', val: 88, count: `${Math.max(1, Math.round(employees.length * 0.88))} Present` },
-                  { day: '24 Oct', val: 95, count: `${Math.max(1, Math.round(employees.length * 0.95))} Present` },
-                  { day: '25 Oct', val: 90, count: `${Math.max(1, Math.round(employees.length * 0.90))} Present` },
-                  { day: '26 Oct', val: 85, count: `${Math.max(1, Math.round(employees.length * 0.85))} Present` },
-                  { day: '27 Oct', val: 94, count: `${Math.max(1, Math.round(employees.length * 0.94))} Present` },
-                  {
-                    day: 'Today',
-                    val: Math.min(100, Math.round((todayRecords.length / Math.max(1, employees.length)) * 100)) || 96,
-                    count: `${todayRecords.length || employees.length} Present`,
-                    isToday: true,
-                  },
-                ].map((item, idx) => (
+                {weekBars.map((item, idx) => (
                   <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
                     <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
                       {item.val}%
@@ -598,7 +645,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
                 <span className="font-medium">
-                  <strong className="text-[#0d271d]">{todayRecords.length || employees.length}</strong> checked-in out of{' '}
+                  <strong className="text-[#0d271d]">{todayRecords.length}</strong> checked-in out of{' '}
                   <strong className="text-[#0d271d]">{employees.length}</strong> team members today
                 </span>
                 <button
@@ -624,33 +671,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               </h3>
               <div className="space-y-1">
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Diwali Holiday Schedule</strong>
-                    <span className="tag orange">Holiday</span>
+                {announcements.length === 0 ? (
+                  <div className="p-4 text-center text-[#6e7b98] text-xs">
+                    No announcements for this company yet.
                   </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    The office will be closed from 31 Oct to 2 Nov. Please plan your shifts.
-                  </div>
-                </div>
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Monthly Town Hall</strong>
-                    <span className="tag">Event</span>
-                  </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    Join monthly town hall on 27 Oct at 3:00 PM in main conference room.
-                  </div>
-                </div>
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Security Policy Update</strong>
-                    <span className="tag green">Policy</span>
-                  </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    All employees should review the updated security policy.
-                  </div>
-                </div>
+                ) : (
+                  announcements.map((notice) => (
+                    <div key={notice.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#152345]">{notice.title}</strong>
+                        <span className={notice.priority === 'High' || notice.priority === 'Urgent' ? 'tag orange' : 'tag'}>
+                          {notice.priority || 'Notice'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
+                        {notice.content}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 
@@ -808,7 +847,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <tbody>
                   {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-xs text-[#6e7b98]">
+                      <td colSpan={8} className="py-10 text-center text-xs text-[#6e7b98]">
                         <div className="flex flex-col items-center justify-center gap-1.5">
                           <Users className="w-8 h-8 text-emerald-500/50" />
                           <p className="font-bold text-[#152345]">No employees in this company yet</p>
@@ -818,7 +857,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </tr>
                   ) : (
                     employees.map((emp, index) => {
-                    const todayRec = getTodayRecordForEmployee(emp.id);
+                    const todayRec =
+                      attendance.find(
+                        (record) => String(record.date || '').slice(0, 10) === todayDate && record.employeeId === emp.id,
+                      ) || getTodayRecordForEmployee(emp.id);
                     const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
                     const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
                     const isDone = todayRec && todayRec.isCompleted;
@@ -957,7 +999,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {currentEmp?.avatarUrl ? (
                       <img src={currentEmp.avatarUrl} alt={currentEmp.firstName} className="w-full h-full object-cover" />
                     ) : (
-                      <span>{currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}</span>
+                      <span>{readableInitials(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}</span>
                     )}
                   </div>
                   <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
@@ -976,7 +1018,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                    {currentEmp?.firstName || user.firstName} {currentEmp?.lastName || user.lastName}
+                    {readablePersonName(currentEmp?.firstName || user.firstName, currentEmp?.lastName || user.lastName, currentEmp?.email || user.email)}
                   </h2>
                   <p className="text-xs text-emerald-300 mt-1 flex flex-wrap items-center gap-1.5">
                     <span className="font-bold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
@@ -1028,8 +1070,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const empTakenDays = myLeaves
               .filter((l) => (l.status || '').toLowerCase() === 'approved')
               .reduce((sum, l) => sum + (Number(l.daysCount) || 1), 0);
-            const empTotalQuota = 36;
-            const empLeftDays = Math.max(0, empTotalQuota - empTakenDays);
 
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -1043,7 +1083,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
                       <p className="text-sm font-black text-slate-900 truncate">{punchState.status === 'working' ? 'Working' : punchState.status === 'on_break' ? 'On Break' : punchState.status === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{punchState.status === 'working' ? liveWorkedHMS : punchState.status === 'completed' ? `${punchState.record?.workingHours || 9}h logged` : '09:30 AM start'}</p>
+                      <p className="text-[11px] text-slate-500">{punchState.status === 'working' ? liveWorkedHMS : punchState.status === 'completed' ? `${punchState.record?.workingHours || 0}h logged` : 'Not started'}</p>
                     </div>
                   </div>
                 </div>
@@ -1057,8 +1097,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                      <p className="text-sm font-black text-slate-900">{empLeftDays} Days Left</p>
-                      <p className="text-[11px] text-emerald-600 font-semibold">{empTakenDays} Taken • {empLeftDays} Left</p>
+                      <p className="text-sm font-black text-slate-900">{leaveDaysLeft === null ? '—' : `${leaveDaysLeft} Days Left`}</p>
+                      <p className="text-[11px] text-emerald-600 font-semibold">{empTakenDays} approved this year</p>
                     </div>
                   </div>
                 </div>
@@ -1072,14 +1112,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
-                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '₹45,000'}</p>
+                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : 'Not set'}</p>
                       <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat 4: Manager */}
-                <div onClick={() => onOpenChatWithEmployee?.('emp-1')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
+                <div onClick={() => currentEmp?.reportingManagerId && onOpenChatWithEmployee?.(currentEmp.reportingManagerId)} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
                   <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
                   <div className="flex items-center gap-3 mt-2">
                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
@@ -1087,7 +1127,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'HR Administration'}</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
                       <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
                     </div>
                   </div>
@@ -1330,10 +1370,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
                     <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-md shrink-0"
                       style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-                      {currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}
+                      {readableInitials(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">{currentEmp?.firstName} {currentEmp?.lastName}</h4>
+                      <h4 className="text-sm font-black text-slate-900 leading-tight">{readablePersonName(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}</h4>
                       <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
                       <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 mt-1">Active</span>
                     </div>

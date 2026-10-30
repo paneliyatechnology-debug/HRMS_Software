@@ -1117,7 +1117,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         <label className="text-[11px] font-bold text-slate-700 block mb-1">
                           Set Allowed Radius: <span className="text-indigo-600 font-extrabold">{geofenceConfig.radiusMeters} meters</span>
                         </label>
-                        <div className="grid grid-cols-4 gap-1.5 text-center">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
                           {[100, 250, 500, 1000].map((r) => (
                             <button
                               key={r}

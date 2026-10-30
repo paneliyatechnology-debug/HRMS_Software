@@ -183,6 +183,9 @@ export function saveWorkScheduleConfig(
           detail: { config: updated, companyId: compId },
         })
       );
+      import('./api').then(({ axiosClient }) => {
+        void axiosClient.put('/settings', { workSchedule: updated });
+      });
     } catch (err) {
       console.error('Failed to save schedule config to storage:', err);
     }

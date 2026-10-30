@@ -1,26 +1,48 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Calendar, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, AlertCircle, User as UserIcon } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { LeaveType } from '../../types/hrms';
+import { Employee, LeaveType } from '../../types/hrms';
 
 interface LeaveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  employees?: Employee[];
+  portalMode?: 'admin' | 'employee';
 }
 
-export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh }) => {
+export const LeaveModal: React.FC<LeaveModalProps> = ({
+  isOpen,
+  onClose,
+  onRefresh,
+  employees = [],
+  portalMode = 'employee',
+}) => {
   const { user } = useAuth();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [leaveType, setLeaveType] = useState<LeaveType>('Casual Leave');
-  const [startDate, setStartDate] = useState('2026-10-20');
-  const [endDate, setEndDate] = useState('2026-10-20');
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Sync default employee whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const myId = user.employeeId || user.id || '';
+      setSelectedEmpId(myId);
+      setStartDate(new Date().toISOString().split('T')[0]);
+      setEndDate(new Date().toISOString().split('T')[0]);
+      setError('');
+    }
+  }, [isOpen, user.employeeId, user.id]);
 
   if (!isOpen) return null;
 
@@ -38,18 +60,54 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setLoading(true);
     setError('');
     try {
-      const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
+      // Resolve target employee details
+      const matchedEmp = employees.find(
+        (emp) =>
+          emp.id === selectedEmpId ||
+          emp.userId === selectedEmpId ||
+          (user.email && emp.email?.toLowerCase() === user.email.toLowerCase())
+      );
+
+      const targetEmp = matchedEmp || user;
+      const targetEmpId = matchedEmp?.id || user.employeeId || user.id || selectedEmpId;
+      const targetEmpCode = (matchedEmp as any)?.employeeCode || (user as any)?.employeeCode || '';
+      const targetEmpName = matchedEmp?.firstName
+        ? `${matchedEmp.firstName} ${matchedEmp.lastName || ''}`.trim()
+        : `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
+      const targetEmpEmail = matchedEmp?.email || user.email || '';
+      const targetDeptName =
+        (matchedEmp as any)?.departmentName ||
+        (user as any)?.departmentName ||
+        'General';
+      const targetCompId =
+        (matchedEmp as any)?.companyId ||
+        user.companyId ||
+        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_id') || '' : '');
+      const targetCompCode =
+        (matchedEmp as any)?.companyCode ||
+        user.companyCode ||
+        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_code') || '' : '');
+
       await api.applyLeave({
-        employeeId: user.employeeId || user.id || '',
-        employeeName: empName || 'Employee',
-        departmentName: (user as any).departmentName || 'Paneliya Technology',
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        employeeName: targetEmpName,
+        employeeEmail: targetEmpEmail,
+        departmentName: targetDeptName,
+        companyId: targetCompId,
+        companyCode: targetCompCode,
         leaveType,
         startDate,
         endDate,
         isHalfDay,
-        reason,
+        reason: reason.trim(),
       });
-      onRefresh();
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+      }
+
+      await onRefresh();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to submit leave request');
@@ -93,6 +151,31 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {/* Employee Selector for Admin Portal */}
+          {portalMode === 'admin' && employees.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Applying For Employee
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedEmpId}
+                  onChange={(e) => setSelectedEmpId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={user.employeeId || user.id}>
+                    Myself ({user.firstName} {user.lastName || ''} - Admin)
+                  </option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.employeeCode || emp.id}) - {emp.departmentName || 'General'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Leave Type
@@ -101,11 +184,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               id="leave-type-select"
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
             >
-              <option value="Casual Leave">Casual Leave (Balance: 10 days)</option>
-              <option value="Sick Leave">Sick Leave (Balance: 9 days)</option>
-              <option value="Paid Leave">Paid / Annual Leave (Balance: 12 days)</option>
+              <option value="Casual Leave">Casual Leave (CL)</option>
+              <option value="Sick Leave">Sick Leave (SL)</option>
+              <option value="Paid Leave">Paid / Annual Leave (PL)</option>
               <option value="Comp Off">Compensatory Off</option>
               <option value="Unpaid Leave">Unpaid Leave</option>
               <option value="Maternity Leave">Maternity Leave</option>
@@ -123,7 +206,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -136,7 +219,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>

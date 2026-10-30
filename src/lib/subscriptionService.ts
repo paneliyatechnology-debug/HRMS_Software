@@ -366,14 +366,17 @@ export function getCompanyInvoices(companyId: string = 'comp-paneliya'): Subscri
     },
   ];
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(
-      `${INVOICES_STORAGE_PREFIX}${companyId}`,
-      JSON.stringify(seedInvoices)
-    );
+  if (companyId === 'comp-paneliya' || companyId === 'cmp-1') {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        `${INVOICES_STORAGE_PREFIX}${companyId}`,
+        JSON.stringify(seedInvoices)
+      );
+    }
+    return seedInvoices;
   }
 
-  return seedInvoices;
+  return [];
 }
 
 /**
@@ -414,6 +417,16 @@ export function addCompanyInvoice(
       `${INVOICES_STORAGE_PREFIX}${companyId}`,
       JSON.stringify(updated)
     );
+    const companies = getAllCompanies();
+    const company = companies.find((item) => item.id === companyId);
+    import('./api').then(({ axiosClient }) => {
+      void axiosClient.put('/subscriptions/mine', {
+        plan: company?.plan || 'Starter',
+        billingCycle: company?.billingCycle || data.billingCycle,
+        maxEmployees: company?.maxEmployees || 0,
+        invoices: updated,
+      });
+    });
   }
 
   return newInvoice;

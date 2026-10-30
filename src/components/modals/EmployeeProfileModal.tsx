@@ -167,7 +167,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-modal-backdrop flex items-center justify-center p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
+      <div className="bg-white rounded-3xl max-w-4xl w-full h-[min(92dvh,860px)] max-h-[100dvh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
         {/* Header Profile Hero */}
         <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
           <button
@@ -595,7 +595,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 5. Leave */}
           {activeTab === 'leave' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3 rounded-xl bg-blue-50 text-center">
                   <span className="text-slate-400 text-[10px] uppercase font-bold">Casual Leave</span>
                   <p className="text-lg font-black text-blue-600 mt-1">10 Left</p>

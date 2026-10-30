@@ -1741,7 +1741,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </div>
 
                   {/* Quick Monthly Stats Pills */}
-                  <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                       <div className="text-[10px] font-bold text-emerald-600 uppercase">Present</div>
                       <div className="text-base font-extrabold text-emerald-800">{m.presentDays} Days</div>
@@ -2239,7 +2239,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     {adminGeofenceConfig.radiusMeters} meters
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                   {[100, 250, 500, 1000].map((r) => (
                     <button
                       key={r}

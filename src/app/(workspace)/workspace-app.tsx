@@ -1,44 +1,43 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sidebar } from '../components/Sidebar';
-import { Header } from '../components/Header';
-import { DashboardView } from '../components/DashboardView';
-import { CalendarModule } from '../components/modules/CalendarModule';
-import { EmployeesModule } from '../components/modules/EmployeesModule';
-import { AttendanceModule } from '../components/modules/AttendanceModule';
-import { LeaveModule } from '../components/modules/LeaveModule';
-import { PayrollModule } from '../components/modules/PayrollModule';
-import { EmployeePayslipsModule } from '../components/modules/EmployeePayslipsModule';
-import { RecruitmentModule } from '../components/modules/RecruitmentModule';
-import { PerformanceModule } from '../components/modules/PerformanceModule';
-import { OrganizationModule } from '../components/modules/OrganizationModule';
-import { TrainingModule } from '../components/modules/TrainingModule';
-import { DocumentsModule } from '../components/modules/DocumentsModule';
-import { AssetsModule } from '../components/modules/AssetsModule';
-import { ResignationsModule } from '../components/modules/ResignationsModule';
-import { AnnouncementsModule } from '../components/modules/AnnouncementsModule';
-import { ChatModule } from '../components/modules/ChatModule';
-import { ReportsModule } from '../components/modules/ReportsModule';
-import { AuditLogsModule } from '../components/modules/AuditLogsModule';
-import { SettingsModule } from '../components/modules/SettingsModule';
-import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../lib/chatService';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sidebar } from '../../components/Sidebar';
+import { Header } from '../../components/Header';
+import { DashboardView } from '../../components/DashboardView';
+import { CalendarModule } from '../../components/modules/CalendarModule';
+import { EmployeesModule } from '../../components/modules/EmployeesModule';
+import { AttendanceModule } from '../../components/modules/AttendanceModule';
+import { LeaveModule } from '../../components/modules/LeaveModule';
+import { PayrollModule } from '../../components/modules/PayrollModule';
+import { EmployeePayslipsModule } from '../../components/modules/EmployeePayslipsModule';
+import { RecruitmentModule } from '../../components/modules/RecruitmentModule';
+import { PerformanceModule } from '../../components/modules/PerformanceModule';
+import { OrganizationModule } from '../../components/modules/OrganizationModule';
+import { TrainingModule } from '../../components/modules/TrainingModule';
+import { DocumentsModule } from '../../components/modules/DocumentsModule';
+import { AssetsModule } from '../../components/modules/AssetsModule';
+import { ResignationsModule } from '../../components/modules/ResignationsModule';
+import { AnnouncementsModule } from '../../components/modules/AnnouncementsModule';
+import { ChatModule } from '../../components/modules/ChatModule';
+import { ReportsModule } from '../../components/modules/ReportsModule';
+import { AuditLogsModule } from '../../components/modules/AuditLogsModule';
+import { SettingsModule } from '../../components/modules/SettingsModule';
+import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
+import { moduleFromPath, pathForModule } from '../../lib/appRoutes';
 
-import { AttendanceModal } from '../components/modals/AttendanceModal';
-import { LeaveModal } from '../components/modals/LeaveModal';
-import { EmployeeDrawer } from '../components/modals/EmployeeDrawer';
-import { EmployeeProfileModal } from '../components/modals/EmployeeProfileModal';
-import { GlobalSearchModal } from '../components/modals/GlobalSearchModal';
-import { MobileConnectModal } from '../components/modals/MobileConnectModal';
-import { LoginPage } from '../components/auth/LoginPage';
-import { LandingPage } from '../components/landing/LandingPage';
-import { MobileBottomNav } from '../components/common/MobileBottomNav';
-import { WavyBackground } from '../components/common/WavyBackground';
-import { checkEmployeePunchEligibility } from '../lib/attendanceService';
-import { useAuth, isUserAdminRole } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
-import { api } from '../lib/api';
+import { AttendanceModal } from '../../components/modals/AttendanceModal';
+import { LeaveModal } from '../../components/modals/LeaveModal';
+import { EmployeeDrawer } from '../../components/modals/EmployeeDrawer';
+import { EmployeeProfileModal } from '../../components/modals/EmployeeProfileModal';
+import { GlobalSearchModal } from '../../components/modals/GlobalSearchModal';
+import { LandingPage } from '../../components/landing/LandingPage';
+import { MobileBottomNav } from '../../components/common/MobileBottomNav';
+import { WavyBackground } from '../../components/common/WavyBackground';
+import { checkEmployeePunchEligibility } from '../../lib/attendanceService';
+import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { api } from '../../lib/api';
 import {
   Employee,
   Department,
@@ -50,43 +49,42 @@ import {
   JobOpening,
   Candidate,
   CompanyAsset,
-} from '../types/hrms';
+} from '../../types/hrms';
 
-export default function Home() {
+export function WorkspaceApp() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
-  const [activeModule, setActiveModule] = useState('dashboard');
+  const activeModule = moduleFromPath(pathname);
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
-        router.push('/login');
-        return;
-      }
-      const hashModule = window.location.hash ? window.location.hash.replace('#', '') : '';
-      const mod = urlParams.get('module') || hashModule;
-      if (mod) {
-        setActiveModule(mod);
-      }
-      // Remove any #hash from address bar so URL stays completely clean
-      if (window.location.hash) {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      }
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
+      router.push('/login');
     }
   }, [router]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const initMod = localStorage.getItem('hrms_initial_module');
-      if (initMod) {
-        localStorage.removeItem('hrms_initial_module');
-        setActiveModule(initMod);
-      }
+    if (!isAuthenticated || typeof window === 'undefined') return;
+    const initMod = localStorage.getItem('hrms_initial_module');
+    if (initMod) {
+      localStorage.removeItem('hrms_initial_module');
+      const nextPath = pathForModule(initMod);
+      if (pathname !== nextPath) router.replace(nextPath);
+      return;
     }
-  }, [isAuthenticated, user?.role]);
+    const segment = pathname.split('/').filter(Boolean)[0] || '';
+    if (!segment || pathname === '/') {
+      router.replace('/dashboard');
+      return;
+    }
+    if (segment !== activeModule) {
+      router.replace(pathForModule(activeModule));
+    }
+  }, [isAuthenticated, pathname, activeModule, router]);
 
   // Data state
   const [stats, setStats] = useState<any>(null);
@@ -107,13 +105,12 @@ export default function Home() {
   const [addEmployeeModalOpen, setAddEmployeeModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [mobileModalOpen, setMobileModalOpen] = useState(false);
 
   // Chat integration state
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [targetChatEmployeeId, setTargetChatEmployeeId] = useState<string | null>(null);
 
-  const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
+  const pendingLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending').length;
 
   // Strict role guard: prevent employees from accessing admin-only views or portal
   useEffect(() => {
@@ -138,10 +135,10 @@ export default function Home() {
         'settings',
       ];
       if (!allowedInEmployee.includes(activeModule)) {
-        setActiveModule('dashboard');
+        router.replace('/dashboard');
       }
     }
-  }, [portalMode, activeModule, user?.role, setPortalMode]);
+  }, [portalMode, activeModule, user?.role, setPortalMode, router]);
 
   const { showToast } = useSocket();
 
@@ -230,10 +227,18 @@ export default function Home() {
 
       // Scope Leaves to this company only
       const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
+      if (user?.employeeId) scopedEmpIds.add(user.employeeId);
+      if (user?.id) scopedEmpIds.add(user.id);
+
       const rawLeaves = Array.isArray(leavesData) ? leavesData : [];
-      const scopedLeaves = rawLeaves.filter(
-        (l) => scopedEmpIds.has(l.employeeId) || ((l as any).companyId && (l as any).companyId === activeCompanyId)
-      );
+      const scopedLeaves = rawLeaves.filter((l) => {
+        if (scopedEmpIds.has(l.employeeId)) return true;
+        if ((l as any).companyId && (l as any).companyId === activeCompanyId) return true;
+        if (user?.companyCode && (l as any).companyCode === user.companyCode) return true;
+        if (user?.email && (l as any).employeeEmail?.toLowerCase() === user.email.toLowerCase()) return true;
+        if (activeCompanyId === 'comp-paneliya' && (!(l as any).companyId || (l as any).companyId === 'cmp-1')) return true;
+        return false;
+      });
       setLeaves(scopedLeaves);
 
       // Scope Attendance to this company only
@@ -255,8 +260,8 @@ export default function Home() {
         const anyStats = statsData as any;
         setStats({
           totalEmployees: scopedEmployees.length,
-          onLeave: scopedLeaves.filter((l) => l.status === 'Approved').length,
-          pendingLeaves: scopedLeaves.filter((l) => l.status === 'Pending').length,
+          onLeave: scopedLeaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length,
+          pendingLeaves: scopedLeaves.filter((l) => (l.status || '').toLowerCase() === 'pending').length,
           attendanceRate: scopedEmployees.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
           totalHours: scopedEmployees.length > 0 ? (anyStats?.totalHours || 0) : 0,
           overtimeHours: 0,
@@ -286,10 +291,12 @@ export default function Home() {
       const handleUpdate = () => loadData();
       window.addEventListener('hrms_employees_updated', handleUpdate);
       window.addEventListener('hrms_announcements_updated', handleUpdate);
+      window.addEventListener('hrms_leaves_updated', handleUpdate);
       return () => {
         clearInterval(pollInterval);
         window.removeEventListener('hrms_employees_updated', handleUpdate);
         window.removeEventListener('hrms_announcements_updated', handleUpdate);
+        window.removeEventListener('hrms_leaves_updated', handleUpdate);
       };
     } else {
       setEmployees([]);
@@ -337,13 +344,8 @@ export default function Home() {
   }
 
   const navigateToModule = (mod: string) => {
-    setActiveModule(mod);
-    if (typeof window !== 'undefined' && window.location.hash) {
-      // Keep URL clean without #hash
-      try {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      } catch (e) {}
-    }
+    const nextPath = pathForModule(mod);
+    if (pathname !== nextPath) router.push(nextPath);
   };
 
   return (
@@ -371,7 +373,6 @@ export default function Home() {
           onOpenClockModal={() => setClockModalOpen(true)}
           onOpenLeaveModal={() => setLeaveModalOpen(true)}
           onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
-          onOpenMobileModal={() => setMobileModalOpen(true)}
           onOpenProfile={() => {
             const myEmp = employees.find((e) =>
               (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
@@ -417,8 +418,8 @@ export default function Home() {
               });
             }
           }}
-          onNavigateSettings={() => setActiveModule('settings')}
-          onOpenChat={() => setActiveModule('chat')}
+          onNavigateSettings={() => navigateToModule('settings')}
+          onOpenChat={() => navigateToModule('chat')}
           onOpenSearchModal={() => setSearchModalOpen(true)}
           onNavigateModule={navigateToModule}
           onSelectEmployee={setSelectedEmployee}
@@ -428,7 +429,7 @@ export default function Home() {
           unreadChatCount={unreadChatCount}
         />
 
-        <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-transparent relative z-10">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full min-w-0 [scrollbar-width:thin] bg-transparent relative z-10">
           <div key={activeModule} className="max-w-[1700px] mx-auto animate-module-fade-in">
         {activeModule === 'dashboard' && (
           <DashboardView
@@ -444,7 +445,7 @@ export default function Home() {
             onRefreshData={loadData}
             onOpenChatWithEmployee={(empId) => {
               setTargetChatEmployeeId(empId);
-              setActiveModule('chat');
+              navigateToModule('chat');
             }}
             portalMode={portalMode}
           />
@@ -469,7 +470,7 @@ export default function Home() {
             onRefresh={loadData}
             onOpenChatWithEmployee={(empId) => {
               setTargetChatEmployeeId(empId);
-              setActiveModule('chat');
+              navigateToModule('chat');
             }}
             portalMode={portalMode}
           />
@@ -568,7 +569,7 @@ export default function Home() {
         {/* Mobile App Bottom Navigation Bar */}
         <MobileBottomNav
           activeModule={activeModule}
-          setActiveModule={setActiveModule}
+          setActiveModule={navigateToModule}
           onOpenClockModal={() => setClockModalOpen(true)}
           onOpenSidebar={() => setSidebarOpen(true)}
           portalMode={portalMode}
@@ -589,6 +590,8 @@ export default function Home() {
         isOpen={leaveModalOpen}
         onClose={() => setLeaveModalOpen(false)}
         onRefresh={loadData}
+        employees={employees}
+        portalMode={portalMode}
       />
 
       <EmployeeDrawer
@@ -612,14 +615,10 @@ export default function Home() {
         onClose={() => setSearchModalOpen(false)}
         employees={employees}
         onSelectEmployee={setSelectedEmployee}
-        onNavigateModule={setActiveModule}
+        onNavigateModule={navigateToModule}
         portalMode={portalMode}
       />
 
-      <MobileConnectModal
-        isOpen={mobileModalOpen}
-        onClose={() => setMobileModalOpen(false)}
-      />
     </div>
   );
 }

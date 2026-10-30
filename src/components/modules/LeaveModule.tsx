@@ -61,16 +61,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     portalMode === 'employee'
       ? leaves.filter((l) => {
           if (myId && l.employeeId === myId) return true;
+          if (user.id && l.employeeId === user.id) return true;
+          if (user.employeeId && l.employeeId === user.employeeId) return true;
           if (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail) return true;
           if (myCode && (l as any).employeeCode?.toLowerCase() === myCode) return true;
           if (myName && l.employeeName?.toLowerCase() === myName) return true;
+          if (user.firstName && l.employeeName?.toLowerCase().includes(user.firstName.toLowerCase())) return true;
           return false;
         })
       : leaves;
 
-  const pendingLeaves = relevantLeaves.filter((l) => l.status === 'Pending');
-  const approvedLeaves = relevantLeaves.filter((l) => l.status === 'Approved');
-  const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
+  const pendingLeaves = relevantLeaves.filter((l) => (l.status || '').toLowerCase() === 'pending');
+  const approvedLeaves = relevantLeaves.filter((l) => (l.status || '').toLowerCase() === 'approved');
+  const rejectedLeaves = relevantLeaves.filter((l) => (l.status || '').toLowerCase() === 'rejected');
 
   // Dynamic leave calculations for Employee Portal (Kitni leave hai & Kitni le li hai)
   const calculateDays = (typeKeywords: string[], targetStatus: 'Approved' | 'Pending') => {
@@ -677,15 +680,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
-                        leave.status === 'Approved'
+                        (leave.status || '').toLowerCase() === 'approved'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : leave.status === 'Pending'
+                          : (leave.status || '').toLowerCase() === 'pending'
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'bg-rose-50 text-rose-700 border border-rose-200'
                       }`}
                     >
-                      {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
-                      {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
+                      {(leave.status || '').toLowerCase() === 'approved' && <Check className="w-3 h-3 stroke-[3]" />}
+                      {(leave.status || '').toLowerCase() === 'pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
                       {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
                       <span>{leave.status}</span>
                     </span>
@@ -712,7 +715,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </p>
                   )}
 
-                  {portalMode === 'admin' && leave.status === 'Pending' && (
+                  {portalMode === 'admin' && (leave.status || '').toLowerCase() === 'pending' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType)}
@@ -794,15 +797,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       <td className="py-3 px-4">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            leave.status === 'Approved'
+                            (leave.status || '').toLowerCase() === 'approved'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : leave.status === 'Pending'
+                              : (leave.status || '').toLowerCase() === 'pending'
                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
                               : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                         >
-                          {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
-                          {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
+                          {(leave.status || '').toLowerCase() === 'approved' && <Check className="w-3 h-3 stroke-[3]" />}
+                          {(leave.status || '').toLowerCase() === 'pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
                           {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
                           <span>{leave.status}</span>
                         </span>
@@ -814,7 +817,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Admin 1-Click Action Column */}
                       {portalMode === 'admin' && (
                         <td className="py-3 px-4 text-right">
-                          {leave.status === 'Pending' ? (
+                          {(leave.status || '').toLowerCase() === 'pending' ? (
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() =>

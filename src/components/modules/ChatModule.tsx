@@ -456,7 +456,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         ];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden select-none">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex h-[calc(100dvh-12.5rem)] min-h-[420px] md:h-[calc(100vh-140px)] md:min-h-[520px] overflow-hidden select-none w-full max-w-full">
       {/* LEFT COLUMN: Conversation List */}
       <div
         className={`w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-slate-50/50 shrink-0 ${

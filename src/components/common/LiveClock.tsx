@@ -220,7 +220,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     <div
       id="live-clock-pill"
       onClick={handleClick}
-      className={`group inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1.5 rounded-[11px] bg-[#ecfdf5]/70 border border-[#a7f3d0] shadow-2xs hover:border-[#059669]/60 hover:bg-white hover:shadow-xs transition-all duration-200 cursor-pointer select-none ${className}`}
+      className={`group inline-flex items-center flex-nowrap whitespace-nowrap gap-2 sm:gap-2.5 px-3 py-1.5 rounded-[11px] bg-[#ecfdf5]/70 border border-[#a7f3d0] shadow-2xs hover:border-[#059669]/60 hover:bg-white hover:shadow-xs transition-all duration-200 cursor-pointer select-none max-w-full overflow-hidden ${className}`}
       title="Live System Time (Auto-synced) • Click to toggle 12h/24h"
     >
       {/* Live Indicator Dot & Badge */}
@@ -281,10 +281,10 @@ export const LiveClock: React.FC<LiveClockProps> = ({
       {/* Date */}
       {showDate && (
         <>
-          <div className="hidden md:block h-3.5 w-px bg-[#d8ebd9]" />
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4e6a5d] font-medium">
+          <div className="hidden 2xl:block h-3.5 w-px bg-[#d8ebd9]" />
+          <div className="hidden 2xl:flex items-center gap-1.5 text-xs text-[#4e6a5d] font-medium whitespace-nowrap">
             <Calendar className="w-3.5 h-3.5 text-[#059669]" />
-            <span>{formattedDate}</span>
+            <span className="whitespace-nowrap">{formattedDate}</span>
           </div>
         </>
       )}

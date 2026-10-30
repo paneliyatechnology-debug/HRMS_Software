@@ -1,4 +1,5 @@
 
+import axios, { AxiosRequestConfig, isAxiosError } from 'axios';
 import {
   Employee,
   Department,
@@ -25,52 +26,89 @@ import { getApiBaseUrl } from './config';
 
 const getApiBase = () => getApiBaseUrl();
 
+function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken');
+}
+
+function extractErrorMessage(err: unknown, fallbackStatus?: number): string {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as any;
+    if (typeof data?.error?.message === 'string') return data.error.message;
+    if (Array.isArray(data?.error?.message)) return data.error.message.join(', ');
+    if (typeof data?.message === 'string') return data.message;
+    if (Array.isArray(data?.message)) return data.message.join(', ');
+    if (typeof data?.error === 'string') return data.error;
+    const status = err.response?.status ?? fallbackStatus;
+    if (status) return `HTTP error ${status}`;
+    if (err.code === 'ECONNABORTED') return 'Request timed out';
+    if (err.message) return err.message;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return 'Request failed';
+}
+
+/** Shared Axios client — all HRMS API traffic goes through this instance. */
+export const axiosClient = axios.create({
+  timeout: 6000,
+  headers: {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  },
+});
+
+axiosClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBase();
+  const token = getStoredToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Let the browser set multipart boundary for FormData uploads
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers && 'Content-Type' in config.headers) {
+      delete (config.headers as any)['Content-Type'];
+    }
+  }
+  return config;
+});
+
 /**
- * Universal API fetcher that forwards JWT Bearer token and gracefully falls back to local data.
- * Includes a 4-second fail-fast timeout so slow/unreachable network endpoints don't freeze mobile devices.
+ * Universal Axios helper that forwards JWT Bearer token and gracefully falls back to local data.
+ * Includes a 6-second fail-fast timeout so slow/unreachable network endpoints don't freeze mobile devices.
  */
-async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
-
+async function fetchWithFallback<T>(
+  url: string,
+  options?: AxiosRequestConfig & { method?: string; body?: any; headers?: Record<string, string> },
+  fallback?: T
+): Promise<T> {
+  const method = (options?.method || 'GET').toUpperCase();
   try {
-    const storedToken =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
-        : null;
+    const { body, headers, ...rest } = options || {};
 
-    const token = storedToken;
+    let data = body;
+    if (typeof body === 'string') {
+      try {
+        data = JSON.parse(body);
+      } catch {
+        data = body;
+      }
+    }
 
-    const res = await fetch(`${getApiBase()}${url}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-      ...options,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options?.headers || {}),
-      },
+    const res = await axiosClient.request<T>({
+      url,
+      method,
+      data,
+      headers: headers || {},
+      ...rest,
     });
 
-    if (!res.ok) {
-      let errorMsg = `HTTP error ${res.status}`;
-      try {
-        const errJson = await res.json();
-        if (errJson?.error?.message) errorMsg = errJson.error.message;
-        else if (errJson?.message) errorMsg = errJson.message;
-      } catch (_) {}
-      throw new Error(errorMsg);
-    }
-
-    return (await res.json()) as T;
+    return res.data;
   } catch (err) {
-    if (fallback !== undefined) {
+    const isRead = method === 'GET' || method === 'HEAD';
+    if (isRead && fallback !== undefined) {
       return fallback;
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
+    throw new Error(extractErrorMessage(err));
   }
 }
 
@@ -100,47 +138,28 @@ export const api = {
   // =========================================================================
   async login(email: string, password?: string) {
     try {
-      const res = await fetch(`${getApiBase()}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ identifier: email, email, password }),
+      const { data: result } = await axiosClient.post('/auth/login', {
+        identifier: email,
+        email,
+        password,
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        if (typeof window !== 'undefined' && result?.accessToken) {
-          localStorage.setItem('hrms_auth_token', result.accessToken);
-          localStorage.setItem('bearerToken', result.accessToken);
-          if (result.user?.companyId) {
-            localStorage.setItem('hrms_company_id', result.user.companyId);
-          }
-          if (result.user?.companyCode) {
-            localStorage.setItem('hrms_company_code', result.user.companyCode);
-          }
+      if (typeof window !== 'undefined' && result?.accessToken) {
+        localStorage.setItem('hrms_auth_token', result.accessToken);
+        localStorage.setItem('bearerToken', result.accessToken);
+        if (result.user?.companyId) {
+          localStorage.setItem('hrms_company_id', result.user.companyId);
         }
-        return result;
+        if (result.user?.companyCode) {
+          localStorage.setItem('hrms_company_code', result.user.companyCode);
+        }
       }
-
-      const errData = await res.json().catch(() => ({}));
-      let message = 'Login failed';
-      if (typeof errData?.error?.message === 'string') {
-        message = errData.error.message;
-      } else if (typeof errData?.message === 'string') {
-        message = errData.message;
-      } else if (Array.isArray(errData?.message)) {
-        message = errData.message.join(', ');
-      } else if (typeof errData?.error === 'string') {
-        message = errData.error;
-      } else if (res.status === 401) {
-        message = 'Invalid email, phone, employee code, or password.';
-      } else {
-        message = `Login failed with status ${res.status}`;
-      }
-      throw new Error(message);
+      return result;
     } catch (err: any) {
-      throw err;
+      if (isAxiosError(err) && err.response?.status === 401) {
+        throw new Error('Invalid email, phone, employee code, or password.');
+      }
+      throw new Error(extractErrorMessage(err) || 'Login failed');
     }
   },
 
@@ -157,43 +176,33 @@ export const api = {
   }) {
     try {
       const rawRole = (data.role || 'EMPLOYEE').toUpperCase().trim();
-      const normalizedRole =
-        rawRole === 'HR_ADMIN' || rawRole === 'ADMIN'
-          ? 'ADMIN'
-          : 'EMPLOYEE';
+      const allowedRoles = [
+        'SUPER_ADMIN',
+        'ADMIN',
+        'HR_ADMIN',
+        'HR_EXECUTIVE',
+        'MANAGER',
+        'TEAM_LEADER',
+        'RECRUITER',
+        'FINANCE_ADMIN',
+        'EMPLOYEE',
+      ];
+      const normalizedRole = allowedRoles.includes(rawRole) ? rawRole : 'EMPLOYEE';
 
       const payload = {
         ...data,
         role: normalizedRole,
       };
 
-      const res = await fetch(`${getApiBase()}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const { data: result } = await axiosClient.post('/auth/register', payload);
 
-      if (res.ok) {
-        const result = await res.json();
-        if (typeof window !== 'undefined' && result?.accessToken) {
-          localStorage.setItem('hrms_auth_token', result.accessToken);
-          localStorage.setItem('bearerToken', result.accessToken);
-        }
-        return result;
+      if (typeof window !== 'undefined' && result?.accessToken) {
+        localStorage.setItem('hrms_auth_token', result.accessToken);
+        localStorage.setItem('bearerToken', result.accessToken);
       }
-
-      const errData = await res.json().catch(() => ({}));
-      const message =
-        (Array.isArray(errData?.error?.message) ? errData.error.message.join(', ') : null) ||
-        errData?.error?.message ||
-        (Array.isArray(errData?.message) ? errData.message.join(', ') : null) ||
-        errData?.message ||
-        `Registration failed with status ${res.status}`;
-      throw new Error(message);
+      return result;
     } catch (err: any) {
-      throw err;
+      throw new Error(extractErrorMessage(err) || 'Registration failed');
     }
   },
 
@@ -227,34 +236,14 @@ export const api = {
       adminLastName: data.lastName.trim(),
     };
 
-    const storedToken =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
-        : null;
-    const authToken = storedToken || 'jwt_token_ravi140714@gmail.com';
-
-    const res = await fetch(`${getApiBase()}/super-admin/companies`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(createPayload),
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const message =
-        (Array.isArray(errData?.error?.message) ? errData.error.message.join(', ') : null) ||
-        errData?.error?.message ||
-        (Array.isArray(errData?.message) ? errData.message.join(', ') : null) ||
-        errData?.message ||
-        `Company creation failed with status ${res.status}`;
-      throw new Error(message);
+    let compRes: any;
+    try {
+      const { data } = await axiosClient.post('/auth/register-company', createPayload);
+      compRes = data;
+    } catch (err) {
+      throw new Error(extractErrorMessage(err) || 'Company creation failed');
     }
 
-    const compRes = await res.json();
     const createdCompany = compRes?.company || compRes;
     const companyId = createdCompany?.id || `cmp-${Date.now()}`;
     const companyCode = createdCompany?.companyCode || 'CMP-000001';
@@ -325,39 +314,15 @@ export const api = {
   // USER PROFILE & PHOTO
   // =========================================================================
   async uploadProfilePhoto(file: File | Blob): Promise<{ success: boolean; avatarUrl: string; user?: any }> {
-    const token =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
-        : null;
-
     const formData = new FormData();
     formData.append('profilePhoto', file);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
     try {
-      const res = await fetch(`${getApiBase()}/users/profile/photo`, {
-        method: 'PATCH',
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
+      const { data } = await axiosClient.patch('/users/profile/photo', formData, {
+        timeout: 20000,
+        headers: { Accept: 'application/json' },
       });
 
-      if (!res.ok) {
-        let errorMsg = `HTTP error ${res.status}`;
-        try {
-          const errJson = await res.json();
-          if (errJson?.error?.message) errorMsg = errJson.error.message;
-          else if (errJson?.message) errorMsg = errJson.message;
-        } catch (_) {}
-        throw new Error(errorMsg);
-      }
-
-      const data = await res.json();
       const newAvatarUrl =
         data.avatarUrl || data.photoUrl || data.cloudinaryUrl || (data.user && data.user.avatarUrl) || '';
 
@@ -366,8 +331,8 @@ export const api = {
         avatarUrl: newAvatarUrl,
         user: data.user,
       };
-    } finally {
-      clearTimeout(timeoutId);
+    } catch (err) {
+      throw new Error(extractErrorMessage(err));
     }
   },
 
@@ -772,14 +737,18 @@ export const api = {
 
   async applyLeave(data: {
     employeeId: string;
+    employeeCode?: string;
+    employeeName?: string;
+    employeeEmail?: string;
+    employeeAvatar?: string;
+    departmentName?: string;
+    companyId?: string;
+    companyCode?: string;
     leaveType: string;
     startDate: string;
     endDate: string;
     reason: string;
     isHalfDay?: boolean;
-    employeeName?: string;
-    employeeAvatar?: string;
-    departmentName?: string;
   }) {
     return fetchWithFallback<LeaveRequest>(
       '/leaves/apply',
@@ -1275,12 +1244,10 @@ export const api = {
 
   async uploadDocumentFile(formData: FormData) {
     try {
-      const res = await fetch(`${getApiBase()}/documents/upload`, {
-        method: 'POST',
-        body: formData,
+      const { data } = await axiosClient.post('/documents/upload', formData, {
+        timeout: 20000,
       });
-      if (!res.ok) throw new Error(`Upload failed with status ${res.status}`);
-      return await res.json();
+      return data;
     } catch (err) {
       console.warn('Backend upload fallback:', err);
       return {

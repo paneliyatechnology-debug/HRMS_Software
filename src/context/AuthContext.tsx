@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '../types/hrms';
 import { api } from '../lib/api';
 import { findOrganizationByEmail } from '../lib/companyService';
+import { hydrateServerState } from '../lib/serverSync';
 
 export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
@@ -13,7 +14,8 @@ export const isUserAdminRole = (role?: string): boolean => {
     normalized === 'COMPANY_ADMIN' ||
     normalized === 'ORG_ADMIN' ||
     normalized === 'FINANCE_ADMIN' ||
-    normalized === 'ADMIN'
+    normalized === 'ADMIN' ||
+    normalized === 'SUPER_ADMIN'
   );
 };
 
@@ -199,6 +201,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
             localStorage.setItem('hrms_current_role', userRole);
             localStorage.setItem('hrms_portal_mode', allowedPortal);
+            if (enriched.companyName) localStorage.setItem('hrms_company_name', enriched.companyName);
+            if (enriched.companyId) localStorage.setItem('hrms_company_id', enriched.companyId);
+            void hydrateServerState();
           } else {
             throw new Error('User not found');
           }
@@ -276,6 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_company_id', enriched.companyId);
         localStorage.setItem('hrms_company_name', enriched.companyName);
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        void hydrateServerState();
         return { success: true, role: userRole };
       }
       return { success: false, message: res?.message || 'Invalid credentials.' };
@@ -320,6 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_company_name', enriched.companyName);
         localStorage.setItem('hrms_initial_module', 'dashboard');
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        void hydrateServerState();
         return { success: true };
       }
       return { success: false, message: res?.message || 'Invalid Admin credentials.' };
@@ -358,6 +365,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_portal_mode', targetPortal);
         localStorage.setItem('hrms_current_role', userRole);
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        void hydrateServerState();
         return { success: true };
       }
       return { success: false, message: res?.message || 'Invalid employee credentials.' };
@@ -396,6 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_portal_mode', targetPortal);
         localStorage.setItem('hrms_current_role', userRole);
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        void hydrateServerState();
 
         window.dispatchEvent(new Event('hrms_employees_updated'));
 
