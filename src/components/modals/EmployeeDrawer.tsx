@@ -1,13 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Check, ChevronRight, ChevronLeft, Camera, Upload, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { getCompanySubscription } from '../../lib/subscriptionService';
 import { useAuth } from '../../context/AuthContext';
-import { getAllCompanies, addEmployeeToCompany } from '../../lib/companyService';
+import { getAllCompanies } from '../../lib/companyService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
+import {
+  validateEmail,
+  validatePhone,
+  validateName,
+  validatePassword,
+  cleanPhoneNumber,
+  checkDuplicateEmailOrPhone,
+} from '../../lib/validation';
 
 interface EmployeeDrawerProps {
   isOpen: boolean;
@@ -15,6 +23,7 @@ interface EmployeeDrawerProps {
   onRefresh: () => void;
   departments: Department[];
   designations: Designation[];
+  employees?: Employee[];
 }
 
 export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
@@ -23,6 +32,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   onRefresh,
   departments,
   designations,
+  employees = [],
 }) => {
   const { user } = useAuth();
   const allComps = getAllCompanies();
@@ -38,6 +48,17 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [nextEmployeeCode, setNextEmployeeCode] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen) {
+      api.getNextEmployeeCode(adminCompanyId)
+        .then((res) => {
+          if (res?.nextCode) setNextEmployeeCode(res.nextCode);
+        })
+        .catch((err) => console.warn('Could not fetch next employee code:', err));
+    }
+  }, [isOpen, adminCompanyId]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -72,6 +93,75 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     setLoading(true);
     setFormError(null);
     try {
+      // Validate Basic Info
+      const fNameCheck = validateName(formData.firstName, 'First Name', 2);
+      if (!fNameCheck.isValid) {
+        setFormError(fNameCheck.error || 'First Name is required (minimum 2 characters).');
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
+      const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
+      if (!lNameCheck.isValid) {
+        setFormError(lNameCheck.error || 'Last Name is required (minimum 2 characters).');
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
+      const emailCheck = validateEmail(formData.email, true);
+      if (!emailCheck.isValid) {
+        setFormError(emailCheck.error || 'Please enter a valid employee work email.');
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
+      const phoneCheck = validatePhone(formData.phone, true);
+      if (!phoneCheck.isValid) {
+        setFormError(phoneCheck.error || 'Please enter a valid 10-digit mobile number.');
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
+      // Strict Uniqueness: 1 Email = 1 Account & 1 Mobile Number = 1 Account
+      const freshEmployees = employees && employees.length > 0 ? employees : await api.getEmployees().catch(() => []);
+      const dupCheck = checkDuplicateEmailOrPhone({
+        email: formData.email,
+        phone: formData.phone,
+        existingEmployees: freshEmployees,
+        currentUserEmail: user?.email,
+        currentUserPhone: (user as any)?.phone,
+      });
+      if (!dupCheck.isValid) {
+        setFormError(dupCheck.error || 'Duplicate email or phone detected.');
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
+      if (formData.initialPassword) {
+        const passCheck = validatePassword(formData.initialPassword, 6);
+        if (!passCheck.isValid) {
+          setFormError(passCheck.error || 'Password must be at least 6 characters long.');
+          setStep(1);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (formData.emergencyPhone) {
+        const emCheck = validatePhone(formData.emergencyPhone, false);
+        if (!emCheck.isValid) {
+          setFormError(emCheck.error || 'Invalid emergency contact phone number.');
+          setStep(3);
+          setLoading(false);
+          return;
+        }
+      }
+
       const sub = getCompanySubscription(adminCompanyId);
       if (sub.isQuotaFull) {
         setFormError(
@@ -129,25 +219,6 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         },
       };
 
-      if (adminCompanyId !== 'comp-paneliya') {
-        addEmployeeToCompany(
-          adminCompanyId,
-          {
-            firstName: formData.firstName.trim(),
-            lastName: formData.lastName.trim(),
-            email: formData.email.trim().toLowerCase(),
-            phone: formData.phone.trim(),
-            departmentName: selectedDept?.name || 'Engineering',
-            designationTitle: selectedDes?.title || 'Software Engineer',
-            salaryBasic: Number(formData.basicSalary) || 45000,
-            employmentType: formData.employmentType,
-            password: formData.initialPassword || 'Password@123',
-            role: formData.role,
-          },
-          []
-        );
-      }
-
       await api.createEmployee(employeePayload);
       onRefresh();
       onClose();
@@ -178,6 +249,11 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200">
                   {adminCompanyName}
                 </span>
+                {nextEmployeeCode && (
+                  <span className="text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                    {nextEmployeeCode}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500">
                 Adding to {adminCompanyName} • Step {step} of 3
@@ -332,15 +408,20 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone Number
+                    Mobile / Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
+                    maxLength={13}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+1 (555) 000-0000"
+                    onChange={(e) => {
+                      setFormError(null);
+                      setFormData({ ...formData, phone: e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 13) });
+                    }}
+                    placeholder="9876543210"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   />
+                  <p className="text-[10px] text-slate-400 mt-0.5">10-digit mobile number</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -443,7 +524,6 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   <option value="HR_ADMIN">HR Admin (HR)</option>
                   <option value="RECRUITER">Recruiter</option>
                   <option value="FINANCE_ADMIN">Finance Admin</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Assign the system role (e.g., HR, Manager, Team Leader, Employee).
@@ -575,9 +655,47 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             <button
               id="btn-next-step-employee"
               onClick={() => {
-                if (step === 1 && (!formData.firstName || !formData.email)) {
-                  setFormError('Please enter first name and work email address.');
-                  return;
+                if (step === 1) {
+                  const fNameCheck = validateName(formData.firstName, 'First Name', 2);
+                  if (!fNameCheck.isValid) {
+                    setFormError(fNameCheck.error || 'First Name is required.');
+                    return;
+                  }
+                  const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
+                  if (!lNameCheck.isValid) {
+                    setFormError(lNameCheck.error || 'Last Name is required.');
+                    return;
+                  }
+                  const emailCheck = validateEmail(formData.email, true);
+                  if (!emailCheck.isValid) {
+                    setFormError(emailCheck.error || 'Please enter a valid work email address.');
+                    return;
+                  }
+                  const phoneCheck = validatePhone(formData.phone, true);
+                  if (!phoneCheck.isValid) {
+                    setFormError(phoneCheck.error || 'Please enter a valid 10-digit mobile number.');
+                    return;
+                  }
+
+                  // Immediate duplicate check for Step 1
+                  const dupCheck = checkDuplicateEmailOrPhone({
+                    email: formData.email,
+                    phone: formData.phone,
+                    existingEmployees: employees,
+                    currentUserEmail: user?.email,
+                    currentUserPhone: (user as any)?.phone,
+                  });
+                  if (!dupCheck.isValid) {
+                    setFormError(dupCheck.error || 'Duplicate email or phone detected.');
+                    return;
+                  }
+                  if (formData.initialPassword) {
+                    const passCheck = validatePassword(formData.initialPassword, 6);
+                    if (!passCheck.isValid) {
+                      setFormError(passCheck.error || 'Password must be at least 6 characters long.');
+                      return;
+                    }
+                  }
                 }
                 setFormError(null);
                 setStep((s) => s + 1);

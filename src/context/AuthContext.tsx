@@ -9,7 +9,6 @@ export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
   const normalized = role.trim().toUpperCase();
   return (
-    normalized === 'SUPER_ADMIN' ||
     normalized === 'HR_ADMIN' ||
     normalized === 'COMPANY_ADMIN' ||
     normalized === 'ORG_ADMIN' ||
@@ -32,7 +31,7 @@ const emptyUser: User = {
 };
 
 export interface DemoUserAccount {
-  key: 'admin' | 'employee' | 'superadmin';
+  key: 'admin' | 'employee';
   label: string;
   badge: string;
   identifier: string;
@@ -53,10 +52,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (identifier: string, password?: string) => Promise<{ success: boolean; message?: string; role?: string; notInOrganization?: boolean }>;
-  loginAsSuperAdmin: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; message?: string; notInOrganization?: boolean }>;
   loginAsAdmin: (emailOrPhone: string, password?: string) => Promise<{ success: boolean; message?: string; notInOrganization?: boolean }>;
   loginAsEmployee: (codeOrEmail: string, passwordOrPin?: string) => Promise<{ success: boolean; message?: string; notInOrganization?: boolean }>;
-  loginWithDemoAccount: (accountKey: 'admin' | 'employee' | 'superadmin') => Promise<{ success: boolean; role?: string; message?: string }>;
+  loginWithDemoAccount: (accountKey: 'admin' | 'employee') => Promise<{ success: boolean; role?: string; message?: string }>;
   registerUser: (data: {
     firstName: string;
     lastName: string;
@@ -67,6 +65,19 @@ interface AuthContextType {
     departmentId?: string;
     designationId?: string;
   }) => Promise<{ success: boolean; message?: string; user?: any; notInOrganization?: boolean }>;
+  registerCompanyAccount: (data: {
+    companyName: string;
+    gstNumber?: string;
+    industry?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    password: string;
+  }) => Promise<{ success: boolean; message?: string; user?: any; company?: any }>;
   switchRole: (newRole: Role) => void;
   updateUserProfile: (updates: Partial<User>) => void;
   hasPermission: (action: string) => boolean;
@@ -144,11 +155,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 2. Clear all local mock caches so data is strictly fetched from backend database
           localStorage.removeItem('hrms_employees_records');
           localStorage.removeItem('hrms_daily_attendance_records');
+          localStorage.removeItem('hrms_attendance_records');
           localStorage.removeItem('hrms_leave_requests');
+          localStorage.removeItem('hrms_leave_requests_data');
           localStorage.removeItem('hrms_payroll_records');
           localStorage.removeItem('hrms_notices_records');
           localStorage.removeItem('hrms_multi_tenant_companies');
+          localStorage.removeItem('hrms_all_companies_v2');
           localStorage.removeItem('hrms_tenant_company_employees');
+          localStorage.removeItem('hrms_tenant_employees');
 
           localStorage.setItem(PURGE_ALL_MOCKS_KEY, 'true');
         }
@@ -156,12 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (token && token.startsWith('demo_token_')) {
-      localStorage.removeItem('hrms_auth_token');
-      localStorage.removeItem('bearerToken');
-      localStorage.removeItem('hrms_is_authenticated');
-      localStorage.removeItem('hrms_auth_user');
-      localStorage.removeItem('hrms_current_role');
-      localStorage.removeItem('hrms_portal_mode');
+      try {
+        localStorage.removeItem('hrms_auth_token');
+        localStorage.removeItem('bearerToken');
+        localStorage.removeItem('hrms_is_authenticated');
+        localStorage.removeItem('hrms_auth_user');
+        localStorage.removeItem('hrms_current_role');
+        localStorage.removeItem('hrms_portal_mode');
+      } catch (_) {}
     }
 
     if (storedAuth === 'true' && token && !token.startsWith('demo_token_')) {
@@ -220,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 1-Click Instant Demo Login (Disabled in production mode)
   const loginWithDemoAccount = async (
-    _accountKey: 'admin' | 'employee' | 'superadmin'
+    _accountKey: 'admin' | 'employee'
   ): Promise<{ success: boolean; role?: string; message?: string }> => {
     return { success: false, message: 'Demo accounts have been permanently removed.' };
   };
@@ -250,80 +267,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
         });
 
-        if (userRole === 'SUPER_ADMIN') {
-          try {
-            const superAdminUser = await api.getSuperAdminUser('user-1');
-            if (superAdminUser) {
-              localStorage.setItem('hrms_superadmin_user_data', JSON.stringify(superAdminUser));
-            }
-          } catch (saErr) {
-            console.warn('Super Admin API call error:', saErr);
-          }
-        }
-
         setUser(enriched);
         setPortalModeState(targetPortal);
         setIsAuthenticated(true);
         localStorage.setItem('hrms_is_authenticated', 'true');
         localStorage.setItem('hrms_portal_mode', targetPortal);
         localStorage.setItem('hrms_current_role', userRole);
+        localStorage.setItem('hrms_company_id', enriched.companyId);
+        localStorage.setItem('hrms_company_name', enriched.companyName);
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
         return { success: true, role: userRole };
       }
       return { success: false, message: res?.message || 'Invalid credentials.' };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Invalid credentials. User not found in database.' };
-    }
-  };
-
-  const loginAsSuperAdmin = async (
-    emailOrPhone: string,
-    password?: string
-  ): Promise<{ success: boolean; message?: string; notInOrganization?: boolean }> => {
-    const trimmedInput = emailOrPhone.trim().toLowerCase();
-    const trimmedPass = (password || '').trim();
-
-    if (!password || password.trim().length === 0) {
-      return { success: false, message: 'Password is required.' };
-    }
-
-    const org = findOrganizationByEmail(emailOrPhone);
-
-    try {
-      const res = await api.login(emailOrPhone.trim(), password);
-      if (res && res.user) {
-        const userRole = res.user.role || 'SUPER_ADMIN';
-        if (userRole !== 'SUPER_ADMIN') {
-          return { success: false, message: 'Access denied: You do not have Super Admin privileges.' };
-        }
-
-        try {
-          const superAdminUser = await api.getSuperAdminUser('user-1');
-          if (superAdminUser) {
-            localStorage.setItem('hrms_superadmin_user_data', JSON.stringify(superAdminUser));
-          }
-        } catch (saErr) {
-          console.warn('Super Admin API call error:', saErr);
-        }
-
-        const enriched = await enrichUserData({
-          ...res.user,
-          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
-          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
-        });
-        setUser(enriched);
-        setPortalModeState('admin');
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_current_role', 'SUPER_ADMIN');
-        localStorage.setItem('hrms_initial_module', 'super_admin');
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
-        return { success: true };
-      }
-      return { success: false, message: res?.message || 'Invalid Super Admin credentials.' };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Invalid Super Admin credentials.' };
     }
   };
 
@@ -347,16 +304,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isUserAdminRole(userRole)) {
           return { success: false, message: 'Access denied: You are registered as an Employee. Please use the Staff Employee Login tab.' };
         }
-        if (userRole === 'SUPER_ADMIN') {
-          try {
-            const superAdminUser = await api.getSuperAdminUser('user-1');
-            if (superAdminUser) {
-              localStorage.setItem('hrms_superadmin_user_data', JSON.stringify(superAdminUser));
-            }
-          } catch (saErr) {
-            console.warn('Super Admin API call error:', saErr);
-          }
-        }
 
         const enriched = await enrichUserData({
           ...res.user,
@@ -369,7 +316,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_is_authenticated', 'true');
         localStorage.setItem('hrms_portal_mode', 'admin');
         localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_initial_module', userRole === 'SUPER_ADMIN' ? 'super_admin' : 'dashboard');
+        localStorage.setItem('hrms_company_id', enriched.companyId);
+        localStorage.setItem('hrms_company_name', enriched.companyName);
+        localStorage.setItem('hrms_initial_module', 'dashboard');
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
         return { success: true };
       }
@@ -454,46 +403,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: true };
     } catch (err: any) {
-      // Offline fallback: If employee was pre-added by admin, update their password and log in
-      if (org.isMember && org.employee) {
-        const emp = org.employee;
-        emp.password = data.password;
-        emp.firstName = data.firstName || emp.firstName;
-        emp.lastName = data.lastName || emp.lastName;
-        emp.phone = data.phone || emp.phone;
-
-        const userRole = (data.role as Role) || org.role || 'EMPLOYEE';
-        const targetPortal = determinePortalMode(userRole);
-        const localUser: User = {
-          id: emp.id,
-          employeeId: emp.id,
-          employeeCode: emp.employeeCode,
-          firstName: emp.firstName,
-          lastName: emp.lastName,
-          email: emp.email,
-          phone: emp.phone,
-          role: userRole,
-          departmentName: emp.departmentName,
-          designationTitle: emp.designationTitle,
-          avatarUrl: emp.avatarUrl,
-          companyId: org.companyId,
-          companyName: org.companyName,
-        };
-        setUser(localUser);
-        setPortalModeState(targetPortal);
-        setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(localUser));
-        localStorage.setItem('hrms_auth_token', `token_${localUser.id}`);
-        localStorage.setItem('bearerToken', `token_${localUser.id}`);
-        return { success: true, user: localUser };
-      }
-
       return {
         success: false,
         message: err.message || 'Registration failed. Please check your details.',
+      };
+    }
+  };
+
+  const registerCompanyAccount = async (data: {
+    companyName: string;
+    gstNumber?: string;
+    industry?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    password: string;
+  }): Promise<{ success: boolean; message?: string; user?: any; company?: any }> => {
+    try {
+      // 1. Create company & owner admin in backend database companies table
+      const res = await api.registerCompany(data);
+
+      const createdCompany = res?.company || {};
+      const companyId = createdCompany.id || `cmp-${Date.now()}`;
+      const companyCode = createdCompany.companyCode || 'CMP-000001';
+      const companyName = createdCompany.name || createdCompany.companyName || data.companyName.trim();
+
+      const rawUser = res?.user || {
+        id: createdCompany.adminUserId || `user-${Date.now()}`,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone.trim(),
+        role: 'ADMIN',
+        companyId,
+        companyCode,
+      };
+
+      const enriched = await enrichUserData({
+        ...rawUser,
+        role: 'ADMIN',
+        companyId,
+        companyCode,
+        companyName,
+      });
+
+      setUser(enriched);
+      setPortalModeState('admin');
+      setIsAuthenticated(true);
+      localStorage.setItem('hrms_is_authenticated', 'true');
+      localStorage.setItem('hrms_portal_mode', 'admin');
+      localStorage.setItem('hrms_current_role', 'ADMIN');
+      localStorage.setItem('hrms_company_id', companyId);
+      localStorage.setItem('hrms_company_code', companyCode);
+      localStorage.setItem('hrms_company_name', companyName);
+      localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+
+      window.dispatchEvent(new Event('hrms_companies_updated'));
+      window.dispatchEvent(new Event('hrms_employees_updated'));
+
+      return { success: true, user: enriched, company: createdCompany };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Company registration failed. Please try again.',
       };
     }
   };
@@ -531,23 +507,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = (action: string): boolean => {
     if (!user || !user.role) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (user.role === 'HR_ADMIN' || (user.role as string) === 'COMPANY_ADMIN') return true;
 
     switch (action) {
       case 'MANAGE_EMPLOYEES':
-        return ['SUPER_ADMIN', 'HR_ADMIN', 'HR_EXECUTIVE'].includes(user.role);
+        return ['HR_ADMIN', 'HR_EXECUTIVE'].includes(user.role);
       case 'PROCESS_PAYROLL':
-        return ['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+        return ['HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
       case 'APPROVE_LEAVES':
-        return ['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(user.role);
+        return ['HR_ADMIN', 'MANAGER'].includes(user.role);
       case 'MANAGE_RECRUITMENT':
-        return ['SUPER_ADMIN', 'HR_ADMIN', 'RECRUITER'].includes(user.role);
+        return ['HR_ADMIN', 'RECRUITER'].includes(user.role);
       case 'MANAGE_ASSETS':
-        return ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
+        return ['HR_ADMIN'].includes(user.role);
       case 'VIEW_AUDIT_LOGS':
-        return ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
+        return ['HR_ADMIN'].includes(user.role);
       case 'VIEW_ALL_REPORTS':
-        return ['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+        return ['HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
       default:
         return true;
     }
@@ -563,11 +539,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         isLoading,
         login,
-        loginAsSuperAdmin,
         loginAsAdmin,
         loginAsEmployee,
         loginWithDemoAccount,
         registerUser,
+        registerCompanyAccount,
         switchRole,
         updateUserProfile,
         hasPermission,

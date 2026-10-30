@@ -8,7 +8,7 @@ export interface CompanyAdminUser {
   phone: string;
   avatarUrl?: string;
   designation: string;
-  role: 'SUPER_ADMIN' | 'HR_ADMIN';
+  role: 'HR_ADMIN';
   lastLogin?: string;
   password?: string;
 }
@@ -113,6 +113,7 @@ export function saveCompanies(companies: CompanyTenant[]): void {
  * Create a new tenant company with its owner admin
  */
 export function createCompany(data: {
+  id?: string;
   name: string;
   code?: string;
   industry: string;
@@ -129,7 +130,7 @@ export function createCompany(data: {
   departments?: string[];
 }): CompanyTenant {
   const all = getAllCompanies();
-  const id = `comp-${Date.now()}`;
+  const id = data.id || `comp-${Date.now()}`;
   const code = data.code || `COMP-${all.length + 101}`;
 
   const newCompany: CompanyTenant = {
@@ -354,8 +355,7 @@ export interface OrganizationMembership {
   adminUser?: CompanyAdminUser;
   role?: Role;
   isCompanyAdmin?: boolean;
-  isSuperAdmin?: boolean;
-  matchedVia?: 'superadmin' | 'company_admin' | 'employee' | 'demo';
+  matchedVia?: 'company_admin' | 'employee' | 'demo';
   password?: string;
 }
 
@@ -371,23 +371,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
   const clean = rawInput.trim().toLowerCase();
   const digitsOnly = rawInput.replace(/\D/g, '');
 
-  // 1. Check SuperAdmin accounts (Strict platform administration only)
-  const superAdminEmails = [
-    'superadmin@paneliya.com',
-  ];
-  if (superAdminEmails.includes(clean) || (digitsOnly && digitsOnly.endsWith('9999900000'))) {
-    return {
-      isMember: true,
-      companyId: 'comp-paneliya',
-      companyName: 'Paneliya Technology Inc.',
-      role: 'SUPER_ADMIN',
-      isCompanyAdmin: true,
-      isSuperAdmin: true,
-      matchedVia: 'superadmin',
-    };
-  }
-
-  // 4. Check All Registered Companies (Admins and Contact Emails)
+  // 1. Check All Registered Companies (Admins and Contact Emails)
   const allCompanies = getAllCompanies();
   for (const comp of allCompanies) {
     const adminEmail = comp.adminUser?.email?.trim().toLowerCase();
@@ -408,14 +392,13 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         adminUser: comp.adminUser,
         role: comp.adminUser?.role || 'HR_ADMIN',
         isCompanyAdmin: true,
-        isSuperAdmin: comp.adminUser?.role === 'SUPER_ADMIN',
         matchedVia: 'company_admin',
         password: comp.adminUser?.password || 'Admin@123',
       };
     }
   }
 
-  // 5. Check Primary Company Employees (comp-paneliya)
+  // 2. Check Primary Company Employees (comp-paneliya)
   const primaryEmployees = getAllEmployees();
   for (const emp of primaryEmployees) {
     const empEmail = emp.email?.trim().toLowerCase();
@@ -433,15 +416,14 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         companyName: emp.companyName || 'Paneliya Technology Inc.',
         employee: emp,
         role: emp.role || 'EMPLOYEE',
-        isCompanyAdmin: emp.role === 'HR_ADMIN' || emp.role === 'SUPER_ADMIN',
-        isSuperAdmin: emp.role === 'SUPER_ADMIN',
+        isCompanyAdmin: emp.role === 'HR_ADMIN',
         matchedVia: 'employee',
         password: emp.password || 'Password@123',
       };
     }
   }
 
-  // 6. Check Multi-Tenant Company Employees
+  // 3. Check Multi-Tenant Company Employees
   for (const comp of allCompanies) {
     if (comp.id === 'comp-paneliya') continue;
     const tenantEmps = getCompanyEmployees(comp.id, []);
@@ -461,8 +443,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
           companyName: comp.name,
           employee: emp,
           role: emp.role || 'EMPLOYEE',
-          isCompanyAdmin: emp.role === 'HR_ADMIN' || emp.role === 'SUPER_ADMIN',
-          isSuperAdmin: emp.role === 'SUPER_ADMIN',
+          isCompanyAdmin: emp.role === 'HR_ADMIN',
           matchedVia: 'employee',
           password: emp.password || 'Password@123',
         };

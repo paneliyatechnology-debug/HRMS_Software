@@ -1,5 +1,4 @@
 export type Role =
-  | 'SUPER_ADMIN'
   | 'HR_ADMIN'
   | 'HR_EXECUTIVE'
   | 'MANAGER'
@@ -73,6 +72,7 @@ export interface User {
   designationTitle?: string;
   avatarUrl?: string;
   companyId?: string;
+  companyCode?: string;
   companyName?: string;
   workStatus?: string;
 }
@@ -111,6 +111,7 @@ export interface Employee {
   id: string;
   employeeCode: string;
   companyId?: string;
+  companyCode?: string;
   companyName?: string;
   userId?: string;
   password?: string;

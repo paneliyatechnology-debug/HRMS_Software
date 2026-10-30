@@ -713,11 +713,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {pendingLeaves.slice(0, 3).map((leave) => {
+                  {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
                     const isProcessing = processingLeaveId === leave.id;
                     return (
                       <div
-                        key={leave.id}
+                        key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
                         className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div className="space-y-1">
@@ -806,7 +806,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => {
+                  {employees.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-10 text-center text-xs text-[#6e7b98]">
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <Users className="w-8 h-8 text-emerald-500/50" />
+                          <p className="font-bold text-[#152345]">No employees in this company yet</p>
+                          <p className="text-[11px] text-[#6e7b98]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    employees.map((emp, index) => {
                     const todayRec = getTodayRecordForEmployee(emp.id);
                     const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
                     const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
@@ -817,7 +828,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                     return (
                       <tr
-                        key={emp.id}
+                        key={emp.id ? `${emp.id}-${index}` : index}
                         onClick={() => onSelectEmployee(emp)}
                         className="hover:bg-[#f8faff] cursor-pointer transition-colors"
                       >
@@ -917,7 +928,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>

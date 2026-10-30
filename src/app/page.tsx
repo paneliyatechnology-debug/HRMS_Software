@@ -199,22 +199,77 @@ export default function Home() {
         api.getAssets(),
       ]);
 
-      if (statsData) setStats(statsData);
+      const seenEmpIds = new Set<string>();
       const safeEmployees = Array.isArray(employeesData)
-        ? employeesData.filter(
-            (emp) =>
-              emp.role !== 'SUPER_ADMIN' &&
-              emp.id !== 'demo-superadmin-1' &&
-              emp.id !== 'emp-superadmin-1' &&
-              !emp.email?.toLowerCase().includes('superadmin')
-          )
+        ? employeesData.filter((emp) => {
+            if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
+            seenEmpIds.add(emp.id);
+            return true;
+          })
         : [];
-      setEmployees(safeEmployees);
+
+      // Multi-Tenant Isolation: Scope data to the logged-in company
+      const activeCompanyId =
+        user?.companyId ||
+        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_id') : null) ||
+        'comp-paneliya';
+
+      let scopedEmployees: Employee[] = [];
+      if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
+        scopedEmployees = safeEmployees.filter(
+          (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
+        );
+      } else {
+        scopedEmployees = safeEmployees.filter(
+          (e) =>
+            e.companyId === activeCompanyId ||
+            (e as any).companyCode === activeCompanyId ||
+            (user?.companyCode && (e as any).companyCode === user.companyCode)
+        );
+      }
+      setEmployees(scopedEmployees);
+
+      // Scope Leaves to this company only
+      const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
+      const rawLeaves = Array.isArray(leavesData) ? leavesData : [];
+      const scopedLeaves = rawLeaves.filter(
+        (l) => scopedEmpIds.has(l.employeeId) || ((l as any).companyId && (l as any).companyId === activeCompanyId)
+      );
+      setLeaves(scopedLeaves);
+
+      // Scope Attendance to this company only
+      const rawAttendance = Array.isArray(attendanceData) ? attendanceData : [];
+      const scopedAttendance = rawAttendance.filter(
+        (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
+      );
+      setAttendance(scopedAttendance);
+
+      // Scope Payroll to this company only
+      const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
+      const scopedPayroll = rawPayroll.filter(
+        (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
+      );
+      setPayroll(scopedPayroll);
+
+      // Dynamic Company-Scoped Dashboard Stats
+      if (activeCompanyId !== 'comp-paneliya') {
+        const anyStats = statsData as any;
+        setStats({
+          totalEmployees: scopedEmployees.length,
+          onLeave: scopedLeaves.filter((l) => l.status === 'Approved').length,
+          pendingLeaves: scopedLeaves.filter((l) => l.status === 'Pending').length,
+          attendanceRate: scopedEmployees.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
+          totalHours: scopedEmployees.length > 0 ? (anyStats?.totalHours || 0) : 0,
+          overtimeHours: 0,
+          lateArrivals: 0,
+          earlyDepartures: 0,
+        });
+      } else if (statsData) {
+        setStats(statsData);
+      }
+
       setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
       setDesignations(Array.isArray(designationsData) ? designationsData : []);
-      setLeaves(Array.isArray(leavesData) ? leavesData : []);
-      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
-      setPayroll(Array.isArray(payrollData) ? payrollData : []);
       setJobs(Array.isArray(jobsData) ? jobsData : []);
       setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
       setAssets(Array.isArray(assetsData) ? assetsData : []);
@@ -442,7 +497,7 @@ export default function Home() {
 
         {(activeModule === 'payroll' || activeModule === 'payslips') && (
           portalMode === 'employee' ? (
-            <EmployeePayslipsModule onRefresh={loadData} />
+            <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
           ) : (
             <PayrollModule
               payrollRecords={payroll}
@@ -542,6 +597,7 @@ export default function Home() {
         onRefresh={loadData}
         departments={departments}
         designations={designations}
+        employees={employees}
       />
 
       <EmployeeProfileModal

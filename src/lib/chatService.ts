@@ -31,7 +31,7 @@ function getDefaultMessages(): Record<string, ChatMessage[]> {
   return {};
 }
 
-// Auto-purge old seeded mock chat messages and remove any superadmin leaked conversations
+// Auto-purge old seeded mock chat messages
 if (typeof window !== 'undefined') {
   try {
     const PURGE_KEY = 'hrms_chat_all_messages_purged_v10';
@@ -46,10 +46,7 @@ if (typeof window !== 'undefined') {
               .filter(
                 (c: any) =>
                   !c.id?.includes('keyur') &&
-                  !c.id?.includes('superadmin') &&
-                  !c.participantIds?.includes('admin-keyur') &&
-                  !c.participantIds?.includes('demo-superadmin-1') &&
-                  !c.participantIds?.includes('emp-superadmin-1')
+                  !c.participantIds?.includes('admin-keyur')
               )
               .map((c: any) => ({
                 ...c,
@@ -80,11 +77,8 @@ export function getAllConversations(): ChatConversation[] {
         (c: ChatConversation) =>
           c.id !== 'conv-user-1-emp-2' &&
           c.id !== 'conv-user-1-emp-3' &&
-          !c.id?.includes('superadmin') &&
           !c.id?.includes('admin-keyur') &&
           !c.participantIds?.includes('admin-keyur') &&
-          !c.participantIds?.includes('demo-superadmin-1') &&
-          !c.participantIds?.includes('emp-superadmin-1') &&
           !c.participantIds?.includes('emp-2') &&
           !c.participantIds?.includes('emp-3')
       );
@@ -145,12 +139,8 @@ export function getMessagesForConversation(conversationId: string): ChatMessage[
  * Returns or creates a direct conversation between Company Admin and a given Employee.
  */
 export function getOrCreateDirectConversation(employee: Employee): ChatConversation {
-  // Super Admin details are confidential and meant only for developer portal
   if (
-    employee.role === 'SUPER_ADMIN' ||
     employee.id === 'admin-keyur' ||
-    employee.id === 'demo-superadmin-1' ||
-    employee.email?.toLowerCase().includes('superadmin') ||
     employee.email?.toLowerCase().includes('keyur')
   ) {
     const all = getAllConversations();
@@ -221,15 +211,10 @@ export function syncConversationsWithEmployees(employees?: Employee[]): ChatConv
   let modified = false;
 
   currentEmployees.forEach((emp) => {
-    // Strictly exclude Super Admin / developer accounts from chat and workforce visibility
     if (
-      emp.role === 'SUPER_ADMIN' ||
       emp.id === 'emp-1' ||
       emp.id === 'admin-keyur' ||
-      emp.id === 'demo-superadmin-1' ||
-      emp.id === 'emp-superadmin-1' ||
-      emp.email?.toLowerCase().includes('keyur') ||
-      emp.email?.toLowerCase().includes('superadmin')
+      emp.email?.toLowerCase().includes('keyur')
     ) {
       return;
     }

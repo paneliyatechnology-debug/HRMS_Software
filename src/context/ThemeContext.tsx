@@ -20,7 +20,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('hrms_theme', 'light');
+    try {
+      localStorage.setItem('hrms_theme', 'light');
+    } catch (_) {}
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.add('light');
     setIsDark(false);
@@ -30,7 +32,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsDark(false);
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.add('light');
-    localStorage.setItem('hrms_theme', 'light');
+    try {
+      localStorage.setItem('hrms_theme', 'light');
+    } catch (_) {}
   };
 
   const setDark = () => {

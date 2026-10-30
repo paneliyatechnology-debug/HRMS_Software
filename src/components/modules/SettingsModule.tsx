@@ -363,14 +363,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   };
 
   const rbacMatrix = [
-    { module: 'Employee Directory', superAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
-    { module: 'Employee Edit / Delete', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
-    { module: 'Attendance Regularization', superAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
-    { module: 'Leave Approvals', superAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
-    { module: 'Monthly Payroll Runs', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: true },
-    { module: 'Job & Candidate Pipeline', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: true, finance: false },
-    { module: 'Hardware Assets', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
-    { module: 'System Audit Logs', superAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
+    { module: 'Employee Directory', companyAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
+    { module: 'Employee Edit / Delete', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
+    { module: 'Attendance Regularization', companyAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
+    { module: 'Leave Approvals', companyAdmin: true, hrAdmin: true, manager: true, employee: false, recruiter: false, finance: false },
+    { module: 'Monthly Payroll Runs', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: true },
+    { module: 'Job & Candidate Pipeline', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: true, finance: false },
+    { module: 'Hardware Assets', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
+    { module: 'System Audit Logs', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
   ];
 
   // =========================================================================
@@ -1569,7 +1569,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                   <th className="py-2.5 px-3">Feature / Permission</th>
-                  <th className="py-2.5 px-3 text-center">Super Admin</th>
+                  <th className="py-2.5 px-3 text-center">Company Admin</th>
                   <th className="py-2.5 px-3 text-center">HR Admin</th>
                   <th className="py-2.5 px-3 text-center">Manager</th>
                   <th className="py-2.5 px-3 text-center">Employee</th>

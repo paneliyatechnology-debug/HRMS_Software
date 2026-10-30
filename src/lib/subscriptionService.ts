@@ -211,7 +211,7 @@ export const SUBSCRIPTION_FEATURES_MATRIX: SubscriptionFeature[] = [
     includedInStarter: false,
     includedInGrowth: false,
     includedInEnterprise: true,
-    description: 'Granular view/edit permissions across SuperAdmin, HR, Manager, and Finance',
+    description: 'Granular view/edit permissions across Company Admin, HR, Manager, and Finance',
   },
   {
     name: 'Dedicated 24/7 Priority SLA Support',

@@ -409,13 +409,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
-    // Strictly hide any confidential Super Admin / Developer accounts from chat
     if (
-      conv.id?.includes('superadmin') ||
       conv.id?.includes('admin-keyur') ||
-      conv.participantIds?.includes('admin-keyur') ||
-      conv.participantIds?.includes('demo-superadmin-1') ||
-      conv.participantIds?.includes('emp-superadmin-1')
+      conv.participantIds?.includes('admin-keyur')
     ) {
       return false;
     }

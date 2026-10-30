@@ -30,9 +30,10 @@ import { api } from '../../lib/api';
 
 interface EmployeePayslipsModuleProps {
   onRefresh?: () => void;
+  employees?: Employee[];
 }
 
-export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () => {
+export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ employees = [] }) => {
   const { user } = useAuth();
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
@@ -46,7 +47,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = () 
   const currentEmpName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
   const employeeDetails: Employee | undefined = useMemo(() => {
-    const list = getAllEmployees();
+    const list = employees && employees.length > 0 ? employees : getAllEmployees();
     return list.find(
       (e) =>
         (currentEmpId && e.id === currentEmpId) ||

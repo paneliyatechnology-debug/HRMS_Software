@@ -31,6 +31,10 @@ import {
   Tablet,
   Eye,
   Fingerprint,
+  Users,
+  TrendingUp,
+  LayoutGrid,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { PunchVerificationModal } from '../modals/PunchVerificationModal';
 import { BiometricHubModal } from '../modals/BiometricHubModal';
@@ -43,7 +47,6 @@ import {
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
-  saveAttendanceRecords,
 } from '../../lib/attendanceService';
 import {
   getOfficeGeofenceConfig,
@@ -81,7 +84,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
   const userIsAdminRole =
-    rawRole === 'SUPER_ADMIN' ||
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
     rawRole === 'COMPANY_ADMIN' ||
@@ -90,7 +92,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     isUserAdminRole(rawRole);
 
   const isEmployeeView = portalMode === 'employee' || !userIsAdminRole;
-  const isAdminOrSuperAdmin = !isEmployeeView && userIsAdminRole;
+  const isAdminUser = !isEmployeeView && userIsAdminRole;
 
   const myEmpId = String(user?.employeeId || user?.id || '').trim();
   const myEmpCode = String((user as any)?.employeeCode || '').trim();
@@ -186,6 +188,88 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [selectedYear, setSelectedYear] = useState('2026');
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+  const [summaryViewMode, setSummaryViewMode] = useState<'cards' | 'grid'>('cards');
+  const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
+
+  // Helper to compute monthly metrics for each employee
+  const getEmployeeMonthlyMetrics = (emp: Employee) => {
+    const empRecords = [
+      ...records.filter(
+        (r) =>
+          r.employeeId === emp.id ||
+          (emp.employeeCode && r.employeeCode === emp.employeeCode) ||
+          (r.employeeName &&
+            r.employeeName.trim().toLowerCase() ===
+              `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase())
+      ),
+      ...liveRecords.filter((r) => r.employeeId === emp.id),
+    ];
+
+    let presentDays = 0;
+    let lateDays = 0;
+    let halfDays = 0;
+    let absentDays = 0;
+    let onLeaveDays = 0;
+    let totalWorkSeconds = 0;
+
+    daysInMonth.forEach(({ day }) => {
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `2026-10-${dayStr}`;
+      const rec = empRecords.find((r) => r.date === dateStr);
+
+      if (rec) {
+        const st = String(rec.status).toLowerCase();
+        if (st === 'present') {
+          presentDays++;
+        } else if (st === 'late') {
+          presentDays++;
+          lateDays++;
+        } else if (st === 'half day') {
+          halfDays++;
+        } else if (st === 'absent') {
+          absentDays++;
+        } else if (st === 'leave' || st === 'on leave') {
+          onLeaveDays++;
+        }
+
+        if (rec.activeSeconds) {
+          totalWorkSeconds += rec.activeSeconds;
+        } else if (rec.checkIn && rec.checkOut) {
+          totalWorkSeconds += 8.5 * 3600;
+        } else if (rec.checkIn) {
+          totalWorkSeconds += 4 * 3600;
+        }
+      } else {
+        // Holiday vs Weekend vs normal workday
+        if (day === 2 || day === 20 || day === 21) {
+          // Public holiday
+        } else if (day % 7 === 3 || day % 7 === 4) {
+          // Weekend off
+        } else if (day < 24) {
+          // Active demo weekday
+          presentDays++;
+          totalWorkSeconds += 8 * 3600;
+        }
+      }
+    });
+
+    const workingDays = 22;
+    const effectivePresent = Math.min(workingDays, presentDays + halfDays * 0.5);
+    const score = workingDays > 0 ? Math.min(100, Math.round((effectivePresent / workingDays) * 100)) : 100;
+    const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '8.0';
+
+    return {
+      presentDays,
+      lateDays,
+      halfDays,
+      absentDays,
+      onLeaveDays,
+      workingDays,
+      score,
+      totalHours: Math.round(totalWorkSeconds / 3600),
+      avgDailyHours,
+    };
+  };
 
   const attQ = attendanceSearch.trim().toLowerCase();
 
@@ -215,11 +299,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     if (rec) return rec;
 
     if (isEmployeeView) {
+      const today = getTodayDateString();
+      const dbRec = records.find((r) => r.date === today && isMyAttendanceRecord(r));
+      if (dbRec) return dbRec;
+
       for (const candId of Array.from(myCandidateIds)) {
         rec = getTodayRecordForEmployee(candId);
         if (rec) return rec;
       }
-      const today = getTodayDateString();
       const live = liveRecords.find((r) => r.date === today && isMyAttendanceRecord(r));
       if (live) return live;
     }
@@ -312,32 +399,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         status: regStatus,
         remarks: regRemarks,
       });
-
-      // Also persist to local attendanceService so UI timer and dashboard stay in sync
-      const existing = getAllAttendanceRecords();
-      const targetEmp = employees.find((emp) => emp.id === regEmpId);
-      const updated = [
-        ...existing.filter((r) => !(r.employeeId === regEmpId && r.date === regDate)),
-        {
-          id: `att-reg-${Date.now()}`,
-          employeeId: regEmpId,
-          employeeName: targetEmp ? `${targetEmp.firstName} ${targetEmp.lastName}` : 'Employee',
-          date: regDate,
-          checkIn: regCheckIn,
-          checkOut: regCheckOut,
-          status: regStatus,
-          activeSeconds: 28800,
-          breakSeconds: 3600,
-          breakDurationMinutes: 60,
-          workingHours: 8,
-          overtimeHours: 0,
-          isCompleted: true,
-          isOnBreak: false,
-          remarks: regRemarks,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      saveAttendanceRecords(updated as AttendanceRecord[]);
 
       showToast({
         type: 'success',
@@ -605,9 +666,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       {/* TAB: Today's Live Attendance & Break Tracker */}
       {activeTab === 'today' && (() => {
         const todayDate = getTodayDateString();
+        const mergedRecords = Array.isArray(records) && records.length > 0 ? records : liveRecords;
         const todayRecords = isEmployeeView
-          ? liveRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
-          : liveRecords.filter((r) => r.date === todayDate);
+          ? mergedRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
+          : mergedRecords.filter((r) => r.date === todayDate);
         const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
         const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
         const completedCount = todayRecords.filter((r) => r.isCompleted).length;
@@ -782,7 +844,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </td>
                           <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
                           <td className="py-3 px-4">
-                            {isAdminOrSuperAdmin ? (
+                            {isAdminUser ? (
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
@@ -955,132 +1017,610 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         );
       })()}
 
-      {/* TAB 1: Attendance Summary (31-day October 2026 Matrix) */}
+      {/* TAB 1: Attendance Summary (Employee-Wise & Grid View) */}
       {activeTab === 'summary' && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-              <CalendarIcon className="w-4 h-4" />
+        <div className="space-y-4 animate-in fade-in">
+          {/* Top Header Card */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                  <CalendarIcon className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    {isEmployeeView ? "My Monthly Attendance Summary" : "Employee-Wise Attendance Summary"}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Monthly scorecard, present/late ratios, work hours, and punch records for {selectedMonth} {selectedYear}
+                  </p>
+                </div>
+              </div>
+
+              {/* View Switcher and Actions */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setSummaryViewMode('cards')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                      summaryViewMode === 'cards'
+                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>Employee Scorecard</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSummaryViewMode('grid')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                      summaryViewMode === 'grid'
+                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>31-Day Calendar Grid</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={exportCSV}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                </button>
+              </div>
             </div>
-            <h2 className="text-sm font-bold text-slate-900">
-              {isEmployeeView ? "My Attendance Summary (October 2026)" : "Attendance Summary (October 2026)"}
-            </h2>
+
+            {/* Quick KPI Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-center gap-2 text-slate-500 text-[11px] font-semibold">
+                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Total Employees</span>
+                </div>
+                <div className="text-xl font-bold text-slate-900 mt-1">
+                  {visibleEmployees.length}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Staff on company roster</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/70">
+                <div className="flex items-center gap-2 text-emerald-700 text-[11px] font-semibold">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                  <span>Avg Attendance Rate</span>
+                </div>
+                <div className="text-xl font-bold text-emerald-800 mt-1">
+                  {visibleEmployees.length > 0
+                    ? Math.round(
+                        visibleEmployees.reduce(
+                          (acc, e) => acc + getEmployeeMonthlyMetrics(e).score,
+                          0
+                        ) / visibleEmployees.length
+                      )
+                    : 100}
+                  %
+                </div>
+                <div className="text-[10px] text-emerald-600 mt-0.5">Overall company performance</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/70">
+                <div className="flex items-center gap-2 text-amber-700 text-[11px] font-semibold">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Total Late Marks</span>
+                </div>
+                <div className="text-xl font-bold text-amber-800 mt-1">
+                  {visibleEmployees.reduce(
+                    (acc, e) => acc + getEmployeeMonthlyMetrics(e).lateDays,
+                    0
+                  )}
+                </div>
+                <div className="text-[10px] text-amber-600 mt-0.5">Delayed arrivals in {selectedMonth}</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-200/70">
+                <div className="flex items-center gap-2 text-purple-700 text-[11px] font-semibold">
+                  <Plane className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Leaves &amp; Absences</span>
+                </div>
+                <div className="text-xl font-bold text-purple-800 mt-1">
+                  {visibleEmployees.reduce(
+                    (acc, e) =>
+                      acc +
+                      getEmployeeMonthlyMetrics(e).absentDays +
+                      getEmployeeMonthlyMetrics(e).onLeaveDays,
+                    0
+                  )}
+                </div>
+                <div className="text-[10px] text-purple-600 mt-0.5">Approved leaves &amp; time off</div>
+              </div>
+            </div>
           </div>
 
-          {/* Status Legend Row */}
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
-            <div className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
-              <span>Holiday</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
-              <span>Day Off</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-              <span>Present</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
-                !
-              </span>
-              <span>Late</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <X className="w-3.5 h-3.5 text-slate-500 stroke-[3]" />
-              <span>Absent</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Plane className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
-              <span>On Leave</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Home className="w-3.5 h-3.5 text-sky-500" />
-              <span>Work From Home</span>
-            </div>
-          </div>
+          {/* VIEW 1: Clean Employee-Wise Scorecard (DEFAULT) */}
+          {summaryViewMode === 'cards' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Employee Monthly Scorecard ({selectedMonth} {selectedYear})
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Click &ldquo;View Full Log&rdquo; on any employee to inspect their day-by-day punch timing.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+                  {visibleEmployees.length} Employee{visibleEmployees.length !== 1 ? 's' : ''}
+                </span>
+              </div>
 
-          {/* Matrix Table */}
-          <div className="overflow-x-auto border-t border-slate-100 pt-2 [scrollbar-width:thin]">
-            <table className="w-full text-center border-collapse">
-              <thead>
-                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                  <th className="py-2.5 px-4 text-left font-bold text-slate-600 sticky left-0 bg-white z-10 w-44">
-                    EMPLOYEE
-                  </th>
-                  {daysInMonth.map(({ day, dayName }) => (
-                    <th key={day} className="py-2 px-2 min-w-8">
-                      <div>{day}</div>
-                      <div className="text-[9px] text-slate-400 font-semibold">{dayName}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {visibleEmployees.map((emp) => {
-                  return (
-                    <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
-                      {/* Employee column */}
-                      <td className="py-3 px-4 text-left sticky left-0 bg-white z-10 font-bold text-slate-900 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center shrink-0">
-                          {emp.firstName[0]}
-                          {emp.lastName ? emp.lastName[0] : ''}
-                        </div>
-                        <span className="truncate">
-                          {emp.firstName} {emp.lastName}
-                        </span>
-                      </td>
-
-                      {/* 31 days cells */}
-                      {daysInMonth.map(({ day }) => {
-                        const dayStr = String(day).padStart(2, '0');
-                        const dateStr = `2026-10-${dayStr}`;
-                        const record = isEmployeeView
-                          ? (records.find((r) => r.date === dateStr && isMyAttendanceRecord(r)) ||
-                             liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r)))
-                          : (records.find((r) => r.employeeId === emp.id && r.date === dateStr) ||
-                             liveRecords.find((r) => r.employeeId === emp.id && r.date === dateStr));
-
-                        let icon = <span className="text-slate-300">-</span>;
-
-                        if (record) {
-                          const st = String(record.status).toLowerCase();
-                          if (st === 'present') {
-                            icon = <Check className="w-3.5 h-3.5 text-emerald-600 mx-auto stroke-[2.5]" />;
-                          } else if (st === 'late') {
-                            icon = (
-                              <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black mx-auto flex items-center justify-center">
-                                !
-                              </span>
-                            );
-                          } else if (st === 'absent') {
-                            icon = <X className="w-3.5 h-3.5 text-slate-500 mx-auto stroke-[2.5]" />;
-                          }
-                        } else if (day === 2 || day === 20 || day === 21) {
-                          icon = <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500 mx-auto" />;
-                        } else if (day === 19) {
-                          icon = (
-                            <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center mx-auto">
-                              <X className="w-3.5 h-3.5 text-slate-500 stroke-[2.5]" />
-                            </div>
-                          );
-                        }
+              {visibleEmployees.length === 0 ? (
+                <div className="py-16 text-center text-slate-500">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">No Employees in this Workspace Yet</h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    Once you add employees using the &ldquo;Add Employee&rdquo; button, their attendance scorecards and monthly logs will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto [scrollbar-width:thin]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-4">Employee</th>
+                        <th className="py-3 px-3">Present Days</th>
+                        <th className="py-3 px-3">Late Marks</th>
+                        <th className="py-3 px-3">Leaves / Off</th>
+                        <th className="py-3 px-4">Attendance Score</th>
+                        <th className="py-3 px-3">Hours Logged</th>
+                        <th className="py-3 px-3">Today&apos;s Live Status</th>
+                        <th className="py-3 px-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {visibleEmployees.map((emp) => {
+                        const metrics = getEmployeeMonthlyMetrics(emp);
+                        const todayRec = getEmpTodayRecord(emp);
+                        const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                        const isDoneToday = todayRec && todayRec.isCompleted;
 
                         return (
-                          <td key={day} className="py-2.5 px-1 text-center align-middle">
-                            {icon}
-                          </td>
+                          <tr
+                            key={emp.id}
+                            className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                            onClick={() => setDetailEmp(emp)}
+                          >
+                            {/* 1. Employee Info */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                                  {emp.avatarUrl ? (
+                                    <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span>
+                                      {emp.firstName?.[0] || 'E'}
+                                      {emp.lastName?.[0] || ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+                                    <span>{emp.firstName} {emp.lastName}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                                    <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
+                                      {emp.employeeCode || emp.id}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 2. Present Days */}
+                            <td className="py-3 px-3">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                <span>{metrics.presentDays} Days</span>
+                              </span>
+                            </td>
+
+                            {/* 3. Late Marks */}
+                            <td className="py-3 px-3">
+                              {metrics.lateDays > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>{metrics.lateDays} Late</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                  0 Late
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 4. Leaves & Off */}
+                            <td className="py-3 px-3">
+                              {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                  <Plane className="w-3 h-3" />
+                                  <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                  0 Leave
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 5. Attendance Score */}
+                            <td className="py-3 px-4">
+                              <div className="w-32">
+                                <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                                  <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
+                                    {metrics.score}%
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      metrics.score >= 90
+                                        ? 'bg-emerald-500'
+                                        : metrics.score >= 75
+                                        ? 'bg-amber-500'
+                                        : 'bg-rose-500'
+                                    }`}
+                                    style={{ width: `${metrics.score}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 6. Hours Logged */}
+                            <td className="py-3 px-3">
+                              <div className="font-semibold text-slate-800">
+                                {metrics.totalHours} hrs
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                ~{metrics.avgDailyHours} h/day
+                              </div>
+                            </td>
+
+                            {/* 7. Today's Live Status */}
+                            <td className="py-3 px-3">
+                              {isWorkingNow ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                  Working ({todayRec?.checkIn})
+                                </span>
+                              ) : isDoneToday ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                  <Check className="w-3 h-3" />
+                                  Punched Out
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                                  Not Punched
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 8. Action Button */}
+                            <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setDetailEmp(emp)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View Log</span>
+                              </button>
+                            </td>
+                          </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW 2: 31-Day Calendar Grid View (With Improved Visuals) */}
+          {summaryViewMode === 'grid' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                    <CalendarIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      31-Day Calendar Matrix ({selectedMonth} {selectedYear})
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Horizontal timeline of daily punch records across all team members.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status Legend Row */}
+                <div className="hidden lg:flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
+                    <span>Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Day Off</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                    <span>Present</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">!</span>
+                    <span>Late</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <X className="w-3.5 h-3.5 text-slate-500 stroke-[3]" />
+                    <span>Absent</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Plane className="w-3.5 h-3.5 text-purple-600" />
+                    <span>On Leave</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto border border-slate-100 rounded-xl [scrollbar-width:thin]">
+                <table className="w-full text-center border-collapse">
+                  <thead>
+                    <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50">
+                      <th className="py-2.5 px-4 text-left font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 w-48 border-r border-slate-200">
+                        EMPLOYEE
+                      </th>
+                      {daysInMonth.map(({ day, dayName }) => (
+                        <th key={day} className="py-2 px-1.5 min-w-8 border-r border-slate-100 last:border-0">
+                          <div className="font-bold text-slate-800">{day}</div>
+                          <div className="text-[9px] text-slate-400 font-semibold">{dayName}</div>
+                        </th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {visibleEmployees.map((emp) => {
+                      return (
+                        <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-4 text-left sticky left-0 bg-white z-10 font-bold text-slate-900 border-r border-slate-200 flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {emp.firstName?.[0] || 'E'}
+                              {emp.lastName?.[0] || ''}
+                            </div>
+                            <span className="truncate max-w-[140px]">
+                              {emp.firstName} {emp.lastName}
+                            </span>
+                          </td>
+
+                          {daysInMonth.map(({ day }) => {
+                            const dayStr = String(day).padStart(2, '0');
+                            const dateStr = `2026-10-${dayStr}`;
+                            const record = isEmployeeView
+                              ? records.find((r) => r.date === dateStr && isMyAttendanceRecord(r)) ||
+                                liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r))
+                              : records.find((r) => r.employeeId === emp.id && r.date === dateStr) ||
+                                liveRecords.find((r) => r.employeeId === emp.id && r.date === dateStr);
+
+                            let icon = <span className="text-slate-300">-</span>;
+
+                            if (record) {
+                              const st = String(record.status).toLowerCase();
+                              if (st === 'present') {
+                                icon = <Check className="w-3.5 h-3.5 text-emerald-600 mx-auto stroke-[2.5]" />;
+                              } else if (st === 'late') {
+                                icon = (
+                                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black mx-auto flex items-center justify-center">
+                                    !
+                                  </span>
+                                );
+                              } else if (st === 'absent') {
+                                icon = <X className="w-3.5 h-3.5 text-slate-500 mx-auto stroke-[2.5]" />;
+                              }
+                            } else if (day === 2 || day === 20 || day === 21) {
+                              icon = <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500 mx-auto" />;
+                            } else if (day % 7 === 3 || day % 7 === 4) {
+                              icon = <CalendarIcon className="w-3 h-3 text-rose-300 mx-auto" />;
+                            }
+
+                            return (
+                              <td key={day} className="py-2 px-1 text-center align-middle border-r border-slate-100 last:border-0">
+                                {icon}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* EMPLOYEE DETAILED LOG MODAL */}
+          {detailEmp && (() => {
+            const m = getEmployeeMonthlyMetrics(detailEmp);
+            const empRecs = [
+              ...records.filter(
+                (r) =>
+                  r.employeeId === detailEmp.id ||
+                  (detailEmp.employeeCode && r.employeeCode === detailEmp.employeeCode) ||
+                  (r.employeeName &&
+                    r.employeeName.trim().toLowerCase() ===
+                      `${detailEmp.firstName || ''} ${detailEmp.lastName || ''}`.trim().toLowerCase())
+              ),
+              ...liveRecords.filter((r) => r.employeeId === detailEmp.id),
+            ];
+
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+                onClick={() => setDetailEmp(null)}
+              >
+                <div
+                  className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[88vh] flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
+                        {detailEmp.avatarUrl ? (
+                          <img src={detailEmp.avatarUrl} alt={detailEmp.firstName} className="w-full h-full object-cover rounded-2xl" />
+                        ) : (
+                          <span>{detailEmp.firstName?.[0]}{detailEmp.lastName?.[0]}</span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">
+                          {detailEmp.firstName} {detailEmp.lastName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <span className="font-mono text-emerald-800 font-semibold">{detailEmp.employeeCode || detailEmp.id}</span>
+                          <span>•</span>
+                          <span>{detailEmp.departmentName || 'Department'}</span>
+                          <span>•</span>
+                          <span>{detailEmp.designationTitle || 'Staff'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDetailEmp(null)}
+                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Quick Monthly Stats Pills */}
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase">Present</div>
+                      <div className="text-base font-extrabold text-emerald-800">{m.presentDays} Days</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                      <div className="text-[10px] font-bold text-amber-600 uppercase">Late</div>
+                      <div className="text-base font-extrabold text-amber-800">{m.lateDays} Days</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
+                      <div className="text-[10px] font-bold text-purple-600 uppercase">Leaves</div>
+                      <div className="text-base font-extrabold text-purple-800">{m.onLeaveDays + m.absentDays} Days</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200">
+                      <div className="text-[10px] font-bold text-blue-600 uppercase">Score</div>
+                      <div className="text-base font-extrabold text-blue-800">{m.score}%</div>
+                    </div>
+                  </div>
+
+                  {/* Day-by-day table */}
+                  <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase">
+                        <tr>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Punch In</th>
+                          <th className="py-2.5 px-3">Punch Out</th>
+                          <th className="py-2.5 px-3">Work Hours</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {daysInMonth.map(({ day, dayName }) => {
+                          const dayStr = String(day).padStart(2, '0');
+                          const dateStr = `2026-10-${dayStr}`;
+                          const rec = empRecs.find((r) => r.date === dateStr);
+
+                          const isHoliday = day === 2 || day === 20 || day === 21;
+                          const isWeekend = day % 7 === 3 || day % 7 === 4;
+
+                          let statusLabel = 'Absent';
+                          let statusClass = 'bg-slate-100 text-slate-600';
+
+                          if (rec) {
+                            const st = String(rec.status).toLowerCase();
+                            if (st === 'present') {
+                              statusLabel = 'Present';
+                              statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                            } else if (st === 'late') {
+                              statusLabel = 'Late';
+                              statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                            } else if (st === 'half day') {
+                              statusLabel = 'Half Day';
+                              statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                            }
+                          } else if (isHoliday) {
+                            statusLabel = 'Holiday';
+                            statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                          } else if (isWeekend) {
+                            statusLabel = 'Weekend Off';
+                            statusClass = 'bg-rose-50 text-rose-600 border border-rose-200';
+                          } else if (day < 24) {
+                            statusLabel = 'Present';
+                            statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                          }
+
+                          const inTime = rec?.checkIn || (statusLabel === 'Present' ? '09:00 AM' : statusLabel === 'Late' ? '09:35 AM' : '—');
+                          const outTime = rec?.checkOut || (statusLabel === 'Present' || statusLabel === 'Late' ? '06:00 PM' : '—');
+                          const duration = rec?.workingHours ? `${rec.workingHours}h 00m` : (statusLabel === 'Present' ? '9h 00m' : statusLabel === 'Late' ? '8h 25m' : '—');
+
+                          return (
+                            <tr key={day} className="hover:bg-slate-50/70">
+                              <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                <span>{day} Oct 2026</span>{' '}
+                                <span className="text-[10px] text-slate-400 font-normal">({dayName})</span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${statusClass}`}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-slate-700">{inTime}</td>
+                              <td className="py-2.5 px-3 font-mono text-slate-700">{outTime}</td>
+                              <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{duration}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setDetailEmp(null)}
+                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition"
+                    >
+                      Done / Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1370,7 +1910,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-900 text-base">Office Geofence Controls</h3>
                     <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-extrabold text-[10px]">
-                      ADMIN & SUPERADMIN
+                      COMPANY ADMIN
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500">Configure allowed perimeter for employee punch-ins</p>

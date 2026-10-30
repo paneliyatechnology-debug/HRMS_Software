@@ -58,8 +58,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
-  const isAdminOrSuperAdmin =
-    rawRole === 'SUPER_ADMIN' ||
+  const isAdminUser =
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
     isUserAdminRole(rawRole) ||
@@ -978,7 +977,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <ShieldCheck className="w-4 h-4 text-slate-500" />
                     <span className="font-semibold">Geofencing Disabled</span>
                   </div>
-                  {isAdminOrSuperAdmin && (
+                  {isAdminUser && (
                     <button
                       onClick={() => setShowConfig(true)}
                       className="text-[11px] font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
@@ -1034,7 +1033,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     >
                       <RefreshCw className="w-3 h-3" /> Re-check Location
                     </button>
-                    {isAdminOrSuperAdmin && (
+                    {isAdminUser && (
                       <button
                         onClick={() => setShowConfig(!showConfig)}
                         className="font-semibold text-rose-700 hover:text-rose-900 underline cursor-pointer"
@@ -1067,7 +1066,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {/* Quick Geofence Calibration / Testing Drawer (Admin & Super Admin ONLY) */}
-              {isAdminOrSuperAdmin && (
+              {isAdminUser && (
                 <>
                   <div className="mt-2 text-right">
                     <button

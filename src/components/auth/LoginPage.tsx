@@ -20,11 +20,24 @@ import {
   ShieldAlert,
   Sparkles,
   X,
+  Briefcase,
+  FileText,
+  MapPin,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
-
-export type LoginSide = 'admin' | 'employee';
+import {
+  validateEmail,
+  validatePhone,
+  validateGstin,
+  validateName,
+  validatePassword,
+  validatePasswordMatch,
+  validateLoginIdentifier,
+  cleanPhoneNumber,
+  checkDuplicateEmailOrPhone,
+} from '../../lib/validation';
 
 export interface LoginPageProps {
   onBackToHome?: () => void;
@@ -32,11 +45,9 @@ export interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   const router = useRouter();
-  const { loginAsAdmin, loginAsEmployee, registerUser } = useAuth();
+  const { login, registerCompanyAccount } = useAuth();
   const handleBack = onBackToHome || (() => router.push('/'));
   
-  // Login side switcher: Company Admin or Staff Employee
-  const [loginSide, setLoginSide] = useState<LoginSide>('admin');
   const [viewMode, setViewMode] = useState<'login' | 'signup'>('login');
 
   // Login form state
@@ -44,20 +55,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Sign Up / New User state
-  const [signupFirstName, setSignupFirstName] = useState('');
-  const [signupLastName, setSignupLastName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPhone, setSignupPhone] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-  const [signupRole, setSignupRole] = useState<'EMPLOYEE' | 'HR_ADMIN' | 'MANAGER'>('EMPLOYEE');
-  const [signupDepartmentId, setSignupDepartmentId] = useState('dept-1');
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  // Company Registration Form State
+  const [companyName, setCompanyName] = useState('');
+  const [companyGst, setCompanyGst] = useState('');
+  const [companyIndustry, setCompanyIndustry] = useState('IT & Software Services');
+  const [companyAddress, setCompanyAddress] = useState('');
+  const [companyCity, setCompanyCity] = useState('');
+  const [companyState, setCompanyState] = useState('');
 
-  // Available departments list
-  const [departments, setDepartments] = useState<any[]>([]);
+  // Company Owner Account State
+  const [ownerFirstName, setOwnerFirstName] = useState('');
+  const [ownerLastName, setOwnerLastName] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+  const [ownerConfirmPassword, setOwnerConfirmPassword] = useState('');
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
+  const [showOwnerConfirmPassword, setShowOwnerConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -70,45 +84,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     attemptRole?: string;
   } | null>(null);
 
-  useEffect(() => {
-    api
-      .getDepartments()
-      .then((deps) => {
-        if (Array.isArray(deps) && deps.length > 0) {
-          setDepartments(deps);
-          setSignupDepartmentId(deps[0].id);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Handle switching login sides
-  const switchSide = (side: LoginSide) => {
-    setLoginSide(side);
-    setViewMode('login');
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setNotInOrgPopup(null);
-    setIdentifier('');
-    setPassword('');
-  };
-
-  // Handle Side-Specific Login Submission
+  // Handle Unified Login Submission with Automatic Role & Workspace Detection
   const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
     setNotInOrgPopup(null);
+
+    // Validate Identifier
+    const idCheck = validateLoginIdentifier(identifier);
+    if (!idCheck.isValid) {
+      setErrorMessage(idCheck.error || 'Please enter a valid email, 10-digit mobile number, or employee code.');
+      return;
+    }
+
+    // Validate Password
+    if (!password || password.trim().length === 0) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      let res: { success: boolean; message?: string; notInOrganization?: boolean };
-
-      if (loginSide === 'admin') {
-        res = await loginAsAdmin(identifier, password);
-      } else {
-        res = await loginAsEmployee(identifier, password);
-      }
+      // Single unified login: automatically identifies Owner/Admin or Employee based on role in database
+      const res = await login(identifier, password);
 
       if (!res.success) {
         if (
@@ -118,15 +118,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
           setNotInOrgPopup({
             open: true,
             email: identifier.trim(),
-            attemptRole: loginSide === 'admin' ? 'Company Admin' : 'Staff Employee',
+            attemptRole: 'Workspace User',
           });
         }
 
         setErrorMessage(
-          res.message ||
-            (loginSide === 'admin'
-              ? 'Invalid Admin credentials. Please verify your company email or phone.'
-              : 'Invalid Employee credentials. Please check your Employee ID, email or PIN.')
+          res.message || 'Invalid credentials. Please verify your email, mobile number or employee code and password.'
         );
       } else {
         router.push('/');
@@ -139,78 +136,119 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   };
 
 
-  // Handle New User Registration
-  const handleSignupSubmit = async (e: React.FormEvent) => {
+  // Handle Company Registration (Owner Onboarding)
+  const handleRegisterCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Validations
-    if (!signupFirstName.trim() || !signupLastName.trim()) {
-      setErrorMessage('First name and last name are required.');
+    // 1. Company Legal Name validation
+    const compCheck = validateName(companyName, 'Company legal name', 2, true);
+    if (!compCheck.isValid) {
+      setErrorMessage(compCheck.error || 'Company legal name is required.');
       return;
     }
 
-    if (!signupEmail.trim() || !signupEmail.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+    // 2. GSTIN format validation (if provided)
+    if (companyGst.trim()) {
+      const gstCheck = validateGstin(companyGst, false);
+      if (!gstCheck.isValid) {
+        setErrorMessage(gstCheck.error || 'Invalid GSTIN format. Example: 24AAAAA0000A1Z5');
+        return;
+      }
+    }
+
+    // 3. Owner First Name & Last Name validation
+    const fNameCheck = validateName(ownerFirstName, 'Owner first name', 2, true);
+    if (!fNameCheck.isValid) {
+      setErrorMessage(fNameCheck.error || 'Owner first name is required (at least 2 letters).');
+      return;
+    }
+    const lNameCheck = validateName(ownerLastName, 'Owner last name', 2, true);
+    if (!lNameCheck.isValid) {
+      setErrorMessage(lNameCheck.error || 'Owner last name is required (at least 2 letters).');
       return;
     }
 
-    if (signupPassword.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
+    // 4. Owner Email validation
+    const emailCheck = validateEmail(ownerEmail, true);
+    if (!emailCheck.isValid) {
+      setErrorMessage(emailCheck.error || 'Please enter a valid official email address.');
       return;
     }
 
-    if (signupPassword !== signupConfirmPassword) {
-      setErrorMessage('Passwords do not match. Please verify your password.');
+    // 5. Owner Phone validation
+    const phoneCheck = validatePhone(ownerPhone, true);
+    if (!phoneCheck.isValid) {
+      setErrorMessage(phoneCheck.error || 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    // 6. Password validation
+    const passCheck = validatePassword(ownerPassword, 6);
+    if (!passCheck.isValid) {
+      setErrorMessage(passCheck.error || 'Password must be at least 6 characters long.');
+      return;
+    }
+
+    // 7. Password Match validation
+    const matchCheck = validatePasswordMatch(ownerPassword, ownerConfirmPassword);
+    if (!matchCheck.isValid) {
+      setErrorMessage(matchCheck.error || 'Passwords do not match. Please verify your password.');
+      return;
+    }
+
+    // 8. Strict Uniqueness Check: 1 Email = 1 Account & 1 Mobile Number = 1 Account
+    const allEmps = await api.getEmployees().catch(() => []);
+    const dupCheck = checkDuplicateEmailOrPhone({
+      email: ownerEmail,
+      phone: ownerPhone,
+      existingEmployees: allEmps,
+    });
+    if (!dupCheck.isValid) {
+      setErrorMessage(dupCheck.error || 'This email or mobile number is already registered.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await registerUser({
-        firstName: signupFirstName.trim(),
-        lastName: signupLastName.trim(),
-        email: signupEmail.trim().toLowerCase(),
-        password: signupPassword,
-        phone: signupPhone.trim(),
-        role: signupRole,
-        departmentId: signupDepartmentId || undefined,
+      const res = await registerCompanyAccount({
+        companyName: companyName.trim(),
+        gstNumber: companyGst.trim() ? companyGst.trim().toUpperCase() : undefined,
+        industry: companyIndustry || undefined,
+        address: companyAddress.trim() || undefined,
+        city: companyCity.trim() || undefined,
+        state: companyState.trim() || undefined,
+        firstName: ownerFirstName.trim(),
+        lastName: ownerLastName.trim(),
+        email: ownerEmail.trim().toLowerCase(),
+        phone: phoneCheck.cleanPhone || ownerPhone.trim(),
+        password: ownerPassword,
       });
 
       if (!res.success) {
-        if (
-          res.notInOrganization ||
-          res.message?.toLowerCase().includes('not part of any organization')
-        ) {
-          setNotInOrgPopup({
-            open: true,
-            email: signupEmail.trim(),
-            attemptRole: signupRole === 'EMPLOYEE' ? 'Staff Employee' : 'Company Admin',
-          });
-        }
-        setErrorMessage(res.message || 'Registration failed. Please try again.');
+        setErrorMessage(res.message || 'Company registration failed. Please try again.');
       } else {
-        setSuccessMessage('Account registered successfully! Entering your workspace...');
+        setSuccessMessage(`Company "${companyName.trim()}" registered successfully! Launching your Owner Workspace...`);
         setTimeout(() => {
           router.push('/');
-        }, 800);
+        }, 900);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed.');
+      setErrorMessage(err.message || 'Company registration failed.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative select-none selection:bg-emerald-600 selection:text-white overflow-hidden">
+    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-4 py-8 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-hidden">
       
       {/* Elegant ambient light mint / emerald glows */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-teal-200/35 blur-3xl -z-10 pointer-events-none" />
 
-      <div className={`w-full ${viewMode === 'signup' ? 'max-w-md' : 'max-w-md'} transition-all duration-300 relative z-10`}>
+      <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : 'max-w-md'} transition-all duration-300 relative z-10`}>
         
         {/* Top Navigation Row: Back Link */}
         <div className="flex items-center justify-start mb-5">
@@ -235,56 +273,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
           </h1>
           <p className="text-xs font-medium text-[#4e6a5d] mt-1">
             {viewMode === 'signup'
-              ? 'Create a new employee or administrator account'
-              : loginSide === 'admin'
-              ? 'Company Owner & HR Management Portal'
-              : 'Employee Workplace & Attendance Self-Service'}
+              ? 'Register your company workspace & owner account'
+              : 'Unified Workspace Login • Automatic Role Detection'}
           </p>
         </div>
 
         {/* Luxury Green Main Card */}
         <div className="bg-white rounded-3xl border border-[#d8ebd9] shadow-[0_12px_40px_rgba(6,45,31,0.06)] p-6 sm:p-8">
           
-          {/* 2-Side Switcher: Company Admin vs Employee */}
-          {viewMode === 'login' ? (
-            <div className="grid grid-cols-2 bg-[#f2f9f5] p-1.5 rounded-2xl mb-6 text-xs font-semibold border border-[#d8ebd9] gap-1.5">
-              {/* 1. Admin Side */}
-              <button
-                id="tab-side-admin"
-                type="button"
-                onClick={() => switchSide('admin')}
-                className={`py-2.5 px-3 rounded-xl text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  loginSide === 'admin'
-                    ? 'bg-[#062d1f] text-white font-bold shadow-sm'
-                    : 'text-[#4e6a5d] hover:bg-white hover:text-[#0d271d]'
-                }`}
-              >
-                <Building2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="truncate">Company Admin</span>
-              </button>
-
-              {/* 2. Employee Side */}
-              <button
-                id="tab-side-employee"
-                type="button"
-                onClick={() => switchSide('employee')}
-                className={`py-2.5 px-3 rounded-xl text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  loginSide === 'employee'
-                    ? 'bg-[#059669] text-white font-bold shadow-sm'
-                    : 'text-[#4e6a5d] hover:bg-white hover:text-[#0d271d]'
-                }`}
-              >
-                <User className="w-4 h-4 shrink-0" />
-                <span className="truncate">Staff Employee</span>
-              </button>
-            </div>
-          ) : (
+          {/* Top Header Row for Signup Mode */}
+          {viewMode === 'signup' && (
             <div className="flex items-center justify-between mb-5 pb-3 border-b border-[#d8ebd9]">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#059669]">
-                  <UserPlus className="w-4 h-4" />
+                  <Building2 className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-bold text-[#0d271d]">New User Registration</h2>
+                <div>
+                  <h2 className="text-sm font-bold text-[#0d271d]">Register Your Company</h2>
+                  <p className="text-[11px] text-[#4e6a5d]">New Company Owner & Workspace Setup</p>
+                </div>
               </div>
               <button
                 id="btn-back-to-login-sides"
@@ -296,7 +303,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                 }}
                 className="text-xs font-semibold text-[#059669] hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
               >
-                ← Back
+                ← Back to Login
               </button>
             </div>
           )}
@@ -318,7 +325,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
 
           {viewMode === 'login' ? (
             /* ========================================================== */
-            /* LOGIN FORM (Admin & Employee)                              */
+            /* UNIFIED LOGIN FORM (Automatic Role Detection)             */
             /* ========================================================== */
             <form
               onSubmit={handleLoginSubmit}
@@ -327,35 +334,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
               autoCorrect="off"
               autoCapitalize="off"
             >
+              {/* Workspace Sign-In Header Banner */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#d8ebd9] mb-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#059669]">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#0d271d]">Sign In to Your Workspace</h2>
+                    <p className="text-[11px] text-[#4e6a5d]">Automatic Role Detection (Employee & Owner)</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[#059669] text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Single Login
+                </span>
+              </div>
 
               {/* Identifier Input */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-[#0d271d]">
-                    {loginSide === 'admin'
-                      ? 'Company Admin Email or Phone'
-                      : 'Employee Code, Email or Phone'}
-                  </label>
-                </div>
+                <label className="block text-xs font-bold text-[#0d271d] mb-1.5">
+                  Work Email, Mobile Number or Employee ID
+                </label>
                 <div className="relative">
-                  {loginSide === 'admin' ? (
-                    <Mail className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  ) : (
-                    <User className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  )}
+                  <User className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     id="input-login-identifier"
                     name="paneliya_auth_user"
                     type="text"
                     required
-                    autoComplete="one-time-code"
+                    autoComplete="username"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder={
-                      loginSide === 'admin'
-                        ? 'Enter admin email or phone'
-                        : 'Enter employee code, email or phone'
-                    }
+                    placeholder="Enter email, mobile number or employee code"
                     className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 transition-all bg-[#fcfdfd] focus:bg-white"
                   />
                 </div>
@@ -365,9 +376,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-[#0d271d]">
-                    {loginSide === 'admin'
-                      ? 'Admin Password'
-                      : 'Password / PIN'}
+                    Password
                   </label>
                   <span className="text-xs text-[#059669] font-semibold hover:underline cursor-pointer">
                     Forgot?
@@ -380,7 +389,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     name="paneliya_auth_key"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    autoComplete="new-password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -407,215 +416,300 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Verifying {loginSide === 'admin' ? 'Company Admin' : 'Employee'}...</span>
+                    <span>Signing In & Detecting Workspace...</span>
                   </>
                 ) : (
                   <>
-                    <span>
-                      {loginSide === 'admin'
-                        ? 'Sign In as Company Admin'
-                        : 'Sign In to Employee Portal'}
-                    </span>
+                    <span>Sign In to Workspace</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
 
+              {/* Bottom Switcher: Register Company */}
+              <div className="pt-4 border-t border-[#d8ebd9] text-center">
+                <p className="text-xs text-[#4e6a5d]">
+                  Are you a Company Owner?{' '}
+                  <button
+                    id="link-switch-to-signup"
+                    type="button"
+                    onClick={() => {
+                      setViewMode('signup');
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    className="font-bold text-[#059669] hover:text-[#047857] hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer"
+                  >
+                    Register Your Company Workspace →
+                  </button>
+                </p>
+              </div>
+
             </form>
           ) : (
             /* ========================================================== */
-            /* NEW USER REGISTRATION FORM                                 */
+            /* COMPANY REGISTRATION FORM (Only Company Owner Onboards)     */
             /* ========================================================== */
-            <form onSubmit={handleSignupSubmit} className="space-y-3.5" autoComplete="off">
-              {/* Employee Auto-Link Callout */}
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs text-[#0d271d] flex items-start gap-2.5">
-                <span className="text-lg leading-none">🏢</span>
+            <form onSubmit={handleRegisterCompanySubmit} className="space-y-4" autoComplete="off">
+              {/* Employee Warning Notice */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-[#0d271d] flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold text-[#062d1f]">Joining as an Employee?</p>
-                  <p className="text-[11px] text-[#4e6a5d] mt-0.5 leading-snug">
-                    Enter the <strong>Email</strong> or <strong>Mobile Number</strong> assigned by your company admin for instant access!
+                  <p className="font-bold text-amber-900">Important for Staff Employees:</p>
+                  <p className="text-[11px] text-amber-800/90 mt-0.5 leading-snug">
+                    Employees <strong>cannot self-register</strong> here. Only new <strong>Company Owners</strong> register their company. Once registered, the owner will add your Email or Phone in their Owner Dashboard, enabling your employee login.
                   </p>
                 </div>
               </div>
 
-              {/* First & Last Name */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="input-signup-firstname"
-                    type="text"
-                    required
-                    value={signupFirstName}
-                    onChange={(e) => setSignupFirstName(e.target.value)}
-                    placeholder="e.g. Rahul"
-                    className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
+              {/* Section 1: Company Information */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#e2efe4]">
+                  <Building2 className="w-4 h-4 text-[#059669]" />
+                  <h3 className="text-xs font-bold text-[#062d1f] uppercase tracking-wider">
+                    1. Company Information
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="input-signup-lastname"
-                    type="text"
-                    required
-                    value={signupLastName}
-                    onChange={(e) => setSignupLastName(e.target.value)}
-                    placeholder="e.g. Sangani"
-                    className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Company Legal Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="input-company-name"
+                      type="text"
+                      required
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="e.g. Paneliya Infotech Pvt Ltd"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      GSTIN / Tax ID <span className="text-xs text-[#4e6a5d] font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      id="input-company-gst"
+                      type="text"
+                      maxLength={15}
+                      value={companyGst}
+                      onChange={(e) => setCompanyGst(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
+                      placeholder="e.g. 24AAAAA0000A1Z5"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all uppercase"
+                    />
+                    <p className="text-[10px] text-[#4e6a5d] mt-1">15-char format (e.g. 24AAAAA0000A1Z5)</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">Industry Sector</label>
+                    <select
+                      id="select-company-industry"
+                      value={companyIndustry}
+                      onChange={(e) => setCompanyIndustry(e.target.value)}
+                      className="w-full h-10 px-2.5 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] font-semibold focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    >
+                      <option value="IT & Software Services">Information Technology & Software</option>
+                      <option value="Manufacturing & Industrial">Manufacturing & Industrial</option>
+                      <option value="Retail & E-Commerce">Retail & E-Commerce</option>
+                      <option value="Healthcare & Pharma">Healthcare & Pharma</option>
+                      <option value="Construction & Real Estate">Construction & Real Estate</option>
+                      <option value="Financial & Banking">Financial & Banking</option>
+                      <option value="Education & EdTech">Education & EdTech</option>
+                      <option value="Hospitality & Services">Hospitality & Services</option>
+                      <option value="General Corporate">General Corporate / Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">Office Address</label>
+                    <input
+                      id="input-company-address"
+                      type="text"
+                      value={companyAddress}
+                      onChange={(e) => setCompanyAddress(e.target.value)}
+                      placeholder="e.g. 402, Ring Road"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">City</label>
+                    <input
+                      id="input-company-city"
+                      type="text"
+                      value={companyCity}
+                      onChange={(e) => setCompanyCity(e.target.value)}
+                      placeholder="e.g. Surat"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">State</label>
+                    <input
+                      id="input-company-state"
+                      type="text"
+                      value={companyState}
+                      onChange={(e) => setCompanyState(e.target.value)}
+                      placeholder="e.g. Gujarat"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Work Email */}
-              <div>
-                <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Mail className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="input-signup-email"
-                    type="email"
-                    required
-                    autoComplete="off"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
+              {/* Section 2: Owner Account */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#e2efe4]">
+                  <ShieldCheck className="w-4 h-4 text-[#059669]" />
+                  <h3 className="text-xs font-bold text-[#062d1f] uppercase tracking-wider">
+                    2. Company Owner & Administrator Account
+                  </h3>
                 </div>
-              </div>
 
-              {/* Phone */}
-              <div>
-                <label className="block text-xs font-bold text-[#0d271d] mb-1">Phone Number</label>
-                <div className="relative">
-                  <Phone className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="input-signup-phone"
-                    type="tel"
-                    value={signupPhone}
-                    onChange={(e) => setSignupPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="input-owner-firstname"
+                      type="text"
+                      required
+                      value={ownerFirstName}
+                      onChange={(e) => setOwnerFirstName(e.target.value)}
+                      placeholder="e.g. Ravi"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="input-owner-lastname"
+                      type="text"
+                      required
+                      value={ownerLastName}
+                      onChange={(e) => setOwnerLastName(e.target.value)}
+                      placeholder="e.g. Paneliya"
+                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Role & Department */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#0d271d] mb-1">Role</label>
-                  <select
-                    id="select-signup-role"
-                    value={signupRole}
-                    onChange={(e) => setSignupRole(e.target.value as any)}
-                    className="w-full h-10 px-2.5 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] font-semibold focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  >
-                    <option value="EMPLOYEE">Staff Employee</option>
-                    <option value="HR_ADMIN">Company Admin / HR</option>
-                    <option value="MANAGER">Department Manager</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Official Owner Email <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        id="input-owner-email"
+                        type="email"
+                        required
+                        value={ownerEmail}
+                        onChange={(e) => setOwnerEmail(e.target.value)}
+                        placeholder="owner@company.com"
+                        className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        id="input-owner-phone"
+                        type="tel"
+                        maxLength={13}
+                        required
+                        value={ownerPhone}
+                        onChange={(e) => setOwnerPhone(e.target.value.replace(/[^0-9+\s]/g, '').slice(0, 13))}
+                        placeholder="9876543210"
+                        className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#4e6a5d] mt-1">10-digit Indian mobile number (e.g. 9876543210)</p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0d271d] mb-1">Department</label>
-                  <select
-                    id="select-signup-dept"
-                    value={signupDepartmentId}
-                    onChange={(e) => setSignupDepartmentId(e.target.value)}
-                    className="w-full h-10 px-2.5 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] font-semibold focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  >
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                    {departments.length === 0 && (
-                      <option value="dept-1">Administration</option>
-                    )}
-                  </select>
-                </div>
-              </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="input-signup-password"
-                    type={showSignupPassword ? 'text' : 'password'}
-                    required
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    placeholder="At least 6 characters"
-                    className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSignupPassword(!showSignupPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4e6a5d] hover:text-[#0d271d] cursor-pointer"
-                  >
-                    {showSignupPassword ? (
-                      <EyeOff className="w-3.5 h-3.5" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="input-signup-confirm-password"
-                    type={showSignupConfirmPassword ? 'text' : 'password'}
-                    required
-                    value={signupConfirmPassword}
-                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4e6a5d] hover:text-[#0d271d] cursor-pointer"
-                  >
-                    {showSignupConfirmPassword ? (
-                      <EyeOff className="w-3.5 h-3.5" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Owner Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        id="input-owner-password"
+                        type={showOwnerPassword ? 'text' : 'password'}
+                        required
+                        value={ownerPassword}
+                        onChange={(e) => setOwnerPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowOwnerPassword(!showOwnerPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4e6a5d] hover:text-[#0d271d] cursor-pointer"
+                      >
+                        {showOwnerPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        id="input-owner-confirm-password"
+                        type={showOwnerConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={ownerConfirmPassword}
+                        onChange={(e) => setOwnerConfirmPassword(e.target.value)}
+                        placeholder="Repeat password"
+                        className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowOwnerConfirmPassword(!showOwnerConfirmPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4e6a5d] hover:text-[#0d271d] cursor-pointer"
+                      >
+                        {showOwnerConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Submit Sign Up Button */}
               <button
-                id="btn-submit-signup"
+                id="btn-submit-company-register"
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#065f46] text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-emerald-900/15 hover:shadow-lg hover:shadow-emerald-900/25 active:scale-98 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-12 mt-4 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#065f46] text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-emerald-900/15 hover:shadow-lg hover:shadow-emerald-900/25 active:scale-98 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Saving account...</span>
+                    <span>Creating Company & Onboarding Workspace...</span>
                   </>
                 ) : (
                   <>
-                    <span>Register &amp; Enter Workspace</span>
+                    <span>Register Company &amp; Launch Workspace</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -623,9 +717,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
             </form>
           )}
 
-          {/* Bottom Switcher Link */}
-          <div className="mt-6 pt-4 border-t border-[#d8ebd9] text-center">
-            {viewMode === 'signup' ? (
+          {/* Bottom Switcher Link (for Signup Mode) */}
+          {viewMode === 'signup' && (
+            <div className="mt-6 pt-4 border-t border-[#d8ebd9] text-center">
               <p className="text-xs font-medium text-[#4e6a5d]">
                 Already have an account?{' '}
                 <button
@@ -641,24 +735,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   Sign in here
                 </button>
               </p>
-            ) : (
-              <p className="text-xs font-medium text-[#4e6a5d]">
-                New user or organization?{' '}
-                <button
-                  id="link-switch-to-signup"
-                  type="button"
-                  onClick={() => {
-                    setViewMode('signup');
-                    setErrorMessage(null);
-                    setSuccessMessage(null);
-                  }}
-                  className="font-bold text-[#059669] hover:text-[#047857] hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer"
-                >
-                  Create an account (Sign Up)
-                </button>
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Note */}

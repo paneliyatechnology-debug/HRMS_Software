@@ -97,13 +97,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const query = search.trim().toLowerCase();
   const filtered = employees.filter((emp) => {
-    // Strictly hide Super Admin / Platform Developer account from employee directory
     if (
-      emp.role === 'SUPER_ADMIN' ||
-      emp.id === 'emp-superadmin-1' ||
-      emp.id === 'demo-superadmin-1' ||
       emp.id === 'admin-keyur' ||
-      emp.email?.toLowerCase().includes('superadmin') ||
       emp.email?.toLowerCase().includes('keyur')
     ) {
       return false;
@@ -400,7 +395,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {filtered.map((emp) => {
+              {filtered.map((emp, empIdx) => {
                 const isCurrentUser =
                   emp.email === user.email ||
                   emp.id === user.employeeId ||
@@ -409,7 +404,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                 return (
                   <tr
-                    key={emp.id}
+                    key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
                     className={`transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-indigo-50/30 hover:bg-slate-50/70'

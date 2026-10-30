@@ -14,17 +14,6 @@ export interface RoleDefinition {
 
 export const ROLE_DEFINITIONS: RoleDefinition[] = [
   {
-    role: 'SUPER_ADMIN',
-    label: 'Super Admin',
-    shortLabel: 'Super Admin',
-    description: 'Full administrative control over all company data, settings and roles.',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
-    bgLight: 'bg-purple-50',
-    borderClass: 'border-purple-200',
-    textColor: 'text-purple-700',
-    iconName: 'Crown',
-  },
-  {
     role: 'HR_ADMIN',
     label: 'HR Admin (HR)',
     shortLabel: 'HR Admin',

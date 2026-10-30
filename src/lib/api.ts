@@ -21,32 +21,6 @@ import {
   User,
 } from '../types/hrms';
 
-import {
-  getAllAttendanceRecords,
-  performCheckIn,
-  performCheckOut,
-  getTodayRecordForEmployee,
-  updateLocalRecordFromBackend,
-  syncBackendAttendanceRecords,
-} from './attendanceService';
-import {
-  getAllLeaves,
-  applyForLeave,
-  approveLeaveRequest,
-  rejectLeaveRequest,
-} from './leaveService';
-import {
-  getAllEmployees,
-  addEmployee,
-  removeEmployee,
-  updateEmployee as updateEmployeeRecord,
-} from './employeeService';
-import {
-  getAllAnnouncements,
-  sendNotice,
-  deleteNotice,
-  getNoticesForEmployee,
-} from './announcementService';
 import { getApiBaseUrl } from './config';
 
 const getApiBase = () => getApiBaseUrl();
@@ -60,10 +34,12 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
   const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
-    const token =
+    const storedToken =
       typeof window !== 'undefined'
         ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
         : null;
+
+    const token = storedToken;
 
     const res = await fetch(`${getApiBase()}${url}`, {
       cache: 'no-store',
@@ -102,6 +78,14 @@ export const api = {
   // =========================================================================
   // 1. SYSTEM HEALTH
   // =========================================================================
+  async getApiVitality() {
+    return fetchWithFallback<any>('/api', undefined, {
+      status: 'healthy',
+      vitality: true,
+      service: 'Paneliya Enterprise HRMS API',
+    });
+  },
+
   async getHealth() {
     return fetchWithFallback('/health', undefined, {
       status: 'healthy',
@@ -121,7 +105,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier: email, email, password }),
       });
 
       if (res.ok) {
@@ -129,6 +113,12 @@ export const api = {
         if (typeof window !== 'undefined' && result?.accessToken) {
           localStorage.setItem('hrms_auth_token', result.accessToken);
           localStorage.setItem('bearerToken', result.accessToken);
+          if (result.user?.companyId) {
+            localStorage.setItem('hrms_company_id', result.user.companyId);
+          }
+          if (result.user?.companyCode) {
+            localStorage.setItem('hrms_company_code', result.user.companyCode);
+          }
         }
         return result;
       }
@@ -163,14 +153,26 @@ export const api = {
     phone?: string;
     departmentId?: string;
     designationId?: string;
+    companyId?: string;
   }) {
     try {
+      const rawRole = (data.role || 'EMPLOYEE').toUpperCase().trim();
+      const normalizedRole =
+        rawRole === 'HR_ADMIN' || rawRole === 'ADMIN'
+          ? 'ADMIN'
+          : 'EMPLOYEE';
+
+      const payload = {
+        ...data,
+        role: normalizedRole,
+      };
+
       const res = await fetch(`${getApiBase()}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -193,6 +195,113 @@ export const api = {
     } catch (err: any) {
       throw err;
     }
+  },
+
+  async registerCompany(data: {
+    companyName: string;
+    companyId?: string;
+    gstNumber?: string;
+    industry?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    password: string;
+  }) {
+    const fullAddress = [data.address, data.city, data.state, 'India'].filter(Boolean).join(', ');
+
+    // Provision new company and administrator via backend API
+    // Inserts the new company into database `companies` table and provisions owner Admin
+    const createPayload = {
+      companyName: data.companyName.trim(),
+      email: data.email.trim().toLowerCase(),
+      phone: data.phone.trim(),
+      address: fullAddress,
+      status: 'Active',
+      adminEmail: data.email.trim().toLowerCase(),
+      adminPassword: data.password,
+      adminFirstName: data.firstName.trim(),
+      adminLastName: data.lastName.trim(),
+    };
+
+    const storedToken =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
+        : null;
+    const authToken = storedToken || 'jwt_token_ravi140714@gmail.com';
+
+    const res = await fetch(`${getApiBase()}/super-admin/companies`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(createPayload),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const message =
+        (Array.isArray(errData?.error?.message) ? errData.error.message.join(', ') : null) ||
+        errData?.error?.message ||
+        (Array.isArray(errData?.message) ? errData.message.join(', ') : null) ||
+        errData?.message ||
+        `Company creation failed with status ${res.status}`;
+      throw new Error(message);
+    }
+
+    const compRes = await res.json();
+    const createdCompany = compRes?.company || compRes;
+    const companyId = createdCompany?.id || `cmp-${Date.now()}`;
+    const companyCode = createdCompany?.companyCode || 'CMP-000001';
+
+    // Postman Step 5: Login as Company Admin to get active session
+    let loginRes: any = null;
+    try {
+      loginRes = await this.login(data.email.trim().toLowerCase(), data.password);
+    } catch (loginErr) {
+      console.warn('Auto-login after company creation warning:', loginErr);
+    }
+
+    // Cache company details in localStorage for frontend dashboard
+    if (typeof window !== 'undefined') {
+      const companyObj = {
+        id: companyId,
+        companyCode: companyCode,
+        name: data.companyName.trim(),
+        companyName: data.companyName.trim(),
+        gstNumber: data.gstNumber || '',
+        industry: data.industry || 'IT & Software Services',
+        address: fullAddress,
+        city: data.city || '',
+        state: data.state || '',
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem('hrms_company_id', companyId);
+      localStorage.setItem('hrms_company_code', companyCode);
+      localStorage.setItem('hrms_company_name', data.companyName.trim());
+      localStorage.setItem('hrms_current_company', JSON.stringify(companyObj));
+      if (data.gstNumber) localStorage.setItem('hrms_company_gst', data.gstNumber);
+    }
+
+    return {
+      success: true,
+      user: loginRes?.user || {
+        id: createdCompany?.adminUserId || `user-${Date.now()}`,
+        email: data.email.trim().toLowerCase(),
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        role: 'ADMIN',
+        companyId,
+        companyCode,
+      },
+      token: loginRes?.accessToken || loginRes?.token,
+      company: createdCompany,
+    };
   },
 
   async getMe(token?: string): Promise<User> {
@@ -285,34 +394,37 @@ export const api = {
     );
   },
 
+  async getNextEmployeeCode(companyId?: string): Promise<{ nextCode: string; companyCode?: string; currentMaxNumber?: number }> {
+    const qs = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
+    return fetchWithFallback<{ nextCode: string; companyCode?: string; currentMaxNumber?: number }>(
+      `/employees/next-code${qs}`,
+      undefined,
+      { nextCode: 'EMP-000001' }
+    );
+  },
+
   async getEmployeeById(id: string) {
     return fetchWithFallback<any>(`/employees/${id}`);
   },
 
   async createEmployee(data: Partial<Employee>) {
-    const newEmp = addEmployee(data);
     return fetchWithFallback<Employee>(
       '/employees',
-      { method: 'POST', body: JSON.stringify(data) },
-      newEmp
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async updateEmployee(id: string, data: Partial<Employee>) {
-    const updated = updateEmployeeRecord(id, data);
     return fetchWithFallback<Employee>(
       `/employees/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      (updated || { id, ...data }) as Employee
+      { method: 'PUT', body: JSON.stringify(data) }
     );
   },
 
   async deleteEmployee(id: string) {
-    const res = removeEmployee(id);
     return fetchWithFallback<{ success: boolean; message: string }>(
       `/employees/${id}`,
-      { method: 'DELETE' },
-      res
+      { method: 'DELETE' }
     );
   },
 
@@ -430,17 +542,16 @@ export const api = {
   },
 
   async getMyAttendanceStatus(employeeId: string) {
-    const rec = getTodayRecordForEmployee(employeeId);
     return fetchWithFallback<any>(`/attendance/my-status/${employeeId}`, undefined, {
       employeeId,
       todayDate: new Date().toISOString().split('T')[0],
-      checkIn: rec?.checkIn || null,
-      checkOut: rec?.checkOut || null,
-      isWorking: Boolean(rec && !rec.isCompleted && !rec.isOnBreak),
-      isOnBreak: Boolean(rec?.isOnBreak),
-      isCompleted: Boolean(rec?.isCompleted),
-      totalSeconds: rec?.activeSeconds || 0,
-      breakSeconds: rec?.breakSeconds || 0,
+      checkIn: null,
+      checkOut: null,
+      isWorking: false,
+      isOnBreak: false,
+      isCompleted: false,
+      totalSeconds: 0,
+      breakSeconds: 0,
     });
   },
 
@@ -477,47 +588,28 @@ export const api = {
       console.error('Check-in backend POST error:', err);
     }
 
-    let localRecord: AttendanceRecord | null = null;
+    // Also record secure geo-fenced work session if selfie & coordinates provided
+    if (geoData?.latitude && geoData?.longitude && geoData?.photo) {
+      this.startWork({
+        latitude: geoData.latitude,
+        longitude: geoData.longitude,
+        accuracy: geoData.accuracy || 10,
+        selfie: geoData.photo,
+        deviceInfo: typeof geoData.device === 'string' ? geoData.device : JSON.stringify(geoData.device || {}),
+      }).catch((e) => console.warn('Background work/start sync notice:', e));
+    }
+
     if (backendRecord && backendRecord.id) {
-      localRecord = updateLocalRecordFromBackend({
-        ...backendRecord,
-        ...(geoData
-          ? {
-              checkInLatitude: geoData.latitude,
-              checkInLongitude: geoData.longitude,
-              checkInAccuracy: geoData.accuracy,
-              checkInDistanceMeters: geoData.distanceMeters,
-              isGeofenceVerified: geoData.isGeofenceVerified ?? true,
-              checkInPhoto: geoData.photo,
-              checkInDevice: geoData.device,
-            }
-          : {}),
-      });
-    } else {
-      const res = performCheckIn({
-        id: targetEmpId,
-        firstName: employeeMeta?.firstName || 'Employee',
-        lastName: employeeMeta?.lastName || '',
-        employeeCode: employeeMeta?.employeeCode || targetEmpId,
-        departmentName: employeeMeta?.departmentName || 'General',
-        companyId: employeeMeta?.companyId || employeeMeta?.company,
-        lateReason: employeeMeta?.lateReason,
-        remarks: finalRemarks,
-      }, geoData);
-      if (!res.success) {
-        return {
-          success: false,
-          message: res.message,
-          record: undefined,
-        };
-      }
-      localRecord = res.record || null;
+      return {
+        success: true,
+        message: 'Clocked in successfully!',
+        record: backendRecord,
+      };
     }
 
     return {
-      success: true,
-      message: 'Clocked in successfully!',
-      record: localRecord || backendRecord,
+      success: false,
+      message: 'Failed to record check-in in database. Please check connection.',
     };
   },
 
@@ -553,28 +645,28 @@ export const api = {
       console.error('Check-out backend POST error:', err);
     }
 
-    let localRecord: AttendanceRecord | null = null;
+    // Also record secure geo-fenced work session stop if coordinates provided
+    if (geoData?.latitude && geoData?.longitude) {
+      this.stopWork({
+        latitude: geoData.latitude,
+        longitude: geoData.longitude,
+        accuracy: geoData.accuracy || 10,
+        selfie: geoData.photo || '',
+        remarks: finalRemarks,
+      }).catch((e) => console.warn('Background work/stop sync notice:', e));
+    }
+
     if (backendRecord && backendRecord.id) {
-      localRecord = updateLocalRecordFromBackend({
-        ...backendRecord,
-        ...(geoData
-          ? {
-              checkOutLatitude: geoData.latitude,
-              checkOutLongitude: geoData.longitude,
-              checkOutPhoto: geoData.photo,
-              checkOutDevice: geoData.device,
-            }
-          : {}),
-      });
-    } else {
-      const res = performCheckOut(targetEmpId, geoData);
-      localRecord = res.record || null;
+      return {
+        success: true,
+        message: 'Clocked out successfully!',
+        record: backendRecord,
+      };
     }
 
     return {
-      success: true,
-      message: 'Clocked out successfully!',
-      record: localRecord || backendRecord,
+      success: false,
+      message: 'Failed to record check-out in database. Please check connection.',
     };
   },
 
@@ -606,6 +698,68 @@ export const api = {
   },
 
   // =========================================================================
+  // 5.1. SECURE GEO-FENCED WORK TIMER & SELFIE API (POSTMAN: Selfie_location)
+  // =========================================================================
+  async getWorkStatus(): Promise<{
+    active: boolean;
+    workSession?: any;
+    elapsedSeconds?: number;
+    assignedLocation?: any;
+    serverTime?: string;
+  }> {
+    return fetchWithFallback<any>('/attendance/work/status', undefined, {
+      active: false,
+      serverTime: new Date().toISOString(),
+    });
+  },
+
+  async startWork(data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    selfie?: string;
+    deviceInfo?: string;
+  }) {
+    return fetchWithFallback<any>(
+      '/attendance/work/start',
+      { method: 'POST', body: JSON.stringify(data) },
+      { success: true, message: 'Work started successfully', ...data }
+    );
+  },
+
+  async stopWork(data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    selfie?: string;
+    remarks?: string;
+  }) {
+    return fetchWithFallback<any>(
+      '/attendance/work/stop',
+      { method: 'POST', body: JSON.stringify(data) },
+      { success: true, message: 'Work stopped successfully', ...data }
+    );
+  },
+
+  async getWorkHistory(page = 1, limit = 10) {
+    return fetchWithFallback<{
+      data: any[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/attendance/work/history?page=${page}&limit=${limit}`, undefined, {
+      data: [],
+      total: 0,
+      page,
+      limit,
+    });
+  },
+
+  getWorkSelfieUrl(workSessionId: string, type: 'start' | 'stop') {
+    return `${getApiBase()}/attendance/work/selfie/${workSessionId}/${type}`;
+  },
+
+  // =========================================================================
   // 6. LEAVES & TIME-OFF MANAGEMENT
   // =========================================================================
   async getLeaves(params?: { employeeId?: string; status?: string }) {
@@ -627,14 +781,9 @@ export const api = {
     employeeAvatar?: string;
     departmentName?: string;
   }) {
-    const newLeave = applyForLeave({
-      ...data,
-      isHalfDay: Boolean(data.isHalfDay),
-    });
     return fetchWithFallback<LeaveRequest>(
       '/leaves/apply',
-      { method: 'POST', body: JSON.stringify(data) },
-      newLeave
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -654,20 +803,16 @@ export const api = {
   },
 
   async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'HR Administration', comments?: string) {
-    const res = approveLeaveRequest(id, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/approve`,
-      { method: 'PUT', body: JSON.stringify({ role, approverName, comments }) },
-      res.leave || ({ id, status: 'Approved' } as any)
+      { method: 'PUT', body: JSON.stringify({ role, approverName, comments }) }
     );
   },
 
   async rejectLeave(id: string, approverName = 'HR Administration', reason?: string) {
-    const res = rejectLeaveRequest(id, reason, approverName);
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/reject`,
-      { method: 'PUT', body: JSON.stringify({ approverName, reason }) },
-      res.leave || ({ id, status: 'Rejected' } as any)
+      { method: 'PUT', body: JSON.stringify({ approverName, reason }) }
     );
   },
 
@@ -1179,20 +1324,16 @@ export const api = {
     authorName?: string;
     authorRole?: string;
   }) {
-    const notice = sendNotice(data);
     return fetchWithFallback<Announcement>(
       '/announcements',
-      { method: 'POST', body: JSON.stringify(data) },
-      notice
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async deleteAnnouncement(id: string) {
-    const res = deleteNotice(id);
     return fetchWithFallback<{ success: boolean }>(
       `/announcements/${id}`,
-      { method: 'DELETE' },
-      res
+      { method: 'DELETE' }
     );
   },
 
@@ -1246,26 +1387,23 @@ export const api = {
   },
 
   // =========================================================================
-  // 20. SUPER ADMIN
+  // 20. COMPANIES (TENANT-LEVEL SCOPED ACCESS)
   // =========================================================================
-  async getSuperAdminUser(userId: string = 'user-1') {
+  async getMyCompany() {
+    return fetchWithFallback<any>('/companies/my-company', undefined, null);
+  },
+
+  async getCompanyById(id: string) {
+    return fetchWithFallback<any>(`/companies/${encodeURIComponent(id)}`, undefined, null);
+  },
+
+  async updateCompany(id: string, data: { companyName?: string; phone?: string; address?: string; status?: string }) {
     return fetchWithFallback<any>(
-      `/super-admin/users/${userId}`,
-      undefined,
-      {
-        id: userId,
-        role: 'SUPER_ADMIN',
-        status: 'ACTIVE',
-      }
+      `/companies/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify(data) },
+      { id, ...data, updatedAt: new Date().toISOString() }
     );
   },
 
-  async updateSuperAdminUser(userId: string = 'user-1', data: any = {}) {
-    return fetchWithFallback<any>(
-      `/super-admin/users/${userId}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      { id: userId, ...data }
-    );
-  },
 };
 

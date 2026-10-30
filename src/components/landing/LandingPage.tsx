@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Building2,
   ShieldCheck,
@@ -151,14 +152,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               <span>Book a Demo</span>
             </button>
 
-            <button
+            <Link
               id="btn-nav-login"
+              href="/login"
               onClick={onOpenLogin}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white text-xs font-bold tracking-wide shadow-md shadow-emerald-900/20 hover:shadow-lg hover:shadow-emerald-900/30 active:scale-98 transition-all cursor-pointer"
             >
               <span>Sign In / Login</span>
               <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -211,14 +213,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <span>Book a Personalized Demo</span>
                 </button>
 
-                <button
+                <Link
                   id="btn-hero-sign-in"
+                  href="/login"
                   onClick={onOpenLogin}
                   className="px-7 py-3.5 rounded-2xl bg-white hover:bg-emerald-50/60 text-[#062d1f] font-bold text-sm border border-[#d8ebd9] hover:border-emerald-300 shadow-sm active:scale-98 transition-all flex items-center justify-center gap-2 text-center cursor-pointer"
                 >
                   <span>Access Your Workspace</span>
                   <ArrowRight className="w-4 h-4 stroke-[2.2] text-[#059669]" />
-                </button>
+                </Link>
               </div>
 
               {/* Micro Trust Checklist */}
@@ -1204,12 +1207,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             >
               Book a Free Live Demo
             </button>
-            <button
+            <Link
+              href="/login"
               onClick={onOpenLogin}
-              className="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-emerald-400/30 backdrop-blur-md font-bold text-sm active:scale-98 transition-all cursor-pointer"
+              className="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-emerald-400/30 backdrop-blur-md font-bold text-sm active:scale-98 transition-all cursor-pointer flex items-center justify-center text-center"
             >
               Sign In to Your Workspace →
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -1237,9 +1241,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
               <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
               <a href="#contact" className="hover:text-white transition-colors">Contact</a>
-              <button onClick={onOpenLogin} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer">
+              <Link href="/login" onClick={onOpenLogin} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer">
                 Portal Sign In
-              </button>
+              </Link>
             </div>
           </div>
         </div>
