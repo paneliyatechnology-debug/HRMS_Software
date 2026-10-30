@@ -31,18 +31,13 @@ export interface GeofenceVerificationResult {
 const STORAGE_KEY_GEOFENCE = 'hrms_geofence_config';
 const STORAGE_KEY_WFH = 'hrms_employee_wfh_status';
 
+let liveWfhMap: Record<string, boolean> = {};
+
 /**
  * Get map of all employees and their WFH approval status
  */
 export function getEmployeeWFHMap(): Record<string, boolean> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_WFH);
-    if (saved) return JSON.parse(saved);
-  } catch (e) {
-    console.error('Failed to load WFH map:', e);
-  }
-  return {};
+  return liveWfhMap;
 }
 
 /**
@@ -52,31 +47,29 @@ export function getEmployeeWFHMap(): Record<string, boolean> {
  */
 export function isEmployeeWFHEnabled(employeeId?: string): boolean {
   if (!employeeId) return false;
-  const map = getEmployeeWFHMap();
-  const direct = map[employeeId];
+  const direct = liveWfhMap[employeeId];
   if (direct !== undefined) return Boolean(direct);
-  const lower = map[employeeId.toLowerCase()];
+  const lower = liveWfhMap[employeeId.toLowerCase()];
   if (lower !== undefined) return Boolean(lower);
   return false;
 }
 
 /**
- * Admin action: Turn ON / OFF Work From Home for an employee
+ * Admin action: Turn ON / OFF Work From Home for an employee (in-memory)
  */
 export function setEmployeeWFHStatus(employeeId: string, enabled: boolean): void {
-  if (!employeeId || typeof window === 'undefined') return;
-  const map = getEmployeeWFHMap();
-  map[employeeId] = enabled;
-  map[employeeId.toLowerCase()] = enabled;
-  try {
-    localStorage.setItem(STORAGE_KEY_WFH, JSON.stringify(map));
+  if (!employeeId) return;
+  liveWfhMap[employeeId] = enabled;
+  liveWfhMap[employeeId.toLowerCase()] = enabled;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY_WFH);
+    } catch {}
     window.dispatchEvent(
       new CustomEvent('hrms_wfh_status_updated', {
         detail: { employeeId, enabled },
       })
     );
-  } catch (e) {
-    console.error('Failed to save WFH status:', e);
   }
 }
 
@@ -91,40 +84,25 @@ export const DEFAULT_OFFICE_GEOFENCE: OfficeGeofenceConfig = {
   enabled: true,
 };
 
+let liveGeofenceConfig: OfficeGeofenceConfig = { ...DEFAULT_OFFICE_GEOFENCE };
+
 /**
- * Retrieve office geofence settings from localStorage or fallback to default
+ * Retrieve office geofence settings
  */
 export function getOfficeGeofenceConfig(): OfficeGeofenceConfig {
-  if (typeof window === 'undefined') return DEFAULT_OFFICE_GEOFENCE;
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_GEOFENCE);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        ...DEFAULT_OFFICE_GEOFENCE,
-        ...parsed,
-        latitude: Number(parsed.latitude) || DEFAULT_OFFICE_GEOFENCE.latitude,
-        longitude: Number(parsed.longitude) || DEFAULT_OFFICE_GEOFENCE.longitude,
-        radiusMeters: Number(parsed.radiusMeters) || DEFAULT_OFFICE_GEOFENCE.radiusMeters,
-        enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
-      };
-    }
-  } catch (e) {
-    console.error('Failed to parse geofence config:', e);
-  }
-  return DEFAULT_OFFICE_GEOFENCE;
+  return liveGeofenceConfig;
 }
 
 /**
- * Save office geofence settings (Admin or Calibration)
+ * Save office geofence settings (in-memory, strictly avoids localStorage persistence)
  */
 export function saveOfficeGeofenceConfig(config: OfficeGeofenceConfig): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY_GEOFENCE, JSON.stringify(config));
+  liveGeofenceConfig = { ...config };
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY_GEOFENCE);
+    } catch {}
     window.dispatchEvent(new CustomEvent('hrms_geofence_updated', { detail: config }));
-  } catch (e) {
-    console.error('Failed to save geofence config:', e);
   }
 }
 

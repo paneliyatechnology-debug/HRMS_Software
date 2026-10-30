@@ -3,35 +3,34 @@ import { Employee } from '../types/hrms';
 const EMPLOYEES_STORAGE_KEY = 'hrms_employees_records';
 
 /**
- * Retrieve all employees from localStorage, initialized with mockEmployees
+ * Pure In-Memory Employee Storage
+ * All employees strictly originate from backend database via API.
+ * NO employee data is cached or stored in browser LocalStorage.
  */
-export function getAllEmployees(): Employee[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(EMPLOYEES_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    }
-    return [];
-  } catch (err) {
-    console.error('Failed to load employees from storage:', err);
-    return [];
-  }
+let liveEmployees: Employee[] = [];
+
+export function setLiveEmployees(employees: Employee[]): void {
+  liveEmployees = Array.isArray(employees) ? [...employees] : [];
 }
 
 /**
- * Persist employees to localStorage and dispatch update event
+ * Retrieve all employees from live database memory
+ */
+export function getAllEmployees(): Employee[] {
+  return liveEmployees;
+}
+
+/**
+ * Update live employees and notify listeners (strictly avoids localStorage persistence)
  */
 export function saveEmployees(employees: Employee[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(EMPLOYEES_STORAGE_KEY, JSON.stringify(employees));
+  liveEmployees = Array.isArray(employees) ? [...employees] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(EMPLOYEES_STORAGE_KEY);
+      localStorage.removeItem('hrms_employees');
+    } catch {}
     window.dispatchEvent(new Event('hrms_employees_updated'));
-  } catch (err) {
-    console.error('Failed to save employees:', err);
   }
 }
 

@@ -113,12 +113,6 @@ export const api = {
         if (typeof window !== 'undefined' && result?.accessToken) {
           localStorage.setItem('hrms_auth_token', result.accessToken);
           localStorage.setItem('bearerToken', result.accessToken);
-          if (result.user?.companyId) {
-            localStorage.setItem('hrms_company_id', result.user.companyId);
-          }
-          if (result.user?.companyCode) {
-            localStorage.setItem('hrms_company_code', result.user.companyCode);
-          }
         }
         return result;
       }
@@ -259,33 +253,12 @@ export const api = {
     const companyId = createdCompany?.id || `cmp-${Date.now()}`;
     const companyCode = createdCompany?.companyCode || 'CMP-000001';
 
-    // Postman Step 5: Login as Company Admin to get active session
+    // Auto-login as Company Admin to get active session
     let loginRes: any = null;
     try {
       loginRes = await this.login(data.email.trim().toLowerCase(), data.password);
     } catch (loginErr) {
       console.warn('Auto-login after company creation warning:', loginErr);
-    }
-
-    // Cache company details in localStorage for frontend dashboard
-    if (typeof window !== 'undefined') {
-      const companyObj = {
-        id: companyId,
-        companyCode: companyCode,
-        name: data.companyName.trim(),
-        companyName: data.companyName.trim(),
-        gstNumber: data.gstNumber || '',
-        industry: data.industry || 'IT & Software Services',
-        address: fullAddress,
-        city: data.city || '',
-        state: data.state || '',
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem('hrms_company_id', companyId);
-      localStorage.setItem('hrms_company_code', companyCode);
-      localStorage.setItem('hrms_company_name', data.companyName.trim());
-      localStorage.setItem('hrms_current_company', JSON.stringify(companyObj));
-      if (data.gstNumber) localStorage.setItem('hrms_company_gst', data.gstNumber);
     }
 
     return {

@@ -5,6 +5,17 @@ import { verifyShiftTimeWindow } from './shiftScheduleService';
 const STORAGE_KEY = 'hrms_daily_attendance_records';
 
 /**
+ * Pure In-Memory Attendance Storage
+ * All records strictly originate from backend database via API.
+ * NO attendance data is cached or stored in browser LocalStorage.
+ */
+let liveAttendanceRecords: AttendanceRecord[] = [];
+
+export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
+  liveAttendanceRecords = Array.isArray(records) ? [...records] : [];
+}
+
+/**
  * Returns today's date formatted as YYYY-MM-DD
  */
 export function getTodayDateString(): string {
@@ -70,40 +81,23 @@ export function getLiveBreakSeconds(record: AttendanceRecord): number {
 }
 
 /**
- * Retrieve all records from localStorage
+ * Retrieve all live attendance records (from database memory)
  */
 export function getAllAttendanceRecords(): AttendanceRecord[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (r: AttendanceRecord) =>
-            r.employeeId !== 'emp-2' &&
-            r.employeeId !== 'emp-3' &&
-            r.employeeName !== 'Rahul Sharma' &&
-            r.employeeName !== 'Priya Patel'
-        );
-      }
-    }
-  } catch (err) {
-    console.error('Failed to read attendance records:', err);
-  }
-  return [];
+  return liveAttendanceRecords;
 }
 
 /**
- * Persist records to localStorage and notify listeners
+ * Update live records and notify components (strictly avoids localStorage persistence)
  */
 export function saveAttendanceRecords(records: AttendanceRecord[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  liveAttendanceRecords = Array.isArray(records) ? [...records] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('hrms_attendance_records');
+    } catch {}
     window.dispatchEvent(new Event('hrms_attendance_updated'));
-  } catch (err) {
-    console.error('Failed to save attendance records:', err);
   }
 }
 

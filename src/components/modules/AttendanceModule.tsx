@@ -313,6 +313,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     return null;
   };
 
+  const myTodayRecord = getEmpTodayRecord(selfEmployee);
+  const myIsWorking = myTodayRecord && !myTodayRecord.isCompleted && !myTodayRecord.isOnBreak;
+  const myIsOnBreak = myTodayRecord && !myTodayRecord.isCompleted && myTodayRecord.isOnBreak;
+  const myIsDone = myTodayRecord && myTodayRecord.isCompleted;
+
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -449,15 +454,19 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   useEffect(() => {
+    if (records && Array.isArray(records)) {
+      setLiveRecords(records);
+    }
+  }, [records]);
+
+  useEffect(() => {
     const update = () => {
       setLiveRecords(getAllAttendanceRecords());
     };
     update();
-    const timer = setInterval(update, 1000);
     const handleUpdate = () => update();
     window.addEventListener('hrms_attendance_updated', handleUpdate);
     return () => {
-      clearInterval(timer);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
   }, []);
@@ -576,10 +585,30 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={onOpenPunchModal}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${
+              myIsWorking || myIsOnBreak
+                ? 'bg-rose-600 hover:bg-rose-700'
+                : myIsDone
+                ? 'bg-slate-700 hover:bg-slate-800'
+                : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span className="truncate">Mark Attendance</span>
+            {myIsWorking || myIsOnBreak ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="truncate">Check Out</span>
+              </>
+            ) : myIsDone ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span className="truncate">Checked Out</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span className="truncate">Check In</span>
+              </>
+            )}
           </button>
 
           {!isEmployeeView && (

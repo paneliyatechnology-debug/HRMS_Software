@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '../types/hrms';
 import { api } from '../lib/api';
 import { findOrganizationByEmail } from '../lib/companyService';
+import { purgeLocalBusinessData } from '../lib/storageCleanup';
 
 export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
@@ -135,37 +136,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (typeof window !== 'undefined') {
       try {
-        const PURGE_ALL_MOCKS_KEY = 'hrms_pure_database_sync_v4';
-        if (localStorage.getItem(PURGE_ALL_MOCKS_KEY) !== 'true') {
-          // 1. Purge any stale demo or fake offline sessions
-          const savedToken = localStorage.getItem('hrms_auth_token') || '';
-          if (
-            savedToken.startsWith('demo_token_') ||
-            savedToken.startsWith('token_admin-') ||
-            savedToken.startsWith('token_emp-')
-          ) {
-            localStorage.removeItem('hrms_auth_token');
-            localStorage.removeItem('bearerToken');
-            localStorage.removeItem('hrms_is_authenticated');
-            localStorage.removeItem('hrms_auth_user');
-            localStorage.removeItem('hrms_current_role');
-            localStorage.removeItem('hrms_portal_mode');
-          }
+        // Enforce pure database data: purge all local business caches
+        purgeLocalBusinessData();
 
-          // 2. Clear all local mock caches so data is strictly fetched from backend database
-          localStorage.removeItem('hrms_employees_records');
-          localStorage.removeItem('hrms_daily_attendance_records');
-          localStorage.removeItem('hrms_attendance_records');
-          localStorage.removeItem('hrms_leave_requests');
-          localStorage.removeItem('hrms_leave_requests_data');
-          localStorage.removeItem('hrms_payroll_records');
-          localStorage.removeItem('hrms_notices_records');
-          localStorage.removeItem('hrms_multi_tenant_companies');
-          localStorage.removeItem('hrms_all_companies_v2');
-          localStorage.removeItem('hrms_tenant_company_employees');
-          localStorage.removeItem('hrms_tenant_employees');
-
-          localStorage.setItem(PURGE_ALL_MOCKS_KEY, 'true');
+        // Purge any stale demo or fake offline sessions
+        const savedToken = localStorage.getItem('hrms_auth_token') || '';
+        if (
+          savedToken.startsWith('demo_token_') ||
+          savedToken.startsWith('token_admin-') ||
+          savedToken.startsWith('token_emp-')
+        ) {
+          localStorage.removeItem('hrms_auth_token');
+          localStorage.removeItem('bearerToken');
+          localStorage.removeItem('hrms_is_authenticated');
+          localStorage.removeItem('hrms_auth_user');
+          localStorage.removeItem('hrms_current_role');
+          localStorage.removeItem('hrms_portal_mode');
         }
       } catch {}
     }
@@ -273,8 +259,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_is_authenticated', 'true');
         localStorage.setItem('hrms_portal_mode', targetPortal);
         localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_company_id', enriched.companyId);
-        localStorage.setItem('hrms_company_name', enriched.companyName);
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
         return { success: true, role: userRole };
       }
@@ -316,9 +300,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('hrms_is_authenticated', 'true');
         localStorage.setItem('hrms_portal_mode', 'admin');
         localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_company_id', enriched.companyId);
-        localStorage.setItem('hrms_company_name', enriched.companyName);
-        localStorage.setItem('hrms_initial_module', 'dashboard');
         localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
         return { success: true };
       }
@@ -457,9 +438,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('hrms_is_authenticated', 'true');
       localStorage.setItem('hrms_portal_mode', 'admin');
       localStorage.setItem('hrms_current_role', 'ADMIN');
-      localStorage.setItem('hrms_company_id', companyId);
-      localStorage.setItem('hrms_company_code', companyCode);
-      localStorage.setItem('hrms_company_name', companyName);
       localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
 
       window.dispatchEvent(new Event('hrms_companies_updated'));

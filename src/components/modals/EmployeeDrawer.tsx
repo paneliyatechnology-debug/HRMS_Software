@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { getCompanySubscription } from '../../lib/subscriptionService';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { getAllCompanies } from '../../lib/companyService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import {
@@ -35,6 +36,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   employees = [],
 }) => {
   const { user } = useAuth();
+  const { showToast } = useSocket();
   const allComps = getAllCompanies();
   const currentCompany =
     allComps.find(
@@ -96,7 +98,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       // Validate Basic Info
       const fNameCheck = validateName(formData.firstName, 'First Name', 2);
       if (!fNameCheck.isValid) {
-        setFormError(fNameCheck.error || 'First Name is required (minimum 2 characters).');
+        const msg = fNameCheck.error || 'First Name is required (minimum 2 characters).';
+        setFormError(msg);
+        showToast({ type: 'error', title: 'First Name Required', message: msg });
         setStep(1);
         setLoading(false);
         return;
@@ -104,7 +108,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
       const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
       if (!lNameCheck.isValid) {
-        setFormError(lNameCheck.error || 'Last Name is required (minimum 2 characters).');
+        const msg = lNameCheck.error || 'Last Name is required (minimum 2 characters).';
+        setFormError(msg);
+        showToast({ type: 'error', title: 'Last Name Required', message: msg });
         setStep(1);
         setLoading(false);
         return;
@@ -112,7 +118,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
       const emailCheck = validateEmail(formData.email, true);
       if (!emailCheck.isValid) {
-        setFormError(emailCheck.error || 'Please enter a valid employee work email.');
+        const msg = emailCheck.error || 'Please enter a valid employee work email.';
+        setFormError(msg);
+        showToast({ type: 'error', title: 'Invalid Email', message: msg });
         setStep(1);
         setLoading(false);
         return;
@@ -120,7 +128,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
       const phoneCheck = validatePhone(formData.phone, true);
       if (!phoneCheck.isValid) {
-        setFormError(phoneCheck.error || 'Please enter a valid 10-digit mobile number.');
+        const msg = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
+        setFormError(msg);
+        showToast({ type: 'error', title: 'Invalid Mobile Number', message: msg });
         setStep(1);
         setLoading(false);
         return;
@@ -136,7 +146,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         currentUserPhone: (user as any)?.phone,
       });
       if (!dupCheck.isValid) {
-        setFormError(dupCheck.error || 'Duplicate email or phone detected.');
+        const msg = dupCheck.error || 'Duplicate email or phone detected.';
+        setFormError(msg);
+        showToast({ type: 'error', title: 'Duplicate Detected', message: msg });
         setStep(1);
         setLoading(false);
         return;
@@ -145,7 +157,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (formData.initialPassword) {
         const passCheck = validatePassword(formData.initialPassword, 6);
         if (!passCheck.isValid) {
-          setFormError(passCheck.error || 'Password must be at least 6 characters long.');
+          const msg = passCheck.error || 'Password must be at least 6 characters long.';
+          setFormError(msg);
+          showToast({ type: 'error', title: 'Password Too Short', message: msg });
           setStep(1);
           setLoading(false);
           return;
@@ -155,24 +169,17 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (formData.emergencyPhone) {
         const emCheck = validatePhone(formData.emergencyPhone, false);
         if (!emCheck.isValid) {
-          setFormError(emCheck.error || 'Invalid emergency contact phone number.');
+          const msg = emCheck.error || 'Invalid emergency contact phone number.';
+          setFormError(msg);
+          showToast({ type: 'error', title: 'Invalid Emergency Phone', message: msg });
           setStep(3);
           setLoading(false);
           return;
         }
       }
 
-      const sub = getCompanySubscription(adminCompanyId);
-      if (sub.isQuotaFull) {
-        setFormError(
-          `Your company (${adminCompanyName}) has reached the maximum capacity of ${sub.maxEmployees} employees on the ${sub.plan.name} plan. Please upgrade to a higher tier in Settings > Subscription & Billing.`
-        );
-        setLoading(false);
-        return;
-      }
-
-      const selectedDept = departments.find((d) => d.id === formData.departmentId);
-      const selectedDes = designations.find((d) => d.id === formData.designationId);
+      const selectedDept = departments.find((d) => d.id === formData.departmentId) || departments[0];
+      const selectedDes = designations.find((d) => d.id === formData.designationId) || designations[0];
 
       const employeePayload: Partial<Employee> = {
         firstName: formData.firstName.trim(),
@@ -180,50 +187,66 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
         password: formData.initialPassword || 'Password@123',
-        role: formData.role,
+        role: formData.role || 'EMPLOYEE',
         avatarUrl: formData.avatarUrl,
         companyId: adminCompanyId,
         companyName: adminCompanyName,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
         address: formData.address,
-        departmentId: formData.departmentId,
+        departmentId: formData.departmentId || selectedDept?.id || 'dept-1',
         departmentName: selectedDept?.name || 'Engineering',
-        designationId: formData.designationId,
+        designationId: formData.designationId || selectedDes?.id || 'des-1',
         designationTitle: selectedDes?.title || 'Software Engineer',
         employmentType: formData.employmentType,
         workLocationId: formData.workLocationId,
         workLocationName: `${adminCompanyName} Office`,
         shift: formData.shift,
         salary: {
-          basic: Number(formData.basicSalary),
-          hra: Number(formData.basicSalary) * 0.4,
+          basic: Number(formData.basicSalary) || 25000,
+          hra: (Number(formData.basicSalary) || 25000) * 0.4,
           allowances: 1500,
           bonus: 800,
-          pf: Number(formData.basicSalary) * 0.12,
-          tax: Number(formData.basicSalary) * 0.15,
+          pf: (Number(formData.basicSalary) || 25000) * 0.12,
+          tax: (Number(formData.basicSalary) || 25000) * 0.15,
           professionalTax: 200,
-          gross: Number(formData.basicSalary) * 1.4 + 2300,
-          net: Number(formData.basicSalary) * 1.4 + 2300 - (Number(formData.basicSalary) * 0.27 + 200),
+          gross: (Number(formData.basicSalary) || 25000) * 1.4 + 2300,
+          net: (Number(formData.basicSalary) || 25000) * 1.4 + 2300 - ((Number(formData.basicSalary) || 25000) * 0.27 + 200),
         },
         bankDetails: {
-          bankName: formData.bankName,
+          bankName: formData.bankName || 'HDFC Bank',
           accountNumber: formData.accountNumber || '99201948191',
-          ifscOrRouting: formData.routingNumber || 'SVB00129',
+          ifscOrRouting: formData.routingNumber || 'HDFC0001234',
           accountHolderName: `${formData.firstName} ${formData.lastName}`,
         },
         emergencyContact: {
           name: formData.emergencyName || 'Emergency Contact',
-          relationship: formData.emergencyRelationship,
+          relationship: formData.emergencyRelationship || 'Spouse',
           phone: formData.emergencyPhone || formData.phone,
         },
       };
 
-      await api.createEmployee(employeePayload);
+      console.log('[EmployeeDrawer] Submitting employee payload to backend API:', employeePayload);
+      const created = await api.createEmployee(employeePayload);
+      console.log('[EmployeeDrawer] Successfully created employee in database:', created);
+
+      showToast({
+        type: 'success',
+        title: 'Employee Added!',
+        message: `${formData.firstName} ${formData.lastName} has been successfully added to ${adminCompanyName}.`,
+      });
+
       onRefresh();
       onClose();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to create employee');
+      console.error('[EmployeeDrawer] Failed to create employee:', err);
+      const msg = err.message || 'Failed to create employee. Please try again.';
+      setFormError(msg);
+      showToast({
+        type: 'error',
+        title: 'Add Employee Failed',
+        message: msg,
+      });
     } finally {
       setLoading(false);
     }
@@ -266,18 +289,45 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         </div>
 
         {/* Steps indicator */}
-        <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-slate-50 flex items-center justify-between text-[11px] sm:text-xs font-semibold overflow-x-auto">
-          <span className={step === 1 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
-            1. Personal Info
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span className={step === 2 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
-            2. Employment
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span className={step === 3 ? 'text-blue-600 font-bold shrink-0' : 'text-slate-400 shrink-0'}>
-            3. Compensation & Bank
-          </span>
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[11px] sm:text-xs font-semibold overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+              step === 1 ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+              step === 1 ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-200 text-slate-600'
+            }`}>1</span>
+            <span>Personal Info</span>
+          </button>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+              step === 2 ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+              step === 2 ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-200 text-slate-600'
+            }`}>2</span>
+            <span>Employment</span>
+          </button>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <button
+            type="button"
+            onClick={() => setStep(3)}
+            className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+              step === 3 ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+              step === 3 ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-200 text-slate-600'
+            }`}>3</span>
+            <span>Salary & Bank</span>
+          </button>
         </div>
 
         {/* Form Body */}
@@ -639,82 +689,109 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50">
           {step > 1 ? (
             <button
+              type="button"
               onClick={() => setStep((s) => s - 1)}
-              className="flex items-center gap-1 px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all"
+              className="flex items-center gap-1 px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
           ) : (
-            <div />
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
           )}
 
-          {step < 3 ? (
-            <button
-              id="btn-next-step-employee"
-              onClick={() => {
-                if (step === 1) {
-                  const fNameCheck = validateName(formData.firstName, 'First Name', 2);
-                  if (!fNameCheck.isValid) {
-                    setFormError(fNameCheck.error || 'First Name is required.');
-                    return;
-                  }
-                  const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
-                  if (!lNameCheck.isValid) {
-                    setFormError(lNameCheck.error || 'Last Name is required.');
-                    return;
-                  }
-                  const emailCheck = validateEmail(formData.email, true);
-                  if (!emailCheck.isValid) {
-                    setFormError(emailCheck.error || 'Please enter a valid work email address.');
-                    return;
-                  }
-                  const phoneCheck = validatePhone(formData.phone, true);
-                  if (!phoneCheck.isValid) {
-                    setFormError(phoneCheck.error || 'Please enter a valid 10-digit mobile number.');
-                    return;
-                  }
-
-                  // Immediate duplicate check for Step 1
-                  const dupCheck = checkDuplicateEmailOrPhone({
-                    email: formData.email,
-                    phone: formData.phone,
-                    existingEmployees: employees,
-                    currentUserEmail: user?.email,
-                    currentUserPhone: (user as any)?.phone,
-                  });
-                  if (!dupCheck.isValid) {
-                    setFormError(dupCheck.error || 'Duplicate email or phone detected.');
-                    return;
-                  }
-                  if (formData.initialPassword) {
-                    const passCheck = validatePassword(formData.initialPassword, 6);
-                    if (!passCheck.isValid) {
-                      setFormError(passCheck.error || 'Password must be at least 6 characters long.');
+          <div className="flex items-center gap-2">
+            {step < 3 && (
+              <button
+                type="button"
+                id="btn-next-step-employee"
+                onClick={() => {
+                  if (step === 1) {
+                    const fNameCheck = validateName(formData.firstName, 'First Name', 2);
+                    if (!fNameCheck.isValid) {
+                      const msg = fNameCheck.error || 'First Name is required.';
+                      setFormError(msg);
+                      showToast({ type: 'error', title: 'First Name Required', message: msg });
                       return;
                     }
+                    const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
+                    if (!lNameCheck.isValid) {
+                      const msg = lNameCheck.error || 'Last Name is required.';
+                      setFormError(msg);
+                      showToast({ type: 'error', title: 'Last Name Required', message: msg });
+                      return;
+                    }
+                    const emailCheck = validateEmail(formData.email, true);
+                    if (!emailCheck.isValid) {
+                      const msg = emailCheck.error || 'Please enter a valid work email address.';
+                      setFormError(msg);
+                      showToast({ type: 'error', title: 'Invalid Email', message: msg });
+                      return;
+                    }
+                    const phoneCheck = validatePhone(formData.phone, true);
+                    if (!phoneCheck.isValid) {
+                      const msg = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
+                      setFormError(msg);
+                      showToast({ type: 'error', title: 'Invalid Mobile Number', message: msg });
+                      return;
+                    }
+
+                    // Immediate duplicate check for Step 1
+                    const dupCheck = checkDuplicateEmailOrPhone({
+                      email: formData.email,
+                      phone: formData.phone,
+                      existingEmployees: employees,
+                      currentUserEmail: user?.email,
+                      currentUserPhone: (user as any)?.phone,
+                    });
+                    if (!dupCheck.isValid) {
+                      const msg = dupCheck.error || 'Duplicate email or phone detected.';
+                      setFormError(msg);
+                      showToast({ type: 'error', title: 'Duplicate Detected', message: msg });
+                      return;
+                    }
+                    if (formData.initialPassword) {
+                      const passCheck = validatePassword(formData.initialPassword, 6);
+                      if (!passCheck.isValid) {
+                        const msg = passCheck.error || 'Password must be at least 6 characters long.';
+                        setFormError(msg);
+                        showToast({ type: 'error', title: 'Password Too Short', message: msg });
+                        return;
+                      }
+                    }
                   }
-                }
-                setFormError(null);
-                setStep((s) => s + 1);
-              }}
-              className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
-            >
-              Next Step <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
+                  setFormError(null);
+                  setStep((s) => s + 1);
+                }}
+                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+              >
+                Next Step <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+
             <button
-              id="btn-submit-employee"
+              id={step < 3 ? 'btn-quick-save-employee' : 'btn-submit-employee'}
+              type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              {loading ? 'Creating Employee...' : 'Complete & Onboard'}
+              {loading
+                ? 'Creating Employee...'
+                : step < 3
+                ? 'Quick Save & Onboard'
+                : 'Complete & Onboard'}
             </button>
-          )}
+          </div>
         </div>
       </div>
     </div>

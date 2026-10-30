@@ -28,7 +28,11 @@ const DEFAULT_SCHEDULE_CONFIG: WorkScheduleConfig = {
   halfDayHours: 4,
 };
 
+import { getAllEmployees } from './employeeService';
+
 const SCHEDULE_STORAGE_KEY = 'hrms_work_schedule';
+
+let liveSchedules: Record<string, WorkScheduleConfig> = {};
 
 /**
  * Helper to determine the company ID from explicit argument, employeeId, or active session
@@ -38,121 +42,35 @@ export function resolveCurrentCompanyId(explicitCompanyId?: string, employeeId?:
     return explicitCompanyId.trim();
   }
 
-  // 1. If employeeId is supplied, lookup company from employee rosters
-  if (employeeId && typeof window !== 'undefined') {
-    try {
-      // Check primary live employees
-      const empsStr = localStorage.getItem('hrms_employees');
-      if (empsStr) {
-        const emps = JSON.parse(empsStr);
-        const match = emps.find(
-          (e: any) =>
-            e.id === employeeId ||
-            e._id === employeeId ||
-            e.employeeCode === employeeId ||
-            e.email?.toLowerCase() === employeeId.toLowerCase()
-        );
-        if (match?.companyId) return match.companyId;
-      }
-
-      // Check tenant-specific company rosters
-      const tenantEmpsStr = localStorage.getItem('hrms_tenant_company_employees');
-      if (tenantEmpsStr) {
-        const tenantMap = JSON.parse(tenantEmpsStr);
-        for (const [compId, empList] of Object.entries(tenantMap)) {
-          if (Array.isArray(empList)) {
-            const found = empList.some(
-              (e: any) =>
-                e.id === employeeId ||
-                e._id === employeeId ||
-                e.employeeCode === employeeId ||
-                e.email?.toLowerCase() === employeeId.toLowerCase()
-            );
-            if (found) return compId;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error resolving employee company:', e);
-    }
-  }
-
-  // 2. Check currently authenticated user session
-  if (typeof window !== 'undefined') {
-    try {
-      const userStr = localStorage.getItem('hrms_auth_user');
-      if (userStr) {
-        const parsed = JSON.parse(userStr);
-        if (parsed?.companyId) return parsed.companyId;
-      }
-    } catch {}
+  // 1. If employeeId is supplied, lookup company from live employee rosters
+  if (employeeId) {
+    const emps = getAllEmployees();
+    const match = emps.find(
+      (e: any) =>
+        e.id === employeeId ||
+        e._id === employeeId ||
+        e.employeeCode === employeeId ||
+        e.email?.toLowerCase() === employeeId.toLowerCase()
+    );
+    if (match?.companyId) return match.companyId;
   }
 
   return 'comp-paneliya';
 }
 
 /**
- * Retrieve current schedule configuration for a specific company from storage
+ * Retrieve current schedule configuration for a specific company (in-memory)
  */
 export function getWorkScheduleConfig(companyId?: string): WorkScheduleConfig {
   const compId = resolveCurrentCompanyId(companyId);
-  if (typeof window === 'undefined') {
-    return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId };
+  if (liveSchedules[compId]) {
+    return liveSchedules[compId];
   }
-
-  try {
-    // 1. Check company-specific key
-    const companyKey = `${SCHEDULE_STORAGE_KEY}_${compId}`;
-    const saved = localStorage.getItem(companyKey);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        ...DEFAULT_SCHEDULE_CONFIG,
-        ...parsed,
-        companyId: compId,
-        shiftStartTime: parsed.shiftStartTime || extractStartTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftStartTime,
-        shiftEndTime: parsed.shiftEndTime || extractEndTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftEndTime,
-        earlyBufferMinutes: parsed.earlyBufferMinutes !== undefined ? Number(parsed.earlyBufferMinutes) : 30,
-        gracePeriodMinutes: parsed.gracePeriodMinutes !== undefined ? Number(parsed.gracePeriodMinutes) : 15,
-        enforceShiftWindow: parsed.enforceShiftWindow !== undefined ? Boolean(parsed.enforceShiftWindow) : true,
-      };
-    }
-
-    // 2. Legacy fallback for Paneliya HQ flagship company
-    if (compId === 'comp-paneliya') {
-      const legacySaved = localStorage.getItem(SCHEDULE_STORAGE_KEY);
-      if (legacySaved) {
-        const parsed = JSON.parse(legacySaved);
-        return {
-          ...DEFAULT_SCHEDULE_CONFIG,
-          ...parsed,
-          companyId: compId,
-          shiftStartTime: parsed.shiftStartTime || extractStartTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftStartTime,
-          shiftEndTime: parsed.shiftEndTime || extractEndTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftEndTime,
-          earlyBufferMinutes: parsed.earlyBufferMinutes !== undefined ? Number(parsed.earlyBufferMinutes) : 30,
-          gracePeriodMinutes: parsed.gracePeriodMinutes !== undefined ? Number(parsed.gracePeriodMinutes) : 15,
-          enforceShiftWindow: parsed.enforceShiftWindow !== undefined ? Boolean(parsed.enforceShiftWindow) : true,
-        };
-      }
-      return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId, enforceShiftWindow: true };
-    }
-
-    // 3. For any other tenant company that has NOT configured a buffer yet:
-    // Buffer enforcement is strictly FALSE so their employees are not blocked.
-    return {
-      ...DEFAULT_SCHEDULE_CONFIG,
-      companyId: compId,
-      enforceShiftWindow: false,
-    };
-  } catch (err) {
-    console.error('Failed to read schedule config from storage:', err);
-  }
-
-  return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId, enforceShiftWindow: false };
+  return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId };
 }
 
 /**
- * Persist schedule configuration for a specific company and notify listeners
+ * Save schedule configuration for a specific company (in-memory)
  */
 export function saveWorkScheduleConfig(
   config: Partial<WorkScheduleConfig>,
@@ -168,24 +86,19 @@ export function saveWorkScheduleConfig(
     defaultShift: `${config.shiftStartTime || current.shiftStartTime} - ${config.shiftEndTime || current.shiftEndTime}`,
   };
 
+  liveSchedules[compId] = updated;
+
   if (typeof window !== 'undefined') {
     try {
-      // Save company-scoped config
-      localStorage.setItem(`${SCHEDULE_STORAGE_KEY}_${compId}`, JSON.stringify(updated));
+      localStorage.removeItem(`${SCHEDULE_STORAGE_KEY}_${compId}`);
+      localStorage.removeItem(SCHEDULE_STORAGE_KEY);
+    } catch {}
 
-      // Keep legacy key in sync if Paneliya flagship company
-      if (compId === 'comp-paneliya') {
-        localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(updated));
-      }
-
-      window.dispatchEvent(
-        new CustomEvent('hrms_schedule_updated', {
-          detail: { config: updated, companyId: compId },
-        })
-      );
-    } catch (err) {
-      console.error('Failed to save schedule config to storage:', err);
-    }
+    window.dispatchEvent(
+      new CustomEvent('hrms_schedule_updated', {
+        detail: { config: updated, companyId: compId },
+      })
+    );
   }
 
   return updated;

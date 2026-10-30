@@ -330,54 +330,20 @@ export function updateCompanySubscription(
 
 const INVOICES_STORAGE_PREFIX = 'hrms_subscription_invoices_';
 
+let liveInvoices: Record<string, SubscriptionInvoice[]> = {};
+
 /**
- * Get all billing invoices for a company
+ * Get all billing invoices for a company (in-memory)
  */
 export function getCompanyInvoices(companyId: string = 'comp-paneliya'): SubscriptionInvoice[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(`${INVOICES_STORAGE_PREFIX}${companyId}`);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error('Failed to load invoices:', err);
+  if (liveInvoices[companyId]) {
+    return liveInvoices[companyId];
   }
-
-  // Initial seed invoices for demo
-  const seedInvoices: SubscriptionInvoice[] = [
-    {
-      id: `inv-${Date.now() - 86400000 * 30}`,
-      invoiceNumber: 'INV-2026-0891',
-      date: '2026-01-10',
-      amountINR: 89990,
-      planName: 'Enterprise Apex',
-      billingCycle: 'Annual',
-      status: 'Paid',
-    },
-    {
-      id: `inv-${Date.now() - 86400000 * 395}`,
-      invoiceNumber: 'INV-2025-0342',
-      date: '2025-01-10',
-      amountINR: 79990,
-      planName: 'Enterprise Apex',
-      billingCycle: 'Annual',
-      status: 'Paid',
-    },
-  ];
-
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(
-      `${INVOICES_STORAGE_PREFIX}${companyId}`,
-      JSON.stringify(seedInvoices)
-    );
-  }
-
-  return seedInvoices;
+  return [];
 }
 
 /**
- * Add a new invoice when a plan is purchased or upgraded
+ * Add a new invoice when a plan is purchased or upgraded (in-memory)
  */
 export function addCompanyInvoice(
   companyId: string,
@@ -409,11 +375,12 @@ export function addCompanyInvoice(
   };
 
   const updated = [newInvoice, ...current];
+  liveInvoices[companyId] = updated;
+
   if (typeof window !== 'undefined') {
-    localStorage.setItem(
-      `${INVOICES_STORAGE_PREFIX}${companyId}`,
-      JSON.stringify(updated)
-    );
+    try {
+      localStorage.removeItem(`${INVOICES_STORAGE_PREFIX}${companyId}`);
+    } catch {}
   }
 
   return newInvoice;

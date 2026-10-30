@@ -42,70 +42,34 @@ const TENANT_EMPLOYEES_STORAGE_KEY = 'hrms_tenant_company_employees';
 
 export const initialCompanies: CompanyTenant[] = [];
 
-// Initial mock employees for sub-companies (strictly empty, data comes only from real additions / API)
-const initialTenantEmployees: Record<string, Employee[]> = {};
+// Pure In-Memory Company and Tenant Employee Storage
+let liveCompaniesStore: CompanyTenant[] = [];
+let liveTenantEmployeesStore: Record<string, Employee[]> = {};
 
-/**
- * Retrieve all registered tenant companies
- */
-export function getAllCompanies(): CompanyTenant[] {
-  if (typeof window === 'undefined') return initialCompanies;
-  try {
-    const saved = localStorage.getItem(COMPANIES_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const clean = parsed
-          .filter(
-            (c: any) =>
-              c.id !== 'comp-apex' &&
-              c.id !== 'comp-nexus' &&
-              c.id !== 'comp-spw' &&
-              c.id !== 'comp-vanguard' &&
-              c.id !== 'comp-horizon'
-          )
-          .map((c: any) => ({
-            ...c,
-            adminUser:
-              c.adminUser?.id === 'admin-keyur' || c.adminUser?.fullName === 'Keyur Sangani'
-                ? {
-                    id: 'admin-paneliya',
-                    fullName: 'Paneliya Admin',
-                    email: 'admin@paneliya.com',
-                    phone: '+91 9876543210',
-                    designation: 'Company Director & HR Head',
-                    role: 'HR_ADMIN',
-                    lastLogin: 'Just now',
-                  }
-                : c.adminUser,
-            departments: Array.isArray(c.departments)
-              ? Array.from(new Set(c.departments.filter(Boolean)))
-              : [],
-          }));
-        if (clean.length > 0) {
-          localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(clean));
-          return clean;
-        }
-      }
-    }
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(initialCompanies));
-    return initialCompanies;
-  } catch (err) {
-    console.error('Failed to load companies:', err);
-    return initialCompanies;
-  }
+export function setLiveCompanies(companies: CompanyTenant[]): void {
+  liveCompaniesStore = Array.isArray(companies) ? [...companies] : [];
 }
 
 /**
- * Persist companies to localStorage
+ * Retrieve all registered tenant companies (from live database memory)
+ */
+export function getAllCompanies(): CompanyTenant[] {
+  return liveCompaniesStore;
+}
+
+/**
+ * Update companies and notify listeners (strictly avoids localStorage persistence)
  */
 export function saveCompanies(companies: CompanyTenant[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(companies));
+  liveCompaniesStore = Array.isArray(companies) ? [...companies] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(COMPANIES_STORAGE_KEY);
+      localStorage.removeItem(TENANT_EMPLOYEES_STORAGE_KEY);
+      localStorage.removeItem('hrms_all_companies_v2');
+      localStorage.removeItem('hrms_current_company');
+    } catch {}
     window.dispatchEvent(new Event('hrms_companies_updated'));
-  } catch (err) {
-    console.error('Failed to save companies:', err);
   }
 }
 
@@ -202,56 +166,33 @@ export function toggleCompanyStatus(id: string): 'Active' | 'Suspended' {
  * Retrieve all employees belonging to a specific company
  */
 export function getCompanyEmployees(companyId: string, primaryEmployees: Employee[]): Employee[] {
-  // Flagship company (Paneliya) has the primary live database employees roster
   if (companyId === 'comp-paneliya') {
     return primaryEmployees || [];
   }
-
-  if (typeof window === 'undefined') return [];
-
-  try {
-    const saved = localStorage.getItem(TENANT_EMPLOYEES_STORAGE_KEY);
-    if (saved) {
-      const store = JSON.parse(saved);
-      if (store['comp-apex'] || store['comp-nexus']) {
-        delete store['comp-apex'];
-        delete store['comp-nexus'];
-        localStorage.setItem(TENANT_EMPLOYEES_STORAGE_KEY, JSON.stringify(store));
-      }
-      return store[companyId] || [];
-    }
-    return [];
-  } catch (err) {
-    console.error('Failed to load company employees:', err);
-    return [];
-  }
+  return liveTenantEmployeesStore[companyId] || [];
 }
 
 /**
- * Persist tenant-specific employees
+ * Persist tenant-specific employees (strictly in-memory, without localStorage)
  */
 export function saveCompanyEmployees(companyId: string, employees: Employee[]): void {
   if (companyId === 'comp-paneliya') {
     saveEmployees(employees);
     return;
   }
-
-  if (typeof window === 'undefined') return;
-  try {
-    const saved = localStorage.getItem(TENANT_EMPLOYEES_STORAGE_KEY);
-    let store: Record<string, Employee[]> = saved ? JSON.parse(saved) : { ...initialTenantEmployees };
-    store[companyId] = employees;
-    localStorage.setItem(TENANT_EMPLOYEES_STORAGE_KEY, JSON.stringify(store));
-
-    // Also update company employeesCount cache
-    const companies = getAllCompanies();
-    const targetComp = companies.find((c) => c.id === companyId);
-    if (targetComp) {
-      updateCompany(companyId, { employeesCount: employees.length });
-    }
+  liveTenantEmployeesStore[companyId] = employees;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(TENANT_EMPLOYEES_STORAGE_KEY);
+    } catch {}
+  }
+  const companies = getAllCompanies();
+  const targetComp = companies.find((c) => c.id === companyId);
+  if (targetComp) {
+    updateCompany(companyId, { employeesCount: employees.length });
+  }
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('hrms_tenant_employees_updated'));
-  } catch (err) {
-    console.error('Failed to save tenant employees:', err);
   }
 }
 

@@ -82,15 +82,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             (c) => c.adminUser?.email?.toLowerCase() === user.email.toLowerCase()
           );
         }
-        const customName = localStorage.getItem('hrms_company_name');
-        const customLogo = localStorage.getItem('hrms_company_logo');
 
         const resolvedName =
-          customName ||
           matched?.name ||
           user?.companyName ||
           'Paneliya Technology';
-        const resolvedLogo = customLogo || matched?.logoUrl;
+        const resolvedLogo = matched?.logoUrl;
 
         setCompanyInfo({
           name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
@@ -110,22 +107,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
-  useEffect(() => {
-    const updatePrefs = () => {
-      try {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.workStatus) {
-            setWorkStatus(parsed.workStatus);
-          }
-        }
-      } catch {}
-    };
-    updatePrefs();
-    window.addEventListener('hrms_preferences_updated', updatePrefs);
-    return () => window.removeEventListener('hrms_preferences_updated', updatePrefs);
-  }, []);
 
   const displayCompanyName = companyInfo.name || 'Paneliya Technology';
   const companyInitial = (displayCompanyName[0] || 'P').toUpperCase();

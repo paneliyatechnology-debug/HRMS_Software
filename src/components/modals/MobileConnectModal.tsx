@@ -31,7 +31,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
   }>({
     ip: '192.168.1.106',
     mobileUrl: 'http://192.168.1.106:3000',
-    backendUrl: 'http://192.168.1.106:4000',
+    backendUrl: 'http://192.168.1.114:4000',
   });
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -108,22 +108,20 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
         <div className="flex border-b border-slate-100 bg-slate-50/70 p-1.5 gap-1.5">
           <button
             onClick={() => setActiveTab('wifi')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'wifi'
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'wifi'
                 ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
                 : 'text-slate-500 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Wifi className="w-3.5 h-3.5 text-emerald-600" />
             Local Wi-Fi (Super Fast)
           </button>
           <button
             onClick={() => setActiveTab('tunnel')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'tunnel'
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'tunnel'
                 ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
                 : 'text-slate-500 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Globe className="w-3.5 h-3.5 text-blue-600" />
             Anywhere (4G / 5G / Remote)

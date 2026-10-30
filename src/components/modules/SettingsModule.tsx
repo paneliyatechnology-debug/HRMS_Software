@@ -151,22 +151,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Always load preferences, notifications, and profile extras from localStorage for all users (Admin & Employee)
-    if (typeof window !== 'undefined') {
-      try {
-        const savedNotifs = localStorage.getItem('hrms_emp_notifications');
-        if (savedNotifs) setEmpNotifications(JSON.parse(savedNotifs));
-
-        const savedPrefs = localStorage.getItem('hrms_emp_preferences');
-        if (savedPrefs) setEmpPreferences(JSON.parse(savedPrefs));
-
-        const savedProf = localStorage.getItem('hrms_emp_profile_extra');
-        if (savedProf) setEmpProfile((prev) => ({ ...prev, ...JSON.parse(savedProf) }));
-      } catch (e) {
-        console.error('Failed to load user preferences:', e);
-      }
-    }
-
     if (!isEmployee) {
       const loadSettings = async () => {
         try {
@@ -280,9 +264,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   };
 
   const handleEmpProfileSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_profile_extra', JSON.stringify(empProfile));
-    }
     setSavedMessage(true);
     showToast({
       type: 'success',
@@ -293,9 +274,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   };
 
   const handleEmpNotifSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_notifications', JSON.stringify(empNotifications));
-    }
     setSavedMessage(true);
     showToast({
       type: 'success',
@@ -306,18 +284,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   };
 
   const handleEmpPrefSave = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_preferences', JSON.stringify(empPreferences));
-      localStorage.setItem('hrms_work_status', empPreferences.workStatus);
-      localStorage.setItem('hrms_time_format', empPreferences.timeFormat);
-      localStorage.setItem('hrms_date_format', empPreferences.dateFormat);
-      localStorage.setItem('hrms_language', empPreferences.language);
-
-      // System-wide broadcast to LiveClock, Header, and Sidebar
-      window.dispatchEvent(new Event('hrms_preferences_updated'));
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-    }
-
     // Sync workStatus to backend database for the user's employee record
     const empId = user?.employeeId || user?.id;
     if (empId) {
@@ -327,6 +293,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         console.warn('Could not sync work status to employee API:', err);
       }
     }
+
+    // System-wide broadcast to LiveClock, Header, and Sidebar
+    window.dispatchEvent(new Event('hrms_preferences_updated'));
+    window.dispatchEvent(new Event('hrms_employees_updated'));
 
     setSavedMessage(true);
     showToast({

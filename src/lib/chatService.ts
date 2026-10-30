@@ -31,102 +31,34 @@ function getDefaultMessages(): Record<string, ChatMessage[]> {
   return {};
 }
 
-// Auto-purge old seeded mock chat messages
-if (typeof window !== 'undefined') {
-  try {
-    const PURGE_KEY = 'hrms_chat_all_messages_purged_v10';
-    if (localStorage.getItem(PURGE_KEY) !== 'true') {
-      localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify({}));
-      const rawConvs = localStorage.getItem(CHAT_CONVERSATIONS_KEY);
-      if (rawConvs) {
-        try {
-          const parsed = JSON.parse(rawConvs);
-          if (Array.isArray(parsed)) {
-            const cleared = parsed
-              .filter(
-                (c: any) =>
-                  !c.id?.includes('keyur') &&
-                  !c.participantIds?.includes('admin-keyur')
-              )
-              .map((c: any) => ({
-                ...c,
-                lastMessage: '',
-                unreadCount: {},
-              }));
-            localStorage.setItem(CHAT_CONVERSATIONS_KEY, JSON.stringify(cleared.length > 0 ? cleared : getDefaultConversations()));
-          }
-        } catch {}
-      }
-      localStorage.setItem(PURGE_KEY, 'true');
-    }
-  } catch {}
-}
+let liveConversations: ChatConversation[] = getDefaultConversations();
+let liveMessagesMap: Record<string, ChatMessage[]> = getDefaultMessages();
 
 export function getAllConversations(): ChatConversation[] {
-  if (typeof window === 'undefined') return getDefaultConversations();
-  try {
-    const raw = localStorage.getItem(CHAT_CONVERSATIONS_KEY);
-    if (!raw) {
-      const initial = getDefaultConversations();
-      localStorage.setItem(CHAT_CONVERSATIONS_KEY, JSON.stringify(initial));
-      return initial;
-    }
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const clean = parsed.filter(
-        (c: ChatConversation) =>
-          c.id !== 'conv-user-1-emp-2' &&
-          c.id !== 'conv-user-1-emp-3' &&
-          !c.id?.includes('admin-keyur') &&
-          !c.participantIds?.includes('admin-keyur') &&
-          !c.participantIds?.includes('emp-2') &&
-          !c.participantIds?.includes('emp-3')
-      );
-      return clean.length > 0 ? clean : getDefaultConversations();
-    }
-    return getDefaultConversations();
-  } catch (e) {
-    console.error('Failed to parse chat conversations:', e);
-    return getDefaultConversations();
-  }
+  return liveConversations;
 }
 
 export function saveConversations(conversations: ChatConversation[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(CHAT_CONVERSATIONS_KEY, JSON.stringify(conversations));
+  liveConversations = Array.isArray(conversations) ? [...conversations] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(CHAT_CONVERSATIONS_KEY);
+    } catch {}
     window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
-  } catch (e) {
-    console.error('Failed to save chat conversations:', e);
   }
 }
 
 export function getAllMessagesMap(): Record<string, ChatMessage[]> {
-  if (typeof window === 'undefined') return getDefaultMessages();
-  try {
-    const raw = localStorage.getItem(CHAT_MESSAGES_KEY);
-    if (!raw) {
-      const initial = getDefaultMessages();
-      localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(initial));
-      return initial;
-    }
-    const map = JSON.parse(raw);
-    delete map['conv-user-1-emp-2'];
-    delete map['conv-user-1-emp-3'];
-    return map;
-  } catch (e) {
-    console.error('Failed to parse chat messages:', e);
-    return getDefaultMessages();
-  }
+  return liveMessagesMap;
 }
 
 export function saveMessagesMap(messagesMap: Record<string, ChatMessage[]>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messagesMap));
+  liveMessagesMap = { ...messagesMap };
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(CHAT_MESSAGES_KEY);
+    } catch {}
     window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
-  } catch (e) {
-    console.error('Failed to save chat messages:', e);
   }
 }
 

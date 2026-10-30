@@ -2,39 +2,29 @@ import { Announcement } from '../types/hrms';
 
 const ANNOUNCEMENTS_STORAGE_KEY = 'hrms_announcements_records';
 
-const defaultAnnouncements: Announcement[] = [];
+let liveAnnouncements: Announcement[] = [];
 
 /**
- * Retrieve all notices/announcements
+ * Retrieve all notices/announcements (strictly from live database memory)
  */
 export function getAllAnnouncements(): Announcement[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(ANNOUNCEMENTS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        const clean = parsed.filter((a: Announcement) => !['anc-1', 'anc-2', 'anc-3'].includes(a.id));
-        return clean;
-      }
-    }
-    return [];
-  } catch (err) {
-    console.error('Failed to load announcements:', err);
-    return [];
-  }
+  return liveAnnouncements;
+}
+
+export function setLiveAnnouncements(announcements: Announcement[]): void {
+  liveAnnouncements = Array.isArray(announcements) ? [...announcements] : [];
 }
 
 /**
- * Persist announcements to storage and notify listeners
+ * Update announcements and notify listeners (strictly avoids localStorage persistence)
  */
 export function saveAnnouncements(announcements: Announcement[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(announcements));
+  liveAnnouncements = Array.isArray(announcements) ? [...announcements] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(ANNOUNCEMENTS_STORAGE_KEY);
+    } catch {}
     window.dispatchEvent(new Event('hrms_announcements_updated'));
-  } catch (err) {
-    console.error('Failed to save announcements:', err);
   }
 }
 

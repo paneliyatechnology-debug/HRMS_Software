@@ -14,32 +14,25 @@ export interface EmployeeActivityStatus {
 const STORAGE_KEY = 'hrms_employee_activity_map';
 const DEFAULT_INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes (300,000 ms)
 
+let liveActivityMap: Record<string, EmployeeActivityStatus> = {};
+
 /**
- * Get all employee activity records from localStorage
+ * Get all employee activity records from live memory
  */
 export function getAllEmployeeActivities(): Record<string, EmployeeActivityStatus> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error('Failed to read employee activity map:', err);
-  }
-  return {};
+  return liveActivityMap;
 }
 
 /**
- * Save all activities and emit real-time event
+ * Save all activities and emit real-time event (strictly in-memory)
  */
 export function saveAllEmployeeActivities(map: Record<string, EmployeeActivityStatus>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  liveActivityMap = map;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
     window.dispatchEvent(new Event('hrms_employee_activity_updated'));
-  } catch (err) {
-    console.error('Failed to save employee activity map:', err);
   }
 }
 

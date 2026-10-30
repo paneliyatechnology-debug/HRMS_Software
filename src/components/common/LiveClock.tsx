@@ -32,40 +32,12 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     setMounted(true);
     setCurrentTime(new Date());
 
-    const loadPreferences = () => {
-      try {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.timeFormat) {
-            setIs24Hour(parsed.timeFormat === '24h');
-          }
-          if (parsed.dateFormat) {
-            setDateFormat(parsed.dateFormat);
-          }
-          if (parsed.language === 'Hindi') {
-            setLocale('hi-IN');
-          } else if (parsed.language === 'Gujarati') {
-            setLocale('gu-IN');
-          } else {
-            setLocale('en-IN');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load clock preferences:', err);
-      }
-    };
-
-    loadPreferences();
-    window.addEventListener('hrms_preferences_updated', loadPreferences);
-
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('hrms_preferences_updated', loadPreferences);
     };
   }, []);
 
@@ -124,15 +96,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     if (onClick) {
       onClick();
     } else {
-      const next24 = !is24Hour;
-      setIs24Hour(next24);
-      try {
-        const saved = localStorage.getItem('hrms_emp_preferences');
-        const parsed = saved ? JSON.parse(saved) : {};
-        parsed.timeFormat = next24 ? '24h' : '12h';
-        localStorage.setItem('hrms_emp_preferences', JSON.stringify(parsed));
-        window.dispatchEvent(new Event('hrms_preferences_updated'));
-      } catch {}
+      setIs24Hour(!is24Hour);
     }
   };
 

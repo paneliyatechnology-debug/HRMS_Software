@@ -101,11 +101,11 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
 
     const days: DayData[] = [];
 
-    // Baseline mock values for past days so historical weeks look populated
-    const baselineWorkedHours = [8.8, 8.5, 9.1, 8.4, 8.2, 4.0, 0];
-    const baselineBreakHours = [0.75, 0.75, 0.75, 0.8, 0.75, 0.25, 0];
+    // Live database values - no fake baseline mocks
+    const baselineWorkedHours = [0, 0, 0, 0, 0, 0, 0];
+    const baselineBreakHours = [0, 0, 0, 0, 0, 0, 0];
 
-    // Combine prop records and localStorage records
+    // Combine prop records and live database attendance records
     const stored = getAllAttendanceRecords();
     const map = new Map<string, AttendanceRecord>();
     stored.forEach((r) => map.set(`${r.date}_${(r.employeeId || '').toLowerCase()}`, r));

@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
+import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -82,15 +83,12 @@ export const Header: React.FC<HeaderProps> = ({
             (c) => c.adminUser?.email?.toLowerCase() === user.email.toLowerCase()
           );
         }
-        const customName = localStorage.getItem('hrms_company_name');
-        const customLogo = localStorage.getItem('hrms_company_logo');
 
         const resolvedName =
-          customName ||
           matched?.name ||
           user?.companyName ||
           'Paneliya Technology';
-        const resolvedLogo = customLogo || matched?.logoUrl;
+        const resolvedLogo = matched?.logoUrl;
 
         setCompanyInfo({
           name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
@@ -111,22 +109,21 @@ export const Header: React.FC<HeaderProps> = ({
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
+  // Dynamic Check In / Check Out Status
+  const [punchStatus, setPunchStatus] = useState<'not_started' | 'working' | 'on_break' | 'completed'>('not_started');
+
   useEffect(() => {
-    const updatePrefs = () => {
-      try {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.workStatus) {
-            setWorkStatus(parsed.workStatus);
-          }
-        }
-      } catch {}
+    const updatePunch = () => {
+      const targetId = user?.employeeId || user?.id || '';
+      if (targetId) {
+        const eligibility = checkEmployeePunchEligibility(targetId);
+        setPunchStatus(eligibility.status);
+      }
     };
-    updatePrefs();
-    window.addEventListener('hrms_preferences_updated', updatePrefs);
-    return () => window.removeEventListener('hrms_preferences_updated', updatePrefs);
-  }, []);
+    updatePunch();
+    window.addEventListener('hrms_attendance_updated', updatePunch);
+    return () => window.removeEventListener('hrms_attendance_updated', updatePunch);
+  }, [user]);
 
   const displayCompanyName = companyInfo.name || 'Paneliya Technology';
   const companyInitial = (displayCompanyName[0] || 'P').toUpperCase();
@@ -199,14 +196,41 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Quick Clock Button */}
+        {/* Quick Dynamic Check In / Check Out Button */}
         <button
+          id="btn-header-punch-toggle"
           onClick={onOpenClockModal}
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-          title="Attendance Punch"
+          className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
+            punchStatus === 'working' || punchStatus === 'on_break'
+              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+              : punchStatus === 'completed'
+              ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
+          }`}
+          title={
+            punchStatus === 'working' || punchStatus === 'on_break'
+              ? 'Currently checked in. Click to Check Out'
+              : punchStatus === 'completed'
+              ? 'Shift completed for today. Click to inspect punches'
+              : 'Click to Check In for today'
+          }
         >
-          <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-          <span>Clock In / Out</span>
+          {punchStatus === 'working' || punchStatus === 'on_break' ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              <span>Check Out</span>
+            </>
+          ) : punchStatus === 'completed' ? (
+            <>
+              <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Checked Out</span>
+            </>
+          ) : (
+            <>
+              <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+              <span>Check In</span>
+            </>
+          )}
         </button>
 
         {/* Quick Add Employee (Admin only) */}

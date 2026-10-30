@@ -35,7 +35,11 @@ import { LoginPage } from '../components/auth/LoginPage';
 import { LandingPage } from '../components/landing/LandingPage';
 import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import { WavyBackground } from '../components/common/WavyBackground';
-import { checkEmployeePunchEligibility } from '../lib/attendanceService';
+import { checkEmployeePunchEligibility, setLiveAttendanceRecords } from '../lib/attendanceService';
+import { setLiveEmployees } from '../lib/employeeService';
+import { setLiveLeaves } from '../lib/leaveService';
+import { setLivePayroll } from '../lib/payrollService';
+import { purgeLocalBusinessData } from '../lib/storageCleanup';
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { api } from '../lib/api';
@@ -80,14 +84,9 @@ export default function Home() {
   }, [router]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const initMod = localStorage.getItem('hrms_initial_module');
-      if (initMod) {
-        localStorage.removeItem('hrms_initial_module');
-        setActiveModule(initMod);
-      }
-    }
-  }, [isAuthenticated, user?.role]);
+    // Enforce live database data: purge all stale cached business records
+    purgeLocalBusinessData();
+  }, [isAuthenticated]);
 
   // Data state
   const [stats, setStats] = useState<any>(null);
@@ -209,10 +208,7 @@ export default function Home() {
         : [];
 
       // Multi-Tenant Isolation: Scope data to the logged-in company
-      const activeCompanyId =
-        user?.companyId ||
-        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_id') : null) ||
-        'comp-paneliya';
+      const activeCompanyId = user?.companyId || 'comp-paneliya';
 
       let scopedEmployees: Employee[] = [];
       if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
@@ -228,6 +224,7 @@ export default function Home() {
         );
       }
       setEmployees(scopedEmployees);
+      setLiveEmployees(scopedEmployees);
 
       // Scope Leaves to this company only
       const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
@@ -236,6 +233,7 @@ export default function Home() {
         (l) => scopedEmpIds.has(l.employeeId) || ((l as any).companyId && (l as any).companyId === activeCompanyId)
       );
       setLeaves(scopedLeaves);
+      setLiveLeaves(scopedLeaves);
 
       // Scope Attendance to this company only
       const rawAttendance = Array.isArray(attendanceData) ? attendanceData : [];
@@ -243,6 +241,7 @@ export default function Home() {
         (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
       );
       setAttendance(scopedAttendance);
+      setLiveAttendanceRecords(scopedAttendance);
 
       // Scope Payroll to this company only
       const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
@@ -250,6 +249,7 @@ export default function Home() {
         (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
       );
       setPayroll(scopedPayroll);
+      setLivePayroll(scopedPayroll);
 
       // Dynamic Company-Scoped Dashboard Stats
       if (activeCompanyId !== 'comp-paneliya') {

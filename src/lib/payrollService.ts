@@ -102,39 +102,31 @@ export function generateSeedPayrollRecords(): PayrollRecord[] {
   return records;
 }
 
-/**
- * Retrieve all payroll records from localStorage
- */
-export function getAllPayrollRecords(): PayrollRecord[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(PAYROLL_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-    // Seed initial records if not yet created
-    const seeded = generateSeedPayrollRecords();
-    savePayrollRecords(seeded);
-    return seeded;
-  } catch (err) {
-    console.error('Failed to get payroll records:', err);
-    return [];
-  }
+// Pure In-Memory Payroll Storage - live from database via API
+let livePayrollStore: PayrollRecord[] = [];
+
+export function setLivePayroll(records: PayrollRecord[]): void {
+  livePayrollStore = Array.isArray(records) ? [...records] : [];
 }
 
 /**
- * Save payroll records to localStorage
+ * Retrieve all payroll records (strictly from live database memory)
+ */
+export function getAllPayrollRecords(): PayrollRecord[] {
+  return livePayrollStore;
+}
+
+/**
+ * Save payroll records (strictly avoids localStorage persistence)
  */
 export function savePayrollRecords(records: PayrollRecord[]): void {
+  livePayrollStore = Array.isArray(records) ? [...records] : [];
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(PAYROLL_STORAGE_KEY, JSON.stringify(records));
+    localStorage.removeItem(PAYROLL_STORAGE_KEY);
     window.dispatchEvent(new Event('hrms_payroll_updated'));
   } catch (err) {
-    console.error('Failed to save payroll records:', err);
+    console.error('Failed to notify payroll update:', err);
   }
 }
 
