@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Building2,
@@ -65,6 +65,67 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
   // FAQ accordion state
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
+  // Active section state for navbar
+  const [activeSection, setActiveSection] = useState<string>('features');
+
+  const navItems = [
+    { id: 'features', label: 'Features' },
+    { id: 'how-it-works', label: 'How It Works' },
+    { id: 'impact', label: 'Impact' },
+    { id: 'testimonials', label: 'Testimonials' },
+    { id: 'faq', label: 'FAQ' },
+    { id: 'contact', label: 'Contact' },
+  ];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Remove #pricing or invalid hashes from the URL
+      if (window.location.hash === '#pricing') {
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (window.location.hash) {
+        const hashId = window.location.hash.replace('#', '');
+        if (navItems.some((n) => n.id === hashId)) {
+          setActiveSection(hashId);
+        }
+      }
+
+      const handleScroll = () => {
+        const scrollPos = window.scrollY + 140;
+        for (const item of navItems) {
+          const el = document.getElementById(item.id);
+          if (el) {
+            const top = el.offsetTop;
+            const height = el.offsetHeight;
+            if (scrollPos >= top && scrollPos < top + height) {
+              setActiveSection(item.id);
+              break;
+            }
+          }
+        }
+      };
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll();
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  const scrollToSection = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setActiveSection(id);
+    const el = document.getElementById(id);
+    if (el) {
+      const headerOffset = 80;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      });
+      window.history.replaceState(null, '', `#${id}`);
+    }
+  };
+
   const handleDemoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDemoSubmitted(true);
@@ -128,14 +189,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
-            <a href="#features" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Features</a>
-            <a href="#how-it-works" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">How It Works</a>
-            <a href="#impact" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Impact</a>
-            <a href="#pricing" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Pricing</a>
-            <a href="#testimonials" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Testimonials</a>
-            <a href="#faq" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">FAQ</a>
-            <a href="#contact" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Contact</a>
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs font-semibold uppercase tracking-wider">
+            {navItems.map((item) => {
+              const isActive = activeSection === item.id;
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => scrollToSection(e, item.id)}
+                  className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${isActive
+                    ? 'text-[#059669] bg-emerald-100/90 font-bold border border-emerald-300 shadow-xs'
+                    : 'text-slate-600 hover:text-[#059669] hover:bg-emerald-50/70 border border-transparent'
+                    }`}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
           </nav>
 
           {/* Action CTAs */}
@@ -152,15 +222,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               <span>Book a Demo</span>
             </button>
 
-            <Link
+            <button
               id="btn-nav-login"
-              href="/login"
               onClick={onOpenLogin}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white text-xs font-bold tracking-wide shadow-md shadow-emerald-900/20 hover:shadow-lg hover:shadow-emerald-900/30 active:scale-98 transition-all cursor-pointer"
             >
               <span>Sign In / Login</span>
               <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-            </Link>
+            </button>
           </div>
         </div>
       </header>
@@ -175,7 +244,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-            
+
             {/* Left Column: Headline, Description & CTAs */}
             <div className="lg:col-span-7 text-left">
               {/* Badge */}
@@ -194,8 +263,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
               {/* Subtitle */}
               <p className="text-base sm:text-lg text-[#4e6a5d] font-normal mt-6 leading-relaxed max-w-xl">
-                Eliminate spreadsheets and fragmented tools. Experience unified biometric attendance, 
-                instant automated payroll, leave cycles, recruitment ATS, and real-time staff collaboration in 
+                Eliminate spreadsheets and fragmented tools. Experience unified biometric attendance,
+                instant automated payroll, leave cycles, recruitment ATS, and real-time staff collaboration in
                 one high-powered, intuitive workspace.
               </p>
 
@@ -213,15 +282,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <span>Book a Personalized Demo</span>
                 </button>
 
-                <Link
+                <button
                   id="btn-hero-sign-in"
-                  href="/login"
                   onClick={onOpenLogin}
                   className="px-7 py-3.5 rounded-2xl bg-white hover:bg-emerald-50/60 text-[#062d1f] font-bold text-sm border border-[#d8ebd9] hover:border-emerald-300 shadow-sm active:scale-98 transition-all flex items-center justify-center gap-2 text-center cursor-pointer"
                 >
                   <span>Access Your Workspace</span>
                   <ArrowRight className="w-4 h-4 stroke-[2.2] text-[#059669]" />
-                </Link>
+                </button>
               </div>
 
               {/* Micro Trust Checklist */}
@@ -264,10 +332,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             {/* Right Column: Luxury UI Mockup */}
             <div className="lg:col-span-5 relative">
               <div className="relative mx-auto max-w-md lg:max-w-none">
-                
+
                 {/* Main Showcase Panel */}
                 <div className="relative rounded-3xl bg-white border border-[#d8ebd9] shadow-2xl p-5 ring-1 ring-emerald-950/5">
-                  
+
                   {/* Clean Window Header Bar */}
                   <div className="flex items-center justify-between pb-3.5 border-b border-[#d8ebd9]">
                     <div className="flex items-center gap-2">
@@ -427,13 +495,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               Everything You Need in One Place
             </h2>
             <p className="text-base font-normal text-[#4e6a5d] mt-4 leading-relaxed">
-              Every department, rule, and workflow connects seamlessly. Say goodbye to manual exports, 
+              Every department, rule, and workflow connects seamlessly. Say goodbye to manual exports,
               disconnected biometric devices, and out-of-sync personnel files.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-16">
-            
+
             {/* Feature Card 1: Directory */}
             <div className="rounded-3xl bg-white border border-[#d8ebd9] shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all duration-300 p-8 flex flex-col justify-between group">
               <div>
@@ -447,7 +515,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">Workforce Directory</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Centralized employee records, personal KYC documents, reporting hierarchy, departmental structures, 
+                  Centralized employee records, personal KYC documents, reporting hierarchy, departmental structures,
                   and role permissions with full audit history.
                 </p>
               </div>
@@ -480,7 +548,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">Biometric &amp; Geofence Attendance</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Live biometric clock in/out sync, mobile punches with GPS verification, late coming penalties, 
+                  Live biometric clock in/out sync, mobile punches with GPS verification, late coming penalties,
                   overtime tracking, and seamless attendance regularization.
                 </p>
               </div>
@@ -513,7 +581,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">Automated 1-Click Payroll</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Run salary disbursements in under 2 minutes. Automatic statutory computations (PF, ESI, TDS, PT), 
+                  Run salary disbursements in under 2 minutes. Automatic statutory computations (PF, ESI, TDS, PT),
                   allowances, deductions, bonuses, and professional PDF payslips.
                 </p>
               </div>
@@ -546,7 +614,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">Leave &amp; Shift Approvals</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Customizable leave policies (Casual, Sick, Paid, Maternity), multi-level manager approval workflows, 
+                  Customizable leave policies (Casual, Sick, Paid, Maternity), multi-level manager approval workflows,
                   holiday calendars, and automatic balance accruals.
                 </p>
               </div>
@@ -579,7 +647,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">ATS Recruitment &amp; Onboarding</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Post job openings, track applicants across Kanban stages (Screening, Interview, Offer), schedule 
+                  Post job openings, track applicants across Kanban stages (Screening, Interview, Offer), schedule
                   interviews, and convert hired candidates into active employees with 1 click.
                 </p>
               </div>
@@ -612,7 +680,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f] mt-6">Hardware &amp; Asset Management</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                  Track laptops, accessories, monitors, and company equipment assigned to team members. Monitor serial 
+                  Track laptops, accessories, monitors, and company equipment assigned to team members. Monitor serial
                   numbers, repair warranties, and exit return checklists.
                 </p>
               </div>
@@ -653,7 +721,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               Proven Impact by the Numbers
             </h2>
             <p className="text-base font-normal text-emerald-100/80 mt-4 leading-relaxed">
-              We empower high-performing companies worldwide to streamline HR workflows, guarantee biometric 
+              We empower high-performing companies worldwide to streamline HR workflows, guarantee biometric
               attendance accuracy, and run zero-error payroll cycles.
             </p>
           </div>
@@ -767,7 +835,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   ))}
                 </div>
                 <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
-                  &ldquo;My Own HRMS completely transformed our end-of-month stress. Biometric attendance calculations 
+                  &ldquo;My Own HRMS completely transformed our end-of-month stress. Biometric attendance calculations
                   that used to take 3 days of manual reconciliation are now done in under 5 minutes.&rdquo;
                 </p>
               </div>
@@ -791,7 +859,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   ))}
                 </div>
                 <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
-                  &ldquo;The employee self-service portal and instant mobile check-ins are loved by our 200+ field 
+                  &ldquo;The employee self-service portal and instant mobile check-ins are loved by our 200+ field
                   engineers. Managing leave approvals and shifts is now a breeze.&rdquo;
                 </p>
               </div>
@@ -815,7 +883,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   ))}
                 </div>
                 <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
-                  &ldquo;The multi-tenant governance allows us to manage three separate group entities from one 
+                  &ldquo;The multi-tenant governance allows us to manage three separate group entities from one
                   central screen without mixing data. Super fast and reliable.&rdquo;
                 </p>
               </div>
@@ -833,158 +901,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
         </div>
       </section>
 
-      {/* ===================================================================== */}
-      {/* 8. PRICING PLANS SECTION - SLEEK LUXURY CARDS                         */}
-      {/* ===================================================================== */}
-      <section id="pricing" className="py-24 bg-white border-b border-[#d8ebd9]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#059669] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              Transparent Pricing
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#062d1f] tracking-tight mt-4">
-              Plans Scaled to Your Business Size
-            </h2>
-            <p className="text-base font-normal text-slate-600 mt-4 leading-relaxed">
-              No hidden fees or surprise setup charges. Start small and upgrade smoothly as your organization grows.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-16 max-w-6xl mx-auto items-stretch">
-            
-            {/* Starter Plan */}
-            <div className="p-8 rounded-3xl border border-[#d8ebd9] bg-white flex flex-col justify-between shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all">
-              <div>
-                <h3 className="text-xl font-bold text-[#062d1f]">Starter Plan</h3>
-                <p className="text-xs text-slate-500 mt-1">Perfect for startups and boutique teams.</p>
-                <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-[#062d1f]">₹999</span>
-                  <span className="text-xs text-slate-500">/ month</span>
-                </div>
-
-                <ul className="mt-8 space-y-3.5 text-xs font-medium text-slate-700">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Up to 25 Active Employees</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Biometric &amp; Web Punch Attendance</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Standard Automated Payroll &amp; Slips</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Leave Approval Workflow</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => {
-                  setDemoData((prev) => ({ ...prev, teamSize: '1-20 employees' }));
-                  setIsDemoModalOpen(true);
-                }}
-                className="w-full mt-8 py-3.5 rounded-xl border border-[#d8ebd9] bg-emerald-50/60 hover:bg-emerald-100/70 text-[#062d1f] font-bold text-xs shadow-xs hover:border-emerald-300 active:scale-98 transition-all text-center cursor-pointer"
-              >
-                Choose Starter
-              </button>
-            </div>
-
-            {/* Growth Plan (Popular Featured) */}
-            <div className="p-8 rounded-3xl border-2 border-[#059669] bg-gradient-to-b from-[#062d1f] to-[#0b3b29] text-white flex flex-col justify-between shadow-2xl relative scale-100 lg:scale-105 z-10">
-              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#059669] text-white font-bold text-xs uppercase tracking-wider shadow-md">
-                ★ MOST POPULAR ★
-              </span>
-
-              <div>
-                <h3 className="text-xl font-bold text-white">Growth Plan</h3>
-                <p className="text-xs text-emerald-200/80 mt-1">For expanding teams needing complete automation.</p>
-                <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-white">₹2,499</span>
-                  <span className="text-xs text-emerald-200/70">/ month</span>
-                </div>
-
-                <ul className="mt-8 space-y-3.5 text-xs font-medium text-emerald-100/90">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Up to 100 Active Employees</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Geofenced Mobile Clock In/Out</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Full ATS Candidate Pipeline</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Hardware Asset Tracking</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Team Communication &amp; Broadcast</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => {
-                  setDemoData((prev) => ({ ...prev, teamSize: '21-50 employees' }));
-                  setIsDemoModalOpen(true);
-                }}
-                className="w-full mt-8 py-3.5 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#035940] text-white font-bold text-xs shadow-lg shadow-emerald-950/40 active:scale-98 transition-all text-center cursor-pointer"
-              >
-                Choose Growth
-              </button>
-            </div>
-
-            {/* Enterprise Suite */}
-            <div className="p-8 rounded-3xl border border-[#d8ebd9] bg-[#f8fcfa] flex flex-col justify-between shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all">
-              <div>
-                <h3 className="text-xl font-bold text-[#062d1f]">Enterprise Suite</h3>
-                <p className="text-xs text-slate-500 mt-1">Multi-company groups with custom SLAs.</p>
-                <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-[#062d1f]">Custom</span>
-                </div>
-
-                <ul className="mt-8 space-y-3.5 text-xs font-medium text-slate-700">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Unlimited Employees &amp; Sub-Entities</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Dedicated Multi-Tenant Super Admin</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Custom Biometric Hardware Integrations</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#059669] shrink-0" />
-                    <span>Dedicated Account Manager &amp; 99.99% SLA</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => {
-                  setDemoData((prev) => ({ ...prev, teamSize: '500+ employees' }));
-                  setIsDemoModalOpen(true);
-                }}
-                className="w-full mt-8 py-3.5 rounded-xl border border-[#d8ebd9] bg-white hover:bg-emerald-50 text-[#062d1f] font-bold text-xs shadow-xs hover:border-emerald-300 active:scale-98 transition-all text-center cursor-pointer"
-              >
-                Contact Enterprise
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </section>
 
       {/* ===================================================================== */}
       {/* 9. FAQ ACCORDION SECTION - CLEAN MODERN ACCORDION                     */}
@@ -1010,16 +927,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    className={`w-full p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${
-                      isOpen ? 'bg-emerald-50/80 text-[#062d1f]' : 'bg-white hover:bg-slate-50 text-slate-800'
-                    }`}
+                    className={`w-full p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${isOpen ? 'bg-emerald-50/80 text-[#062d1f]' : 'bg-white hover:bg-slate-50 text-slate-800'
+                      }`}
                   >
                     <span className="text-sm font-bold">{item.q}</span>
                     <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#062d1f] flex items-center justify-center shrink-0">
                       <ChevronDown
-                        className={`w-4 h-4 stroke-[2.5] transition-transform ${
-                          isOpen ? 'rotate-180 text-[#059669]' : 'text-slate-600'
-                        }`}
+                        className={`w-4 h-4 stroke-[2.5] transition-transform ${isOpen ? 'rotate-180 text-[#059669]' : 'text-slate-600'
+                          }`}
                       />
                     </div>
                   </button>
@@ -1041,7 +956,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       <section id="contact" className="py-24 bg-white border-b border-[#d8ebd9]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            
+
             {/* Left Info Column */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#059669] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
@@ -1207,13 +1122,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             >
               Book a Free Live Demo
             </button>
-            <Link
-              href="/login"
+            <button
               onClick={onOpenLogin}
-              className="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-emerald-400/30 backdrop-blur-md font-bold text-sm active:scale-98 transition-all cursor-pointer flex items-center justify-center text-center"
+              className="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-emerald-400/30 backdrop-blur-md font-bold text-sm active:scale-98 transition-all cursor-pointer"
             >
               Sign In to Your Workspace →
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -1235,15 +1149,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-semibold uppercase tracking-wider text-xs text-emerald-200/80">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-              <a href="#impact" className="hover:text-white transition-colors">Impact</a>
-              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
-              <a href="#contact" className="hover:text-white transition-colors">Contact</a>
+              {navItems.map((item) => (
+                <a
+                  key={item.id}
+                  href={'#' + item.id}
+                  onClick={(e) => scrollToSection(e, item.id)}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  {item.label}
+                </a>
+              ))}
               <Link href="/login" onClick={onOpenLogin} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer">
                 Portal Sign In
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -1270,9 +1188,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-xl font-bold text-[#062d1f]">Demo Scheduled Successfully!</h3>
                 <p className="text-xs font-normal text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
-                  Thank you, <span className="font-bold text-[#062d1f]">{demoData.name}</span>. 
+                  Thank you, <span className="font-bold text-[#062d1f]">{demoData.name}</span>.
                   Our HRMS solutions architect will reach out to you at{' '}
-                  <span className="font-bold text-[#062d1f]">{demoData.email}</span> with calendar invitations 
+                  <span className="font-bold text-[#062d1f]">{demoData.email}</span> with calendar invitations
                   and live walkthrough credentials.
                 </p>
                 <button
