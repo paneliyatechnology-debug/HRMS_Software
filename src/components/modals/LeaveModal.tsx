@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -12,16 +12,34 @@ interface LeaveModalProps {
   onRefresh: () => void;
 }
 
+const getTodayDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user } = useAuth();
   const [leaveType, setLeaveType] = useState<LeaveType>('Casual Leave');
-  const [startDate, setStartDate] = useState('2026-10-20');
-  const [endDate, setEndDate] = useState('2026-10-20');
+  const [startDate, setStartDate] = useState(getTodayDate());
+  const [endDate, setEndDate] = useState(getTodayDate());
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      const today = getTodayDate();
+      setStartDate(today);
+      setEndDate(today);
+      setFieldErrors({});
+      setError('');
+    }
+  }, [isOpen]);
 
   const clearFieldError = (f: string) => {
     setFieldErrors((prev) => {
@@ -30,6 +48,29 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       delete copy[f];
       return copy;
     });
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    clearFieldError('startDate');
+    clearFieldError('endDate');
+    // If the new start date is after the current end date, advance end date to match start date
+    if (endDate && val > endDate) {
+      setEndDate(val);
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    if (startDate && val < startDate) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        endDate: 'End date cannot be earlier than start date.',
+      }));
+      setEndDate(startDate);
+      return;
+    }
+    setEndDate(val);
+    clearFieldError('endDate');
   };
 
   if (!isOpen) return null;
@@ -41,7 +82,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     if (!reason.trim()) {
       errors.reason = 'Please provide a valid reason for leave.';
     }
-    if (new Date(endDate) < new Date(startDate)) {
+    if (endDate < startDate) {
       errors.endDate = 'End date cannot be earlier than start date.';
     }
 
@@ -79,7 +120,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
- className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-transparent cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-transparent cursor-pointer"
     >
       <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default animate-modal-zoom max-h-[92vh] overflow-y-auto">
         <button
@@ -117,7 +158,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               id="leave-type-select"
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
               <option value="Casual Leave">Casual Leave (Balance: 10 days)</option>
               <option value="Sick Leave">Sick Leave (Balance: 9 days)</option>
@@ -138,8 +179,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 id="leave-start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 required
               />
             </div>
@@ -158,15 +199,13 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               <input
                 id="leave-end-date"
                 type="date"
+                min={startDate}
                 value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  clearFieldError('endDate');
-                }}
+                onChange={(e) => handleEndDateChange(e.target.value)}
                 className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 transition-all ${
                   fieldErrors.endDate
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                    : 'border-slate-200'
+                    : 'border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
                 }`}
                 required
               />
