@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Users,
+  AlertCircle,
   MapPin,
   Network,
   Plus,
@@ -78,6 +79,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [desMinSalary, setDesMinSalary] = useState(60000);
   const [desMaxSalary, setDesMaxSalary] = useState(120000);
   const [desSubmitting, setDesSubmitting] = useState(false);
+  const [deptErrors, setDeptErrors] = useState<Record<string, string>>({});
+  const [desErrors, setDesErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -85,7 +88,24 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!deptName.trim() || !deptCode.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!deptName.trim()) {
+      errors.deptName = 'Department name is required.';
+    } else if (deptName.trim().length < 2) {
+      errors.deptName = 'Department name must be at least 2 characters.';
+    }
+    if (!deptCode.trim()) {
+      errors.deptCode = 'Code is required.';
+    } else if (deptCode.trim().length < 2) {
+      errors.deptCode = 'Code must be at least 2 characters.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setDeptErrors(errors);
+      return;
+    }
+
+    setDeptErrors({});
     setDeptSubmitting(true);
     try {
       await api.createDepartment({
@@ -104,7 +124,22 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   const handleCreateDesignation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!desTitle.trim()) return;
+    const errors: Record<string, string> = {};
+    if (!desTitle.trim()) {
+      errors.desTitle = 'Designation title is required.';
+    } else if (desTitle.trim().length < 2) {
+      errors.desTitle = 'Title must be at least 2 characters.';
+    }
+    if (Number(desMinSalary) > Number(desMaxSalary) && Number(desMaxSalary) > 0) {
+      errors.desMinSalary = 'Min salary cannot exceed max salary.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setDesErrors(errors);
+      return;
+    }
+
+    setDesErrors({});
     setDesSubmitting(true);
     try {
       await api.createDesignation({ title: desTitle.trim(), departmentId: desDeptId, minSalary: Number(desMinSalary), maxSalary: Number(desMaxSalary) });
@@ -632,17 +667,53 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             </div>
             <form onSubmit={handleCreateDepartment} className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Department Name *</label>
-                <input id="input-dept-name" type="text" required value={deptName} onChange={(e) => setDeptName(e.target.value)}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Department Name *</label>
+                  {deptErrors.deptName && (
+                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {deptErrors.deptName}
+                    </span>
+                  )}
+                </div>
+                <input id="input-dept-name" type="text" required value={deptName}
+                  onChange={(e) => {
+                    setDeptName(e.target.value);
+                    if (deptErrors.deptName) {
+                      setDeptErrors((p) => { const c = { ...p }; delete c.deptName; return c; });
+                    }
+                  }}
                   placeholder="e.g. Artificial Intelligence"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition" />
+                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
+                    deptErrors.deptName
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400'
+                  }`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Code *</label>
-                  <input id="input-dept-code" type="text" required value={deptCode} onChange={(e) => setDeptCode(e.target.value)}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Code *</label>
+                    {deptErrors.deptCode && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {deptErrors.deptCode}
+                      </span>
+                    )}
+                  </div>
+                  <input id="input-dept-code" type="text" required value={deptCode}
+                    onChange={(e) => {
+                      setDeptCode(e.target.value);
+                      if (deptErrors.deptCode) {
+                        setDeptErrors((p) => { const c = { ...p }; delete c.deptCode; return c; });
+                      }
+                    }}
                     placeholder="e.g. AI"
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition" />
+                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
+                      deptErrors.deptCode
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400'
+                    }`} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1.5">Dept. Head</label>
@@ -697,10 +768,28 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             </div>
             <form onSubmit={handleCreateDesignation} className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Designation Title *</label>
-                <input id="input-des-title" type="text" required value={desTitle} onChange={(e) => setDesTitle(e.target.value)}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Designation Title *</label>
+                  {desErrors.desTitle && (
+                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {desErrors.desTitle}
+                    </span>
+                  )}
+                </div>
+                <input id="input-des-title" type="text" required value={desTitle}
+                  onChange={(e) => {
+                    setDesTitle(e.target.value);
+                    if (desErrors.desTitle) {
+                      setDesErrors((p) => { const c = { ...p }; delete c.desTitle; return c; });
+                    }
+                  }}
                   placeholder="e.g. Senior Staff Engineer"
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition" />
+                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
+                    desErrors.desTitle
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400'
+                  }`} />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1.5">Department</label>
@@ -713,9 +802,27 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Min Salary (Annual)</label>
-                  <input id="input-des-min-salary" type="number" value={desMinSalary} onChange={(e) => setDesMinSalary(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Min Salary (Annual)</label>
+                    {desErrors.desMinSalary && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {desErrors.desMinSalary}
+                      </span>
+                    )}
+                  </div>
+                  <input id="input-des-min-salary" type="number" value={desMinSalary}
+                    onChange={(e) => {
+                      setDesMinSalary(Number(e.target.value));
+                      if (desErrors.desMinSalary) {
+                        setDesErrors((p) => { const c = { ...p }; delete c.desMinSalary; return c; });
+                      }
+                    }}
+                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
+                      desErrors.desMinSalary
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400'
+                    }`} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1.5">Max Salary (Annual)</label>

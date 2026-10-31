@@ -220,7 +220,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     });
     if (!dupCheck.isValid) {
       const msg = dupCheck.error || 'This email or mobile number is already registered.';
-      if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+      if (msg.toLowerCase().includes('email')) {
         errors.ownerEmail = msg;
       } else {
         errors.ownerPhone = msg;
@@ -523,32 +523,62 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Company Legal Name <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Company Legal Name <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.companyName && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.companyName}
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="input-company-name"
                       type="text"
                       required
                       value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
+                      onChange={(e) => {
+                        setCompanyName(e.target.value);
+                        clearFieldError('companyName');
+                      }}
                       placeholder="e.g. Paneliya Infotech Pvt Ltd"
-                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                        fieldErrors.companyName
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      GSTIN / Tax ID <span className="text-xs text-[#4e6a5d] font-normal">(Optional)</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        GSTIN / Tax ID <span className="text-xs text-[#4e6a5d] font-normal">(Optional)</span>
+                      </label>
+                      {fieldErrors.companyGst && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.companyGst}
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="input-company-gst"
                       type="text"
                       maxLength={15}
                       value={companyGst}
-                      onChange={(e) => setCompanyGst(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
+                      onChange={(e) => {
+                        setCompanyGst(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15));
+                        clearFieldError('companyGst');
+                      }}
                       placeholder="e.g. 24AAAAA0000A1Z5"
-                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all uppercase"
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all uppercase ${
+                        fieldErrors.companyGst
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                     />
                     <p className="text-[10px] text-[#4e6a5d] mt-1">15-char format (e.g. 24AAAAA0000A1Z5)</p>
                   </div>
@@ -625,40 +655,78 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
 
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      First Name <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        First Name <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerFirstName && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerFirstName}
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="input-owner-firstname"
                       type="text"
                       required
                       value={ownerFirstName}
-                      onChange={(e) => setOwnerFirstName(e.target.value)}
+                      onChange={(e) => {
+                        setOwnerFirstName(e.target.value);
+                        clearFieldError('ownerFirstName');
+                      }}
                       placeholder="e.g. Ravi"
-                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                        fieldErrors.ownerFirstName
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Last Name <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Last Name <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerLastName && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerLastName}
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="input-owner-lastname"
                       type="text"
                       required
                       value={ownerLastName}
-                      onChange={(e) => setOwnerLastName(e.target.value)}
+                      onChange={(e) => {
+                        setOwnerLastName(e.target.value);
+                        clearFieldError('ownerLastName');
+                      }}
                       placeholder="e.g. Paneliya"
-                      className="w-full h-10 px-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                        fieldErrors.ownerLastName
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Official Owner Email <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Official Owner Email <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerEmail && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerEmail}
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -666,16 +734,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                         type="email"
                         required
                         value={ownerEmail}
-                        onChange={(e) => setOwnerEmail(e.target.value)}
+                        onChange={(e) => {
+                          setOwnerEmail(e.target.value);
+                          clearFieldError('ownerEmail');
+                        }}
                         placeholder="owner@company.com"
-                        className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                          fieldErrors.ownerEmail
+                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Mobile Number <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Mobile Number <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerPhone && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerPhone}
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Phone className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -684,9 +767,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                         maxLength={13}
                         required
                         value={ownerPhone}
-                        onChange={(e) => setOwnerPhone(e.target.value.replace(/[^0-9+\s]/g, '').slice(0, 13))}
+                        onChange={(e) => {
+                          setOwnerPhone(e.target.value.replace(/[^0-9+\s]/g, '').slice(0, 13));
+                          clearFieldError('ownerPhone');
+                        }}
                         placeholder="9876543210"
-                        className="w-full h-10 pl-8 pr-3 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                          fieldErrors.ownerPhone
+                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                       />
                     </div>
                     <p className="text-[10px] text-[#4e6a5d] mt-1">10-digit Indian mobile number (e.g. 9876543210)</p>
@@ -695,9 +785,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Owner Password <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Owner Password <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerPassword && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerPassword}
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -705,9 +803,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                         type={showOwnerPassword ? 'text' : 'password'}
                         required
                         value={ownerPassword}
-                        onChange={(e) => setOwnerPassword(e.target.value)}
+                        onChange={(e) => {
+                          setOwnerPassword(e.target.value);
+                          clearFieldError('ownerPassword');
+                        }}
                         placeholder="Min 6 characters"
-                        className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                          fieldErrors.ownerPassword
+                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                       />
                       <button
                         type="button"
@@ -719,9 +824,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[#0d271d] mb-1">
-                      Confirm Password <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#0d271d]">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </label>
+                      {fieldErrors.ownerConfirmPassword && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.ownerConfirmPassword}
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -729,9 +842,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                         type={showOwnerConfirmPassword ? 'text' : 'password'}
                         required
                         value={ownerConfirmPassword}
-                        onChange={(e) => setOwnerConfirmPassword(e.target.value)}
+                        onChange={(e) => {
+                          setOwnerConfirmPassword(e.target.value);
+                          clearFieldError('ownerConfirmPassword');
+                        }}
                         placeholder="Repeat password"
-                        className="w-full h-10 pl-8 pr-9 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white transition-all"
+                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                          fieldErrors.ownerConfirmPassword
+                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                       />
                       <button
                         type="button"

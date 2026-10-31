@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Check, ChevronRight, ChevronLeft, Camera, Upload, Trash2 } from 'lucide-react';
+import { X, UserPlus, Check, ChevronRight, ChevronLeft, Camera, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { getCompanySubscription } from '../../lib/subscriptionService';
@@ -152,7 +152,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       });
       if (!dupCheck.isValid) {
         const msg = dupCheck.error || 'Duplicate email or phone detected.';
-        if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+        if (msg.toLowerCase().includes('email')) {
           errors.email = msg;
         } else {
           errors.phone = msg;
@@ -819,7 +819,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     });
                     if (!dupCheck.isValid) {
                       const msg = dupCheck.error || 'Duplicate email or phone detected.';
-                      if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+                      if (msg.toLowerCase().includes('email')) {
                         step1Errors.email = msg;
                       } else {
                         step1Errors.phone = msg;
