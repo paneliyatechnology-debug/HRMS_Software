@@ -594,4 +594,17 @@ input, select, textarea {
   animation: pulseGlowRing 2.5s infinite;
 }
 
+/* 8. Remove dark gray backdrop effect behind popups / modals across the entire website */
+.fixed.inset-0.z-50,
+.fixed.inset-0.z-\[50\],
+.fixed.inset-0.z-\[60\],
+.fixed.inset-0[class*="bg-black/"],
+.fixed.inset-0[class*="bg-slate-900/"],
+.animate-modal-backdrop {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+
 
