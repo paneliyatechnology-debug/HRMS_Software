@@ -517,6 +517,27 @@ export const api = {
     });
   },
 
+  /**
+   * Fetch daily attendance logs / history (Pre-configured for user's upcoming custom API endpoint)
+   */
+  async getDailyAttendanceLogs(params?: {
+    employeeId?: string;
+    month?: string;
+    year?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.employeeId) query.set('employeeId', params.employeeId);
+    if (params?.month) query.set('month', params.month);
+    if (params?.year) query.set('year', params.year);
+    if (params?.startDate) query.set('startDate', params.startDate);
+    if (params?.endDate) query.set('endDate', params.endDate);
+    const qs = query.toString();
+    // Default fallback to /attendance, ready to swap to custom endpoint when provided
+    return fetchWithFallback<AttendanceRecord[]>(`/attendance${qs ? `?${qs}` : ''}`, undefined, []);
+  },
+
   async checkIn(
     employeeId: string,
     remarks?: string,

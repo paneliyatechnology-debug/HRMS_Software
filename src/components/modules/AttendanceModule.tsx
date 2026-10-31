@@ -354,6 +354,62 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const myIsOnBreak = myTodayRecord && !myTodayRecord.isCompleted && myTodayRecord.isOnBreak;
   const myIsDone = myTodayRecord && (myTodayRecord.isCompleted || Boolean(myTodayRecord.checkOut));
 
+  const [adminTodayViewMode, setAdminTodayViewMode] = useState<'workforce' | 'daily_logs'>('workforce');
+
+  // Format daily record date string into display-ready object
+  const formatDailyDate = (dateStr?: string) => {
+    if (!dateStr) return { formatted: '—', dayName: '', isToday: false };
+    const todayStr = getTodayDateString();
+    const isToday = dateStr === todayStr;
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const dt = new Date(y, m, d);
+        const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthName = dt.toLocaleDateString('en-US', { month: 'short' });
+        return {
+          formatted: `${String(d).padStart(2, '0')} ${monthName} ${y}`,
+          dayName,
+          isToday,
+        };
+      }
+    } catch {}
+    return { formatted: dateStr, dayName: '', isToday };
+  };
+
+  // Full daily attendance records for the logged-in employee (sorted latest date first)
+  const employeeDailyRecords = React.useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+
+    // 1. Process database records
+    (records || []).forEach((r) => {
+      if (r && r.date && isMyAttendanceRecord(r)) {
+        map.set(r.date, r);
+      }
+    });
+
+    // 2. Overlay live records
+    (liveRecords || []).forEach((r) => {
+      if (r && r.date && isMyAttendanceRecord(r)) {
+        map.set(r.date, r);
+      }
+    });
+
+    // 3. Ensure today's live record is present with most current ticking/punch state
+    const todayRec = selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
+    if (todayRec && todayRec.date) {
+      map.set(todayRec.date, todayRec);
+    }
+
+    // Sort descending by date (newest first)
+    return Array.from(map.values()).sort((a, b) => {
+      return (b.date || '').localeCompare(a.date || '');
+    });
+  }, [records, liveRecords, selfEmployee, isMyAttendanceRecord, nowTick]);
+
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -1068,169 +1124,393 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </div>
             )}
 
-            {/* Live Table */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            {/* Daily Attendance & Live Shift Log */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <div className="px-4 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {isEmployeeView ? "My Today's Shift & Attendance Log" : "Today's Live Workforce Shift Log"}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {isEmployeeView ? "Your live punch and break intervals for today" : "Live work timers and break intervals updating every second"}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isEmployeeView
+                        ? 'Daily Attendance Records'
+                        : adminTodayViewMode === 'workforce'
+                        ? "Today's Live Workforce Shift Log"
+                        : 'All Daily Attendance Logs'}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {isEmployeeView
+                        ? `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day' : 'Days'} Logged`
+                        : adminTodayViewMode === 'workforce'
+                        ? `${visibleEmployees.length} Employees`
+                        : `${records.length} Logs`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isEmployeeView
+                      ? 'Daily date-wise punch in, punch out, break intervals, and total worked duration'
+                      : adminTodayViewMode === 'workforce'
+                      ? 'Live work timers and break intervals updating every second'
+                      : 'Comprehensive daily attendance records across all employees'}
                   </p>
                 </div>
-                <button
-                  onClick={onOpenPunchModal}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
-                    myIsWorking || myIsOnBreak
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  }`}
-                >
-                  {myIsWorking || myIsOnBreak ? (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      <span>Check Out</span>
-                    </>
-                  ) : myIsDone ? (
-                    <>
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Check In Again</span>
-                    </>
+
+                <div className="flex items-center gap-2">
+                  {!isEmployeeView && (
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold mr-1">
+                      <button
+                        type="button"
+                        onClick={() => setAdminTodayViewMode('workforce')}
+                        className={`px-2.5 py-1 rounded-md transition ${
+                          adminTodayViewMode === 'workforce'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Today's Live
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdminTodayViewMode('daily_logs')}
+                        className={`px-2.5 py-1 rounded-md transition ${
+                          adminTodayViewMode === 'daily_logs'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        All Daily Logs
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Refresh attendance records"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
+
+                  <button
+                    onClick={onOpenPunchModal}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
+                      myIsWorking || myIsOnBreak
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    }`}
+                  >
+                    {myIsWorking || myIsOnBreak ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        <span>Check Out</span>
+                      </>
+                    ) : myIsDone ? (
+                      <>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Check In Again</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Check In</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* VIEW 1: Employee Daily Attendance (or Admin Daily Logs) */}
+              {(isEmployeeView || adminTodayViewMode === 'daily_logs') ? (
+                <>
+                  {/* Empty state when no daily records exist */}
+                  {(isEmployeeView ? employeeDailyRecords : records).length === 0 ? (
+                    <div className="py-14 px-4 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-800">No Daily Attendance Records Yet</h4>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                        Your daily attendance entries will automatically appear here once you punch in.
+                      </p>
+                    </div>
                   ) : (
                     <>
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Check In</span>
+                      {/* Mobile Cards View (Visible on < md) */}
+                      <div className="md:hidden divide-y divide-slate-100">
+                        {(isEmployeeView ? employeeDailyRecords : records).map((rec) => {
+                          const dateInfo = formatDailyDate(rec.date);
+                          const isToday = dateInfo.isToday;
+                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                          const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
+                          const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                          const liveSecs = getLiveActiveSeconds(rec);
+                          const breakSecs = getLiveBreakSeconds(rec);
+
+                          return (
+                            <div key={rec.id || rec.date} className="p-3.5 space-y-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-900">{dateInfo.formatted}</span>
+                                    {isToday && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                        TODAY
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {!isEmployeeView && rec.employeeName ? `${rec.employeeName} • ` : ''}
+                                    {dateInfo.dayName}
+                                  </span>
+                                </div>
+
+                                <div>
+                                  {isWorking ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Working
+                                    </span>
+                                  ) : isOnBreak ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                      <Pause className="w-3 h-3 text-amber-600" />
+                                      On Break
+                                    </span>
+                                  ) : isDone ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                      <Check className="w-3 h-3 text-slate-600" />
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                                      {rec.status || 'Present'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                                  <span className="font-semibold text-slate-800 text-[11px]">
+                                    {rec.checkIn || '—'} → {rec.checkOut || (isWorking ? 'Active' : '—')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Worked Hours</span>
+                                  <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                    {formatSecondsToHMS(liveSecs)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Break Time</span>
+                                  <span className="font-mono font-medium text-slate-700 text-[11px]">
+                                    {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Overtime</span>
+                                  <span className="font-mono font-medium text-slate-700 text-[11px]">
+                                    {rec.overtimeHours && rec.overtimeHours > 0 ? `${rec.overtimeHours}h` : '—'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {rec && (rec.checkInDevice || rec.checkInPhoto || rec.checkOutPhoto) && (
+                                <div className="flex justify-end pt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAuditModalRecord(rec);
+                                      setAuditModalEmployee(selfEmployee);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                                  >
+                                    <Camera className="w-3 h-3 text-slate-500" />
+                                    <span>Audit Details</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Desktop Table View (Visible on >= md) */}
+                      <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                        <table className="w-full text-left text-xs min-w-[750px]">
+                          <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                            <tr>
+                              {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
+                              <th className="py-2.5 px-4 font-medium">DATE &amp; DAY</th>
+                              <th className="py-2.5 px-4 font-medium">STATUS</th>
+                              <th className="py-2.5 px-4 font-medium">CHECK IN</th>
+                              <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
+                              <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                              <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                              <th className="py-2.5 px-4 font-medium">OVERTIME</th>
+                              <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {(isEmployeeView ? employeeDailyRecords : records).map((rec) => {
+                              const dateInfo = formatDailyDate(rec.date);
+                              const isToday = dateInfo.isToday;
+                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                              const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
+                              const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                              const liveSecs = getLiveActiveSeconds(rec);
+                              const breakSecs = getLiveBreakSeconds(rec);
+
+                              return (
+                                <tr key={rec.id || rec.date} className="hover:bg-slate-50/70 transition-colors">
+                                  {!isEmployeeView && (
+                                    <td className="py-3 px-4 font-semibold text-slate-900">
+                                      {rec.employeeName || rec.employeeId}
+                                    </td>
+                                  )}
+                                  <td className="py-3 px-4 font-medium text-slate-900">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
+                                      {isToday ? (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                          TODAY
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  <td className="py-3 px-4">
+                                    {isWorking ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Working
+                                      </span>
+                                    ) : isOnBreak ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                        <Pause className="w-3 h-3 text-amber-600" />
+                                        On Break
+                                      </span>
+                                    ) : isDone ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                        <Check className="w-3 h-3 text-slate-600" />
+                                        Completed
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
+                                        {rec.status || 'Present'}
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec.checkIn ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{rec.checkIn}</span>
+                                        {rec.checkInPhoto && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setAuditModalRecord(rec);
+                                              setAuditModalEmployee(selfEmployee);
+                                            }}
+                                            className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-colors cursor-pointer"
+                                            title="View Check-In Selfie"
+                                          >
+                                            <Camera className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec.checkOut ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{rec.checkOut}</span>
+                                        {rec.checkOutPhoto && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setAuditModalRecord(rec);
+                                              setAuditModalEmployee(selfEmployee);
+                                            }}
+                                            className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-colors cursor-pointer"
+                                            title="View Check-Out Selfie"
+                                          >
+                                            <Camera className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : isWorking ? (
+                                      <span className="text-emerald-600 font-medium">Working...</span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-4 font-mono text-slate-600">
+                                    {breakSecs > 0 ? (
+                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                        {formatSecondsToWords(breakSecs)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">0s</span>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                    <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
+                                      {formatSecondsToHMS(liveSecs)}
+                                    </span>
+                                  </td>
+
+                                  <td className="py-3 px-4 font-mono text-slate-600">
+                                    {rec.overtimeHours && rec.overtimeHours > 0 ? `${rec.overtimeHours}h` : '—'}
+                                  </td>
+
+                                  <td className="py-3 px-4">
+                                    {rec.checkInDevice || rec.checkInPhoto || rec.checkOutPhoto ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setAuditModalRecord(rec);
+                                          setAuditModalEmployee(selfEmployee);
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-black bg-white hover:bg-[#FFE600] text-slate-900 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-[2px_2px_0px_0px_#000]"
+                                        title="View Device Hardware Details & Selfie"
+                                      >
+                                        {rec.checkInDevice?.deviceType === 'Mobile' ? (
+                                          <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        ) : rec.checkInDevice?.deviceType === 'Tablet' ? (
+                                          <Tablet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                        ) : (
+                                          <Laptop className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                        )}
+                                        <span className="truncate max-w-[110px]">
+                                          {rec.checkInDevice?.deviceModel || rec.checkInDevice?.os || 'Inspect Audit'}
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-slate-400 text-xs">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </>
                   )}
-                </button>
-              </div>
-
-              {/* Mobile Cards View (Visible on < md) */}
-              <div className="md:hidden divide-y divide-slate-100">
-                {visibleEmployees.map((emp) => {
-                  const rec = getEmpTodayRecord(emp);
-                  const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                  const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                  const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
-
-                  const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                  const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                  const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-
-                  return (
-                    <div key={emp.id} className="p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                            {emp.firstName?.[0] || 'E'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs text-slate-900 truncate">
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
-                          </div>
-                        </div>
-
-                        {/* Status badge */}
-                        <div className="shrink-0">
-                          {isWorking ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Working
-                            </span>
-                          ) : isOnBreak ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                              <Pause className="w-3 h-3 text-amber-600" />
-                              On Break
-                            </span>
-                          ) : isDone ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                              <Check className="w-3 h-3 text-slate-600" />
-                              Completed
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                              Not Punched
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
-                          <span className="font-semibold text-slate-800 text-[11px]">
-                            {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
-                          <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                            {rec ? formatSecondsToHMS(liveSecs) : '—'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* WFH and Device row */}
-                      <div className="flex items-center justify-between gap-2 pt-0.5">
-                        <div className="flex items-center gap-1.5">
-                          {isAdminUser ? (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleWFH(emp)}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                                isWfhActive
-                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
-                              }`}
-                            >
-                              {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold text-slate-500">
-                              {isWfhActive ? '🏡 WFH' : '🏢 Office'}
-                            </span>
-                          )}
-                        </div>
-
-                        {rec && (rec.checkInDevice || rec.checkInPhoto) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAuditModalRecord(rec);
-                              setAuditModalEmployee(emp);
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
-                          >
-                            <Camera className="w-3 h-3 text-slate-500" />
-                            <span>Audit Details</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Desktop Table View (Visible on >= md) */}
-              <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                <table className="w-full text-left text-xs min-w-[750px]">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
-                      <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
-                      <th className="py-2.5 px-4 font-medium">WORK FROM HOME (WFH)</th>
-                      <th className="py-2.5 px-4 font-medium">CHECK IN</th>
-                      <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
-                      <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
-                      <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
-                      <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
-                      <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+                </>
+              ) : (
+                <>
+                  {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
+                  <div className="md:hidden divide-y divide-slate-100">
                     {visibleEmployees.map((emp) => {
                       const rec = getEmpTodayRecord(emp);
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
@@ -1242,192 +1522,310 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
 
                       return (
-                        <tr
-                          key={emp.id}
-                          className="hover:bg-slate-50/70 transition-colors"
-                        >
-                          <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                              {emp.firstName?.[0] || 'E'}
+                        <div key={emp.id} className="p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                {emp.firstName?.[0] || 'E'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs text-slate-900 truncate">
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0">
+                              {isWorking ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Working
+                                </span>
+                              ) : isOnBreak ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                  <Pause className="w-3 h-3 text-amber-600" />
+                                  On Break
+                                </span>
+                              ) : isDone ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-slate-600" />
+                                  Completed
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                  Not Punched
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                              <span className="font-semibold text-slate-800 text-[11px]">
+                                {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
+                              </span>
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-900">
-                                {emp.firstName} {emp.lastName}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                              <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                              <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                              </span>
                             </div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                          <td className="py-3 px-4">
-                            {isAdminUser ? (
-                              <div className="flex items-center gap-2">
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              {isAdminUser ? (
                                 <button
                                   type="button"
-                                  role="switch"
-                                  id={`wfh-toggle-${emp.id}`}
-                                  aria-checked={isWfhActive}
                                   onClick={() => handleToggleWFH(emp)}
-                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                    isWfhActive ? 'bg-purple-600' : 'bg-slate-300'
-                                  }`}
-                                  title={
-                                    isWfhActive
-                                      ? 'WFH Active: Click to switch to Office Mode'
-                                      : 'Office Mode: Click to switch to WFH'
-                                  }
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
-                                      isWfhActive ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                                <span
-                                  className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
                                     isWfhActive
                                       ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                      : 'bg-slate-100 text-slate-600 border-slate-200'
                                   }`}
                                 >
-                                  {isWfhActive ? '🏡 WFH Active' : '🏢 Office'}
+                                  {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
+                                </button>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-500">
+                                  {isWfhActive ? '🏡 WFH' : '🏢 Office'}
                                 </span>
-                              </div>
-                            ) : (
-                              <span
-                                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                                  isWfhActive
-                                    ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                    : 'bg-slate-100 text-slate-500 border-slate-200'
-                                }`}
-                              >
-                                {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkIn ? (
-                              <div className="flex items-center gap-1.5">
-                                <span>{rec.checkIn}</span>
-                                {rec.checkInPhoto && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuditModalRecord(rec);
-                                      setAuditModalEmployee(emp);
-                                    }}
-                                    className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-colors cursor-pointer"
-                                    title="Click to view Check-In Selfie & Device Audit"
-                                  >
-                                    <Camera className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkOut ? (
-                              <div className="flex items-center gap-1.5">
-                                <span>{rec.checkOut}</span>
-                                {rec.checkOutPhoto && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuditModalRecord(rec);
-                                      setAuditModalEmployee(emp);
-                                    }}
-                                    className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-colors cursor-pointer"
-                                    title="Click to view Check-Out Selfie & Device Audit"
-                                  >
-                                    <Camera className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ) : isWorking ? (
-                              <span className="text-emerald-600 font-medium">Working...</span>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {rec ? (
+                              )}
+                            </div>
+
+                            {rec && (rec.checkInDevice || rec.checkInPhoto) && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setAuditModalRecord(rec);
                                   setAuditModalEmployee(emp);
                                 }}
-                                className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-black bg-white hover:bg-[#FFE600] text-slate-900 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-[2px_2px_0px_0px_#000]"
-                                title="View Employee Punch & Device Hardware Details"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
                               >
-                                {rec.checkInDevice?.os?.includes('Biometric') || rec.remarks?.includes('Biometric') ? (
-                                  <Fingerprint className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                ) : rec.checkInDevice?.deviceType === 'Mobile' ? (
-                                  <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                ) : rec.checkInDevice?.deviceType === 'Tablet' ? (
-                                  <Tablet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                                ) : (
-                                  <Laptop className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                )}
-                                <span className="truncate max-w-[110px]">
-                                  {rec.checkInDevice?.deviceModel || rec.checkInDevice?.os || 'Inspect Device'}
-                                </span>
-                                {rec.checkInPhoto && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Geotag Selfie Verified" />
-                                )}
+                                <Camera className="w-3 h-3 text-slate-500" />
+                                <span>Audit Details</span>
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">—</span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                            {rec ? (
-                              <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                {formatSecondsToHMS(liveSecs)}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-600">
-                            {breakSecs > 0 ? (
-                              <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                {formatSecondsToWords(breakSecs)}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">0s</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {isWorking ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Working
-                              </span>
-                            ) : isOnBreak ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                                <Pause className="w-3 h-3 text-amber-600" />
-                                On Break
-                              </span>
-                            ) : isDone ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                <Check className="w-3 h-3 text-slate-600" />
-                                Completed
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                                Not Punched
-                              </span>
-                            )}
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                    <table className="w-full text-left text-xs min-w-[750px]">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                          <th className="py-2.5 px-4 font-medium">WORK FROM HOME (WFH)</th>
+                          <th className="py-2.5 px-4 font-medium">CHECK IN</th>
+                          <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
+                          <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
+                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {visibleEmployees.map((emp) => {
+                          const rec = getEmpTodayRecord(emp);
+                          const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+                          const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+                          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                          const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+
+                          return (
+                            <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                  {emp.firstName?.[0] || 'E'}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-slate-900">
+                                    {emp.firstName} {emp.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
+                              <td className="py-3 px-4">
+                                {isAdminUser ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      id={`wfh-toggle-${emp.id}`}
+                                      aria-checked={isWfhActive}
+                                      onClick={() => handleToggleWFH(emp)}
+                                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                        isWfhActive ? 'bg-purple-600' : 'bg-slate-300'
+                                      }`}
+                                      title={
+                                        isWfhActive
+                                          ? 'WFH Active: Click to switch to Office Mode'
+                                          : 'Office Mode: Click to switch to WFH'
+                                      }
+                                    >
+                                      <span
+                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                                          isWfhActive ? 'translate-x-4' : 'translate-x-0'
+                                        }`}
+                                      />
+                                    </button>
+                                    <span
+                                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${
+                                        isWfhActive
+                                          ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                          : 'bg-slate-100 text-slate-500 border-slate-200'
+                                      }`}
+                                    >
+                                      {isWfhActive ? '🏡 WFH Active' : '🏢 Office'}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                                      isWfhActive
+                                        ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                        : 'bg-slate-100 text-slate-500 border-slate-200'
+                                    }`}
+                                  >
+                                    {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-700">
+                                {rec?.checkIn ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span>{rec.checkIn}</span>
+                                    {rec.checkInPhoto && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setAuditModalRecord(rec);
+                                          setAuditModalEmployee(emp);
+                                        }}
+                                        className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-colors cursor-pointer"
+                                        title="Click to view Check-In Selfie & Device Audit"
+                                      >
+                                        <Camera className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-700">
+                                {rec?.checkOut ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span>{rec.checkOut}</span>
+                                    {rec.checkOutPhoto && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setAuditModalRecord(rec);
+                                          setAuditModalEmployee(emp);
+                                        }}
+                                        className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-colors cursor-pointer"
+                                        title="Click to view Check-Out Selfie & Device Audit"
+                                      >
+                                        <Camera className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : isWorking ? (
+                                  <span className="text-emerald-600 font-medium">Working...</span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                {rec ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAuditModalRecord(rec);
+                                      setAuditModalEmployee(emp);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-black bg-white hover:bg-[#FFE600] text-slate-900 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-[2px_2px_0px_0px_#000]"
+                                    title="View Employee Punch & Device Hardware Details"
+                                  >
+                                    {rec.checkInDevice?.os?.includes('Biometric') || rec.remarks?.includes('Biometric') ? (
+                                      <Fingerprint className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    ) : rec.checkInDevice?.deviceType === 'Mobile' ? (
+                                      <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    ) : rec.checkInDevice?.deviceType === 'Tablet' ? (
+                                      <Tablet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    ) : (
+                                      <Laptop className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                    )}
+                                    <span className="truncate max-w-[110px]">
+                                      {rec.checkInDevice?.deviceModel || rec.checkInDevice?.os || 'Inspect Device'}
+                                    </span>
+                                    {rec.checkInPhoto && (
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Geotag Selfie Verified" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                {rec ? (
+                                  <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                                    {formatSecondsToHMS(liveSecs)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-600">
+                                {breakSecs > 0 ? (
+                                  <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                    {formatSecondsToWords(breakSecs)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">0s</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                {isWorking ? (
+                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Working
+                                  </span>
+                                ) : isOnBreak ? (
+                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                    <Pause className="w-3 h-3 text-amber-600" />
+                                    On Break
+                                  </span>
+                                ) : isDone ? (
+                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                    <Check className="w-3 h-3 text-slate-600" />
+                                    Completed
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                    Not Punched
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}            </div>
           </div>
         );
       })()}
