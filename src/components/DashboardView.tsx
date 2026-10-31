@@ -524,38 +524,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-5 pb-12 w-full max-w-full overflow-hidden">
-      {/* Welcome & Section Head */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#d8ebd9]">
-        <div>
-          <div className="text-xs text-[#4e6a5d] font-medium">
-            {currentDateString} &bull; {portalMode === 'admin' ? 'Admin workspace' : 'Employee workspace'}
+      {/* Welcome & Section Head (Admin Only) */}
+      {portalMode === 'admin' && (
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#d8ebd9]">
+          <div>
+            <div className="text-xs text-[#4e6a5d] font-medium">
+              {currentDateString} &bull; Admin workspace
+            </div>
+            <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
+              hello, {user.firstName || 'Admin'}! 👋
+            </h1>
+            <div className="text-xs text-[#4e6a5d] mt-0.5">
+              Here&apos;s what&apos;s happening across your workspace today.
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
-            hello, {user.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee')}! 👋
-          </h1>
-          <div className="text-xs text-[#4e6a5d] mt-0.5">
-            Here&apos;s what&apos;s happening across your workspace today.
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {portalMode === 'admin' ? (
+          <div className="flex items-center gap-2">
             <button
               onClick={() => onNavigateModule('announcements')}
               className="btn-primary"
             >
               ＋ View announcements
             </button>
-          ) : (
-            <button
-              onClick={onOpenLeaveModal}
-              className="btn-primary"
-            >
-              ＋ Apply for leave
-            </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {portalMode === 'admin' ? (
         /* ============================================================== */
