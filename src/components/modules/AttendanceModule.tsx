@@ -35,6 +35,9 @@ import {
   TrendingUp,
   LayoutGrid,
   FileSpreadsheet,
+  Play,
+  Square,
+  RotateCcw,
 } from 'lucide-react';
 import { PunchVerificationModal } from '../modals/PunchVerificationModal';
 import { BiometricHubModal } from '../modals/BiometricHubModal';
@@ -47,6 +50,10 @@ import {
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
+  performCheckIn,
+  performTakeBreak,
+  performResumeWork,
+  performCheckOut,
 } from '../../lib/attendanceService';
 import {
   getEmployeeWFHMap,
@@ -57,6 +64,7 @@ import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
+import { ModernDigitClock } from '../common/ModernDigitClock';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -184,6 +192,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [selectedYear, setSelectedYear] = useState('2026');
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+  const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
+  const [liveBreakWords, setLiveBreakWords] = useState('0s');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [summaryViewMode, setSummaryViewMode] = useState<'cards' | 'grid'>('cards');
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'logs' | 'matrix'>('logs');
@@ -441,22 +453,127 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   useEffect(() => {
-    if (records && Array.isArray(records)) {
-      setLiveRecords(records);
-    }
-  }, [records]);
+    const tick = () => {
+      setNowTick(Date.now());
+      const all = getAllAttendanceRecords();
+      setLiveRecords(all.length > 0 ? all : (records || []));
 
-  useEffect(() => {
-    const update = () => {
-      setLiveRecords(getAllAttendanceRecords());
+      const myRec = getEmpTodayRecord(selfEmployee);
+      if (myRec) {
+        const active = getLiveActiveSeconds(myRec);
+        const brk = getLiveBreakSeconds(myRec);
+        setLiveWorkedHMS(formatSecondsToHMS(active));
+        setLiveBreakWords(formatSecondsToWords(brk));
+      } else {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+      }
     };
-    update();
-    const handleUpdate = () => update();
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    const handleUpdate = () => tick();
     window.addEventListener('hrms_attendance_updated', handleUpdate);
+
     return () => {
+      clearInterval(interval);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
-  }, []);
+  }, [selfEmployee, records]);
+
+  const handleCheckInAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.checkIn(
+        selfEmployee.id || myEmpId,
+        'Morning shift clock-in',
+        {
+          firstName: selfEmployee.firstName,
+          lastName: selfEmployee.lastName,
+          employeeCode: selfEmployee.employeeCode,
+          email: selfEmployee.email,
+        }
+      );
+      if (!res.success) {
+        showToast({ title: 'Check In', message: res.message || 'Check-in failed.', type: 'error' });
+      } else {
+        performCheckIn({
+          id: selfEmployee.id || myEmpId,
+          firstName: selfEmployee.firstName,
+          lastName: selfEmployee.lastName,
+          employeeCode: selfEmployee.employeeCode,
+          remarks: 'Morning shift clock-in',
+        });
+        showToast({ title: 'Shift Started', message: 'Checked in successfully! Work timer has started.', type: 'success' });
+        onRefresh();
+      }
+    } catch (err: any) {
+      showToast({ title: 'Check In Failed', message: err.message || 'Unable to check in.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTakeBreakAction = () => {
+    setActionLoading(true);
+    try {
+      const res = performTakeBreak(selfEmployee.id || myEmpId);
+      if (!res.success) {
+        showToast({ title: 'Break Error', message: res.message, type: 'warning' });
+      } else {
+        showToast({ title: 'Break Started', message: 'Work timer paused! Enjoy your break.', type: 'info' });
+        onRefresh();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResumeWorkAction = () => {
+    setActionLoading(true);
+    try {
+      const res = performResumeWork(selfEmployee.id || myEmpId);
+      if (!res.success) {
+        showToast({ title: 'Resume Error', message: res.message, type: 'warning' });
+      } else {
+        showToast({ title: 'Work Resumed', message: 'Work timer resumed and counting!', type: 'success' });
+        onRefresh();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCheckOutAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.checkOut(
+        selfEmployee.id || myEmpId,
+        'Evening clock-out',
+        {
+          employeeCode: selfEmployee.employeeCode,
+          email: selfEmployee.email,
+        }
+      );
+      if (!res.success) {
+        showToast({ title: 'Check Out', message: res.message || 'Check-out failed.', type: 'error' });
+      } else {
+        const outRes = performCheckOut(selfEmployee.id || myEmpId, {
+          remarks: 'Evening clock-out',
+        });
+        showToast({
+          title: 'Shift Checked Out',
+          message: outRes.message || 'Check-out complete! Final day hours calculated.',
+          type: 'success',
+        });
+        onRefresh();
+      }
+    } catch (err: any) {
+      showToast({ title: 'Check Out Failed', message: err.message || 'Unable to check out.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (initialTab) {
@@ -670,57 +787,233 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
         return (
           <div className="space-y-4">
-            {/* KPI Metrics */}
-            {isEmployeeView ? (
-              (() => {
-                const selfEmp = visibleEmployees[0] || selfEmployee;
-                const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
-                const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
-                const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                const isDone = rec && rec.isCompleted;
-                const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+            {/* DAILY ATTENDANCE CHRONOMETER & COUNTING CONSOLE */}
+            {(() => {
+              const selfEmp = visibleEmployees[0] || selfEmployee;
+              const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
+              const isWorking = Boolean(rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut);
+              const isOnBreak = Boolean(rec && !rec.isCompleted && rec.isOnBreak);
+              const isDone = Boolean(rec && (rec.isCompleted || Boolean(rec.checkOut)));
+              const hasNotStarted = Boolean(!rec || (!rec.checkIn && !isWorking && !isOnBreak && !isDone));
 
-                return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">My Punch Status</span>
-                      <p className="text-xl font-bold text-slate-900 mt-1">
-                        {isDone ? 'Completed' : isWorking ? 'Working' : isOnBreak ? 'On Break' : 'Not Punched'}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{rec?.checkIn ? `In: ${rec.checkIn}` : 'No punch today'}</p>
+              const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+              const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+              const workedHoursNum = Number((liveSecs / 3600).toFixed(2));
+              const targetHours = 9.0;
+              const progressPct = Math.min(100, Math.round((workedHoursNum / targetHours) * 100));
+              const overtimeHours = workedHoursNum > 8.0 ? Number((workedHoursNum - 8.0).toFixed(2)) : 0;
+
+              return (
+                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 overflow-hidden relative">
+                  <div
+                    className={`h-1.5 w-full absolute top-0 left-0 ${
+                      isWorking
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                        : isOnBreak
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-400'
+                        : isDone
+                        ? 'bg-gradient-to-r from-slate-600 to-emerald-600'
+                        : 'bg-gradient-to-r from-slate-300 to-slate-200'
+                    }`}
+                  />
+
+                  <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
+                    {/* Left: Modern Chronometer Timer & Punch Actions */}
+                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                      <div className="w-full sm:w-auto flex justify-center">
+                        <ModernDigitClock
+                          timeString={hasNotStarted ? '00:00:00' : liveWorkedHMS}
+                          size="lg"
+                          variant={isWorking ? 'emerald' : isOnBreak ? 'amber' : 'light'}
+                          showSweepRing={isWorking}
+                          label={
+                            isWorking
+                              ? 'Active Shift Timer (Running)'
+                              : isOnBreak
+                              ? 'Work Timer Paused (On Break)'
+                              : isDone
+                              ? 'Shift Finalized (Timer Stopped)'
+                              : 'Shift Chronometer'
+                          }
+                          subText={
+                            isWorking
+                              ? `Clocked in at ${rec?.checkIn} • Live Work Chronometer`
+                              : isOnBreak
+                              ? `Break duration: ${liveBreakWords}`
+                              : isDone
+                              ? `Finalized: ${liveWorkedHMS} total worked`
+                              : 'Ready to punch check-in'
+                          }
+                        />
+                      </div>
+
+                      {/* Interactive Buttons */}
+                      <div className="flex flex-col gap-2 w-full sm:w-52">
+                        {hasNotStarted && (
+                          <button
+                            id="btn-att-check-in-now"
+                            onClick={handleCheckInAction}
+                            disabled={actionLoading}
+                            className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>{actionLoading ? 'Starting...' : 'Check In (Start Timer)'}</span>
+                          </button>
+                        )}
+
+                        {isWorking && (
+                          <>
+                            <button
+                              id="btn-att-take-break"
+                              onClick={handleTakeBreakAction}
+                              disabled={actionLoading}
+                              className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-300 active:scale-95 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Take Break (Pause)</span>
+                            </button>
+                            <button
+                              id="btn-att-check-out"
+                              onClick={handleCheckOutAction}
+                              disabled={actionLoading}
+                              className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                              <span>Check Out (Stop Timer)</span>
+                            </button>
+                          </>
+                        )}
+
+                        {isOnBreak && (
+                          <>
+                            <button
+                              id="btn-att-resume-work"
+                              onClick={handleResumeWorkAction}
+                              disabled={actionLoading}
+                              className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              <Play className="w-4 h-4 fill-current shrink-0" />
+                              <span>Resume Work</span>
+                            </button>
+                            <button
+                              id="btn-att-check-out-from-break"
+                              onClick={handleCheckOutAction}
+                              disabled={actionLoading}
+                              className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                              <span>Check Out (End Day)</span>
+                            </button>
+                          </>
+                        )}
+
+                        {isDone && (
+                          <button
+                            id="btn-att-check-in-again"
+                            onClick={handleCheckInAction}
+                            disabled={actionLoading}
+                            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Check In Again (New Session)</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Working Timer</span>
-                      <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
-                        {isWorking && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
-                        {rec ? formatSecondsToHMS(liveSecs) : '00:00:00'}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{isWorking ? 'Timer active' : 'Logged hours'}</p>
-                    </div>
+                    {/* Right: End-of-Day Calculation & Cumulative Summary */}
+                    <div className="flex-1 border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                          Today's Full Day Time Calculation
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Corporate Shift Target: 9.0h
+                        </span>
+                      </div>
 
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Break Interval</span>
-                      <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
-                        <Pause className="w-3.5 h-3.5 text-amber-600" />
-                        {formatSecondsToWords(breakSecs)}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{isOnBreak ? 'Currently paused' : 'Total break taken'}</p>
-                    </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Worked Today</span>
+                          <span className="font-mono font-bold text-slate-900 text-sm">
+                            {hasNotStarted ? '0h 0m' : formatSecondsToWords(liveSecs)}
+                          </span>
+                        </div>
 
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Assigned Shift</span>
-                      <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-600" />
-                        09:00 - 18:00
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Corporate Standard</p>
+                        <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-100">
+                          <span className="text-[10px] text-amber-700 font-bold uppercase block">Total Break Taken</span>
+                          <span className="font-mono font-bold text-amber-900 text-sm">
+                            {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                          <span className="text-[10px] text-emerald-700 font-bold uppercase block">First In → Latest Out</span>
+                          <span className="font-mono font-bold text-emerald-900 text-xs">
+                            {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Day Status</span>
+                          <span className="font-bold text-xs">
+                            {isWorking ? (
+                              <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Working
+                              </span>
+                            ) : isOnBreak ? (
+                              <span className="text-amber-600 font-bold flex items-center gap-1">
+                                <Pause className="w-3 h-3" />
+                                On Break
+                              </span>
+                            ) : isDone ? (
+                              <span className="text-slate-700 font-bold flex items-center gap-1">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                Completed
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Not Punched</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Shift Completion Progress Bar */}
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-1 font-semibold">
+                          <span className="text-slate-600">Shift Completion</span>
+                          <span className="font-mono font-bold text-slate-900">
+                            {workedHoursNum}h / 9.0h ({progressPct}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              progressPct >= 100
+                                ? 'bg-emerald-500'
+                                : progressPct >= 50
+                                ? 'bg-emerald-600'
+                                : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                        {overtimeHours > 0 && (
+                          <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                            🎉 Overtime logged today: +{overtimeHours} Hours
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                );
-              })()
-            ) : (
+                </div>
+              );
+            })()}
+
+            {/* KPI Metrics for Admin */}
+            {!isEmployeeView && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
