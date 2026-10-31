@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Building2,
@@ -64,6 +64,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
   // FAQ accordion state
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
+  const handleNavClick = (sectionId: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleDemoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,13 +143,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
-            <a href="#features" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Features</a>
-            <a href="#how-it-works" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">How It Works</a>
-            <a href="#impact" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Impact</a>
-            <a href="#pricing" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Pricing</a>
-            <a href="#testimonials" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Testimonials</a>
-            <a href="#faq" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">FAQ</a>
-            <a href="#contact" className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all">Contact</a>
+            <a href="#features" onClick={handleNavClick('features')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">Features</a>
+            <a href="#how-it-works" onClick={handleNavClick('how-it-works')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">How It Works</a>
+            <a href="#impact" onClick={handleNavClick('impact')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">Impact</a>
+            <a href="#pricing" onClick={handleNavClick('pricing')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">Pricing</a>
+            <a href="#testimonials" onClick={handleNavClick('testimonials')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">Testimonials</a>
+            <a href="#faq" onClick={handleNavClick('faq')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">FAQ</a>
+            <a href="#contact" onClick={handleNavClick('contact')} className="px-3 py-1.5 rounded-xl hover:text-[#059669] hover:bg-emerald-50/70 transition-all cursor-pointer">Contact</a>
           </nav>
 
           {/* Action CTAs */}
@@ -1235,12 +1249,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-semibold uppercase tracking-wider text-xs text-emerald-200/80">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-              <a href="#impact" className="hover:text-white transition-colors">Impact</a>
-              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
-              <a href="#contact" className="hover:text-white transition-colors">Contact</a>
+              <a href="#features" onClick={handleNavClick('features')} className="hover:text-white transition-colors cursor-pointer">Features</a>
+              <a href="#how-it-works" onClick={handleNavClick('how-it-works')} className="hover:text-white transition-colors cursor-pointer">How It Works</a>
+              <a href="#impact" onClick={handleNavClick('impact')} className="hover:text-white transition-colors cursor-pointer">Impact</a>
+              <a href="#pricing" onClick={handleNavClick('pricing')} className="hover:text-white transition-colors cursor-pointer">Pricing</a>
+              <a href="#testimonials" onClick={handleNavClick('testimonials')} className="hover:text-white transition-colors cursor-pointer">Testimonials</a>
+              <a href="#contact" onClick={handleNavClick('contact')} className="hover:text-white transition-colors cursor-pointer">Contact</a>
               <Link href="/login" onClick={onOpenLogin} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-colors cursor-pointer">
                 Portal Sign In
               </Link>

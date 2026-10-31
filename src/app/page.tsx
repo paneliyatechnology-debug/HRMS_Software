@@ -66,20 +66,32 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
+      const rawHash = window.location.hash ? window.location.hash.replace(/^#/, '').trim() : '';
+
+      if (urlParams.get('login') === 'true' || rawHash === 'login') {
         router.push('/login');
         return;
       }
-      const mod = urlParams.get('module') || (window.location.hash ? window.location.hash.replace('#', '') : '');
+
+      const mod = urlParams.get('module') || (rawHash && rawHash !== 'login' ? rawHash : '');
       if (mod) {
         setActiveModule(mod);
       }
-      const handleHashChange = () => {
-        const h = window.location.hash.replace('#', '');
-        if (h) setActiveModule(h);
+
+      // If URL contains any '#' hash, cleanly strip it from the address bar immediately
+      if (window.location.hash) {
+        const cleanPath = mod && mod !== 'dashboard' ? `/?module=${encodeURIComponent(mod)}` : '/';
+        window.history.replaceState({ module: mod || 'dashboard' }, '', cleanPath);
+      }
+
+      const handlePopState = (e: PopStateEvent) => {
+        const params = new URLSearchParams(window.location.search);
+        const currentMod = params.get('module') || e.state?.module || 'dashboard';
+        setActiveModule(currentMod);
       };
-      window.addEventListener('hashchange', handleHashChange);
-      return () => window.removeEventListener('hashchange', handleHashChange);
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
     }
   }, [router]);
 
@@ -342,7 +354,8 @@ export default function Home() {
     setActiveModule(mod);
     if (typeof window !== 'undefined') {
       try {
-        window.location.hash = mod;
+        const nextUrl = mod && mod !== 'dashboard' ? `/?module=${encodeURIComponent(mod)}` : '/';
+        window.history.pushState({ module: mod }, '', nextUrl);
       } catch (e) {}
     }
   };
