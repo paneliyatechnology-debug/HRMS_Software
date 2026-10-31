@@ -349,17 +349,17 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
                     {/* Gross Earnings */}
                     <td className="py-3.5 px-4 font-bold text-slate-800">
-                      ₹{rec.grossSalary.toLocaleString('en-IN')}
+                      ₹{(Number(rec.grossSalary) || 0).toLocaleString('en-IN')}
                     </td>
 
                     {/* Deductions */}
                     <td className="py-3.5 px-4 text-rose-600 font-bold">
-                      -₹{rec.totalDeductions.toLocaleString('en-IN')}
+                      -₹{(Number(rec.totalDeductions) || 0).toLocaleString('en-IN')}
                     </td>
 
                     {/* Net Take-Home */}
                     <td className="py-3.5 px-4 font-black text-emerald-600 text-sm">
-                      ₹{rec.netSalary.toLocaleString('en-IN')}
+                      ₹{(Number(rec.netSalary) || 0).toLocaleString('en-IN')}
                     </td>
 
                     {/* Payment Status */}
@@ -529,27 +529,27 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                   <div className="p-3 text-xs space-y-2">
                     <div className="flex justify-between text-slate-700">
                       <span>Basic Salary</span>
-                      <span className="font-bold">₹{selectedPayslip.basicSalary.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.basicSalary) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
                       <span>House Rent Allowance (HRA)</span>
-                      <span className="font-bold">₹{selectedPayslip.hra.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.hra) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
                       <span>Special / Conveyance Allowance</span>
-                      <span className="font-bold">₹{selectedPayslip.allowances.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.allowances) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     {selectedPayslip.bonus > 0 && (
                       <div className="flex justify-between text-slate-700">
                         <span>Performance Bonus / Incentive</span>
-                        <span className="font-bold text-emerald-600">+₹{selectedPayslip.bonus.toLocaleString('en-IN')}</span>
+                        <span className="font-bold text-emerald-600">+₹{(Number(selectedPayslip.bonus) || 0).toLocaleString('en-IN')}</span>
                       </div>
                     )}
                   </div>
                   <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-between items-center text-xs font-black text-slate-900">
                     <span>Total Gross Earnings:</span>
                     <span className="text-sm font-black text-slate-900">
-                      ₹{selectedPayslip.grossSalary.toLocaleString('en-IN')}
+                      ₹{(Number(selectedPayslip.grossSalary) || 0).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -563,27 +563,27 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                   <div className="p-3 text-xs space-y-2">
                     <div className="flex justify-between text-slate-700">
                       <span>Provident Fund (EPF Employee Share)</span>
-                      <span className="font-bold">₹{selectedPayslip.pfDeduction.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.pfDeduction) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
                       <span>Tax Deducted at Source (TDS)</span>
-                      <span className="font-bold">₹{selectedPayslip.taxDeduction.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.taxDeduction) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between text-slate-700">
                       <span>Professional Tax (PT)</span>
-                      <span className="font-bold">₹{selectedPayslip.professionalTax.toLocaleString('en-IN')}</span>
+                      <span className="font-bold">₹{(Number(selectedPayslip.professionalTax) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     {selectedPayslip.otherDeductions > 0 && (
                       <div className="flex justify-between text-slate-700">
                         <span>Other Deductions</span>
-                        <span className="font-bold">₹{selectedPayslip.otherDeductions.toLocaleString('en-IN')}</span>
+                        <span className="font-bold">₹{(Number(selectedPayslip.otherDeductions) || 0).toLocaleString('en-IN')}</span>
                       </div>
                     )}
                   </div>
                   <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-between items-center text-xs font-black text-slate-900">
                     <span>Total Deductions:</span>
                     <span className="text-sm font-black text-rose-600">
-                      -₹{selectedPayslip.totalDeductions.toLocaleString('en-IN')}
+                      -₹{(Number(selectedPayslip.totalDeductions) || 0).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -602,7 +602,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
                 <div className="text-left sm:text-right">
                   <p className="text-2xl sm:text-3xl font-black text-indigo-700">
-                    ₹{selectedPayslip.netSalary.toLocaleString('en-IN')}
+                    ₹{(Number(selectedPayslip.netSalary) || 0).toLocaleString('en-IN')}
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
                     ● Disbursed to Bank
