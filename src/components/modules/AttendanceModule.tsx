@@ -796,9 +796,30 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </div>
                 <button
                   onClick={onOpenPunchModal}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors"
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
+                    myIsWorking || myIsOnBreak
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : myIsDone
+                      ? 'bg-slate-700 hover:bg-slate-800 text-slate-200'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
                 >
-                  Clock In / Out
+                  {myIsWorking || myIsOnBreak ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <span>Check Out</span>
+                    </>
+                  ) : myIsDone ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Checked Out</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Check In</span>
+                    </>
+                  )}
                 </button>
               </div>
 
