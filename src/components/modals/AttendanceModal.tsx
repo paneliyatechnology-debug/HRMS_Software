@@ -20,6 +20,8 @@ import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
   checkEmployeePunchEligibility,
+  performCheckIn,
+  performCheckOut,
   performTakeBreak,
   performResumeWork,
   formatSecondsToHMS,
@@ -461,7 +463,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       };
 
       if (selfieMode === 'check_in') {
-        const fullRemarks = remarks || 'Morning shift clock-in';
+        const fullRemarks = remarks || 'Shift check-in';
 
         const res = await api.checkIn(
           currentEmpId,
@@ -479,6 +481,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         if (!res.success) {
           alert(res.message);
         } else {
+          performCheckIn(
+            {
+              id: currentEmpId,
+              firstName: user.firstName || 'Employee',
+              lastName: user.lastName || '',
+              employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
+              companyId: userCompanyId,
+              remarks: fullRemarks,
+            },
+            geoData
+          );
           const eligibility = checkEmployeePunchEligibility(currentEmpId);
           setPunchState(eligibility);
           onRefresh();
@@ -486,7 +499,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           setCapturedPhoto(null);
         }
       } else if (selfieMode === 'check_out') {
-        const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
+        const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Shift check-out';
         await api.checkOut(
           currentEmpId,
           fullRemarks,
@@ -496,6 +509,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           },
           geoData
         );
+
+        performCheckOut(currentEmpId, {
+          photo: capturedPhoto,
+          device: detectedDevice,
+          remarks: fullRemarks,
+        });
 
         const eligibility = checkEmployeePunchEligibility(currentEmpId);
         setPunchState(eligibility);
@@ -815,30 +834,69 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             )}
 
             {/* Punch Status info */}
-            <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-              <div className="p-3 rounded-none bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked In</span>
-                <span className="font-semibold text-slate-800 text-sm">
+            <div className="grid grid-cols-2 gap-2.5 mb-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">First In</span>
+                <span className="font-semibold text-slate-800 text-xs">
                   {punchState.record?.checkIn || 'Not punched'}
                 </span>
                 {punchState.record?.checkInPhoto && (
-                  <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-none border border-emerald-200">
-                    <Camera className="w-3 h-3" /> Selfie Verified
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    <Camera className="w-2.5 h-2.5" /> Selfie Verified
                   </span>
                 )}
               </div>
-              <div className="p-3 rounded-none bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked Out</span>
-                <span className="font-semibold text-slate-800 text-sm">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Latest Out</span>
+                <span className="font-semibold text-slate-800 text-xs">
                   {punchState.record?.checkOut || (punchState.status === 'working' ? 'In Progress' : '—')}
                 </span>
                 {punchState.record?.checkOutPhoto && (
-                  <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-none border border-rose-200">
-                    <Camera className="w-3 h-3" /> Selfie Verified
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                    <Camera className="w-2.5 h-2.5" /> Selfie Verified
                   </span>
                 )}
               </div>
             </div>
+
+            {/* Total Worked & Total Break Metrics Bar */}
+            {punchState.record && (
+              <div className="grid grid-cols-2 gap-2.5 mb-3 text-xs">
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                  <span className="text-emerald-700 block text-[10px] uppercase font-bold tracking-wider">Total Worked Today</span>
+                  <span className="font-mono font-bold text-emerald-900 text-sm">
+                    {liveWorkedHMS}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                  <span className="text-amber-700 block text-[10px] uppercase font-bold tracking-wider">Total Break Time</span>
+                  <span className="font-mono font-bold text-amber-900 text-sm">
+                    {liveBreakWords}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Today's Punch History Timeline (Multi-punch sessions) */}
+            {punchState.record?.punches && punchState.record.punches.length > 1 && (
+              <div className="mb-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1.5">
+                  Today's Punches ({punchState.record.punches.length} recorded)
+                </span>
+                <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  {punchState.record.punches.map((p, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-slate-100">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Check In' : 'Check Out'}</span>
+                        {p.remarks && <span className="text-slate-400 text-[10px] truncate max-w-[120px]">({p.remarks})</span>}
+                      </div>
+                      <span className="font-mono text-slate-600 font-semibold text-[11px] shrink-0">{p.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="space-y-2">
@@ -919,14 +977,37 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {punchState.status === 'completed' && (
-                <div className="p-3 rounded-none bg-slate-100 border border-slate-200 text-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-                  <p className="text-xs font-semibold text-slate-800">
-                    Attendance Completed for Today!
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Next check-in available tomorrow
-                  </p>
+                <div className="space-y-2.5 mb-2">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                    <p className="text-xs font-semibold text-slate-800">
+                      Currently Checked Out
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      You can check in again anytime to start another work session.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500 mb-1 block">
+                      Remarks / Next Shift Note
+                    </label>
+                    <input
+                      type="text"
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Post-break / afternoon session check-in"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleInitiateCheckIn}
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Take Selfie &amp; Check In Again</span>
+                  </button>
                 </div>
               )}
 

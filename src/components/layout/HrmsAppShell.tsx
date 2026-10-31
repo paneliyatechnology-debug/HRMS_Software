@@ -33,7 +33,7 @@ import { GlobalSearchModal } from '../modals/GlobalSearchModal';
 import { MobileConnectModal } from '../modals/MobileConnectModal';
 import { MobileBottomNav } from '../common/MobileBottomNav';
 import { WavyBackground } from '../common/WavyBackground';
-import { checkEmployeePunchEligibility } from '../../lib/attendanceService';
+import { checkEmployeePunchEligibility, setLiveAttendanceRecords } from '../../lib/attendanceService';
 import { setLiveEmployees } from '../../lib/employeeService';
 import { setLiveLeaves } from '../../lib/leaveService';
 import { purgeLocalBusinessData } from '../../lib/storageCleanup';
@@ -283,6 +283,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
       );
       setAttendance(scopedAttendance);
+      setLiveAttendanceRecords(scopedAttendance);
 
       // Scope Payroll to this company only
       const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
@@ -628,3 +629,4 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     </div>
   );
 }
+

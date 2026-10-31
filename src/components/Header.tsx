@@ -203,15 +203,13 @@ export const Header: React.FC<HeaderProps> = ({
           className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
             punchStatus === 'working' || punchStatus === 'on_break'
               ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-              : punchStatus === 'completed'
-              ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
               : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
           }`}
           title={
             punchStatus === 'working' || punchStatus === 'on_break'
               ? 'Currently checked in. Click to Check Out'
               : punchStatus === 'completed'
-              ? 'Shift completed for today. Click to inspect punches'
+              ? 'Previous session checked out. Click to Check In again'
               : 'Click to Check In for today'
           }
         >
@@ -222,8 +220,8 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           ) : punchStatus === 'completed' ? (
             <>
-              <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span>Checked Out</span>
+              <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+              <span>Check In Again</span>
             </>
           ) : (
             <>

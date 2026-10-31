@@ -180,6 +180,18 @@ export interface Employee {
   updatedAt: string;
 }
 
+export interface AttendancePunchLog {
+  id?: string;
+  type: 'IN' | 'OUT';
+  time: string;
+  timestamp: number;
+  photo?: string;
+  device?: DevicePunchInfo;
+  remarks?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
@@ -202,6 +214,8 @@ export interface AttendanceRecord {
   isCompleted?: boolean;
   lastActiveTimestamp?: number;
   lastBreakTimestamp?: number;
+  lastCheckOutTimestamp?: number;
+  punches?: AttendancePunchLog[];
   checkInLatitude?: number;
   checkInLongitude?: number;
   checkInAccuracy?: number;

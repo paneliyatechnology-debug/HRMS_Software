@@ -1,4 +1,4 @@
-import { AttendanceRecord, Employee, DevicePunchInfo } from '../types/hrms';
+import { AttendanceRecord, Employee, DevicePunchInfo, AttendancePunchLog } from '../types/hrms';
 import { detectUserDevice } from './deviceDetector';
 import { verifyShiftTimeWindow } from './shiftScheduleService';
 
@@ -57,11 +57,11 @@ export function formatSecondsToWords(totalSecs: number): string {
 }
 
 /**
- * Computes live active worked seconds for a record
+ * Computes live active worked seconds for a record across all sessions today
  */
 export function getLiveActiveSeconds(record: AttendanceRecord): number {
   let active = record.activeSeconds || 0;
-  if (!record.isCompleted && !record.isOnBreak && record.lastActiveTimestamp) {
+  if (!record.isCompleted && !record.checkOut && !record.isOnBreak && record.lastActiveTimestamp) {
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastActiveTimestamp) / 1000));
     active += elapsed;
   }
@@ -69,13 +69,17 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
 }
 
 /**
- * Computes live break seconds for a record
+ * Computes live break seconds for a record (explicit breaks + gap while checked out)
  */
 export function getLiveBreakSeconds(record: AttendanceRecord): number {
   let brk = record.breakSeconds || 0;
-  if (!record.isCompleted && record.isOnBreak && record.lastBreakTimestamp) {
+  if (!record.isCompleted && !record.checkOut && record.isOnBreak && record.lastBreakTimestamp) {
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastBreakTimestamp) / 1000));
     brk += elapsed;
+  } else if ((record.isCompleted || record.checkOut) && record.lastCheckOutTimestamp) {
+    // Gap time between check-out and next check-in counts towards break time
+    const elapsedGap = Math.max(0, Math.floor((Date.now() - record.lastCheckOutTimestamp) / 1000));
+    brk += elapsedGap;
   }
   return brk;
 }
@@ -117,7 +121,7 @@ export function getTodayRecordForEmployee(employeeId: string): AttendanceRecord 
 }
 
 /**
- * Check if the employee can check in today
+ * Check if the employee can check in today (Supports Multiple Punches in a Day)
  */
 export function checkEmployeePunchEligibility(employeeId: string): {
   canCheckIn: boolean;
@@ -149,15 +153,7 @@ export function checkEmployeePunchEligibility(employeeId: string): {
     };
   }
 
-  if (record.isCompleted || record.checkOut) {
-    return {
-      canCheckIn: false,
-      status: 'completed',
-      message: 'Today’s attendance is completed. You can check in again tomorrow.',
-      record,
-    };
-  }
-
+  // If currently paused on break
   if (record.isOnBreak) {
     return {
       canCheckIn: false,
@@ -167,17 +163,28 @@ export function checkEmployeePunchEligibility(employeeId: string): {
     };
   }
 
+  // If currently clocked in and working (not checked out)
+  if (!record.isCompleted && !record.checkOut) {
+    return {
+      canCheckIn: false,
+      status: 'working',
+      message: 'You are currently clocked in and working. Timer is running.',
+      record,
+    };
+  }
+
+  // Multiple Punches: Employee has previously checked out today!
+  // They are allowed to Check In again anytime for their next work session.
   return {
-    canCheckIn: false,
-    status: 'working',
-    message: 'You are currently clocked in and working. Timer is running.',
+    canCheckIn: true,
+    status: 'completed',
+    message: 'Previous session checked out. Click Check In to start your next session.',
     record,
   };
 }
 
 /**
- * Action: Check In
- * Allowed ONLY ONCE per calendar day within designated shift window!
+ * Action: Check In (Supports Multiple Punches per Day)
  */
 export function performCheckIn(
   employee: {
@@ -230,7 +237,61 @@ export function performCheckIn(
   });
 
   const device = geoData?.device || detectUserDevice();
+  const all = getAllAttendanceRecords();
+  const existingIdx = all.findIndex(
+    (r) =>
+      r.date === today &&
+      (r.employeeId === employee.id || r.employeeId.toLowerCase() === employee.id.toLowerCase())
+  );
 
+  const punchItem: AttendancePunchLog = {
+    id: `p-${Date.now()}`,
+    type: 'IN',
+    time: timeStr,
+    timestamp: now.getTime(),
+    photo: geoData?.photo,
+    device,
+    remarks: employee.remarks || 'Check-in',
+    latitude: geoData?.latitude,
+    longitude: geoData?.longitude,
+  };
+
+  if (existingIdx !== -1) {
+    // Re-check-in: Resume / start next work session for today
+    const record = all[existingIdx];
+
+    // Automatically count gap between previous check-out and this check-in towards break time
+    if (record.lastCheckOutTimestamp) {
+      const gapSecs = Math.max(0, Math.floor((now.getTime() - record.lastCheckOutTimestamp) / 1000));
+      record.breakSeconds = (record.breakSeconds || 0) + gapSecs;
+      record.breakDurationMinutes = Math.round((record.breakSeconds || 0) / 60);
+    }
+
+    record.checkIn = record.checkIn || timeStr;
+    record.checkOut = undefined; // Actively clocked in
+    record.isCompleted = false;
+    record.isOnBreak = false;
+    record.lastActiveTimestamp = now.getTime();
+    record.lastBreakTimestamp = undefined;
+    record.lastCheckOutTimestamp = undefined;
+    record.status = 'Present';
+    if (employee.remarks) record.remarks = employee.remarks;
+    if (geoData?.photo) record.checkInPhoto = geoData.photo;
+    if (device) record.checkInDevice = device;
+
+    record.punches = Array.isArray(record.punches) ? [...record.punches, punchItem] : [punchItem];
+
+    all[existingIdx] = record;
+    saveAttendanceRecords(all);
+
+    return {
+      success: true,
+      message: `Checked in again successfully at ${timeStr}. Work timer resumed!`,
+      record,
+    };
+  }
+
+  // First check-in of today
   const newRecord: AttendanceRecord = {
     id: `att-${Date.now()}`,
     employeeId: employee.id,
@@ -250,7 +311,7 @@ export function performCheckIn(
     breakSeconds: 0,
     isOnBreak: false,
     isCompleted: false,
-    lastActiveTimestamp: Date.now(),
+    lastActiveTimestamp: now.getTime(),
     lastBreakTimestamp: undefined,
     checkInLatitude: geoData?.latitude,
     checkInLongitude: geoData?.longitude,
@@ -259,10 +320,10 @@ export function performCheckIn(
     isGeofenceVerified: geoData?.isGeofenceVerified ?? (geoData?.latitude !== undefined),
     checkInPhoto: geoData?.photo,
     checkInDevice: device,
+    punches: [punchItem],
   };
 
-  const all = getAllAttendanceRecords();
-  all.push(newRecord);
+  all.unshift(newRecord);
   saveAttendanceRecords(all);
 
   return {
@@ -376,8 +437,8 @@ export function performResumeWork(employeeId: string): {
 }
 
 /**
- * Action: Check Out
- * Finalizes work & break hours, stops timer completely, blocks check-in until tomorrow
+ * Action: Check Out (Supports Multiple Punches per Day)
+ * Finalizes current work session, accumulates total worked hours, and allows checking in again later
  */
 export function performCheckOut(
   employeeId: string,
@@ -388,6 +449,7 @@ export function performCheckOut(
     distanceMeters?: number;
     photo?: string;
     device?: DevicePunchInfo;
+    remarks?: string;
   }
 ): {
   success: boolean;
@@ -408,8 +470,8 @@ export function performCheckOut(
 
   const record = all[idx];
 
-  if (record.isCompleted) {
-    return { success: false, message: 'Shift already checked out for today.' };
+  if (record.isCompleted || record.checkOut) {
+    return { success: false, message: 'Current session is already checked out.' };
   }
 
   const now = Date.now();
@@ -436,14 +498,29 @@ export function performCheckOut(
 
   const device = geoData?.device || detectUserDevice();
 
+  const punchItem: AttendancePunchLog = {
+    id: `p-${now}`,
+    type: 'OUT',
+    time: checkOutStr,
+    timestamp: now,
+    photo: geoData?.photo,
+    device,
+    remarks: geoData?.remarks || 'Check-out',
+    latitude: geoData?.latitude,
+    longitude: geoData?.longitude,
+  };
+
   record.checkOut = checkOutStr;
   record.isCompleted = true;
   record.isOnBreak = false;
   record.lastActiveTimestamp = undefined;
   record.lastBreakTimestamp = undefined;
+  record.lastCheckOutTimestamp = now;
   record.breakDurationMinutes = Math.round((record.breakSeconds || 0) / 60);
   record.workingHours = Number(((record.activeSeconds || 0) / 3600).toFixed(2));
+  record.overtimeHours = record.workingHours > 8.0 ? Number((record.workingHours - 8.0).toFixed(2)) : 0;
   record.status = 'Present';
+
   if (geoData?.latitude !== undefined) {
     record.checkOutLatitude = geoData.latitude;
     record.checkOutLongitude = geoData.longitude;
@@ -453,15 +530,16 @@ export function performCheckOut(
     record.checkOutPhoto = geoData.photo;
   }
   record.checkOutDevice = device;
+  record.punches = Array.isArray(record.punches) ? [...record.punches, punchItem] : [punchItem];
 
   all[idx] = record;
   saveAttendanceRecords(all);
 
   return {
     success: true,
-    message: `Checked out successfully at ${checkOutStr}. Total worked: ${formatSecondsToWords(
+    message: `Checked out successfully at ${checkOutStr}. Total worked today: ${formatSecondsToWords(
       record.activeSeconds || 0
-    )}. Attendance completed for today!`,
+    )}. You can check in again later.`,
     record,
   };
 }

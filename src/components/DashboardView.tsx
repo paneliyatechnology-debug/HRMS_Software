@@ -1324,13 +1324,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <Check className="w-6 h-6 stroke-[3]" />
                         </div>
                         <h4 className="text-lg font-black text-slate-900">
-                          ✓ Today's Shift Completed!
+                          ✓ Session Checked Out
                         </h4>
                         <p className="text-xs text-slate-600 max-w-md mx-auto">
-                          In: <strong>{punchState.record?.checkIn}</strong> • Out: <strong>{punchState.record?.checkOut}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 9.0}h</strong>
+                          First In: <strong>{punchState.record?.checkIn}</strong> • Latest Out: <strong>{punchState.record?.checkOut}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 0}h</strong>
                         </p>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                          <span>Attendance safely recorded & finalized for payroll</span>
+                        <div className="pt-1">
+                          <button
+                            onClick={onOpenClockModal}
+                            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Clock className="w-4 h-4" />
+                            <span>Check In Again</span>
+                          </button>
                         </div>
                       </div>
                     )}

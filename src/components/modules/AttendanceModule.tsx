@@ -338,9 +338,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   const myTodayRecord = getEmpTodayRecord(selfEmployee);
-  const myIsWorking = myTodayRecord && !myTodayRecord.isCompleted && !myTodayRecord.isOnBreak;
+  const myIsWorking = myTodayRecord && !myTodayRecord.isCompleted && !myTodayRecord.isOnBreak && !myTodayRecord.checkOut;
   const myIsOnBreak = myTodayRecord && !myTodayRecord.isCompleted && myTodayRecord.isOnBreak;
-  const myIsDone = myTodayRecord && myTodayRecord.isCompleted;
+  const myIsDone = myTodayRecord && (myTodayRecord.isCompleted || Boolean(myTodayRecord.checkOut));
 
 
   // Modal: HR Regularization
@@ -573,8 +573,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${
               myIsWorking || myIsOnBreak
                 ? 'bg-rose-600 hover:bg-rose-700'
-                : myIsDone
-                ? 'bg-slate-700 hover:bg-slate-800'
                 : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
@@ -585,8 +583,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               </>
             ) : myIsDone ? (
               <>
-                <Check className="w-4 h-4" />
-                <span className="truncate">Checked Out</span>
+                <Clock className="w-4 h-4" />
+                <span className="truncate">Check In Again</span>
               </>
             ) : (
               <>
@@ -799,8 +797,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
                     myIsWorking || myIsOnBreak
                       ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                      : myIsDone
-                      ? 'bg-slate-700 hover:bg-slate-800 text-slate-200'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   }`}
                 >
@@ -811,8 +807,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </>
                   ) : myIsDone ? (
                     <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Checked Out</span>
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Check In Again</span>
                     </>
                   ) : (
                     <>
@@ -827,9 +823,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               <div className="md:hidden divide-y divide-slate-100">
                 {visibleEmployees.map((emp) => {
                   const rec = getEmpTodayRecord(emp);
-                  const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
+                  const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
                   const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                  const isDone = rec && rec.isCompleted;
+                  const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
 
                   const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                   const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -950,9 +946,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <tbody className="divide-y divide-slate-100">
                     {visibleEmployees.map((emp) => {
                       const rec = getEmpTodayRecord(emp);
-                      const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
+                      const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                      const isDone = rec && rec.isCompleted;
+                      const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
 
                       const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                       const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
