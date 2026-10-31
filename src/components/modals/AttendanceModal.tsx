@@ -795,23 +795,25 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#059669]" />
               
               <ModernDigitClock
-                time={punchState.status === 'not_started' || punchState.status === 'completed' ? time : undefined}
-                timeString={punchState.status === 'working' || punchState.status === 'on_break' ? liveWorkedHMS : undefined}
+                time={punchState.status === 'not_started' ? time : undefined}
+                timeString={punchState.status !== 'not_started' ? liveWorkedHMS : undefined}
                 size="lg"
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
-                showSweepRing={true}
+                showSweepRing={punchState.status === 'working'}
                 label={
                   punchState.status === 'working'
                     ? 'Active Shift Chronometer'
                     : punchState.status === 'on_break'
                     ? 'Timer Paused (On Break)'
                     : punchState.status === 'completed'
-                    ? 'Today’s Finalized Shift'
+                    ? 'Shift Completed (Timer Stopped)'
                     : 'Live GPS Shift Chronometer'
                 }
                 subText={
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
+                    : punchState.status === 'completed'
+                    ? `Total worked: ${liveWorkedHMS} • Shift Finalized`
                     : time
                     ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
                     : 'October 28, 2026'

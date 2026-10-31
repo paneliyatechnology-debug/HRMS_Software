@@ -11,8 +11,53 @@ const STORAGE_KEY = 'hrms_daily_attendance_records';
  */
 let liveAttendanceRecords: AttendanceRecord[] = [];
 
+/**
+ * Safely parse a time string (e.g. "09:30 AM", "14:15") or createdAt timestamp to epoch ms
+ */
+export function parseTimeStringToTimestamp(timeStr?: string, dateStr?: string, createdAt?: string): number {
+  if (createdAt) {
+    const t = new Date(createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (!timeStr) return Date.now();
+
+  try {
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const mins = parseInt(match[2], 10);
+      const secs = match[3] ? parseInt(match[3], 10) : 0;
+      const ampm = match[4]?.toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+
+      const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+      base.setHours(hours, mins, secs, 0);
+      const ts = base.getTime();
+      if (!isNaN(ts)) return ts;
+    }
+  } catch {}
+
+  return Date.now();
+}
+
 export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
-  liveAttendanceRecords = Array.isArray(records) ? [...records] : [];
+  liveAttendanceRecords = Array.isArray(records)
+    ? records.map((r) => {
+        const hasCheckOut = Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== ''));
+        if (!hasCheckOut && r.checkIn && !r.isOnBreak && !r.lastActiveTimestamp) {
+          return {
+            ...r,
+            isCompleted: false,
+            lastActiveTimestamp: parseTimeStringToTimestamp(r.checkIn, r.date, r.createdAt),
+          };
+        }
+        return r;
+      })
+    : [];
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('hrms_attendance_updated'));
+  }
 }
 
 /**
@@ -57,29 +102,70 @@ export function formatSecondsToWords(totalSecs: number): string {
 }
 
 /**
- * Computes live active worked seconds for a record across all sessions today
+ * Computes live active worked seconds for a record across all sessions today:
+ * 1. If Checked In & working: timer calculates live and ticks every second.
+ * 2. If On Break: timer stops / pauses work time calculation.
+ * 3. If Checked Out: timer stops completely, showing finalized worked hours.
  */
 export function getLiveActiveSeconds(record: AttendanceRecord): number {
-  let active = record.activeSeconds || 0;
-  if (!record.isCompleted && !record.checkOut && !record.isOnBreak && record.lastActiveTimestamp) {
-    const elapsed = Math.max(0, Math.floor((Date.now() - record.lastActiveTimestamp) / 1000));
-    active += elapsed;
+  if (!record) return 0;
+
+  const isCheckedOut = Boolean(record.isCompleted || (record.checkOut && record.checkOut.trim() !== ''));
+  const isOnBreak = Boolean(record.isOnBreak);
+
+  // 1. If Checked Out: Timer STOPPED, return finalized total worked time
+  if (isCheckedOut) {
+    if (record.activeSeconds && record.activeSeconds > 0) {
+      return record.activeSeconds;
+    }
+    if (record.workingHours && record.workingHours > 0) {
+      return Math.round(record.workingHours * 3600);
+    }
+    if (record.checkIn && record.checkOut) {
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+      const outTs = parseTimeStringToTimestamp(record.checkOut, record.date);
+      const diffSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
+      const breakSecs = (record.breakDurationMinutes || 0) * 60 + (record.breakSeconds || 0);
+      return Math.max(0, diffSecs - breakSecs);
+    }
+    return record.activeSeconds || 0;
   }
-  return active;
+
+  // 2. If On Break: Timer PAUSED / STOPPED, return frozen accumulated active seconds
+  if (isOnBreak) {
+    if (record.activeSeconds && record.activeSeconds > 0) {
+      return record.activeSeconds;
+    }
+    if (record.checkIn) {
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+      const breakStart = record.lastBreakTimestamp || Date.now();
+      const diffSecs = Math.max(0, Math.floor((breakStart - inTs) / 1000));
+      return Math.max(0, diffSecs - (record.breakSeconds || 0));
+    }
+    return record.activeSeconds || 0;
+  }
+
+  // 3. If Checked In & working: Timer CALCULATING LIVE & TICKING
+  if (record.checkIn) {
+    if (!record.lastActiveTimestamp) {
+      record.lastActiveTimestamp = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+    }
+    const elapsed = Math.max(0, Math.floor((Date.now() - record.lastActiveTimestamp) / 1000));
+    return (record.activeSeconds || 0) + elapsed;
+  }
+
+  return record.activeSeconds || 0;
 }
 
 /**
  * Computes live break seconds for a record (explicit breaks + gap while checked out)
  */
 export function getLiveBreakSeconds(record: AttendanceRecord): number {
-  let brk = record.breakSeconds || 0;
+  if (!record) return 0;
+  let brk = record.breakSeconds || (record.breakDurationMinutes || 0) * 60;
   if (!record.isCompleted && !record.checkOut && record.isOnBreak && record.lastBreakTimestamp) {
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastBreakTimestamp) / 1000));
     brk += elapsed;
-  } else if ((record.isCompleted || record.checkOut) && record.lastCheckOutTimestamp) {
-    // Gap time between check-out and next check-in counts towards break time
-    const elapsedGap = Math.max(0, Math.floor((Date.now() - record.lastCheckOutTimestamp) / 1000));
-    brk += elapsedGap;
   }
   return brk;
 }
@@ -584,11 +670,19 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
 
   if (idx !== -1) {
     const existing = all[idx];
-    const isCompleted = hasCheckOut || existing.isCompleted || false;
+    const isCompleted = hasCheckOut;
 
     let activeSec = existing.activeSeconds || 0;
-    if (backendRec.workingHours && backendRec.workingHours > 0) {
-      activeSec = Math.round(backendRec.workingHours * 3600);
+    if (hasCheckOut) {
+      if (backendRec.workingHours && backendRec.workingHours > 0) {
+        activeSec = Math.round(backendRec.workingHours * 3600);
+      } else if (existing.activeSeconds && existing.activeSeconds > 0) {
+        activeSec = existing.activeSeconds;
+      } else if (backendRec.checkIn && backendRec.checkOut) {
+        const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt);
+        const outTs = parseTimeStringToTimestamp(backendRec.checkOut, today);
+        activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000));
+      }
     }
 
     updated = {
@@ -598,7 +692,7 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       employeeName: backendRec.employeeName || existing.employeeName,
       date: today,
       checkIn: backendRec.checkIn || existing.checkIn,
-      checkOut: backendRec.checkOut || existing.checkOut,
+      checkOut: hasCheckOut ? backendRec.checkOut : undefined,
       status: backendRec.status || existing.status || 'Present',
       remarks: backendRec.remarks || existing.remarks,
       isCompleted,
@@ -606,9 +700,10 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       activeSeconds: activeSec,
       breakDurationMinutes: backendRec.breakDurationMinutes ?? existing.breakDurationMinutes ?? 0,
       breakSeconds: (backendRec.breakDurationMinutes ?? 0) * 60 || existing.breakSeconds || 0,
-      workingHours: backendRec.workingHours ?? existing.workingHours ?? 0,
+      workingHours: hasCheckOut ? (backendRec.workingHours || Number((activeSec / 3600).toFixed(2))) : (existing.workingHours || 0),
       overtimeHours: backendRec.overtimeHours ?? existing.overtimeHours ?? 0,
-      lastActiveTimestamp: isCompleted ? undefined : (existing.isOnBreak ? undefined : (existing.lastActiveTimestamp || Date.now())),
+      lastActiveTimestamp: isCompleted ? undefined : (existing.isOnBreak ? undefined : (existing.lastActiveTimestamp || parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt))),
+      lastCheckOutTimestamp: isCompleted ? Date.now() : undefined,
       checkInLatitude: backendRec.latitude ?? backendRec.checkInLatitude ?? existing.checkInLatitude,
       checkInLongitude: backendRec.longitude ?? backendRec.checkInLongitude ?? existing.checkInLongitude,
       checkInAccuracy: backendRec.accuracy ?? backendRec.checkInAccuracy ?? existing.checkInAccuracy,
@@ -627,6 +722,10 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
     let activeSec = 0;
     if (backendRec.workingHours && backendRec.workingHours > 0) {
       activeSec = Math.round(backendRec.workingHours * 3600);
+    } else if (hasCheckOut && backendRec.checkIn && backendRec.checkOut) {
+      const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt);
+      const outTs = parseTimeStringToTimestamp(backendRec.checkOut, today);
+      activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000));
     }
 
     updated = {
@@ -635,7 +734,7 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       employeeName: backendRec.employeeName || 'Employee',
       date: today,
       checkIn: backendRec.checkIn,
-      checkOut: backendRec.checkOut || undefined,
+      checkOut: hasCheckOut ? backendRec.checkOut : undefined,
       status: backendRec.status || 'Present',
       remarks: backendRec.remarks || '',
       isCompleted,
@@ -643,9 +742,10 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       activeSeconds: activeSec,
       breakSeconds: (backendRec.breakDurationMinutes || 0) * 60,
       breakDurationMinutes: backendRec.breakDurationMinutes || 0,
-      workingHours: backendRec.workingHours || 0,
+      workingHours: hasCheckOut ? (backendRec.workingHours || Number((activeSec / 3600).toFixed(2))) : (backendRec.workingHours || 0),
       overtimeHours: backendRec.overtimeHours || 0,
-      lastActiveTimestamp: isCompleted ? undefined : Date.now(),
+      lastActiveTimestamp: isCompleted ? undefined : parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt),
+      lastCheckOutTimestamp: isCompleted ? Date.now() : undefined,
       createdAt: backendRec.createdAt || new Date().toISOString(),
       checkInLatitude: backendRec.latitude ?? backendRec.checkInLatitude,
       checkInLongitude: backendRec.longitude ?? backendRec.checkInLongitude,

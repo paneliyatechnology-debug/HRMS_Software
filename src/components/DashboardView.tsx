@@ -1328,6 +1328,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <p className="text-xs text-slate-600 max-w-md mx-auto">
                           First In: <strong>{punchState.record?.checkIn}</strong> • Latest Out: <strong>{punchState.record?.checkOut}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 0}h</strong>
                         </p>
+                        <div className="py-2 flex justify-center">
+                          <ModernDigitClock
+                            timeString={liveWorkedHMS}
+                            size="xl"
+                            variant="light"
+                            showSweepRing={false}
+                            label="Shift Completed (Timer Stopped)"
+                          />
+                        </div>
                         <div className="pt-1">
                           <button
                             onClick={onOpenClockModal}
