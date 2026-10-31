@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
+import { getCookie } from '../lib/cookies';
 import {
   receiveIncomingSocketMessage,
   receiveIncomingSocketEdit,
@@ -94,7 +95,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     // Only attempt socket connection if the user is logged in
-    const isAuth = typeof window !== 'undefined' && localStorage.getItem('hrms_is_authenticated') === 'true';
+    const isAuth = typeof window !== 'undefined' && getCookie('hrms_is_authenticated') === 'true';
     if (!isAuth) {
       return;
     }
@@ -152,7 +153,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     s.on('chat_notification', (payload: any) => {
       try {
-        const rawUser = localStorage.getItem('hrms_auth_user');
+        const rawUser = getCookie('hrms_auth_user');
         const currentUser = rawUser ? JSON.parse(rawUser) : null;
         const currentUserId = currentUser?.employeeId || currentUser?.id;
         if (currentUserId && (payload.recipientId === currentUserId || payload.recipientId === 'all')) {

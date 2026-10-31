@@ -5,6 +5,7 @@ import { User, Role } from '../types/hrms';
 import { api } from '../lib/api';
 import { findOrganizationByEmail } from '../lib/companyService';
 import { purgeLocalBusinessData } from '../lib/storageCleanup';
+import { getCookie, setCookie, removeCookie, purgeAuthLocalStorage } from '../lib/cookies';
 
 export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
@@ -129,48 +130,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const token = typeof window !== 'undefined'
-      ? (localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken'))
-      : null;
-    const storedAuth = typeof window !== 'undefined' ? localStorage.getItem('hrms_is_authenticated') : null;
-
+    // Migration: If any legacy auth items exist in localStorage, migrate them to cookies and purge localStorage
     if (typeof window !== 'undefined') {
       try {
-        // Enforce pure database data: purge all local business caches
+        const legacyToken = localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken');
+        if (legacyToken && !getCookie('hrms_auth_token')) {
+          setCookie('hrms_auth_token', legacyToken);
+          setCookie('bearerToken', legacyToken);
+        }
+        const legacyAuth = localStorage.getItem('hrms_is_authenticated');
+        if (legacyAuth && !getCookie('hrms_is_authenticated')) {
+          setCookie('hrms_is_authenticated', legacyAuth);
+        }
+        const legacyUser = localStorage.getItem('hrms_auth_user');
+        if (legacyUser && !getCookie('hrms_auth_user')) {
+          setCookie('hrms_auth_user', legacyUser);
+        }
+        const legacyRole = localStorage.getItem('hrms_current_role');
+        if (legacyRole && !getCookie('hrms_current_role')) {
+          setCookie('hrms_current_role', legacyRole);
+        }
+        const legacyPortal = localStorage.getItem('hrms_portal_mode');
+        if (legacyPortal && !getCookie('hrms_portal_mode')) {
+          setCookie('hrms_portal_mode', legacyPortal);
+        }
+
+        // Purge all legacy auth keys and business caches from localStorage
+        purgeAuthLocalStorage();
         purgeLocalBusinessData();
 
-        // Purge any stale demo or fake offline sessions
-        const savedToken = localStorage.getItem('hrms_auth_token') || '';
+        // Purge any stale demo or fake offline sessions from cookies
+        const savedToken = getCookie('hrms_auth_token') || '';
         if (
           savedToken.startsWith('demo_token_') ||
           savedToken.startsWith('token_admin-') ||
           savedToken.startsWith('token_emp-')
         ) {
-          localStorage.removeItem('hrms_auth_token');
-          localStorage.removeItem('bearerToken');
-          localStorage.removeItem('hrms_is_authenticated');
-          localStorage.removeItem('hrms_auth_user');
-          localStorage.removeItem('hrms_current_role');
-          localStorage.removeItem('hrms_portal_mode');
+          removeCookie('hrms_auth_token');
+          removeCookie('bearerToken');
+          removeCookie('hrms_is_authenticated');
+          removeCookie('hrms_auth_user');
+          removeCookie('hrms_current_role');
+          removeCookie('hrms_portal_mode');
         }
       } catch {}
     }
 
+    const token = typeof window !== 'undefined'
+      ? (getCookie('hrms_auth_token') || getCookie('bearerToken'))
+      : null;
+    const storedAuth = typeof window !== 'undefined' ? getCookie('hrms_is_authenticated') : null;
+
     if (token && token.startsWith('demo_token_')) {
       try {
-        localStorage.removeItem('hrms_auth_token');
-        localStorage.removeItem('bearerToken');
-        localStorage.removeItem('hrms_is_authenticated');
-        localStorage.removeItem('hrms_auth_user');
-        localStorage.removeItem('hrms_current_role');
-        localStorage.removeItem('hrms_portal_mode');
+        removeCookie('hrms_auth_token');
+        removeCookie('bearerToken');
+        removeCookie('hrms_is_authenticated');
+        removeCookie('hrms_auth_user');
+        removeCookie('hrms_current_role');
+        removeCookie('hrms_portal_mode');
+        purgeAuthLocalStorage();
       } catch (_) {}
     }
 
     if (storedAuth === 'true' && token && !token.startsWith('demo_token_')) {
-      // Immediate session hydration to prevent screen flashes on refresh
-      const cachedUserStr = localStorage.getItem('hrms_auth_user');
-      const cachedPortal = localStorage.getItem('hrms_portal_mode');
+      // Immediate session hydration from cookies to prevent screen flashes on refresh
+      const cachedUserStr = getCookie('hrms_auth_user');
+      const cachedPortal = getCookie('hrms_portal_mode');
       if (cachedUserStr) {
         try {
           const cachedUser = JSON.parse(cachedUserStr);
@@ -197,9 +223,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userRole = enriched.role || 'EMPLOYEE';
             const allowedPortal = determinePortalMode(userRole);
             setPortalModeState(allowedPortal);
-            localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
-            localStorage.setItem('hrms_current_role', userRole);
-            localStorage.setItem('hrms_portal_mode', allowedPortal);
+            setCookie('hrms_auth_user', JSON.stringify(enriched));
+            setCookie('hrms_current_role', userRole);
+            setCookie('hrms_portal_mode', allowedPortal);
+            purgeAuthLocalStorage();
           } else {
             throw new Error('User not found');
           }
@@ -207,12 +234,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .catch(() => {
           setUser(emptyUser);
           setIsAuthenticated(false);
-          localStorage.removeItem('hrms_is_authenticated');
-          localStorage.removeItem('hrms_auth_token');
-          localStorage.removeItem('bearerToken');
-          localStorage.removeItem('hrms_auth_user');
-          localStorage.removeItem('hrms_current_role');
-          localStorage.removeItem('hrms_portal_mode');
+          removeCookie('hrms_is_authenticated');
+          removeCookie('hrms_auth_token');
+          removeCookie('bearerToken');
+          removeCookie('hrms_auth_user');
+          removeCookie('hrms_current_role');
+          removeCookie('hrms_portal_mode');
+          purgeAuthLocalStorage();
         })
         .finally(() => {
           clearTimeout(safetyTimer);
@@ -229,11 +257,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (mode === 'admin' && !isUserAdminRole(user?.role)) {
       console.warn('Access denied: Employee accounts cannot access Admin portal.');
       setPortalModeState('employee');
-      localStorage.setItem('hrms_portal_mode', 'employee');
+      setCookie('hrms_portal_mode', 'employee');
+      purgeAuthLocalStorage();
       return;
     }
     setPortalModeState(mode);
-    localStorage.setItem('hrms_portal_mode', mode);
+    setCookie('hrms_portal_mode', mode);
+    purgeAuthLocalStorage();
   };
 
   // 1-Click Instant Demo Login (Disabled in production mode)
@@ -271,10 +301,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(enriched);
         setPortalModeState(targetPortal);
         setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', targetPortal);
+        setCookie('hrms_current_role', userRole);
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
         return { success: true, role: userRole };
       }
       return { success: false, message: res?.message || 'Invalid credentials.' };
@@ -312,10 +343,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(enriched);
         setPortalModeState('admin');
         setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', 'admin');
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', 'admin');
+        setCookie('hrms_current_role', userRole);
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
         return { success: true };
       }
       return { success: false, message: res?.message || 'Invalid Admin credentials.' };
@@ -350,10 +382,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(enriched);
         setPortalModeState(targetPortal);
         setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', targetPortal);
+        setCookie('hrms_current_role', userRole);
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
         return { success: true };
       }
       return { success: false, message: res?.message || 'Invalid employee credentials.' };
@@ -388,10 +421,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(enriched);
         setPortalModeState(targetPortal);
         setIsAuthenticated(true);
-        localStorage.setItem('hrms_is_authenticated', 'true');
-        localStorage.setItem('hrms_portal_mode', targetPortal);
-        localStorage.setItem('hrms_current_role', userRole);
-        localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', targetPortal);
+        setCookie('hrms_current_role', userRole);
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
 
         window.dispatchEvent(new Event('hrms_employees_updated'));
 
@@ -450,10 +484,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(enriched);
       setPortalModeState('admin');
       setIsAuthenticated(true);
-      localStorage.setItem('hrms_is_authenticated', 'true');
-      localStorage.setItem('hrms_portal_mode', 'admin');
-      localStorage.setItem('hrms_current_role', 'ADMIN');
-      localStorage.setItem('hrms_auth_user', JSON.stringify(enriched));
+      setCookie('hrms_is_authenticated', 'true');
+      setCookie('hrms_portal_mode', 'admin');
+      setCookie('hrms_current_role', 'ADMIN');
+      setCookie('hrms_auth_user', JSON.stringify(enriched));
+      purgeAuthLocalStorage();
 
       window.dispatchEvent(new Event('hrms_companies_updated'));
       window.dispatchEvent(new Event('hrms_employees_updated'));
@@ -471,15 +506,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user || !user.id) return;
     const updated = { ...user, role: newRole };
     setUser(updated);
-    localStorage.setItem('hrms_current_role', newRole);
-    localStorage.setItem('hrms_auth_user', JSON.stringify(updated));
+    setCookie('hrms_current_role', newRole);
+    setCookie('hrms_auth_user', JSON.stringify(updated));
+    purgeAuthLocalStorage();
   };
 
   const updateUserProfile = (updates: Partial<User>) => {
     setUser((prev) => {
       const updated = { ...prev, ...updates };
       if (typeof window !== 'undefined') {
-        localStorage.setItem('hrms_auth_user', JSON.stringify(updated));
+        setCookie('hrms_auth_user', JSON.stringify(updated));
+        purgeAuthLocalStorage();
         window.dispatchEvent(new Event('hrms_auth_user_updated'));
       }
       return updated;
@@ -489,12 +526,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setIsAuthenticated(false);
     setUser(emptyUser);
-    localStorage.removeItem('hrms_is_authenticated');
-    localStorage.removeItem('hrms_current_role');
-    localStorage.removeItem('hrms_portal_mode');
-    localStorage.removeItem('hrms_auth_user');
-    localStorage.removeItem('hrms_auth_token');
-    localStorage.removeItem('bearerToken');
+    removeCookie('hrms_is_authenticated');
+    removeCookie('hrms_current_role');
+    removeCookie('hrms_portal_mode');
+    removeCookie('hrms_auth_user');
+    removeCookie('hrms_auth_token');
+    removeCookie('bearerToken');
+    purgeAuthLocalStorage();
     window.dispatchEvent(new Event('hrms_auth_logout'));
   };
 

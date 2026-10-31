@@ -22,6 +22,7 @@ import {
 } from '../types/hrms';
 
 import { getApiBaseUrl } from './config';
+import { getCookie, setCookie, purgeAuthLocalStorage } from './cookies';
 
 const getApiBase = () => getApiBaseUrl();
 
@@ -36,7 +37,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
   try {
     const storedToken =
       typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
+        ? getCookie('hrms_auth_token') || getCookie('bearerToken')
         : null;
 
     const token = storedToken;
@@ -111,8 +112,9 @@ export const api = {
       if (res.ok) {
         const result = await res.json();
         if (typeof window !== 'undefined' && result?.accessToken) {
-          localStorage.setItem('hrms_auth_token', result.accessToken);
-          localStorage.setItem('bearerToken', result.accessToken);
+          setCookie('hrms_auth_token', result.accessToken);
+          setCookie('bearerToken', result.accessToken);
+          purgeAuthLocalStorage();
         }
         return result;
       }
@@ -172,8 +174,9 @@ export const api = {
       if (res.ok) {
         const result = await res.json();
         if (typeof window !== 'undefined' && result?.accessToken) {
-          localStorage.setItem('hrms_auth_token', result.accessToken);
-          localStorage.setItem('bearerToken', result.accessToken);
+          setCookie('hrms_auth_token', result.accessToken);
+          setCookie('bearerToken', result.accessToken);
+          purgeAuthLocalStorage();
         }
         return result;
       }
@@ -223,7 +226,7 @@ export const api = {
 
     const storedToken =
       typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
+        ? getCookie('hrms_auth_token') || getCookie('bearerToken')
         : null;
     const authToken = storedToken;
 
@@ -300,7 +303,7 @@ export const api = {
   async uploadProfilePhoto(file: File | Blob): Promise<{ success: boolean; avatarUrl: string; user?: any }> {
     const token =
       typeof window !== 'undefined'
-        ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
+        ? getCookie('hrms_auth_token') || getCookie('bearerToken')
         : null;
 
     const formData = new FormData();

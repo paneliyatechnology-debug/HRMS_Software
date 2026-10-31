@@ -1,8 +1,11 @@
 /**
  * Storage Cleanup Utility
- * Ensures NO business data is persisted in browser LocalStorage or Cache Storage.
- * All application data must originate directly from the live database.
+ * Ensures NO business data or auth tokens are persisted in browser LocalStorage.
+ * All application data originates directly from the live database, and auth sessions
+ * are strictly stored in browser cookies.
  */
+
+import { AUTH_COOKIE_KEYS, purgeAuthLocalStorage } from './cookies';
 
 export const BUSINESS_STORAGE_KEYS = [
   'hrms_daily_attendance_records',
@@ -40,17 +43,8 @@ export const BUSINESS_STORAGE_KEYS = [
   'hrms_initial_module',
 ];
 
-const PRESERVED_AUTH_KEYS = new Set([
-  'hrms_auth_token',
-  'bearerToken',
-  'hrms_is_authenticated',
-  'hrms_auth_user',
-  'hrms_current_role',
-  'hrms_portal_mode',
-]);
-
 /**
- * Completely purge any cached business data from LocalStorage and browser CacheStorage.
+ * Completely purge any cached business data and legacy auth tokens from LocalStorage and CacheStorage.
  */
 export function purgeLocalBusinessData(): void {
   if (typeof window === 'undefined') return;
@@ -63,19 +57,23 @@ export function purgeLocalBusinessData(): void {
       }).catch(() => {});
     }
 
-    // 2. Remove all known business keys from localStorage
+    // 2. Remove all auth tokens from localStorage (they are stored in browser cookies now)
+    purgeAuthLocalStorage();
+
+    // 3. Remove all known business keys from localStorage
     BUSINESS_STORAGE_KEYS.forEach((key) => {
       try {
         localStorage.removeItem(key);
       } catch {}
     });
 
-    // 3. Scan and remove any residual prefixed business data keys
+    // 4. Scan and remove any residual prefixed keys (except non-business UI prefs like sidebar collapsed)
+    const UI_PRESERVED_KEYS = new Set(['hrms_sidebar_collapsed', 'hrms_theme']);
     const total = localStorage.length;
     const toDelete: string[] = [];
     for (let i = 0; i < total; i++) {
       const k = localStorage.key(i);
-      if (k && !PRESERVED_AUTH_KEYS.has(k) && k.startsWith('hrms_')) {
+      if (k && !UI_PRESERVED_KEYS.has(k) && (k.startsWith('hrms_') || k === 'bearerToken')) {
         toDelete.push(k);
       }
     }
