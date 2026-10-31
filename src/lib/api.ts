@@ -381,10 +381,11 @@ export const api = {
   },
 
   async createEmployee(data: Partial<Employee>) {
-    return fetchWithFallback<Employee>(
-      '/employees',
+    const result = await fetchWithFallback<any>(
+      '/admin/employees',
       { method: 'POST', body: JSON.stringify(data) }
     );
+    return (result?.employee || result) as Employee;
   },
 
   async updateEmployee(id: string, data: Partial<Employee>) {

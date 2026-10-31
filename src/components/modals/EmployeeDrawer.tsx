@@ -189,18 +189,19 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       const selectedDes = designations.find((d) => d.id === formData.designationId) || designations[0];
       const basicNum = Number(formData.basicSalary) || 0;
 
-      const employeePayload: Partial<Employee> = {
+      const employeePayload: Partial<Employee> & { password?: string; joiningDate?: string } = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        password: formData.initialPassword || '',
+        phone: formData.phone.trim() || undefined,
+        password: formData.initialPassword.trim() ? formData.initialPassword.trim() : undefined,
         role: formData.role || 'EMPLOYEE',
         avatarUrl: formData.avatarUrl,
         companyId: adminCompanyId,
         companyName: adminCompanyName,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
+        joiningDate: new Date().toISOString().split('T')[0],
         address: formData.address,
         departmentId: formData.departmentId || selectedDept?.id || '',
         departmentName: selectedDept?.name || '',
