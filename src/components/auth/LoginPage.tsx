@@ -87,6 +87,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     });
   };
 
+  // Anti-autofill state for password fields so browser does not pre-fill them
+  const [passwordReadOnly, setPasswordReadOnly] = useState(true);
+  const [confirmPasswordReadOnly, setConfirmPasswordReadOnly] = useState(true);
+
+  const clearAllSignupFields = () => {
+    setCompanyName('');
+    setCompanyGst('');
+    setCompanyIndustry('IT & Software Services');
+    setCompanyAddress('');
+    setCompanyCity('');
+    setCompanyState('');
+    setOwnerFirstName('');
+    setOwnerLastName('');
+    setOwnerEmail('');
+    setOwnerPhone('');
+    setOwnerPassword('');
+    setOwnerConfirmPassword('');
+    setFieldErrors({});
+    setPasswordReadOnly(true);
+    setConfirmPasswordReadOnly(true);
+  };
+
+  useEffect(() => {
+    if (viewMode === 'signup') {
+      clearAllSignupFields();
+      const t1 = setTimeout(() => {
+        setOwnerPassword('');
+        setOwnerConfirmPassword('');
+      }, 50);
+      const t2 = setTimeout(() => {
+        setOwnerPassword('');
+        setOwnerConfirmPassword('');
+      }, 150);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [viewMode]);
+
   // Bottom Popup State for unassociated / unlinked organization users
   const [notInOrgPopup, setNotInOrgPopup] = useState<{
     open: boolean;
@@ -317,6 +357,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                 id="btn-back-to-login-sides"
                 type="button"
                 onClick={() => {
+                  clearAllSignupFields();
                   setViewMode('login');
                   setErrorMessage(null);
                   setSuccessMessage(null);
@@ -484,6 +525,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     id="link-switch-to-signup"
                     type="button"
                     onClick={() => {
+                      clearAllSignupFields();
                       setViewMode('signup');
                       setErrorMessage(null);
                       setSuccessMessage(null);
@@ -500,7 +542,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
             /* ========================================================== */
             /* COMPANY REGISTRATION FORM (Only Company Owner Onboards)     */
             /* ========================================================== */
-            <form onSubmit={handleRegisterCompanySubmit} className="space-y-4" autoComplete="off">
+            <form
+              onSubmit={handleRegisterCompanySubmit}
+              className="space-y-4"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            >
+              {/* Trap inputs to absorb browser autofill */}
+              <div
+                style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }}
+                aria-hidden="true"
+              >
+                <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="off" />
+                <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="new-password" />
+              </div>
               {/* Employee Warning Notice */}
               <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-[#0d271d] flex items-start gap-2.5">
                 <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -536,8 +593,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     </div>
                     <input
                       id="input-company-name"
+                      name="reg_company_legal_name"
                       type="text"
                       required
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={companyName}
                       onChange={(e) => {
                         setCompanyName(e.target.value);
@@ -566,8 +627,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     </div>
                     <input
                       id="input-company-gst"
+                      name="reg_company_tax_gstin"
                       type="text"
                       maxLength={15}
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={companyGst}
                       onChange={(e) => {
                         setCompanyGst(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15));
@@ -609,7 +674,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     <label className="block text-xs font-bold text-[#0d271d] mb-1">Office Address</label>
                     <input
                       id="input-company-address"
+                      name="reg_company_office_address"
                       type="text"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={companyAddress}
                       onChange={(e) => setCompanyAddress(e.target.value)}
                       placeholder="e.g. 402, Ring Road"
@@ -623,7 +692,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     <label className="block text-xs font-bold text-[#0d271d] mb-1">City</label>
                     <input
                       id="input-company-city"
+                      name="reg_company_office_city"
                       type="text"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={companyCity}
                       onChange={(e) => setCompanyCity(e.target.value)}
                       placeholder="e.g. Surat"
@@ -634,7 +707,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     <label className="block text-xs font-bold text-[#0d271d] mb-1">State</label>
                     <input
                       id="input-company-state"
+                      name="reg_company_office_state"
                       type="text"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={companyState}
                       onChange={(e) => setCompanyState(e.target.value)}
                       placeholder="e.g. Gujarat"
@@ -668,8 +745,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     </div>
                     <input
                       id="input-owner-firstname"
+                      name="reg_owner_given_name"
                       type="text"
                       required
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={ownerFirstName}
                       onChange={(e) => {
                         setOwnerFirstName(e.target.value);
@@ -697,8 +778,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     </div>
                     <input
                       id="input-owner-lastname"
+                      name="reg_owner_family_name"
                       type="text"
                       required
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
                       value={ownerLastName}
                       onChange={(e) => {
                         setOwnerLastName(e.target.value);
@@ -731,8 +816,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                       <Mail className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         id="input-owner-email"
+                        name="reg_owner_primary_email"
                         type="email"
                         required
+                        autoComplete="off"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
                         value={ownerEmail}
                         onChange={(e) => {
                           setOwnerEmail(e.target.value);
@@ -763,9 +852,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                       <Phone className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         id="input-owner-phone"
+                        name="reg_owner_mobile_number"
                         type="tel"
                         maxLength={13}
                         required
+                        autoComplete="off"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
                         value={ownerPhone}
                         onChange={(e) => {
                           setOwnerPhone(e.target.value.replace(/[^0-9+\s]/g, '').slice(0, 13));
@@ -800,8 +893,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                       <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         id="input-owner-password"
+                        name="company_owner_new_registration_password"
                         type={showOwnerPassword ? 'text' : 'password'}
                         required
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-form-type="other"
+                        readOnly={passwordReadOnly}
+                        onFocus={() => setPasswordReadOnly(false)}
                         value={ownerPassword}
                         onChange={(e) => {
                           setOwnerPassword(e.target.value);
@@ -839,8 +939,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                       <Lock className="w-3.5 h-3.5 text-[#059669] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         id="input-owner-confirm-password"
+                        name="company_owner_new_registration_confirm_password"
                         type={showOwnerConfirmPassword ? 'text' : 'password'}
                         required
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-form-type="other"
+                        readOnly={confirmPasswordReadOnly}
+                        onFocus={() => setConfirmPasswordReadOnly(false)}
                         value={ownerConfirmPassword}
                         onChange={(e) => {
                           setOwnerConfirmPassword(e.target.value);
@@ -896,6 +1003,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   id="link-switch-to-login"
                   type="button"
                   onClick={() => {
+                    clearAllSignupFields();
                     setViewMode('login');
                     setErrorMessage(null);
                     setSuccessMessage(null);
