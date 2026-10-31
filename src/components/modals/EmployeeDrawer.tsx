@@ -50,7 +50,23 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [nextEmployeeCode, setNextEmployeeCode] = useState<string>('');
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+  };
+
+  const updateField = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    clearFieldError(field);
+    if (formError) setFormError(null);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -94,43 +110,32 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const handleSubmit = async () => {
     setLoading(true);
     setFormError(null);
+    const errors: Record<string, string> = {};
+
     try {
       // Validate Basic Info
       const fNameCheck = validateName(formData.firstName, 'First Name', 2);
       if (!fNameCheck.isValid) {
-        const msg = fNameCheck.error || 'First Name is required (minimum 2 characters).';
-        setFormError(msg);
-        showToast({ type: 'error', title: 'First Name Required', message: msg });
-        setStep(1);
-        setLoading(false);
-        return;
+        errors.firstName = fNameCheck.error || 'First Name is required (minimum 2 characters).';
       }
 
       const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
       if (!lNameCheck.isValid) {
-        const msg = lNameCheck.error || 'Last Name is required (minimum 2 characters).';
-        setFormError(msg);
-        showToast({ type: 'error', title: 'Last Name Required', message: msg });
-        setStep(1);
-        setLoading(false);
-        return;
+        errors.lastName = lNameCheck.error || 'Last Name is required (minimum 2 characters).';
       }
 
       const emailCheck = validateEmail(formData.email, true);
       if (!emailCheck.isValid) {
-        const msg = emailCheck.error || 'Please enter a valid employee work email.';
-        setFormError(msg);
-        showToast({ type: 'error', title: 'Invalid Email', message: msg });
-        setStep(1);
-        setLoading(false);
-        return;
+        errors.email = emailCheck.error || 'Please enter a valid employee work email.';
       }
 
       const phoneCheck = validatePhone(formData.phone, true);
       if (!phoneCheck.isValid) {
-        const msg = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
-        setFormError(msg);
-        showToast({ type: 'error', title: 'Invalid Mobile Number', message: msg });
+        errors.phone = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
         setStep(1);
         setLoading(false);
         return;
@@ -147,8 +152,12 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       });
       if (!dupCheck.isValid) {
         const msg = dupCheck.error || 'Duplicate email or phone detected.';
-        setFormError(msg);
-        showToast({ type: 'error', title: 'Duplicate Detected', message: msg });
+        if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+          errors.email = msg;
+        } else {
+          errors.phone = msg;
+        }
+        setFieldErrors(errors);
         setStep(1);
         setLoading(false);
         return;
@@ -157,9 +166,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (formData.initialPassword) {
         const passCheck = validatePassword(formData.initialPassword, 6);
         if (!passCheck.isValid) {
-          const msg = passCheck.error || 'Password must be at least 6 characters long.';
-          setFormError(msg);
-          showToast({ type: 'error', title: 'Password Too Short', message: msg });
+          errors.initialPassword = passCheck.error || 'Password must be at least 6 characters long.';
+          setFieldErrors(errors);
           setStep(1);
           setLoading(false);
           return;
@@ -169,9 +177,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       if (formData.emergencyPhone) {
         const emCheck = validatePhone(formData.emergencyPhone, false);
         if (!emCheck.isValid) {
-          const msg = emCheck.error || 'Invalid emergency contact phone number.';
-          setFormError(msg);
-          showToast({ type: 'error', title: 'Invalid Emergency Phone', message: msg });
+          errors.emergencyPhone = emCheck.error || 'Invalid emergency contact phone number.';
+          setFieldErrors(errors);
           setStep(3);
           setLoading(false);
           return;
@@ -406,71 +413,110 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
               <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    First Name
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    {fieldErrors.firstName && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.firstName}
+                      </span>
+                    )}
+                  </div>
                   <input
                     id="input-employee-first-name"
                     type="text"
                     required
                     value={formData.firstName}
-                    onChange={(e) => {
-                      setFormError(null);
-                      setFormData({ ...formData, firstName: e.target.value });
-                    }}
+                    onChange={(e) => updateField('firstName', e.target.value)}
                     placeholder="e.g. Alex"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                    className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                      fieldErrors.firstName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Last Name
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    {fieldErrors.lastName && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.lastName}
+                      </span>
+                    )}
+                  </div>
                   <input
                     id="input-employee-last-name"
                     type="text"
                     required
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    onChange={(e) => updateField('lastName', e.target.value)}
                     placeholder="e.g. Mercer"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                    className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                      fieldErrors.lastName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Work Email Address
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Work Email Address <span className="text-red-500">*</span>
+                  </label>
+                  {fieldErrors.email && (
+                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {fieldErrors.email}
+                    </span>
+                  )}
+                </div>
                 <input
                   id="input-employee-email"
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => {
-                    setFormError(null);
-                    setFormData({ ...formData, email: e.target.value });
-                  }}
+                  onChange={(e) => updateField('email', e.target.value)}
                   placeholder="alex.mercer@paneliya.com"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                  className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                    fieldErrors.email
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  }`}
                 />
               </div>
 
               <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Mobile / Phone Number <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Mobile / Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    {fieldErrors.phone && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.phone}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="tel"
                     maxLength={13}
                     value={formData.phone}
-                    onChange={(e) => {
-                      setFormError(null);
-                      setFormData({ ...formData, phone: e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 13) });
-                    }}
+                    onChange={(e) => updateField('phone', e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 13))}
                     placeholder="9876543210"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                    className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                      fieldErrors.phone
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">10-digit mobile number</p>
                 </div>
@@ -480,7 +526,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   </label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
+                    onChange={(e) => updateField('gender', e.target.value as any)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   >
                     <option value="Male">Male</option>
@@ -497,23 +543,35 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <input
                   type="text"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) => updateField('address', e.target.value)}
                   placeholder="424 Market Street, Suite 900, San Francisco, CA"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Initial Login Password / PIN
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Initial Login Password / PIN
+                  </label>
+                  {fieldErrors.initialPassword && (
+                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {fieldErrors.initialPassword}
+                    </span>
+                  )}
+                </div>
                 <input
                   id="input-employee-initial-password"
                   type="text"
                   value={formData.initialPassword}
-                  onChange={(e) => setFormData({ ...formData, initialPassword: e.target.value })}
+                  onChange={(e) => updateField('initialPassword', e.target.value)}
                   placeholder="Create initial login password"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                  className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                    fieldErrors.initialPassword
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  }`}
                 />
                 <p className="text-[11px] text-indigo-600 mt-1 font-medium leading-snug">
                   💡 This employee can directly sign in using their registered email or phone with this password, or activate their account anytime via Sign Up.
@@ -673,15 +731,27 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Emergency Phone
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Emergency Phone
+                    </label>
+                    {fieldErrors.emergencyPhone && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.emergencyPhone}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={formData.emergencyPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
+                    onChange={(e) => updateField('emergencyPhone', e.target.value)}
                     placeholder="+1 (555) 999-9999"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                    className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
+                      fieldErrors.emergencyPhone
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
                   />
                 </div>
               </div>
@@ -716,32 +786,26 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 id="btn-next-step-employee"
                 onClick={() => {
                   if (step === 1) {
+                    const step1Errors: Record<string, string> = {};
                     const fNameCheck = validateName(formData.firstName, 'First Name', 2);
                     if (!fNameCheck.isValid) {
-                      const msg = fNameCheck.error || 'First Name is required.';
-                      setFormError(msg);
-                      showToast({ type: 'error', title: 'First Name Required', message: msg });
-                      return;
+                      step1Errors.firstName = fNameCheck.error || 'First Name is required.';
                     }
                     const lNameCheck = validateName(formData.lastName, 'Last Name', 2);
                     if (!lNameCheck.isValid) {
-                      const msg = lNameCheck.error || 'Last Name is required.';
-                      setFormError(msg);
-                      showToast({ type: 'error', title: 'Last Name Required', message: msg });
-                      return;
+                      step1Errors.lastName = lNameCheck.error || 'Last Name is required.';
                     }
                     const emailCheck = validateEmail(formData.email, true);
                     if (!emailCheck.isValid) {
-                      const msg = emailCheck.error || 'Please enter a valid work email address.';
-                      setFormError(msg);
-                      showToast({ type: 'error', title: 'Invalid Email', message: msg });
-                      return;
+                      step1Errors.email = emailCheck.error || 'Please enter a valid work email address.';
                     }
                     const phoneCheck = validatePhone(formData.phone, true);
                     if (!phoneCheck.isValid) {
-                      const msg = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
-                      setFormError(msg);
-                      showToast({ type: 'error', title: 'Invalid Mobile Number', message: msg });
+                      step1Errors.phone = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
+                    }
+
+                    if (Object.keys(step1Errors).length > 0) {
+                      setFieldErrors(step1Errors);
                       return;
                     }
 
@@ -755,20 +819,24 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     });
                     if (!dupCheck.isValid) {
                       const msg = dupCheck.error || 'Duplicate email or phone detected.';
-                      setFormError(msg);
-                      showToast({ type: 'error', title: 'Duplicate Detected', message: msg });
+                      if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+                        step1Errors.email = msg;
+                      } else {
+                        step1Errors.phone = msg;
+                      }
+                      setFieldErrors(step1Errors);
                       return;
                     }
                     if (formData.initialPassword) {
                       const passCheck = validatePassword(formData.initialPassword, 6);
                       if (!passCheck.isValid) {
-                        const msg = passCheck.error || 'Password must be at least 6 characters long.';
-                        setFormError(msg);
-                        showToast({ type: 'error', title: 'Password Too Short', message: msg });
+                        step1Errors.initialPassword = passCheck.error || 'Password must be at least 6 characters long.';
+                        setFieldErrors(step1Errors);
                         return;
                       }
                     }
                   }
+                  setFieldErrors({});
                   setFormError(null);
                   setStep((s) => s + 1);
                 }}

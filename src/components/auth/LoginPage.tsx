@@ -76,6 +76,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (fieldName: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[fieldName]) return prev;
+      const copy = { ...prev };
+      delete copy[fieldName];
+      return copy;
+    });
+  };
 
   // Bottom Popup State for unassociated / unlinked organization users
   const [notInOrgPopup, setNotInOrgPopup] = useState<{
@@ -90,20 +100,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setNotInOrgPopup(null);
+    const errors: Record<string, string> = {};
 
     // Validate Identifier
     const idCheck = validateLoginIdentifier(identifier);
     if (!idCheck.isValid) {
-      setErrorMessage(idCheck.error || 'Please enter a valid email, 10-digit mobile number, or employee code.');
-      return;
+      errors.identifier = idCheck.error || 'Please enter a valid email, 10-digit mobile number, or employee code.';
     }
 
     // Validate Password
     if (!password || password.trim().length === 0) {
-      setErrorMessage('Please enter your password.');
+      errors.password = 'Please enter your password.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
     setLoading(true);
 
     try {
@@ -141,60 +156,58 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+    const errors: Record<string, string> = {};
 
     // 1. Company Legal Name validation
     const compCheck = validateName(companyName, 'Company legal name', 2, true);
     if (!compCheck.isValid) {
-      setErrorMessage(compCheck.error || 'Company legal name is required.');
-      return;
+      errors.companyName = compCheck.error || 'Company legal name is required.';
     }
 
     // 2. GSTIN format validation (if provided)
     if (companyGst.trim()) {
       const gstCheck = validateGstin(companyGst, false);
       if (!gstCheck.isValid) {
-        setErrorMessage(gstCheck.error || 'Invalid GSTIN format. Example: 24AAAAA0000A1Z5');
-        return;
+        errors.companyGst = gstCheck.error || 'Invalid GSTIN format. Example: 24AAAAA0000A1Z5';
       }
     }
 
     // 3. Owner First Name & Last Name validation
     const fNameCheck = validateName(ownerFirstName, 'Owner first name', 2, true);
     if (!fNameCheck.isValid) {
-      setErrorMessage(fNameCheck.error || 'Owner first name is required (at least 2 letters).');
-      return;
+      errors.ownerFirstName = fNameCheck.error || 'Owner first name is required (at least 2 letters).';
     }
     const lNameCheck = validateName(ownerLastName, 'Owner last name', 2, true);
     if (!lNameCheck.isValid) {
-      setErrorMessage(lNameCheck.error || 'Owner last name is required (at least 2 letters).');
-      return;
+      errors.ownerLastName = lNameCheck.error || 'Owner last name is required (at least 2 letters).';
     }
 
     // 4. Owner Email validation
     const emailCheck = validateEmail(ownerEmail, true);
     if (!emailCheck.isValid) {
-      setErrorMessage(emailCheck.error || 'Please enter a valid official email address.');
-      return;
+      errors.ownerEmail = emailCheck.error || 'Please enter a valid official email address.';
     }
 
     // 5. Owner Phone validation
     const phoneCheck = validatePhone(ownerPhone, true);
     if (!phoneCheck.isValid) {
-      setErrorMessage(phoneCheck.error || 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.');
-      return;
+      errors.ownerPhone = phoneCheck.error || 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
     }
 
     // 6. Password validation
     const passCheck = validatePassword(ownerPassword, 6);
     if (!passCheck.isValid) {
-      setErrorMessage(passCheck.error || 'Password must be at least 6 characters long.');
-      return;
+      errors.ownerPassword = passCheck.error || 'Password must be at least 6 characters long.';
     }
 
     // 7. Password Match validation
     const matchCheck = validatePasswordMatch(ownerPassword, ownerConfirmPassword);
     if (!matchCheck.isValid) {
-      setErrorMessage(matchCheck.error || 'Passwords do not match. Please verify your password.');
+      errors.ownerConfirmPassword = matchCheck.error || 'Passwords do not match. Please verify your password.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -206,10 +219,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
       existingEmployees: allEmps,
     });
     if (!dupCheck.isValid) {
-      setErrorMessage(dupCheck.error || 'This email or mobile number is already registered.');
+      const msg = dupCheck.error || 'This email or mobile number is already registered.';
+      if (dupCheck.field === 'email' || msg.toLowerCase().includes('email')) {
+        errors.ownerEmail = msg;
+      } else {
+        errors.ownerPhone = msg;
+      }
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
     setLoading(true);
     try {
       const res = await registerCompanyAccount({
@@ -353,9 +373,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
 
               {/* Identifier Input */}
               <div>
-                <label className="block text-xs font-bold text-[#0d271d] mb-1.5">
-                  Work Email, Mobile Number or Employee ID
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#0d271d]">
+                    Work Email, Mobile Number or Employee ID
+                  </label>
+                  {fieldErrors.identifier && (
+                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {fieldErrors.identifier}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <User className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -365,9 +393,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     required
                     autoComplete="username"
                     value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    onChange={(e) => {
+                      setIdentifier(e.target.value);
+                      clearFieldError('identifier');
+                    }}
                     placeholder="Enter email, mobile number or employee code"
-                    className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 transition-all bg-[#fcfdfd] focus:bg-white"
+                    className={`w-full h-11 pl-10 pr-3.5 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                      fieldErrors.identifier
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                    }`}
                   />
                 </div>
               </div>
@@ -375,12 +410,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
               {/* Password Input */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-[#0d271d]">
+                  <label className="text-xs font-bold text-[#0d271d]">
                     Password
                   </label>
-                  <span className="text-xs text-[#059669] font-semibold hover:underline cursor-pointer">
-                    Forgot?
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {fieldErrors.password && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.password}
+                      </span>
+                    )}
+                    <span className="text-xs text-[#059669] font-semibold hover:underline cursor-pointer">
+                      Forgot?
+                    </span>
+                  </div>
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -391,9 +434,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                     required
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      clearFieldError('password');
+                    }}
                     placeholder="••••••••"
-                    className="w-full h-11 pl-10 pr-10 rounded-xl border border-[#d8ebd9] text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 transition-all bg-[#fcfdfd] focus:bg-white"
+                    className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
+                      fieldErrors.password
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                    }`}
                   />
                   <button
                     id="btn-toggle-login-password"
