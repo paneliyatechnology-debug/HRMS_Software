@@ -106,17 +106,41 @@ export function saveAttendanceRecords(records: AttendanceRecord[]): void {
 }
 
 /**
+ * Safely check if an attendance record belongs to the target employee
+ */
+export function isMatchEmployee(rec: any, targetId?: string | null): boolean {
+  if (!rec || !targetId) return false;
+  const t = String(targetId).trim().toLowerCase();
+  const tSuffix = t.replace(/^(emp-|user-)/, '');
+
+  const recEmpId = rec.employeeId ? String(rec.employeeId).trim().toLowerCase() : '';
+  const recUserId = rec.userId ? String(rec.userId).trim().toLowerCase() : '';
+  const recId = rec.id ? String(rec.id).trim().toLowerCase() : '';
+
+  if (recEmpId) {
+    if (recEmpId === t) return true;
+    if (recEmpId.replace(/^(emp-|user-)/, '') === tSuffix) return true;
+  }
+  if (recUserId) {
+    if (recUserId === t) return true;
+    if (recUserId.replace(/^(emp-|user-)/, '') === tSuffix) return true;
+  }
+  if (recId) {
+    if (recId === t) return true;
+    if (recId.replace(/^(emp-|user-)/, '') === tSuffix) return true;
+  }
+  return false;
+}
+
+/**
  * Find today's attendance record for an employee
  */
 export function getTodayRecordForEmployee(employeeId: string): AttendanceRecord | null {
+  if (!employeeId) return null;
   const today = getTodayDateString();
   const all = getAllAttendanceRecords();
   return (
-    all.find(
-      (r) =>
-        r.date === today &&
-        (r.employeeId === employeeId || r.employeeId.toLowerCase() === employeeId.toLowerCase())
-    ) || null
+    all.find((r) => r && r.date === today && isMatchEmployee(r, employeeId)) || null
   );
 }
 
@@ -239,9 +263,7 @@ export function performCheckIn(
   const device = geoData?.device || detectUserDevice();
   const all = getAllAttendanceRecords();
   const existingIdx = all.findIndex(
-    (r) =>
-      r.date === today &&
-      (r.employeeId === employee.id || r.employeeId.toLowerCase() === employee.id.toLowerCase())
+    (r) => r && r.date === today && isMatchEmployee(r, employee.id)
   );
 
   const punchItem: AttendancePunchLog = {
@@ -341,12 +363,11 @@ export function performTakeBreak(employeeId: string): {
   message: string;
   record?: AttendanceRecord;
 } {
+  if (!employeeId) return { success: false, message: 'Invalid employee.' };
   const all = getAllAttendanceRecords();
   const today = getTodayDateString();
   const idx = all.findIndex(
-    (r) =>
-      r.date === today &&
-      (r.employeeId === employeeId || r.employeeId.toLowerCase() === employeeId.toLowerCase())
+    (r) => r && r.date === today && isMatchEmployee(r, employeeId)
   );
 
   if (idx === -1) {
@@ -392,12 +413,11 @@ export function performResumeWork(employeeId: string): {
   message: string;
   record?: AttendanceRecord;
 } {
+  if (!employeeId) return { success: false, message: 'Invalid employee.' };
   const all = getAllAttendanceRecords();
   const today = getTodayDateString();
   const idx = all.findIndex(
-    (r) =>
-      r.date === today &&
-      (r.employeeId === employeeId || r.employeeId.toLowerCase() === employeeId.toLowerCase())
+    (r) => r && r.date === today && isMatchEmployee(r, employeeId)
   );
 
   if (idx === -1) {
@@ -456,12 +476,11 @@ export function performCheckOut(
   message: string;
   record?: AttendanceRecord;
 } {
+  if (!employeeId) return { success: false, message: 'Invalid employee.' };
   const all = getAllAttendanceRecords();
   const today = getTodayDateString();
   const idx = all.findIndex(
-    (r) =>
-      r.date === today &&
-      (r.employeeId === employeeId || r.employeeId.toLowerCase() === employeeId.toLowerCase())
+    (r) => r && r.date === today && isMatchEmployee(r, employeeId)
   );
 
   if (idx === -1) {
@@ -548,15 +567,15 @@ export function performCheckOut(
  * Update or insert a record returned from the backend (check-in, check-out, or sync)
  */
 export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord | null {
-  if (!backendRec || !backendRec.employeeId) return null;
+  if (!backendRec || (!backendRec.employeeId && !backendRec.userId && !backendRec.id)) return null;
   const all = getAllAttendanceRecords();
   const today = backendRec.date || getTodayDateString();
+  const targetEmpId = backendRec.employeeId || backendRec.userId;
   const idx = all.findIndex(
     (r) =>
-      (backendRec.id && r.id === backendRec.id) ||
-      (r.date === today &&
-        (r.employeeId === backendRec.employeeId ||
-          r.employeeId.toLowerCase() === backendRec.employeeId.toLowerCase()))
+      r &&
+      ((backendRec.id && r.id === backendRec.id) ||
+        (r.date === today && isMatchEmployee(r, targetEmpId)))
   );
 
   const hasCheckOut = Boolean(backendRec.checkOut && backendRec.checkOut.trim() !== '');

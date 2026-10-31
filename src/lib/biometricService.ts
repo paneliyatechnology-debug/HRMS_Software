@@ -184,10 +184,13 @@ export function processBiometricPunch(payload: {
   });
 
   const allRecords = getAllAttendanceRecords();
+  const empTarget = employee?.id ? String(employee.id).trim().toLowerCase() : '';
   const existingIdx = allRecords.findIndex(
     (r) =>
+      Boolean(r) &&
       r.date === todayStr &&
-      (r.employeeId === employee.id || r.employeeId.toLowerCase() === employee.id.toLowerCase())
+      (r.employeeId === employee.id ||
+        (r.employeeId && empTarget && String(r.employeeId).trim().toLowerCase() === empTarget))
   );
 
   const biometricDeviceDesc: DevicePunchInfo = {

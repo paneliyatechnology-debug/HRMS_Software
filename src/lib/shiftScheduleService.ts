@@ -50,7 +50,7 @@ export function resolveCurrentCompanyId(explicitCompanyId?: string, employeeId?:
         e.id === employeeId ||
         e._id === employeeId ||
         e.employeeCode === employeeId ||
-        e.email?.toLowerCase() === employeeId.toLowerCase()
+        (e.email && typeof employeeId === 'string' && e.email.toLowerCase() === employeeId.toLowerCase())
     );
     if (match?.companyId) return match.companyId;
   }
