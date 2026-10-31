@@ -247,12 +247,37 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       onRefresh();
       onClose();
     } catch (err: any) {
-      console.error('[EmployeeDrawer] Failed to create employee:', err);
-      const msg = err.message || 'Failed to create employee. Please try again.';
-      setFormError(msg);
+      const msg = err?.message || 'Failed to create employee. Please try again.';
+      console.warn('[EmployeeDrawer] Server validation response:', msg);
+
+      const isEmailConflict =
+        msg.toLowerCase().includes('email') ||
+        msg.toLowerCase().includes('already registered');
+
+      const isPhoneConflict =
+        msg.toLowerCase().includes('phone') ||
+        msg.toLowerCase().includes('mobile');
+
+      const isCodeConflict =
+        msg.toLowerCase().includes('code') ||
+        msg.toLowerCase().includes('employee code');
+
+      if (isEmailConflict) {
+        setFieldErrors((prev) => ({ ...prev, email: msg }));
+        setStep(1);
+      } else if (isPhoneConflict) {
+        setFieldErrors((prev) => ({ ...prev, phone: msg }));
+        setStep(1);
+      } else if (isCodeConflict) {
+        setFieldErrors((prev) => ({ ...prev, employeeCode: msg }));
+        setStep(1);
+      } else {
+        setFormError(msg);
+      }
+
       showToast({
         type: 'error',
-        title: 'Add Employee Failed',
+        title: 'Validation Notice',
         message: msg,
       });
     } finally {
