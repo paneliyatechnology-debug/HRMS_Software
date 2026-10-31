@@ -1194,7 +1194,7 @@ export const api = {
     return fetchWithFallback<any>(`/companies/${encodeURIComponent(id)}`, undefined, null);
   },
 
-  async updateCompany(id: string, data: { companyName?: string; phone?: string; address?: string; status?: string }) {
+  async updateCompany(id: string, data: Record<string, any>) {
     return fetchWithFallback<any>(
       `/companies/${encodeURIComponent(id)}`,
       { method: 'PUT', body: JSON.stringify(data) }

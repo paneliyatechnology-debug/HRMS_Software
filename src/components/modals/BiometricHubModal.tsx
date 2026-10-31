@@ -36,6 +36,7 @@ import {
   generateNodeJsAgentScript,
   generatePythonAgentScript,
 } from '../../lib/biometricService';
+import { api } from '../../lib/api';
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 
@@ -105,67 +106,46 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
 
   const handleCreateDevice = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formSerial.trim()) {
-      alert('Device Name and Serial Number are required.');
-      return;
-    }
-
-    const newDevice: BiometricDevice = {
-      id: `bio-${Date.now()}`,
-      companyId: currentCompanyId,
-      companyName: currentCompanyName,
-      deviceName: formName.trim(),
-      brand: formBrand,
-      model: formModel.trim() || `${formBrand} Terminal`,
-      serialNumber: formSerial.trim().toUpperCase(),
-      ipAddress: formIp.trim() || '192.168.1.201',
-      port: Number(formPort) || 4370,
-      connectionType: formConnType,
-      branchLocation: formLocation.trim() || 'Headquarters',
-      secretApiKey: generateDeviceApiKey(currentCompanyId, formName),
-      status: 'online',
-      lastSyncAt: 'Just now',
-      totalPunches: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    saveBiometricDevice(newDevice);
-    loadDevices();
-    setSelectedDevice(newDevice);
-    setActiveTab('devices');
-
-    // Reset
-    setFormName('');
-    setFormSerial('');
+    alert('Biometric Hardware Registration Blocked: Backend API endpoint for hardware device CRUD is not implemented. Contact system administrator.');
   };
 
   const handleDeleteDevice = (id: string, name: string) => {
-    if (confirm(`Remove biometric device "${name}" from company configuration?`)) {
-      deleteBiometricDevice(id);
-      loadDevices();
-    }
+    alert(`Biometric Device Deletion Blocked: Backend API endpoint for device deletion (${name}) is not implemented.`);
   };
 
   const handleRunTestPunch = async () => {
     setSimLoading(true);
     setSimResult(null);
 
-    setTimeout(() => {
-      const res = processBiometricPunch({
-        companyId: currentCompanyId,
-        deviceId: selectedDevice?.id,
-        deviceApiKey: selectedDevice?.secretApiKey,
-        employeeCode: simEmpCode,
-        verificationMode: simMode,
-      });
+    try {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const logs = [
+        {
+          employeeCode: simEmpCode,
+          time: timeStr,
+          timestamp: now.getTime(),
+          type: 'IN',
+          verificationMode: simMode,
+        },
+      ];
 
-      setSimResult(res);
+      await api.syncBiometricAttendance(logs, selectedDevice?.id || 'GATE-01-TERMINAL');
+
+      setSimResult({
+        success: true,
+        message: `Biometric attendance punch successfully synchronized with backend database for ${simEmpCode} at ${timeStr}.`,
+        punchType: 'CHECK_IN',
+      });
+      onRefreshAttendance();
+    } catch (err: any) {
+      setSimResult({
+        success: false,
+        message: err.message || 'Failed to sync biometric punch to backend API.',
+      });
+    } finally {
       setSimLoading(false);
-      if (res.success) {
-        onRefreshAttendance();
-        loadDevices();
-      }
-    }, 600);
+    }
   };
 
   const webhookUrl = getCloudWebhookUrl();

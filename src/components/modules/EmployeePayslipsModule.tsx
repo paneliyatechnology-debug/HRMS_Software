@@ -22,7 +22,6 @@ import {
 import { PayrollRecord, Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import {
-  getEmployeePayslips,
   numberToWords,
 } from '../../lib/payrollService';
 import { getAllEmployees } from '../../lib/employeeService';
@@ -60,32 +59,21 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
-      // 1. Initial immediate load from local storage
-      const localRecords = getEmployeePayslips(
-        currentEmpId,
-        currentEmpEmail,
-        currentEmpCode,
-        currentEmpName
-      );
-      if (isMounted && localRecords.length > 0) {
-        setPayslips(localRecords);
-      }
-
-      // 2. Fetch live records from backend Database
+      // Fetch live records directly from backend Database (Zero synthetic fallbacks)
       try {
         if (currentEmpId) {
           const apiRecords = await api.getPayroll({ employeeId: currentEmpId });
-          if (isMounted && Array.isArray(apiRecords) && apiRecords.length > 0) {
-            setPayslips(apiRecords);
-            return;
+          if (isMounted) {
+            setPayslips(Array.isArray(apiRecords) ? apiRecords : []);
           }
+        } else if (isMounted) {
+          setPayslips([]);
         }
       } catch (err) {
-        console.warn('Payslips API fallback to local cache:', err);
-      }
-
-      if (isMounted) {
-        setPayslips(localRecords);
+        console.warn('Could not fetch payroll records from backend API:', err);
+        if (isMounted) {
+          setPayslips([]);
+        }
       }
     };
 

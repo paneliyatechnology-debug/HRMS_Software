@@ -263,24 +263,46 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     }
   };
 
-  const handleEmpProfileSave = () => {
-    setSavedMessage(true);
-    showToast({
-      type: 'success',
-      title: 'Profile Updated',
-      message: 'Your personal preferences have been saved.',
-    });
-    setTimeout(() => setSavedMessage(false), 3000);
+  const handleEmpProfileSave = async () => {
+    const empId = user?.employeeId || user?.id;
+    if (!empId) {
+      showToast({ type: 'error', title: 'Error', message: 'Employee ID not found.' });
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.updateEmployee(empId, {
+        phone: empProfile.phone,
+        emergencyContact: {
+          name: empProfile.emergencyContactName,
+          relationship: 'Emergency Contact',
+          phone: empProfile.emergencyContactPhone,
+        },
+      });
+      setSavedMessage(true);
+      showToast({
+        type: 'success',
+        title: 'Profile Updated',
+        message: 'Your personal employee details have been saved to the database.',
+      });
+      setTimeout(() => setSavedMessage(false), 3000);
+    } catch (err: any) {
+      showToast({
+        type: 'warning',
+        title: 'Profile Update Blocked',
+        message: err.message || 'Employee self-service profile update API is not supported by the backend. Contact HR to edit details.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEmpNotifSave = () => {
-    setSavedMessage(true);
     showToast({
-      type: 'success',
-      title: 'Notifications Updated',
-      message: 'Your alert preferences have been saved.',
+      type: 'warning',
+      title: 'Notification Settings Blocked',
+      message: 'Notification alert preferences persistence API is pending backend implementation.',
     });
-    setTimeout(() => setSavedMessage(false), 3000);
   };
 
   const handleEmpPrefSave = async () => {
@@ -322,14 +344,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       return;
     }
 
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    setSavedMessage(true);
     showToast({
-      type: 'success',
-      title: 'Password Changed',
-      message: 'Your account security credentials have been updated.',
+      type: 'warning',
+      title: 'Password Update Blocked',
+      message: 'User self-service password change API endpoint is not implemented on the backend. Please request a password reset via Super Admin.',
     });
-    setTimeout(() => setSavedMessage(false), 3000);
   };
 
   const rbacMatrix = [

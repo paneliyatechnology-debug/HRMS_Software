@@ -22,6 +22,7 @@ import {
   getCompanySubscription,
   updateCompanySubscription,
 } from '../../lib/subscriptionService';
+import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 
 interface UpgradePlanModalProps {
@@ -136,6 +137,20 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             const verifyData = await verifyRes.json();
 
             if (verifyData.success) {
+              if (companyId) {
+                try {
+                  await api.updateCompany(companyId, {
+                    subscriptionPlan: plan.name,
+                    planId: plan.id,
+                    billingCycle,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpayOrderId: response.razorpay_order_id,
+                  });
+                } catch (updateErr) {
+                  console.warn('Backend company subscription sync error:', updateErr);
+                }
+              }
+
               updateCompanySubscription(companyId, plan.id, billingCycle, {
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,

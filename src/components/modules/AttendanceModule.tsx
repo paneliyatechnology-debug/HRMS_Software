@@ -375,15 +375,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, []);
 
   const handleToggleWFH = (emp: Employee) => {
-    const current = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-    const next = !current;
-    setEmployeeWFHStatus(emp.id, next);
-    setWfhMap((prev) => ({ ...prev, [emp.id]: next, [emp.id.toLowerCase()]: next }));
-    const msg = next
-      ? `🏡 Work From Home ENABLED for ${emp.firstName} ${emp.lastName}.`
-      : `🏢 Office Mode set for ${emp.firstName} ${emp.lastName}.`;
+    const msg = `⚠️ WFH Configuration Blocked: Backend API endpoint for employee Work From Home assignment is not implemented.`;
     setWfhNotice(msg);
-    setTimeout(() => setWfhNotice(null), 5000);
+    setTimeout(() => setWfhNotice(null), 6000);
   };
 
   const handleRegularizeSubmit = async (e: React.FormEvent) => {
