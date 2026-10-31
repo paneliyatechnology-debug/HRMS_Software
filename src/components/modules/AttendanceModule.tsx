@@ -186,10 +186,30 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
   const [summaryViewMode, setSummaryViewMode] = useState<'cards' | 'grid'>('cards');
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
+  const [detailModalTab, setDetailModalTab] = useState<'logs' | 'matrix'>('logs');
 
-  // Helper to compute monthly metrics for each employee
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const currentMonthIdx = Math.max(0, MONTH_NAMES.indexOf(selectedMonth));
+  const currentYearNum = parseInt(selectedYear, 10) || 2026;
+  const totalDaysInSelectedMonth = new Date(currentYearNum, currentMonthIdx + 1, 0).getDate();
+
+  const daysInMonth = React.useMemo(() => {
+    return Array.from({ length: totalDaysInSelectedMonth }, (_, i) => {
+      const day = i + 1;
+      const date = new Date(currentYearNum, currentMonthIdx, day);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+      const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+      return { day, dayName, dayOfWeek };
+    });
+  }, [totalDaysInSelectedMonth, currentYearNum, currentMonthIdx]);
+
+  // Helper to compute monthly metrics for each employee from live database records
   const getEmployeeMonthlyMetrics = (emp: Employee) => {
-    const empRecords = [
+    const empRecordsMap = new Map<string, AttendanceRecord>();
+    const allEmpRecs = [
       ...records.filter(
         (r) =>
           r.employeeId === emp.id ||
@@ -200,6 +220,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       ),
       ...liveRecords.filter((r) => r.employeeId === emp.id),
     ];
+    allEmpRecs.forEach((r) => {
+      if (r.date) empRecordsMap.set(r.date, r);
+    });
 
     let presentDays = 0;
     let lateDays = 0;
@@ -208,13 +231,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let onLeaveDays = 0;
     let totalWorkSeconds = 0;
 
-    daysInMonth.forEach(({ day }) => {
+    const todayStr = getTodayDateString();
+    const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+
+    daysInMonth.forEach(({ day, dayOfWeek }) => {
       const dayStr = String(day).padStart(2, '0');
-      const dateStr = `2026-10-${dayStr}`;
-      const rec = empRecords.find((r) => r.date === dateStr);
+      const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+      const rec = empRecordsMap.get(dateStr);
 
       if (rec) {
-        const st = String(rec.status).toLowerCase();
+        const st = String(rec.status || '').toLowerCase();
         if (st === 'present') {
           presentDays++;
         } else if (st === 'late') {
@@ -226,33 +252,37 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           absentDays++;
         } else if (st === 'leave' || st === 'on leave') {
           onLeaveDays++;
+        } else if (rec.checkIn) {
+          presentDays++;
         }
 
         if (rec.activeSeconds) {
           totalWorkSeconds += rec.activeSeconds;
+        } else if (rec.workingHours) {
+          totalWorkSeconds += rec.workingHours * 3600;
         } else if (rec.checkIn && rec.checkOut) {
           totalWorkSeconds += 8.5 * 3600;
         } else if (rec.checkIn) {
           totalWorkSeconds += 4 * 3600;
         }
       } else {
-        // Holiday vs Weekend vs normal workday
-        if (day === 2 || day === 20 || day === 21) {
-          // Public holiday
-        } else if (day % 7 === 3 || day % 7 === 4) {
-          // Weekend off
-        } else if (day < 24) {
-          // Active demo weekday
-          presentDays++;
-          totalWorkSeconds += 8 * 3600;
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        if (!isWeekend && dateStr < todayStr) {
+          absentDays++;
         }
       }
     });
 
-    const workingDays = 22;
-    const effectivePresent = Math.min(workingDays, presentDays + halfDays * 0.5);
-    const score = workingDays > 0 ? Math.min(100, Math.round((effectivePresent / workingDays) * 100)) : 100;
-    const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '8.0';
+    const elapsedWorkDays = daysInMonth.filter(({ day, dayOfWeek }) => {
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+      return dayOfWeek !== 0 && dayOfWeek !== 6 && dateStr <= todayStr;
+    }).length;
+
+    const effectivePresent = presentDays + halfDays * 0.5;
+    const workingDays = Math.max(1, elapsedWorkDays);
+    const score = Math.min(100, Math.round((effectivePresent / workingDays) * 100));
+    const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '0.0';
 
     return {
       presentDays,
@@ -264,6 +294,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       score,
       totalHours: Math.round(totalWorkSeconds / 3600),
       avgDailyHours,
+      allRecords: Array.from(empRecordsMap.values()).sort((a, b) => (b.date || '').localeCompare(a.date || '')),
     };
   };
 
@@ -441,14 +472,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab]);
-
-  // Days in October 2026 (1 to 31)
-  const daysInMonth = Array.from({ length: 31 }, (_, i) => {
-    const day = i + 1;
-    const date = new Date(2026, 9, day); // month 9 is October
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-    return { day, dayName };
-  });
 
   const exportCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
@@ -1623,7 +1646,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                           {daysInMonth.map(({ day }) => {
                             const dayStr = String(day).padStart(2, '0');
-                            const dateStr = `2026-10-${dayStr}`;
+                            const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+                            const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
                             const record = isEmployeeView
                               ? records.find((r) => r.date === dateStr && isMyAttendanceRecord(r)) ||
                                 liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r))
@@ -1669,157 +1693,283 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           {/* EMPLOYEE DETAILED LOG MODAL */}
           {detailEmp && (() => {
             const m = getEmployeeMonthlyMetrics(detailEmp);
-            const empRecs = [
-              ...records.filter(
-                (r) =>
-                  r.employeeId === detailEmp.id ||
-                  (detailEmp.employeeCode && r.employeeCode === detailEmp.employeeCode) ||
-                  (r.employeeName &&
-                    r.employeeName.trim().toLowerCase() ===
-                      `${detailEmp.firstName || ''} ${detailEmp.lastName || ''}`.trim().toLowerCase())
-              ),
-              ...liveRecords.filter((r) => r.employeeId === detailEmp.id),
-            ];
+            const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+            const todayStr = getTodayDateString();
 
             return (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
                 onClick={() => setDetailEmp(null)}
               >
                 <div
-                  className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[88vh] flex flex-col"
+                  className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Modal Header */}
                   <div className="flex items-start justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
+                      <div className="relative w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
                         {detailEmp.avatarUrl ? (
                           <img src={detailEmp.avatarUrl} alt={detailEmp.firstName} className="w-full h-full object-cover rounded-2xl" />
                         ) : (
                           <span>{detailEmp.firstName?.[0]}{detailEmp.lastName?.[0]}</span>
                         )}
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900">
-                          {detailEmp.firstName} {detailEmp.lastName}
-                        </h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                          <span className="font-mono text-emerald-800 font-semibold">{detailEmp.employeeCode || detailEmp.id}</span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {detailEmp.firstName} {detailEmp.lastName}
+                          </h3>
+                          <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                            {detailEmp.employeeCode || detailEmp.id}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                          <span>{detailEmp.departmentName || 'General Staff'}</span>
                           <span>•</span>
-                          <span>{detailEmp.departmentName || 'Department'}</span>
+                          <span>{detailEmp.designationTitle || 'Employee'}</span>
                           <span>•</span>
-                          <span>{detailEmp.designationTitle || 'Staff'}</span>
+                          <span className="text-slate-400">{detailEmp.shift || 'General Shift (9 AM - 6 PM)'}</span>
                         </div>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setDetailEmp(null)}
-                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      title="Close"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
 
-                  {/* Quick Monthly Stats Pills */}
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                      <div className="text-[10px] font-bold text-emerald-600 uppercase">Present</div>
-                      <div className="text-base font-extrabold text-emerald-800">{m.presentDays} Days</div>
+                  {/* Real Metrics KPI Strip */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Present Days</div>
+                      <div className="text-lg font-black text-emerald-800 mt-0.5">{m.presentDays} Days</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                      <div className="text-[10px] font-bold text-amber-600 uppercase">Late</div>
-                      <div className="text-base font-extrabold text-amber-800">{m.lateDays} Days</div>
+                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Late Arrivals</div>
+                      <div className="text-lg font-black text-amber-800 mt-0.5">{m.lateDays} Days</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
-                      <div className="text-[10px] font-bold text-purple-600 uppercase">Leaves</div>
-                      <div className="text-base font-extrabold text-purple-800">{m.onLeaveDays + m.absentDays} Days</div>
+                    <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                      <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
+                      <div className="text-lg font-black text-indigo-800 mt-0.5">{m.totalHours} hrs</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200">
-                      <div className="text-[10px] font-bold text-blue-600 uppercase">Score</div>
-                      <div className="text-base font-extrabold text-blue-800">{m.score}%</div>
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
+                      <div className="text-lg font-black text-slate-800 mt-0.5">{m.avgDailyHours} h/day</div>
                     </div>
                   </div>
 
-                  {/* Day-by-day table */}
-                  <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin]">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase">
-                        <tr>
-                          <th className="py-2.5 px-3">Date</th>
-                          <th className="py-2.5 px-3">Status</th>
-                          <th className="py-2.5 px-3">Punch In</th>
-                          <th className="py-2.5 px-3">Punch Out</th>
-                          <th className="py-2.5 px-3">Work Hours</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {daysInMonth.map(({ day, dayName }) => {
-                          const dayStr = String(day).padStart(2, '0');
-                          const dateStr = `2026-10-${dayStr}`;
-                          const rec = empRecs.find((r) => r.date === dateStr);
+                  {/* View Tabs inside Modal */}
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                    <button
+                      type="button"
+                      onClick={() => setDetailModalTab('logs')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        detailModalTab === 'logs'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Punch Logs & History ({m.allRecords.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailModalTab('matrix')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        detailModalTab === 'matrix'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span>Monthly Calendar ({selectedMonth} {currentYearNum})</span>
+                    </button>
+                  </div>
 
-                          const isHoliday = day === 2 || day === 20 || day === 21;
-                          const isWeekend = day % 7 === 3 || day % 7 === 4;
-
-                          let statusLabel = 'Absent';
-                          let statusClass = 'bg-slate-100 text-slate-600';
-
-                          if (rec) {
-                            const st = String(rec.status).toLowerCase();
-                            if (st === 'present') {
-                              statusLabel = 'Present';
-                              statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                            } else if (st === 'late') {
-                              statusLabel = 'Late';
-                              statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
-                            } else if (st === 'half day') {
-                              statusLabel = 'Half Day';
-                              statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-                            }
-                          } else if (isHoliday) {
-                            statusLabel = 'Holiday';
-                            statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-                          } else if (isWeekend) {
-                            statusLabel = 'Weekend Off';
-                            statusClass = 'bg-rose-50 text-rose-600 border border-rose-200';
-                          } else if (day < 24) {
-                            statusLabel = 'Present';
-                            statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                          }
-
-                          const inTime = rec?.checkIn || (statusLabel === 'Present' ? '09:00 AM' : statusLabel === 'Late' ? '09:35 AM' : '—');
-                          const outTime = rec?.checkOut || (statusLabel === 'Present' || statusLabel === 'Late' ? '06:00 PM' : '—');
-                          const duration = rec?.workingHours ? `${rec.workingHours}h 00m` : (statusLabel === 'Present' ? '9h 00m' : statusLabel === 'Late' ? '8h 25m' : '—');
-
-                          return (
-                            <tr key={day} className="hover:bg-slate-50/70">
-                              <td className="py-2.5 px-3 font-semibold text-slate-800">
-                                <span>{day} Oct 2026</span>{' '}
-                                <span className="text-[10px] text-slate-400 font-normal">({dayName})</span>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${statusClass}`}>
-                                  {statusLabel}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 font-mono text-slate-700">{inTime}</td>
-                              <td className="py-2.5 px-3 font-mono text-slate-700">{outTime}</td>
-                              <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{duration}</td>
+                  {/* TAB 1: Real Punch Logs & History */}
+                  {detailModalTab === 'logs' && (
+                    <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
+                      {m.allRecords.length === 0 ? (
+                        <div className="py-14 px-4 text-center">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <Clock className="w-6 h-6" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-800">No Punch Logs Recorded</h4>
+                          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                            No attendance punch records exist in the database for {detailEmp.firstName} {detailEmp.lastName} yet. Records will automatically appear here once the employee punches in/out.
+                          </p>
+                        </div>
+                      ) : (
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-3">Date</th>
+                              <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3">Punch In</th>
+                              <th className="py-2.5 px-3">Punch Out</th>
+                              <th className="py-2.5 px-3">Break</th>
+                              <th className="py-2.5 px-3">Work Hours</th>
+                              <th className="py-2.5 px-3 text-right">Device / Source</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {m.allRecords.map((rec) => {
+                              const recDate = new Date(rec.date);
+                              const dayLabel = rec.date === todayStr ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
+                              const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const st = String(rec.status || 'Present').toLowerCase();
+                              const isWorkingNow = rec.checkIn && !rec.checkOut && rec.date === todayStr;
+
+                              return (
+                                <tr key={rec.id || rec.date} className="hover:bg-slate-50/70 transition-colors">
+                                  <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                    <div>{formattedDate}</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">{dayLabel}</div>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        st === 'late'
+                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                          : st === 'half day'
+                                          ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                          : st === 'absent'
+                                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      }`}
+                                    >
+                                      {rec.status || 'Present'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                    {rec.checkIn || '—'}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                    {isWorkingNow ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 animate-pulse">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                        In Progress
+                                      </span>
+                                    ) : (
+                                      rec.checkOut || '—'
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-600 font-mono">
+                                    {rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m'}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                                    {rec.workingHours ? `${rec.workingHours} hrs` : (isWorkingNow ? 'Active' : '—')}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                                      {rec.checkInDevice?.deviceType || (rec.isWFH ? 'Remote / WFH' : 'Web Punch')}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: Dynamic Monthly Calendar Matrix */}
+                  {detailModalTab === 'matrix' && (
+                    <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="py-2.5 px-3">Date</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3">Punch In</th>
+                            <th className="py-2.5 px-3">Punch Out</th>
+                            <th className="py-2.5 px-3">Work Hours</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {daysInMonth.map(({ day, dayName, dayOfWeek }) => {
+                            const dayStr = String(day).padStart(2, '0');
+                            const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+                            const rec = m.allRecords.find((r) => r.date === dateStr);
+
+                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                            const isPast = dateStr < todayStr;
+                            const isToday = dateStr === todayStr;
+
+                            let statusLabel = 'Not Punched';
+                            let statusClass = 'bg-slate-100 text-slate-500';
+
+                            if (rec) {
+                              const st = String(rec.status || 'Present').toLowerCase();
+                              if (st === 'late') {
+                                statusLabel = 'Late';
+                                statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                              } else if (st === 'half day') {
+                                statusLabel = 'Half Day';
+                                statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                              } else if (st === 'absent') {
+                                statusLabel = 'Absent';
+                                statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
+                              } else {
+                                statusLabel = 'Present';
+                                statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                              }
+                            } else if (isWeekend) {
+                              statusLabel = 'Weekend Off';
+                              statusClass = 'bg-slate-100 text-slate-400';
+                            } else if (isToday) {
+                              statusLabel = 'Today';
+                              statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
+                            } else if (isPast) {
+                              statusLabel = 'Absent';
+                              statusClass = 'bg-slate-100 text-slate-600';
+                            } else {
+                              statusLabel = 'Upcoming';
+                              statusClass = 'bg-slate-50 text-slate-400';
+                            }
+
+                            const inTime = rec?.checkIn || '—';
+                            const outTime = rec?.checkOut || (rec?.checkIn && isToday ? 'Working' : '—');
+                            const duration = rec?.workingHours ? `${rec.workingHours} hrs` : '—';
+
+                            return (
+                              <tr key={day} className={`hover:bg-slate-50/70 ${isToday ? 'bg-blue-50/30' : ''}`}>
+                                <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                  <span>{day} {selectedMonth.slice(0, 3)} {currentYearNum}</span>{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal">({dayName})</span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${statusClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-700">{inTime}</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-700">{outTime}</td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{duration}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {/* Modal Footer */}
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex items-center justify-between border-t border-slate-100 text-xs">
+                    <span className="text-slate-500 text-[11px]">
+                      Showing verified live attendance records for <strong>{detailEmp.firstName} {detailEmp.lastName}</strong>
+                    </span>
                     <button
                       type="button"
                       onClick={() => setDetailEmp(null)}
-                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition"
+                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer"
                     >
                       Done / Close
                     </button>
