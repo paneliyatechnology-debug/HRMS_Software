@@ -241,11 +241,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       if (rec) {
         const st = String(rec.status || '').toLowerCase();
-        if (st === 'present') {
+        if (st === 'present' || st === 'late') {
           presentDays++;
-        } else if (st === 'late') {
-          presentDays++;
-          lateDays++;
         } else if (st === 'half day') {
           halfDays++;
         } else if (st === 'absent') {
@@ -1223,18 +1220,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <div className="text-[10px] text-emerald-600 mt-0.5">Overall company performance</div>
               </div>
 
-              <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/70">
-                <div className="flex items-center gap-2 text-amber-700 text-[11px] font-semibold">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Total Late Marks</span>
+              <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70">
+                <div className="flex items-center gap-2 text-blue-700 text-[11px] font-semibold">
+                  <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Calendar Days</span>
                 </div>
-                <div className="text-xl font-bold text-amber-800 mt-1">
-                  {visibleEmployees.reduce(
-                    (acc, e) => acc + getEmployeeMonthlyMetrics(e).lateDays,
-                    0
-                  )}
+                <div className="text-xl font-bold text-blue-800 mt-1">
+                  {daysInMonth.length} Days
                 </div>
-                <div className="text-[10px] text-amber-600 mt-0.5">Delayed arrivals in {selectedMonth}</div>
+                <div className="text-[10px] text-blue-600 mt-0.5">Total days in {selectedMonth}</div>
               </div>
 
               <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-200/70">
@@ -1340,9 +1334,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <span className="font-bold text-emerald-700 text-xs">{metrics.presentDays} Days</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 font-medium block">Late</span>
-                              <span className={`font-bold text-xs ${metrics.lateDays > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
-                                {metrics.lateDays}
+                              <span className="text-[10px] text-slate-400 font-medium block">Half Day</span>
+                              <span className={`font-bold text-xs ${metrics.halfDays > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                                {metrics.halfDays}
                               </span>
                             </div>
                             <div>
@@ -1399,7 +1393,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <th className="py-3 px-4">Employee</th>
                         <th className="py-3 px-3">Present Days</th>
-                        <th className="py-3 px-3">Late Marks</th>
+                        <th className="py-3 px-3">Half Days</th>
                         <th className="py-3 px-3">Leaves / Off</th>
                         <th className="py-3 px-4">Attendance Score</th>
                         <th className="py-3 px-3">Hours Logged</th>
@@ -1456,16 +1450,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </span>
                             </td>
 
-                            {/* 3. Late Marks */}
+                            {/* 3. Half Days */}
                             <td className="py-3 px-3">
-                              {metrics.lateDays > 0 ? (
+                              {metrics.halfDays > 0 ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                   <Clock className="w-3.5 h-3.5" />
-                                  <span>{metrics.lateDays} Late</span>
+                                  <span>{metrics.halfDays} Days</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                  0 Late
+                                  0 Days
                                 </span>
                               )}
                             </td>
@@ -1751,8 +1745,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       <div className="text-lg font-black text-emerald-800 mt-0.5">{m.presentDays} Days</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
-                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Late Arrivals</div>
-                      <div className="text-lg font-black text-amber-800 mt-0.5">{m.lateDays} Days</div>
+                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Half Days</div>
+                      <div className="text-lg font-black text-amber-800 mt-0.5">{m.halfDays} Days</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
                       <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
@@ -2183,7 +2177,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
                   >
                     <option value="Present">Present</option>
-                    <option value="Late">Late</option>
                     <option value="Half Day">Half Day</option>
                   </select>
                 </div>

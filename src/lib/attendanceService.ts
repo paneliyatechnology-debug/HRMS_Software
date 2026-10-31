@@ -143,9 +143,7 @@ export function checkEmployeePunchEligibility(employeeId: string): {
     return {
       canCheckIn: true,
       status: 'not_started',
-      message: shiftCheck.isLate
-        ? 'Late arrival detected. Reason for being late is compulsory to check in.'
-        : 'You have not checked in today. Please click Check In to begin your shift.',
+      message: 'You have not checked in today. Please click Check In to begin your shift.',
       record: null,
       shiftWindowInfo: shiftCheck,
     };
@@ -211,13 +209,6 @@ export function performCheckIn(
     };
   }
 
-  if (shiftCheck.isLate && !employee.lateReason?.trim()) {
-    return {
-      success: false,
-      message: 'Late reason is compulsory. Please enter why you arrived late.',
-    };
-  }
-
   // 2. Check general punch eligibility
   const eligibility = checkEmployeePunchEligibility(employee.id);
 
@@ -252,9 +243,8 @@ export function performCheckIn(
     breakDurationMinutes: 0,
     workingHours: 0,
     overtimeHours: 0,
-    status: shiftCheck.isLate ? 'Late' : 'Present',
-    remarks: employee.remarks || (shiftCheck.isLate ? `[Late Reason: ${employee.lateReason?.trim()}]` : 'Self portal check-in'),
-    lateReason: shiftCheck.isLate ? employee.lateReason?.trim() : undefined,
+    status: 'Present',
+    remarks: employee.remarks || 'Self portal check-in',
     createdAt: now.toISOString(),
     activeSeconds: 0,
     breakSeconds: 0,

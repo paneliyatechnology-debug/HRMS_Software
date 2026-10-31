@@ -57,8 +57,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
   const [remarks, setRemarks] = useState('Morning shift clock-in');
-  const [lateReason, setLateReason] = useState('');
-  const [lateReasonError, setLateReasonError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const [isWFH, setIsWFH] = useState(() => isEmployeeWFHEnabled(currentEmpId));
@@ -83,7 +81,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [shiftStatus, setShiftStatus] = useState<ShiftVerificationResult>(() =>
     verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId)
   );
-  const isLateArrival = Boolean(shiftStatus.enforceActive && shiftStatus.isLate && punchState.status === 'not_started');
 
   useEffect(() => {
     const handleScheduleUpdate = (e?: any) => {
@@ -257,13 +254,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       alert(currentShift.reason || `Check-in is locked before ${currentShift.allowedStart}.`);
       return;
     }
-
-    // 2. Enforce Compulsory Late Reason if arriving late
-    if (isLateArrival && !lateReason.trim()) {
-      setLateReasonError('Late reason is compulsory! Please enter why you arrived late.');
-      return;
-    }
-    setLateReasonError('');
 
     setCapturedPhoto(null);
     setCameraError(null);
@@ -471,9 +461,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       };
 
       if (selfieMode === 'check_in') {
-        const fullRemarks = isLateArrival
-          ? `[Late Reason: ${lateReason.trim()}]${remarks && remarks !== 'Morning shift clock-in' ? ` • Note: ${remarks.trim()}` : ''}`
-          : (remarks || 'Morning shift clock-in');
+        const fullRemarks = remarks || 'Morning shift clock-in';
 
         const res = await api.checkIn(
           currentEmpId,
@@ -484,7 +472,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
             email: user.email,
             companyId: userCompanyId,
-            lateReason: isLateArrival ? lateReason.trim() : undefined,
           },
           geoData
         );
@@ -801,28 +788,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               />
             </div>
 
-            {/* Shift Timing Window & Buffer Card (Shows ONLY when employee arrives late, hidden at all other times!) */}
-            {isLateArrival && (
-              <div className="my-2.5 p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 shadow-xs space-y-1.5 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-rose-900 font-extrabold">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span className="text-xs">Late Attendance: Outside Shift Buffer</span>
-                  </div>
-                  <span className="text-[10px] font-black uppercase text-rose-900 bg-rose-200 px-2.5 py-0.5 rounded-md border border-rose-300 shrink-0">
-                    LATE PUNCH
-                  </span>
-                </div>
-                <p className="text-[11px] text-rose-800 leading-relaxed">
-                  Your company admin has set office shift to <strong>{shiftStatus.shiftStart}</strong> with a <strong>{shiftStatus.config.gracePeriodMinutes}-minute buffer</strong>. Check-in was scheduled for <strong>{shiftStatus.allowedStart} – {shiftStatus.allowedEnd}</strong>.
-                </p>
-                <div className="text-[10px] text-slate-500 pt-1 border-t border-rose-200 flex items-center justify-between">
-                  <span>Current Time: <strong className="font-mono text-slate-800">{shiftStatus.currentTimeStr}</strong></span>
-                  <span className="text-rose-700 font-bold">Late reason is mandatory</span>
-                </div>
-              </div>
-            )}
-
             {shiftStatus.enforceActive && shiftStatus.isEarly && punchState.status === 'not_started' && (
               <div className="my-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
                 <div className="flex items-center gap-2">
@@ -879,44 +844,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             <div className="space-y-2">
               {punchState.status === 'not_started' && (
                 <div className="space-y-2.5 mb-3">
-                  {/* Compulsory Late Reason (ONLY shown when employee did not do attendance on time!) */}
-                  {isLateArrival && (
-                    <div className="p-3 rounded-xl bg-rose-50/90 border-2 border-rose-300 shadow-2xs space-y-1.5 animate-in fade-in">
-                      <label className="text-xs font-black text-rose-950 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          <span>Reason for Late Arrival / लेट आने का कारण</span>
-                        </span>
-                        <span className="text-[10px] font-black uppercase text-rose-800 bg-rose-200 px-2 py-0.5 rounded border border-rose-300 shrink-0">
-                          Compulsory *
-                        </span>
-                      </label>
-                      <textarea
-                        value={lateReason}
-                        onChange={(e) => {
-                          setLateReason(e.target.value);
-                          if (lateReasonError) setLateReasonError('');
-                        }}
-                        rows={2}
-                        placeholder="Please write why you arrived late today (traffic jam, vehicle breakdown, emergency, personal reason)..."
-                        className={`w-full px-3 py-2 text-xs rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
-                          lateReasonError
-                            ? 'border-rose-500 focus:ring-rose-400 bg-rose-50/40'
-                            : 'border-rose-300 focus:ring-rose-500'
-                        }`}
-                      />
-                      {lateReasonError && (
-                        <p className="text-[11px] font-bold text-rose-700 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{lateReasonError}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-
                   <div>
                     <label className="text-[11px] font-medium text-slate-500 mb-1 block">
-                      {isLateArrival ? 'Additional Shift Notes (Optional)' : 'Remarks / Shift Note'}
+                      Remarks / Shift Note
                     </label>
                     <input
                       type="text"
@@ -933,8 +863,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
                       shiftStatus.isEarly
                         ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
-                        : isLateArrival
-                        ? 'bg-rose-700 hover:bg-rose-800 text-white'
                         : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed'
                     }`}
                   >
@@ -942,8 +870,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <span>
                       {shiftStatus.isEarly
                         ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
-                        : isLateArrival
-                        ? 'Take Selfie & Submit Late Attendance'
                         : 'Take Selfie & Check In'}
                     </span>
                   </button>

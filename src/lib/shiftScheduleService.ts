@@ -243,25 +243,6 @@ export function verifyShiftTimeWindow(
     };
   }
 
-  if (currentMinutes > allowedEndMins) {
-    const minsLate = currentMinutes - allowedEndMins;
-    return {
-      isAllowed: true,
-      enforceActive: true,
-      isLate: true,
-      isEarly: false,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: minsLate,
-      reason: `Late Attendance: Office check-in window closed at ${allowedEndStr}. A compulsory reason is required to check in.`,
-      config,
-    };
-  }
-
   return {
     isAllowed: true,
     enforceActive: true,
