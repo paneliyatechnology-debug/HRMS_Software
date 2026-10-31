@@ -855,7 +855,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
       {/* Rejection Modal Dialog */}
       {rejectingLeave && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+ <div className="fixed inset-0 z-50 overflow-hidden bg-transparent flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">

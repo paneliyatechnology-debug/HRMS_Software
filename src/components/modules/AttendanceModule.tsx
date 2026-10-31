@@ -1709,7 +1709,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
             return (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-transparent animate-in fade-in"
                 onClick={() => setDetailEmp(null)}
               >
                 <div
@@ -2145,7 +2145,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       {/* Modal: HR Regularization */}
       {isRegModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">

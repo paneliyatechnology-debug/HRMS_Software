@@ -410,7 +410,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       {/* DETAILED PRINTABLE PAYSLIP MODAL */}
       {/* ========================================================================= */}
       {selectedPayslip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-3 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto [scrollbar-width:thin]">
             {/* Modal Actions Header (Hidden when printing) */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 print:hidden">

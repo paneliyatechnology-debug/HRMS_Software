@@ -115,7 +115,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget && !isLoading) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in flex items-center justify-center p-4 cursor-pointer"
+ className="fixed inset-0 z-50 overflow-y-auto bg-transparent animate-in fade-in flex items-center justify-center p-4 cursor-pointer"
     >
       <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default transition-all my-auto max-h-[90vh]">
         {/* Header */}

@@ -1640,7 +1640,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCheckOutModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
@@ -1687,7 +1687,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRejectModalData(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -1746,7 +1746,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmpDashboard(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
@@ -1793,7 +1793,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmpDashboard(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">

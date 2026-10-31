@@ -649,7 +649,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           id="add-department-modal"
           onClick={(e) => { if (e.target === e.currentTarget) setAddDeptModalOpen(false); }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
@@ -750,7 +750,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           id="add-designation-modal"
           onClick={(e) => { if (e.target === e.currentTarget) setAddDesModalOpen(false); }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"

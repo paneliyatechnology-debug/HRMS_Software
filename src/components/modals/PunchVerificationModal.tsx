@@ -246,7 +246,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-transparent animate-in fade-in duration-200">
         <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white border-[3px] border-black rounded-3xl shadow-[8px_8px_0px_0px_#000] overflow-hidden">
           {/* Header */}
           <div className="px-5 py-4 border-b-2 border-black bg-[#FFE600] flex items-center justify-between shrink-0">
@@ -374,7 +374,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
       {expandedPhoto && (
         <div
           onClick={() => setExpandedPhoto(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in cursor-zoom-out"
+ className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-transparent animate-in fade-in cursor-zoom-out"
         >
           <div className="relative max-w-2xl max-h-[90vh] bg-black rounded-2xl border-2 border-white overflow-hidden shadow-2xl">
             <button

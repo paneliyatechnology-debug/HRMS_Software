@@ -954,7 +954,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           MODAL: ADD HOLIDAY
           ========================================================================= */}
       {isAddHolidayOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95">
             {/* Modal Header */}
             <div className="p-5 bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white flex items-center justify-between">

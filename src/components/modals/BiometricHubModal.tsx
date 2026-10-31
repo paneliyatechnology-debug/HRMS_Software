@@ -172,7 +172,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
   const activeDevice = selectedDevice || devices[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">

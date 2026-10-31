@@ -228,7 +228,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
       {/* Modal: Rate Performance Review */}
       {ratingModalReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">

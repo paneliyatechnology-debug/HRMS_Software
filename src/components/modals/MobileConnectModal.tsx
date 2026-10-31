@@ -78,7 +78,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
   )}&color=064e3b&bgcolor=f0fdf4`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-emerald-900/10 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="relative px-6 py-5 bg-gradient-to-r from-[#064e3b] via-[#059669] to-[#047857] text-white flex items-center justify-between shadow-sm">

@@ -431,7 +431,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsUploadOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in cursor-pointer"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in cursor-pointer"
         >
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-slate-100 shadow-2xl relative cursor-default">
             <button

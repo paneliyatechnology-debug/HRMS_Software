@@ -291,7 +291,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-black/50 backdrop-blur-sm animate-in fade-in flex justify-end cursor-pointer"
+ className="fixed inset-0 z-50 overflow-hidden bg-transparent animate-in fade-in flex justify-end cursor-pointer"
     >
       <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-100 cursor-default">
         {/* Header */}
