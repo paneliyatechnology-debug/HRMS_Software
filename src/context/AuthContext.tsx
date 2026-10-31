@@ -168,6 +168,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (storedAuth === 'true' && token && !token.startsWith('demo_token_')) {
+      // Immediate session hydration to prevent screen flashes on refresh
+      const cachedUserStr = localStorage.getItem('hrms_auth_user');
+      const cachedPortal = localStorage.getItem('hrms_portal_mode');
+      if (cachedUserStr) {
+        try {
+          const cachedUser = JSON.parse(cachedUserStr);
+          if (cachedUser && cachedUser.id) {
+            setUser(cachedUser);
+            setIsAuthenticated(true);
+            if (cachedPortal === 'admin' || cachedPortal === 'employee') {
+              setPortalModeState(cachedPortal);
+            }
+          }
+        } catch {}
+      }
 
       const safetyTimer = setTimeout(() => {
         setIsLoading(false);

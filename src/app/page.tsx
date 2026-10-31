@@ -325,10 +325,11 @@ export default function Home() {
     return () => window.removeEventListener('hrms_auth_logout', handleLogout);
   }, []);
 
-  if (isLoading && isAuthenticated) {
+  if (isLoading && !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
+      <div className="h-screen w-full bg-[#f2f9f5] flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <span className="text-xs font-semibold text-slate-500">Loading Paneliya HRMS...</span>
       </div>
     );
   }
