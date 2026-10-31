@@ -385,18 +385,22 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   }, [activeModule]);
 
-  if (isLoading) {
+  // Redirect to login if user is not authenticated (performed inside useEffect to avoid updating Router during render)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="h-screen w-full bg-[#f2f9f5] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-        <span className="text-xs font-semibold text-slate-500">Loading Paneliya HRMS...</span>
+        <span className="text-xs font-semibold text-slate-500">
+          {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
+        </span>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    router.replace('/login');
-    return null;
   }
 
   return (

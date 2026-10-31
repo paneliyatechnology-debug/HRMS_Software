@@ -75,3 +75,4 @@ export function purgeAuthLocalStorage(): void {
     console.warn('Error purging auth tokens from localStorage:', err);
   }
 }
+
