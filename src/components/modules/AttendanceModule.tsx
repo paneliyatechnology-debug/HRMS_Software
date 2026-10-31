@@ -49,10 +49,6 @@ import {
   getTodayDateString,
 } from '../../lib/attendanceService';
 import {
-  getOfficeGeofenceConfig,
-  saveOfficeGeofenceConfig,
-  getCurrentGPSLocation,
-  OfficeGeofenceConfig,
   getEmployeeWFHMap,
   setEmployeeWFHStatus,
   isEmployeeWFHEnabled,
@@ -334,12 +330,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [bioEmployeeCode, setBioEmployeeCode] = useState('EMP-1');
   const [bioSyncing, setBioSyncing] = useState(false);
 
-  // Modal: Admin Geofence Settings (Admin & Super Admin ONLY)
-  const [isGeofenceModalOpen, setIsGeofenceModalOpen] = useState(false);
-  const [adminGeofenceConfig, setAdminGeofenceConfig] = useState<OfficeGeofenceConfig>(() => getOfficeGeofenceConfig());
-  const [geoCalibrating, setGeoCalibrating] = useState(false);
-  const [geoNotice, setGeoNotice] = useState('');
-
   // Modal: Employee Punch Verification & Device Audit (Selfie & Device Hardware)
   const [auditModalRecord, setAuditModalRecord] = useState<AttendanceRecord | null>(null);
   const [auditModalEmployee, setAuditModalEmployee] = useState<Employee | null>(null);
@@ -362,35 +352,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     setEmployeeWFHStatus(emp.id, next);
     setWfhMap((prev) => ({ ...prev, [emp.id]: next, [emp.id.toLowerCase()]: next }));
     const msg = next
-      ? `🏡 Work From Home ENABLED for ${emp.firstName} ${emp.lastName}. Geofencing is now turned OFF (Selfie punch only).`
-      : `🏢 Office Geofencing RESTORED for ${emp.firstName} ${emp.lastName}. Office radius required.`;
+      ? `🏡 Work From Home ENABLED for ${emp.firstName} ${emp.lastName}.`
+      : `🏢 Office Mode set for ${emp.firstName} ${emp.lastName}.`;
     setWfhNotice(msg);
     setTimeout(() => setWfhNotice(null), 5000);
-  };
-
-  const handleSaveGeofenceConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveOfficeGeofenceConfig(adminGeofenceConfig);
-    setGeoNotice(`Office perimeter configured to ${adminGeofenceConfig.radiusMeters}m radius for ${adminGeofenceConfig.officeName}.`);
-    setIsGeofenceModalOpen(false);
-  };
-
-  const handleAdminCalibrateGPS = async () => {
-    setGeoCalibrating(true);
-    try {
-      const coords = await getCurrentGPSLocation();
-      const updated: OfficeGeofenceConfig = {
-        ...adminGeofenceConfig,
-        latitude: Number(coords.latitude.toFixed(6)),
-        longitude: Number(coords.longitude.toFixed(6)),
-      };
-      setAdminGeofenceConfig(updated);
-      setGeoNotice('GPS position captured! Click "Save Configuration" to enforce these coordinates.');
-    } catch (err: any) {
-      alert(err.message || 'Failed to capture GPS position.');
-    } finally {
-      setGeoCalibrating(false);
-    }
   };
 
   const handleRegularizeSubmit = async (e: React.FormEvent) => {
@@ -627,18 +592,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               >
                 <Cpu className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Biometric Sync</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setAdminGeofenceConfig(getOfficeGeofenceConfig());
-                  setGeoNotice('');
-                  setIsGeofenceModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-all shadow-xs cursor-pointer"
-              >
-                <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Geofence Controls</span>
               </button>
             </>
           )}
@@ -995,8 +948,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   }`}
                                   title={
                                     isWfhActive
-                                      ? 'WFH Active: Click to turn OFF WFH (enforce office geofence)'
-                                      : 'Office Mode: Click to turn ON WFH (bypass office geofence)'
+                                      ? 'WFH Active: Click to switch to Office Mode'
+                                      : 'Office Mode: Click to switch to WFH'
                                   }
                                 >
                                   <span
@@ -1012,7 +965,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                       : 'bg-slate-100 text-slate-500 border-slate-200'
                                   }`}
                                 >
-                                  {isWfhActive ? '🏡 WFH (Geofence OFF)' : '🏢 Office'}
+                                  {isWfhActive ? '🏡 WFH Active' : '🏢 Office'}
                                 </span>
                               </div>
                             ) : (
@@ -2151,181 +2104,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         currentCompanyName={(user as any)?.companyName || 'Paneliya Technology Inc.'}
       />
 
-      {/* Modal: Admin Geofence Settings & Calibration (Admin / Super Admin ONLY) */}
-      {isGeofenceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 text-base">Office Geofence Controls</h3>
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-extrabold text-[10px]">
-                      COMPANY ADMIN
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Configure allowed perimeter for employee punch-ins</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsGeofenceModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveGeofenceConfig} className="mt-4 space-y-4 text-xs">
-              {geoNotice && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-                  {geoNotice}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                <div>
-                  <span className="font-bold text-slate-900 text-sm block">Enforce Geofence Verification</span>
-                  <span className="text-slate-500 text-[11px]">
-                    When active, employees can only punch within the designated office perimeter
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  id="toggle-geofence-enforce"
-                  role="switch"
-                  aria-checked={adminGeofenceConfig.enabled}
-                  onClick={() =>
-                    setAdminGeofenceConfig({
-                      ...adminGeofenceConfig,
-                      enabled: !adminGeofenceConfig.enabled,
-                    })
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
-                    adminGeofenceConfig.enabled ? 'bg-indigo-600' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      adminGeofenceConfig.enabled ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Office Name / Branch Label</label>
-                <input
-                  type="text"
-                  value={adminGeofenceConfig.officeName}
-                  onChange={(e) =>
-                    setAdminGeofenceConfig({ ...adminGeofenceConfig, officeName: e.target.value })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Office Latitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={adminGeofenceConfig.latitude}
-                    onChange={(e) =>
-                      setAdminGeofenceConfig({
-                        ...adminGeofenceConfig,
-                        latitude: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Office Longitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={adminGeofenceConfig.longitude}
-                    onChange={(e) =>
-                      setAdminGeofenceConfig({
-                        ...adminGeofenceConfig,
-                        longitude: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-slate-700">Allowed Punch Radius</label>
-                  <span className="font-extrabold text-indigo-600 font-mono text-sm">
-                    {adminGeofenceConfig.radiusMeters} meters
-                  </span>
-                </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  {[100, 250, 500, 1000].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() =>
-                        setAdminGeofenceConfig({ ...adminGeofenceConfig, radiusMeters: r })
-                      }
-                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                        adminGeofenceConfig.radiusMeters === r
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {r}m
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleAdminCalibrateGPS}
-                  disabled={geoCalibrating}
-                  className="w-full py-2.5 px-4 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/90 text-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
-                >
-                  <LocateFixed className="w-4 h-4" />
-                  <span>
-                    {geoCalibrating
-                      ? 'Acquiring GPS Position...'
-                      : 'Set My Current Device GPS as Office HQ'}
-                  </span>
-                </button>
-                <p className="text-[11px] text-slate-500 text-center mt-1">
-                  Click while physically at the office to automatically save exact coordinates.
-                </p>
-              </div>
-
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsGeofenceModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-600/20 cursor-pointer"
-                >
-                  Save Configuration
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Employee Punch Verification & Device Audit Modal */}
       <PunchVerificationModal

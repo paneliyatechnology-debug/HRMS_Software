@@ -86,7 +86,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
     },
     {
       q: 'Does My Own HRMS support physical biometric devices and mobile punches?',
-      a: 'Yes! My Own HRMS seamlessly integrates with biometric fingerprint/facial recognition hardware gateways as well as GPS-geofenced mobile app punches with real-time sync.',
+      a: 'Yes! My Own HRMS seamlessly integrates with biometric fingerprint/facial recognition hardware gateways as well as selfie mobile app punches with real-time sync.',
     },
     {
       q: 'How fast can our company onboard and migrate our existing data?',
@@ -334,7 +334,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-900 leading-tight">Sanjay Patel</p>
-                          <p className="text-[10px] text-slate-500">Engineering • Geofence Mobile</p>
+                          <p className="text-[10px] text-slate-500">Engineering • Mobile Attendance</p>
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
@@ -478,7 +478,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                     LIVE SYNC
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-[#062d1f] mt-6">Biometric &amp; Geofence Attendance</h3>
+                <h3 className="text-xl font-bold text-[#062d1f] mt-6">Biometric &amp; Selfie Attendance</h3>
                 <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
                   Live biometric clock in/out sync, mobile punches with GPS verification, late coming penalties, 
                   overtime tracking, and seamless attendance regularization.
@@ -722,7 +722,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               </div>
               <h3 className="text-xl font-bold text-[#062d1f] mt-6">Connect Biometrics &amp; Shifts</h3>
               <p className="text-sm font-normal text-slate-600 mt-2 leading-relaxed">
-                Plug in your biometric attendance machines or enable GPS-geofenced mobile check-ins. Assign custom shift rosters and leave allowances.
+                Plug in your biometric attendance machines or enable smart selfie mobile check-ins. Assign custom shift rosters and leave allowances.
               </p>
             </div>
 
@@ -914,7 +914,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    <span>Geofenced Mobile Clock In/Out</span>
+                    <span>Selfie Mobile Clock In/Out</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />

@@ -11,10 +11,6 @@ import {
   MapPin,
   AlertTriangle,
   RefreshCw,
-  Sliders,
-  LocateFixed,
-  ShieldCheck,
-  ShieldAlert,
   Camera,
   RotateCcw,
   Sparkles,
@@ -31,15 +27,7 @@ import {
   getLiveActiveSeconds,
   getLiveBreakSeconds,
 } from '../../lib/attendanceService';
-import {
-  verifyCurrentGeofence,
-  getOfficeGeofenceConfig,
-  saveOfficeGeofenceConfig,
-  getCurrentGPSLocation,
-  GeofenceVerificationResult,
-  OfficeGeofenceConfig,
-  isEmployeeWFHEnabled,
-} from '../../lib/geoService';
+import { isEmployeeWFHEnabled } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
 import { ModernDigitClock } from '../common/ModernDigitClock';
 import {
@@ -73,12 +61,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [lateReasonError, setLateReasonError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Geofence states
-  const [geoChecking, setGeoChecking] = useState(true);
-  const [geoResult, setGeoResult] = useState<GeofenceVerificationResult | null>(null);
-  const [showConfig, setShowConfig] = useState(false);
-  const [geofenceConfig, setGeofenceConfig] = useState<OfficeGeofenceConfig>(() => getOfficeGeofenceConfig());
-  const [configSuccessMsg, setConfigSuccessMsg] = useState('');
   const [isWFH, setIsWFH] = useState(() => isEmployeeWFHEnabled(currentEmpId));
 
   useEffect(() => {
@@ -128,26 +110,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Check geofence
-  const runGeofenceCheck = useCallback(async () => {
-    setGeoChecking(true);
-    try {
-      const res = await verifyCurrentGeofence();
-      setGeoResult(res);
-      setGeofenceConfig(res.config);
-    } catch (err: any) {
-      setGeoResult({
-        isAllowed: false,
-        distanceMeters: null,
-        userCoords: null,
-        config: getOfficeGeofenceConfig(),
-        errorMessage: err.message || 'Location error occurred.',
-      });
-    } finally {
-      setGeoChecking(false);
-    }
-  }, []);
 
   // Stop camera helper
   const stopCameraStream = useCallback(() => {
@@ -242,50 +204,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     onClose();
   };
 
-  // Set current device position as Office Location (Admin only)
-  const handleSetCurrentAsOffice = async () => {
-    try {
-      setGeoChecking(true);
-      const coords = await getCurrentGPSLocation();
-      const updatedConfig: OfficeGeofenceConfig = {
-        ...geofenceConfig,
-        latitude: Number(coords.latitude.toFixed(6)),
-        longitude: Number(coords.longitude.toFixed(6)),
-      };
-      saveOfficeGeofenceConfig(updatedConfig);
-      setGeofenceConfig(updatedConfig);
-      setConfigSuccessMsg('Office coordinates updated to your current location!');
-      setTimeout(() => setConfigSuccessMsg(''), 4000);
-      await runGeofenceCheck();
-    } catch (err: any) {
-      alert(err.message || 'Failed to get current GPS location.');
-    } finally {
-      setGeoChecking(false);
-    }
-  };
-
-  const handleUpdateRadius = (radius: number) => {
-    const updated: OfficeGeofenceConfig = { ...geofenceConfig, radiusMeters: radius };
-    saveOfficeGeofenceConfig(updated);
-    setGeofenceConfig(updated);
-    runGeofenceCheck();
-  };
-
-  const handleToggleGeofence = (enabled: boolean) => {
-    const updated: OfficeGeofenceConfig = { ...geofenceConfig, enabled };
-    saveOfficeGeofenceConfig(updated);
-    setGeofenceConfig(updated);
-    runGeofenceCheck();
-  };
-
   // Live ticking clock and punch state
   useEffect(() => {
     if (!isOpen) {
       stopCameraStream();
       return;
     }
-
-    runGeofenceCheck();
 
     const tick = () => {
       setTime(new Date());
@@ -309,7 +233,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       clearInterval(interval);
       stopCameraStream();
     };
-  }, [isOpen, currentEmpId, runGeofenceCheck, stopCameraStream]);
+  }, [isOpen, currentEmpId, stopCameraStream]);
 
   // When selfieMode opens, start camera automatically
   useEffect(() => {
@@ -324,8 +248,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   }, [selfieMode, capturedPhoto]);
 
   if (!isOpen) return null;
-
-  const isGeofencePass = isWFH ? true : (geoResult?.isAllowed ?? false);
 
   // Step 1: Open selfie camera for Check In (Strictly validated by Admin Shift Time & Buffer)
   const handleInitiateCheckIn = () => {
@@ -343,14 +265,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
     setLateReasonError('');
 
-    // 3. Enforce Geofence Verification
-    if (!isWFH && geofenceConfig.enabled && !isGeofencePass) {
-      alert(
-        geoResult?.errorMessage ||
-          'Check-in denied: You are outside the designated office geofence. Please enter the office premises to punch attendance.'
-      );
-      return;
-    }
     setCapturedPhoto(null);
     setCameraError(null);
     setSelfieMode('check_in');
@@ -358,13 +272,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Open selfie camera for Check Out
   const handleInitiateCheckOut = () => {
-    if (!isWFH && geofenceConfig.enabled && !isGeofencePass) {
-      alert(
-        geoResult?.errorMessage ||
-          'Check-out denied: You are outside the designated office geofence. Please move inside the office perimeter to check out.'
-      );
-      return;
-    }
     setCapturedPhoto(null);
     setCameraError(null);
     setSelfieMode('check_out');
@@ -387,14 +294,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     });
     const officeName = isWFH
       ? '🏡 Work From Home (Remote Punch)'
-      : geofenceConfig.officeName || 'Paneliya Technology HQ';
-    const coordsStr = isWFH
-      ? geoResult?.userCoords
-        ? `GPS Lat: ${geoResult.userCoords.latitude.toFixed(5)}  Lng: ${geoResult.userCoords.longitude.toFixed(5)} • Geofence Bypassed (WFH Approved)`
-        : 'Work From Home • Geofencing Waived by Admin'
-      : geoResult?.userCoords
-      ? `GPS Lat: ${geoResult.userCoords.latitude.toFixed(5)}  Lng: ${geoResult.userCoords.longitude.toFixed(5)}  (±${geoResult.userCoords.accuracy}m)`
-      : `Geofence Verified • ${officeName}`;
+      : 'Paneliya Technology Office';
+    const coordsStr = `Identity & Presence Verified • ${officeName}`;
 
     const devInfo = detectUserDevice();
     const devStr = `Device: ${devInfo.deviceModel} • ${devInfo.browser} [${devInfo.deviceType}]`;
@@ -562,12 +463,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     try {
       const detectedDevice = detectUserDevice();
       const geoData = {
-        latitude: geoResult?.userCoords?.latitude ?? geofenceConfig.latitude,
-        longitude: geoResult?.userCoords?.longitude ?? geofenceConfig.longitude,
-        accuracy: geoResult?.userCoords?.accuracy ?? 10,
-        distanceMeters: isWFH ? 0 : (geoResult?.distanceMeters ?? 0),
-        locationAddress: isWFH ? 'Work From Home' : geofenceConfig.officeName,
-        isGeofenceVerified: isWFH ? true : isGeofencePass,
+        locationAddress: isWFH ? 'Work From Home' : 'Office',
+        isGeofenceVerified: true,
         isWFH: isWFH,
         photo: capturedPhoto,
         device: detectedDevice,
@@ -731,13 +628,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Live Watermark Overlay (Visual feedback while taking selfie) */}
                   <div className="absolute bottom-0 inset-x-0 bg-slate-900/85 backdrop-blur-xs p-2.5 border-t border-emerald-500 text-left pointer-events-none">
                     <div className="flex items-center justify-between text-white text-[11px] font-bold">
-                      <span className="truncate">📍 {isWFH ? '🏡 Work From Home' : geofenceConfig.officeName}</span>
+                      <span className="truncate">📍 {isWFH ? '🏡 Work From Home' : 'Corporate Office'}</span>
                       <span className="text-emerald-400 font-mono text-[10px]">
-                        {isWFH ? 'WFH Active' : `${geoResult?.distanceMeters ?? 0}m away`}
+                        {isWFH ? 'WFH Active' : 'Attendance Verified'}
                       </span>
                     </div>
                     <p className="text-[10px] font-mono text-emerald-300 mt-0.5">
-                      GPS: {geoResult?.userCoords ? `${geoResult.userCoords.latitude.toFixed(4)}, ${geoResult.userCoords.longitude.toFixed(4)}` : 'Verified'}
+                      Presence: Verified by Paneliya HRMS
                     </p>
                   </div>
 
@@ -938,221 +835,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               </div>
             )}
 
-            {/* Geofence Status Card */}
-            <div className="my-3">
-              {isWFH ? (
-                <div className="p-3.5 rounded-none bg-purple-50 border-2 border-purple-400 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🏡</span>
-                      <div>
-                        <span className="text-xs font-black text-purple-950 uppercase tracking-wide block">
-                          Work From Home (WFH) Approved
-                        </span>
-                        <span className="text-[11px] font-semibold text-purple-800">
-                          Geofence radius restriction is waived. Punch from anywhere!
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black uppercase text-purple-900 bg-purple-200 px-2.5 py-1 rounded-none border border-purple-300">
-                      Geofence OFF
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-purple-900 mt-2 pt-1.5 border-t border-purple-200/80 font-medium">
-                    ✅ Take your <strong>Selfie</strong> to complete attendance punch. No office boundary required.
-                  </p>
-                </div>
-              ) : geoChecking ? (
-                <div className="p-3 rounded-none bg-blue-50/80 border border-blue-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-                    <span className="text-xs font-semibold text-blue-900">
-                      Verifying GPS Location & Geofence...
-                    </span>
+            {/* WFH Indicator (if enabled) */}
+            {isWFH && (
+              <div className="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏡</span>
+                  <div>
+                    <span className="text-xs font-bold text-purple-950 block">Work From Home (WFH) Active</span>
+                    <span className="text-[11px] text-purple-800">Remote attendance punch mode enabled</span>
                   </div>
                 </div>
-              ) : !geofenceConfig.enabled ? (
-                <div className="p-3 rounded-none bg-slate-100 border border-slate-200 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-slate-700">
-                    <ShieldCheck className="w-4 h-4 text-slate-500" />
-                    <span className="font-semibold">Geofencing Disabled</span>
-                  </div>
-                  {isAdminUser && (
-                    <button
-                      onClick={() => setShowConfig(true)}
-                      className="text-[11px] font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
-                    >
-                      Configure
-                    </button>
-                  )}
-                </div>
-              ) : isGeofencePass ? (
-                <div className="p-3 rounded-none bg-emerald-50 border border-emerald-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-bold text-emerald-900">
-                        Inside Office Geofence
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-none border border-emerald-200">
-                      {geoResult?.distanceMeters ?? 0}m from HQ
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-emerald-700 mt-1.5">
-                    <span className="truncate">📍 {geofenceConfig.officeName} (Max: {geofenceConfig.radiusMeters}m)</span>
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="hover:text-emerald-900 transition flex items-center gap-1 shrink-0 ml-1 cursor-pointer font-medium"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Refresh
-                    </button>
-                  </div>
-                </div>
-              ) : geoResult?.errorCode === 'OUTSIDE_GEOFENCE' ? (
-                <div className="p-3 rounded-none bg-rose-50 border border-rose-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span className="text-xs font-bold text-rose-900">
-                        Outside Office Geofence
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-none border border-rose-200">
-                      {geoResult?.distanceMeters}m away
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-rose-800 mt-1.5 leading-relaxed">
-                    You are currently <strong>{geoResult?.distanceMeters}m</strong> away. Allowed radius is{' '}
-                    <strong>{geofenceConfig.radiusMeters}m</strong>. Punching is blocked outside the office perimeter.
-                  </p>
-                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-rose-200 text-[11px]">
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="font-bold text-rose-900 flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Re-check Location
-                    </button>
-                    {isAdminUser && (
-                      <button
-                        onClick={() => setShowConfig(!showConfig)}
-                        className="font-semibold text-rose-700 hover:text-rose-900 underline cursor-pointer"
-                      >
-                        Calibrate / Settings
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 rounded-none bg-amber-50 border border-amber-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span className="text-xs font-bold text-amber-900">
-                        GPS Permission Required
-                      </span>
-                    </div>
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-0.5 rounded-none border border-amber-300 cursor-pointer"
-                    >
-                      Allow GPS
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-amber-800 mt-1.5 leading-relaxed">
-                    {geoResult?.errorMessage || 'Location permission is required to verify you are at the workplace.'}
-                  </p>
-                </div>
-              )}
-
-              {/* Quick Geofence Calibration / Testing Drawer (Admin & Super Admin ONLY) */}
-              {isAdminUser && (
-                <>
-                  <div className="mt-2 text-right">
-                    <button
-                      onClick={() => setShowConfig(!showConfig)}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Sliders className="w-3 h-3" />
-                      <span>{showConfig ? 'Hide Geofence Settings' : '⚙️ Geofence Settings & Radius (Admin Only)'}</span>
-                    </button>
-                  </div>
-
-                  {showConfig && (
-                    <div className="mt-2 p-3 rounded-none bg-indigo-50/60 border border-indigo-200 text-xs space-y-2.5 animate-in fade-in">
-                      <div className="flex items-center justify-between font-bold text-slate-900">
-                        <span className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.5 rounded-none bg-indigo-600 text-white text-[10px]">ADMIN ONLY</span>
-                          <span>Office Geofence Controls</span>
-                        </span>
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-medium">
-                          <input
-                            type="checkbox"
-                            checked={geofenceConfig.enabled}
-                            onChange={(e) => handleToggleGeofence(e.target.checked)}
-                            className="rounded-none text-indigo-600 focus:ring-0"
-                          />
-                          <span>Enforce</span>
-                        </label>
-                      </div>
-
-                      {configSuccessMsg && (
-                        <div className="p-2 rounded-none bg-emerald-100 text-emerald-800 text-[11px] font-semibold">
-                          {configSuccessMsg}
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="bg-white p-2 rounded-none border border-slate-200">
-                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Office Latitude</span>
-                          <span className="font-mono font-bold text-slate-800">{geofenceConfig.latitude}</span>
-                        </div>
-                        <div className="bg-white p-2 rounded-none border border-slate-200">
-                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Office Longitude</span>
-                          <span className="font-mono font-bold text-slate-800">{geofenceConfig.longitude}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Set Allowed Radius: <span className="text-indigo-600 font-extrabold">{geofenceConfig.radiusMeters} meters</span>
-                        </label>
-                        <div className="grid grid-cols-4 gap-1.5 text-center">
-                          {[100, 250, 500, 1000].map((r) => (
-                            <button
-                              key={r}
-                              onClick={() => handleUpdateRadius(r)}
-                              className={`py-1 rounded-none text-[11px] font-bold border transition cursor-pointer ${
-                                geofenceConfig.radiusMeters === r
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                              }`}
-                            >
-                              {r}m
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={handleSetCurrentAsOffice}
-                          disabled={geoChecking}
-                          className="w-full py-2 px-3 rounded-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
-                        >
-                          <LocateFixed className="w-3.5 h-3.5" />
-                          <span>📍 Set My Current Location as Office HQ</span>
-                        </button>
-                        <p className="text-[10px] text-slate-500 text-center mt-1">
-                          Admin calibration: Updates office center coordinates to your device's exact GPS location.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                <span className="text-[10px] font-bold uppercase text-purple-900 bg-purple-200 px-2.5 py-0.5 rounded-full">Remote</span>
+              </div>
+            )}
 
             {/* Punch Status info */}
             <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
@@ -1234,7 +929,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading || geoChecking || (geofenceConfig.enabled && !isGeofencePass) || shiftStatus.isEarly}
+                    disabled={loading || shiftStatus.isEarly}
                     className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
                       shiftStatus.isEarly
                         ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
@@ -1247,8 +942,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <span>
                       {shiftStatus.isEarly
                         ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
-                        : geofenceConfig.enabled && !isGeofencePass
-                        ? 'Blocked (Outside Office)'
                         : isLateArrival
                         ? 'Take Selfie & Submit Late Attendance'
                         : 'Take Selfie & Check In'}
@@ -1269,7 +962,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   </button>
                   <button
                     onClick={handleInitiateCheckOut}
-                    disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
+                    disabled={loading}
                     className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Camera className="w-3.5 h-3.5 shrink-0" />
@@ -1290,7 +983,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   </button>
                   <button
                     onClick={handleInitiateCheckOut}
-                    disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
+                    disabled={loading}
                     className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Camera className="w-3.5 h-3.5 shrink-0" />

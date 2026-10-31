@@ -59,7 +59,6 @@ import {
   getTodayDateString,
 } from '../lib/attendanceService';
 import { verifyShiftTimeWindow, getWorkScheduleConfig } from '../lib/shiftScheduleService';
-import { verifyCurrentGeofence } from '../lib/geoService';
 import { ModernDigitClock } from './common/ModernDigitClock';
 
 interface DashboardViewProps {
@@ -401,35 +400,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setCheckOutModalOpen(false);
     setActionLoading(true);
     try {
-      const geoResult = await verifyCurrentGeofence();
-      if (!geoResult.isAllowed) {
-        showToast({
-          type: 'warning',
-          title: 'Geofence Verification Failed',
-          message: geoResult.errorMessage || 'Check-out blocked: You must be inside the office perimeter to check out.',
-        });
-        setActionLoading(false);
-        return;
-      }
-
-      const geoData = geoResult.userCoords
-        ? {
-          latitude: geoResult.userCoords.latitude,
-          longitude: geoResult.userCoords.longitude,
-          accuracy: geoResult.userCoords.accuracy,
-          distanceMeters: geoResult.distanceMeters ?? undefined,
-          locationAddress: geoResult.config.officeName,
-        }
-        : undefined;
-
       const res = await api.checkOut(
         activeEmpId,
         'Evening clock-out',
         {
           email: user.email,
           employeeCode: currentEmp?.employeeCode || (user as any).employeeCode,
-        },
-        geoData
+        }
       );
       if (res.success) {
         showToast({ type: 'success', title: 'Shift Completed', message: 'Shift checked out successfully! Entry saved in database.' });

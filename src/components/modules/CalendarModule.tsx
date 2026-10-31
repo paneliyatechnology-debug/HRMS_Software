@@ -777,7 +777,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 {selectedDayInfo.attendance?.isWFH ? 'Remote Work (WFH)' : 'Corporate Office Desk'}
               </span>
               <span className="text-[11px] text-slate-500 mt-0.5 block">
-                Geofence verified IP & location
+                Attendance & presence verified
               </span>
             </div>
           </div>

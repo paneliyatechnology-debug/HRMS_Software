@@ -1700,7 +1700,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
                 <Globe className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-slate-900 text-sm">GPS Geofence & Live Selfie</h4>
+              <h4 className="font-bold text-slate-900 text-sm">Live Selfie & Presence Audit</h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Office coordinate boundary locking, hardware device detection, and live camera verification.
               </p>

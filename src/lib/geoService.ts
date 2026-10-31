@@ -1,15 +1,15 @@
 /**
  * Geofencing & Location Verification Service
- * Handles GPS coordinate retrieval, Haversine distance calculations,
- * and office geofence verification for employee Check-In and Check-Out.
+ * Note: Geofence enforcement is disabled for Phase 1.
+ * All verification checks return isAllowed: true so users can punch freely.
  */
 
 export interface OfficeGeofenceConfig {
   officeName: string;
   latitude: number;
   longitude: number;
-  radiusMeters: number; // Maximum allowed distance in meters (e.g. 200m)
-  enabled: boolean;     // Toggle geofencing on/off
+  radiusMeters: number;
+  enabled: boolean;
 }
 
 export interface UserCoordinates {
@@ -33,18 +33,10 @@ const STORAGE_KEY_WFH = 'hrms_employee_wfh_status';
 
 let liveWfhMap: Record<string, boolean> = {};
 
-/**
- * Get map of all employees and their WFH approval status
- */
 export function getEmployeeWFHMap(): Record<string, boolean> {
   return liveWfhMap;
 }
 
-/**
- * Check if a specific employee has Work From Home (WFH) enabled
- * When enabled, Geofencing verification is bypassed for this employee,
- * but Selfie & Device verification remains required.
- */
 export function isEmployeeWFHEnabled(employeeId?: string): boolean {
   if (!employeeId) return false;
   const direct = liveWfhMap[employeeId];
@@ -54,9 +46,6 @@ export function isEmployeeWFHEnabled(employeeId?: string): boolean {
   return false;
 }
 
-/**
- * Admin action: Turn ON / OFF Work From Home for an employee (in-memory)
- */
 export function setEmployeeWFHStatus(employeeId: string, enabled: boolean): void {
   if (!employeeId) return;
   liveWfhMap[employeeId] = enabled;
@@ -74,28 +63,23 @@ export function setEmployeeWFHStatus(employeeId: string, enabled: boolean): void
 }
 
 /**
- * Default Office Location (Paneliya Technology HQ, Surat)
+ * Default Office Location (Paneliya Technology HQ)
+ * Geofence enforcement is disabled for Phase 1.
  */
 export const DEFAULT_OFFICE_GEOFENCE: OfficeGeofenceConfig = {
-  officeName: 'Paneliya Technology HQ (Surat)',
+  officeName: 'Paneliya Technology HQ',
   latitude: 21.1702,
   longitude: 72.8311,
-  radiusMeters: 250, // 250m radius
-  enabled: true,
+  radiusMeters: 500,
+  enabled: false,
 };
 
 let liveGeofenceConfig: OfficeGeofenceConfig = { ...DEFAULT_OFFICE_GEOFENCE };
 
-/**
- * Retrieve office geofence settings
- */
 export function getOfficeGeofenceConfig(): OfficeGeofenceConfig {
   return liveGeofenceConfig;
 }
 
-/**
- * Save office geofence settings (in-memory, strictly avoids localStorage persistence)
- */
 export function saveOfficeGeofenceConfig(config: OfficeGeofenceConfig): void {
   liveGeofenceConfig = { ...config };
   if (typeof window !== 'undefined') {
@@ -106,16 +90,13 @@ export function saveOfficeGeofenceConfig(config: OfficeGeofenceConfig): void {
   }
 }
 
-/**
- * Haversine formula to compute great-circle distance between two GPS coordinates in meters
- */
 export function calculateHaversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371e3; // Earth radius in meters
+  const R = 6371e3;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -127,9 +108,6 @@ export function calculateHaversineDistance(
   return Math.round(R * c);
 }
 
-/**
- * Retrieve current GPS coordinates using the Browser Geolocation API
- */
 export function getCurrentGPSLocation(): Promise<UserCoordinates> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
@@ -150,14 +128,14 @@ export function getCurrentGPSLocation(): Promise<UserCoordinates> {
       },
       (err) => {
         let code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' = 'POSITION_UNAVAILABLE';
-        let message = 'Unable to determine your GPS location. Please check your device location settings.';
+        let message = 'Unable to determine your GPS location.';
 
         if (err.code === err.PERMISSION_DENIED) {
           code = 'PERMISSION_DENIED';
-          message = 'Location permission was denied. Please allow location access in your browser to punch attendance.';
+          message = 'Location permission was denied.';
         } else if (err.code === err.TIMEOUT) {
           code = 'TIMEOUT';
-          message = 'GPS location request timed out. Please try again with clear sky / good connection.';
+          message = 'GPS location request timed out.';
         }
 
         reject({ code, message, nativeError: err });
@@ -172,57 +150,15 @@ export function getCurrentGPSLocation(): Promise<UserCoordinates> {
 }
 
 /**
- * Validate whether the current user is physically inside the designated office geofence.
+ * Validate whether the current user is inside the designated office geofence.
+ * Phase 1: Always returns isAllowed: true (Geofence bypassed).
  */
 export async function verifyCurrentGeofence(): Promise<GeofenceVerificationResult> {
   const config = getOfficeGeofenceConfig();
-
-  // If admin has turned geofencing off
-  if (!config.enabled) {
-    return {
-      isAllowed: true,
-      distanceMeters: 0,
-      userCoords: null,
-      config,
-    };
-  }
-
-  try {
-    const coords = await getCurrentGPSLocation();
-    const distance = calculateHaversineDistance(
-      coords.latitude,
-      coords.longitude,
-      config.latitude,
-      config.longitude
-    );
-
-    const isInside = distance <= config.radiusMeters;
-
-    if (isInside) {
-      return {
-        isAllowed: true,
-        distanceMeters: distance,
-        userCoords: coords,
-        config,
-      };
-    } else {
-      return {
-        isAllowed: false,
-        distanceMeters: distance,
-        userCoords: coords,
-        config,
-        errorCode: 'OUTSIDE_GEOFENCE',
-        errorMessage: `You are ${distance}m away from ${config.officeName}. Maximum allowed radius is ${config.radiusMeters}m. Please move inside the office perimeter to punch attendance.`,
-      };
-    }
-  } catch (error: any) {
-    return {
-      isAllowed: false,
-      distanceMeters: null,
-      userCoords: null,
-      config,
-      errorCode: error.code || 'POSITION_UNAVAILABLE',
-      errorMessage: error.message || 'Could not verify your location. Please enable GPS and allow location permission.',
-    };
-  }
+  return {
+    isAllowed: true,
+    distanceMeters: 0,
+    userCoords: null,
+    config: { ...config, enabled: false },
+  };
 }
