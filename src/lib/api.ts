@@ -478,10 +478,15 @@ export const api = {
           (employeeMeta?.employeeCode && e.employeeCode?.toLowerCase() === employeeMeta.employeeCode.toLowerCase()) ||
           (employeeMeta?.firstName && `${e.firstName} ${e.lastName || ''}`.trim().toLowerCase() === `${employeeMeta.firstName} ${employeeMeta.lastName || ''}`.trim().toLowerCase())
         );
-        if (found && found.id) return found.id;
+        if (found && found.id) {
+          return found.id.startsWith('emp-') ? found.id : found.id.replace(/^user-/, 'emp-');
+        }
       }
     } catch (e) {
       console.warn('Could not resolve attendance employee ID from backend:', e);
+    }
+    if (idOrCode && idOrCode.startsWith('user-')) {
+      return idOrCode.replace(/^user-/, 'emp-');
     }
     return idOrCode;
   },
@@ -535,22 +540,14 @@ export const api = {
     try {
       backendRecord = await fetchWithFallback<any>(
         '/attendance/check-in',
-        { method: 'POST', body: JSON.stringify(payload) },
-        null
+        { method: 'POST', body: JSON.stringify(payload) }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Check-in backend POST error:', err);
-    }
-
-    // Also record secure geo-fenced work session if selfie & coordinates provided
-    if (geoData?.latitude && geoData?.longitude && geoData?.photo) {
-      this.startWork({
-        latitude: geoData.latitude,
-        longitude: geoData.longitude,
-        accuracy: geoData.accuracy || 10,
-        selfie: geoData.photo,
-        deviceInfo: typeof geoData.device === 'string' ? geoData.device : JSON.stringify(geoData.device || {}),
-      }).catch((e) => console.warn('Background work/start sync notice:', e));
+      return {
+        success: false,
+        message: err.message || 'Check-in failed.',
+      };
     }
 
     if (backendRecord && backendRecord.id) {
@@ -563,7 +560,7 @@ export const api = {
 
     return {
       success: false,
-      message: 'Failed to record check-in in database. Please check connection.',
+      message: 'Failed to record check-in in database.',
     };
   },
 
@@ -592,22 +589,14 @@ export const api = {
     try {
       backendRecord = await fetchWithFallback<any>(
         '/attendance/check-out',
-        { method: 'POST', body: JSON.stringify(payload) },
-        null
+        { method: 'POST', body: JSON.stringify(payload) }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Check-out backend POST error:', err);
-    }
-
-    // Also record secure geo-fenced work session stop if coordinates provided
-    if (geoData?.latitude && geoData?.longitude) {
-      this.stopWork({
-        latitude: geoData.latitude,
-        longitude: geoData.longitude,
-        accuracy: geoData.accuracy || 10,
-        selfie: geoData.photo || '',
-        remarks: finalRemarks,
-      }).catch((e) => console.warn('Background work/stop sync notice:', e));
+      return {
+        success: false,
+        message: err.message || 'Check-out failed.',
+      };
     }
 
     if (backendRecord && backendRecord.id) {
@@ -620,7 +609,7 @@ export const api = {
 
     return {
       success: false,
-      message: 'Failed to record check-out in database. Please check connection.',
+      message: 'Failed to record check-out in database.',
     };
   },
 

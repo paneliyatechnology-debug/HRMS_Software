@@ -28,6 +28,7 @@ import {
   formatSecondsToWords,
   getLiveActiveSeconds,
   getLiveBreakSeconds,
+  updateLocalRecordFromBackend,
 } from '../../lib/attendanceService';
 import { isEmployeeWFHEnabled } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
@@ -463,7 +464,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       };
 
       if (selfieMode === 'check_in') {
-        const fullRemarks = remarks || 'Shift check-in';
+        const fullRemarks = remarks || 'Morning shift clock-in';
 
         const res = await api.checkIn(
           currentEmpId,
@@ -481,17 +482,21 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         if (!res.success) {
           alert(res.message);
         } else {
-          performCheckIn(
-            {
-              id: currentEmpId,
-              firstName: user.firstName || 'Employee',
-              lastName: user.lastName || '',
-              employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
-              companyId: userCompanyId,
-              remarks: fullRemarks,
-            },
-            geoData
-          );
+          if (res.record) {
+            updateLocalRecordFromBackend(res.record);
+          } else {
+            performCheckIn(
+              {
+                id: currentEmpId,
+                firstName: user.firstName || 'Employee',
+                lastName: user.lastName || '',
+                employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
+                companyId: userCompanyId,
+                remarks: fullRemarks,
+              },
+              geoData
+            );
+          }
           const eligibility = checkEmployeePunchEligibility(currentEmpId);
           setPunchState(eligibility);
           onRefresh();
@@ -499,8 +504,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           setCapturedPhoto(null);
         }
       } else if (selfieMode === 'check_out') {
-        const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Shift check-out';
-        await api.checkOut(
+        const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
+        const res = await api.checkOut(
           currentEmpId,
           fullRemarks,
           {
@@ -510,17 +515,24 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           geoData
         );
 
-        performCheckOut(currentEmpId, {
-          photo: capturedPhoto,
-          device: detectedDevice,
-          remarks: fullRemarks,
-        });
-
-        const eligibility = checkEmployeePunchEligibility(currentEmpId);
-        setPunchState(eligibility);
-        onRefresh();
-        setSelfieMode('idle');
-        setCapturedPhoto(null);
+        if (!res.success) {
+          alert(res.message);
+        } else {
+          if (res.record) {
+            updateLocalRecordFromBackend(res.record);
+          } else {
+            performCheckOut(currentEmpId, {
+              photo: capturedPhoto,
+              device: detectedDevice,
+              remarks: fullRemarks,
+            });
+          }
+          const eligibility = checkEmployeePunchEligibility(currentEmpId);
+          setPunchState(eligibility);
+          onRefresh();
+          setSelfieMode('idle');
+          setCapturedPhoto(null);
+        }
       }
     } catch (err: any) {
       alert(err.message || 'Punch submission failed');

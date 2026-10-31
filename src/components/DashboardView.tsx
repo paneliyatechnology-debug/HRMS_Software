@@ -50,6 +50,7 @@ import {
   performTakeBreak,
   performResumeWork,
   performCheckOut,
+  updateLocalRecordFromBackend,
   formatSecondsToHMS,
   formatSecondsToWords,
   getLiveActiveSeconds,
@@ -503,9 +504,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }
       );
       if (res.success) {
+        if (res.record) {
+          updateLocalRecordFromBackend(res.record);
+        }
         showToast({ type: 'success', title: 'Shift Completed', message: 'Shift checked out successfully! Entry saved in database.' });
         refreshAttendanceState();
         if (onRefreshData) onRefreshData();
+      } else {
+        showToast({ type: 'error', title: 'Check Out Failed', message: res.message || 'Failed to check out.' });
       }
     } catch (err: any) {
       console.error(err);
