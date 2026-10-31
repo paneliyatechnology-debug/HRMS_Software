@@ -432,11 +432,11 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-black text-lg flex items-center justify-center shadow-xs">
-                      P
+                      {(user?.companyName?.[0] || 'O').toUpperCase()}
                     </div>
                     <div>
                       <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                        Paneliya Technology Inc.
+                        {user?.companyName || 'Corporate Organization'}
                       </h2>
                       <p className="text-[11px] font-bold text-emerald-700">
                         Human Resource Management & Payroll Division
@@ -444,7 +444,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 mt-2 max-w-sm">
-                    Corporate Office: Paneliya Technology Park, Surat, Gujarat, India • CIN: U72900GJ2026PTC10928
+                    {user?.companyName ? `Corporate Payroll Division • ${user.companyName}` : 'Corporate Payroll & Finance Division'}
                   </p>
                 </div>
 
@@ -603,7 +603,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               {/* Verification & Stamp Footer */}
               <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-[11px] text-slate-500">
                 <div>
-                  <p className="font-bold text-slate-700">Paneliya Technology HR & Finance Systems</p>
+                  <p className="font-bold text-slate-700">{user?.companyName || 'Corporate'} HR & Finance Systems</p>
                   <p className="text-[10px]">This is a computer generated salary document and does not require a physical signature.</p>
                 </div>
 

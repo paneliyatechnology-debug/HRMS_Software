@@ -76,37 +76,58 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'notifications' | 'security' | 'preferences'>('profile');
 
+  const adminCompanyId = user.companyId || (user as any).companyId || '';
+
   // Subscription state
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [subData, setSubData] = useState(() => getCompanySubscription('comp-paneliya'));
-  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices('comp-paneliya'));
+  const [subData, setSubData] = useState(() => getCompanySubscription(adminCompanyId || 'comp-paneliya'));
+  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices(adminCompanyId || 'comp-paneliya'));
 
   const refreshSubscriptionData = () => {
-    setSubData(getCompanySubscription('comp-paneliya'));
-    setInvoices(getCompanyInvoices('comp-paneliya'));
+    setSubData(getCompanySubscription(adminCompanyId || 'comp-paneliya'));
+    setInvoices(getCompanyInvoices(adminCompanyId || 'comp-paneliya'));
   };
 
   useEffect(() => {
     const handleUpdate = () => refreshSubscriptionData();
     window.addEventListener('hrms_companies_updated', handleUpdate);
     return () => window.removeEventListener('hrms_companies_updated', handleUpdate);
-  }, []);
+  }, [adminCompanyId]);
 
   const [loading, setLoading] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
 
   // --- Admin Settings State ---
   const [companyData, setCompanyData] = useState({
-    name: 'Paneliya Technology Inc.',
-    tagline: 'Enterprise Cloud & Next-Gen Software Engineering',
-    taxId: 'US-EIN-984102941',
-    supportEmail: 'support@paneliya.com',
-    phone: '+1 (415) 555-0199',
-    currency: 'USD ($)',
-    address: '100 Silicon Vista Blvd, Suite 800, San Francisco, CA 94105',
+    name: user.companyName || '',
+    tagline: '',
+    taxId: '',
+    supportEmail: '',
+    phone: '',
+    currency: 'INR (₹)',
+    address: '',
   });
 
-  const adminCompanyId = user.companyId || (user as any).companyId || 'comp-paneliya';
+  useEffect(() => {
+    let isMounted = true;
+    api.getMyCompany().then((comp) => {
+      if (isMounted && comp) {
+        setCompanyData({
+          name: comp.name || user.companyName || '',
+          tagline: comp.industry || '',
+          taxId: comp.gstin || comp.taxId || '',
+          supportEmail: comp.email || '',
+          phone: comp.phone || '',
+          currency: comp.currency || 'INR (₹)',
+          address: comp.address || '',
+        });
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
   const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
 
   const [leavePolicyData, setLeavePolicyData] = useState({
@@ -892,7 +913,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <div className="sm:col-span-2">
                 <label className="block font-bold mb-1.5 text-slate-700">Official Work Email</label>
                 <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 font-mono font-medium">
-                  <span>{user.email || 'employee@paneliya.com'}</span>
+                  <span>{user.email || 'employee@company.com'}</span>
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Managed by HR</span>
                 </div>
               </div>
@@ -1642,7 +1663,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Tenant Code</span>
-                    <span className="font-mono font-bold text-white text-sm">{subData.company?.code || 'PANELIYA-HQ'}</span>
+                    <span className="font-mono font-bold text-white text-sm">{subData.company?.code || (user as any)?.companyCode || 'HQ'}</span>
                   </div>
                 </div>
               </div>
@@ -1897,7 +1918,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       <UpgradePlanModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
-        companyId="comp-paneliya"
+        companyId={adminCompanyId || 'comp-paneliya'}
         onPlanUpdated={refreshSubscriptionData}
       />
     </div>

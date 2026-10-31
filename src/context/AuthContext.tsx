@@ -294,8 +294,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
-          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || '',
+          companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
         });
 
         setUser(enriched);
@@ -337,8 +337,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
-          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || '',
+          companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
         });
         setUser(enriched);
         setPortalModeState('admin');
@@ -376,8 +376,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
-          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || '',
+          companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
         });
         setUser(enriched);
         setPortalModeState(targetPortal);
@@ -414,8 +414,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
           ...res.user,
-          companyId: res.user.companyId || org.companyId || 'comp-paneliya',
-          companyName: res.user.companyName || org.companyName || 'Paneliya Technology Inc.',
+          companyId: res.user.companyId || org.companyId || '',
+          companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
         });
 
         setUser(enriched);

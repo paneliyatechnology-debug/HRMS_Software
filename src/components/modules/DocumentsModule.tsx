@@ -47,15 +47,15 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
   // Company and Owner Details State
   const [companySettings, setCompanySettings] = useState({
-    name: 'Paneliya Technology Inc.',
-    tagline: 'Enterprise Cloud & Next-Gen Software Engineering',
-    ownerName: 'Paneliya Management',
+    name: '',
+    tagline: '',
+    ownerName: '',
     ownerRole: 'Executive Operations & HR',
-    ownerEmail: 'contact@paneliya.com',
-    supportEmail: 'support@paneliya.com',
-    phone: '+91 6352486893',
-    address: 'Paneliya Tech Park, Ring Road, Surat, Gujarat, India',
-    taxId: 'US-EIN-984102941',
+    ownerEmail: '',
+    supportEmail: '',
+    phone: '',
+    address: '',
+    taxId: '',
   });
 
   // Form State
@@ -74,14 +74,25 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docs, emps, settings] = await Promise.all([
+      const [docs, emps, settings, myComp] = await Promise.all([
         api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
         api.getEmployees(),
         api.getSettings().catch(() => null),
+        api.getMyCompany().catch(() => null),
       ]);
-      setDocuments(docs);
-      setEmployees(emps);
-      if (settings?.company) {
+      setDocuments(Array.isArray(docs) ? docs : []);
+      setEmployees(Array.isArray(emps) ? emps : []);
+      if (myComp) {
+        setCompanySettings((prev) => ({
+          ...prev,
+          name: myComp.name || prev.name,
+          tagline: myComp.industry || prev.tagline,
+          taxId: myComp.gstin || myComp.taxId || prev.taxId,
+          supportEmail: myComp.email || prev.supportEmail,
+          phone: myComp.phone || prev.phone,
+          address: myComp.address || prev.address,
+        }));
+      } else if (settings?.company) {
         setCompanySettings((prev) => ({
           ...prev,
           name: settings.company.name || prev.name,

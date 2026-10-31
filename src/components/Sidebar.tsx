@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllCompanies } from '../lib/companyService';
+import { api } from '../lib/api';
 
 interface SidebarProps {
   activeModule: string;
@@ -64,12 +65,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
-    name: 'Paneliya Technology',
+    name: user?.companyName || '',
   });
 
   useEffect(() => {
-    const updateBrand = () => {
+    let isMounted = true;
+    const updateBrand = async () => {
       try {
+        let backendComp = null;
+        try {
+          backendComp = await api.getMyCompany();
+        } catch {
+          // ignore
+        }
+
+        if (isMounted && backendComp && backendComp.name) {
+          setCompanyInfo({
+            name: backendComp.name.replace(/\s+Inc\.?$/i, '').trim(),
+            logoUrl: backendComp.logoUrl,
+          });
+          return;
+        }
+
         const companies = getAllCompanies();
         let matched = companies.find((c) => c.id === user?.companyId);
         if (!matched && user?.companyName) {
@@ -86,13 +103,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const resolvedName =
           matched?.name ||
           user?.companyName ||
-          'Paneliya Technology';
+          'My Organization';
         const resolvedLogo = matched?.logoUrl;
 
-        setCompanyInfo({
-          name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
-          logoUrl: resolvedLogo,
-        });
+        if (isMounted) {
+          setCompanyInfo({
+            name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
+            logoUrl: resolvedLogo,
+          });
+        }
       } catch {
         // fallback
       }
@@ -101,6 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updateBrand();
     window.addEventListener('hrms_companies_updated', updateBrand);
     return () => {
+      isMounted = false;
       window.removeEventListener('hrms_companies_updated', updateBrand);
     };
   }, [user]);
@@ -108,8 +128,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
-  const displayCompanyName = companyInfo.name || 'Paneliya Technology';
-  const companyInitial = (displayCompanyName[0] || 'P').toUpperCase();
+  const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
+  const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
   const companyLogo = companyInfo.logoUrl;
 
   useEffect(() => {

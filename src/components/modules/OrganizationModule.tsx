@@ -26,10 +26,13 @@ import {
   ChevronRight,
   Award,
   Clock,
+  Edit2,
+  RotateCcw,
 } from 'lucide-react';
 import { Department, Designation, Location } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 
 interface OrganizationModuleProps {
   departments: Department[];
@@ -39,6 +42,7 @@ interface OrganizationModuleProps {
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
   employees?: any[];
+  company?: any;
 }
 
 const DEPT_COLORS = [
@@ -58,9 +62,105 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   onRefresh,
   portalMode = 'admin',
   employees = [],
+  company: propCompany,
 }) => {
+  const { user } = useAuth();
   const { showToast } = useSocket();
+  const isAdmin = isUserAdminRole(user?.role);
   const [activeTab, setActiveTab] = useState<'about' | 'departments' | 'designations' | 'hierarchy'>(initialTab);
+
+  // Dynamic Company State
+  const [currentCompany, setCurrentCompany] = useState<any>(propCompany || null);
+  const [loadingCompany, setLoadingCompany] = useState(false);
+
+  useEffect(() => {
+    if (propCompany) {
+      setCurrentCompany(propCompany);
+    } else {
+      const loadComp = async () => {
+        setLoadingCompany(true);
+        try {
+          const comp = await api.getMyCompany();
+          if (comp) setCurrentCompany(comp);
+        } catch (err) {
+          console.warn('Could not fetch company in OrganizationModule:', err);
+        } finally {
+          setLoadingCompany(false);
+        }
+      };
+      loadComp();
+    }
+  }, [propCompany, user?.companyId]);
+
+  // Edit organization modal state
+  const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editIndustry, setEditIndustry] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editGst, setEditGst] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [savingCompany, setSavingCompany] = useState(false);
+
+  const handleOpenEditCompany = () => {
+    const comp = currentCompany || {};
+    setEditCompanyName(comp.companyName || comp.name || user?.companyName || '');
+    setEditIndustry(comp.industry || '');
+    setEditDescription(comp.description || '');
+    setEditEmail(comp.email || comp.contactEmail || user?.email || '');
+    setEditPhone(comp.phone || comp.contactPhone || (user as any)?.phone || '');
+    setEditAddress(comp.address || '');
+    setEditCity(comp.city || '');
+    setEditState(comp.state || '');
+    setEditGst(comp.gstNumber || comp.panNumber || comp.taxId || '');
+    setEditWebsite(comp.website || '');
+    setIsEditCompanyOpen(true);
+  };
+
+  const handleSaveCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCompany(true);
+    try {
+      const companyId = currentCompany?.id || user?.companyId;
+      if (!companyId) {
+        showToast?.({ type: 'error', title: 'Error', message: 'No company ID found to update.' });
+        return;
+      }
+      const updated = await api.updateCompany(companyId, {
+        name: editCompanyName.trim(),
+        companyName: editCompanyName.trim(),
+        industry: editIndustry.trim(),
+        description: editDescription.trim(),
+        email: editEmail.trim(),
+        phone: editPhone.trim(),
+        address: editAddress.trim(),
+        city: editCity.trim(),
+        state: editState.trim(),
+        gstNumber: editGst.trim(),
+        website: editWebsite.trim(),
+      });
+      setCurrentCompany(updated);
+      setIsEditCompanyOpen(false);
+      showToast?.({
+        type: 'success',
+        title: 'Organization Updated',
+        message: 'Company profile details have been saved successfully.',
+      });
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Update Failed',
+        message: err.message || 'Could not update company details.',
+      });
+    } finally {
+      setSavingCompany(false);
+    }
+  };
 
   // Modals state
   const [addDeptModalOpen, setAddDeptModalOpen] = useState(false);
@@ -198,210 +298,255 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       {activeTab === 'about' && (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-          {/* ── Hero Banner ─────────────────────────────────── */}
-          <div className="relative rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #1a1065 100%)' }}>
-            {/* Glow blobs */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)', transform: 'translate(30%, -40%)' }} />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)', transform: 'translate(-30%, 40%)' }} />
-            <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle, #06b6d4, transparent 70%)', transform: 'translate(-50%, -50%)' }} />
+          {/* ── Dynamic Organization Hero Banner ─────────── */}
+          {(() => {
+            const compName = currentCompany?.companyName || currentCompany?.name || user?.companyName || 'Not configured';
+            const compInitial = compName !== 'Not configured' ? (compName[0] || 'C').toUpperCase() : 'C';
+            const compIndustry = currentCompany?.industry || 'Not configured';
+            const compDesc = currentCompany?.description || 'Corporate workspace structure and workforce management identity.';
+            const compEmail = currentCompany?.email || currentCompany?.contactEmail || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? user?.email : 'Not provided');
+            const compPhone = currentCompany?.phone || currentCompany?.contactPhone || 'Not provided';
+            const compAddress = currentCompany?.address || 'Not provided';
+            const compCityState = currentCompany?.city && currentCompany?.state
+              ? `${currentCompany.city}, ${currentCompany.state}`
+              : currentCompany?.city || currentCompany?.state || (currentCompany?.address ? currentCompany.address : 'Not provided');
+            const compGst = currentCompany?.gstNumber || currentCompany?.panNumber || currentCompany?.taxId || currentCompany?.companyCode || 'Not provided';
+            const compWebsite = currentCompany?.website || 'Not provided';
+            const estYear = currentCompany?.createdAt ? new Date(currentCompany.createdAt).getFullYear() : 'Established';
+            const ownerDisplayName = currentCompany?.adminUser?.fullName || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Company Leadership') || 'Company Leadership';
+            const ownerDisplayRole = currentCompany?.adminUser?.role || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? 'Company Owner & Administrator' : 'Executive Management');
 
-            <div className="relative z-10 p-8 sm:p-10">
-              <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center">
-                {/* Company logo area */}
-                <div className="flex items-center gap-5">
-                  <div className="relative shrink-0">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center font-black text-white text-4xl shadow-2xl border border-white/20"
-                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7)' }}>
-                      P
-                    </div>
-                    <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center">
-                      <span className="w-2 h-2 rounded-full bg-white"></span>
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        ✓ Verified Enterprise
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                        Est. 2021
-                      </span>
-                    </div>
-                    <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-                      Paneliya Technology
-                    </h2>
-                    <p className="text-indigo-300 text-sm font-semibold mt-1">
-                      Enterprise Software & Cloud Solutions
-                    </p>
-                    <p className="text-indigo-400/80 text-xs mt-2 max-w-lg leading-relaxed">
-                      Pioneering modern workforce management, cloud infrastructure & enterprise SaaS solutions that empower teams to achieve digital excellence.
-                    </p>
-                  </div>
-                </div>
+            return (
+              <>
+                <div className="relative rounded-3xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #1a1065 100%)' }}>
+                  {/* Glow blobs */}
+                  <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)', transform: 'translate(30%, -40%)' }} />
+                  <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)', transform: 'translate(-30%, 40%)' }} />
 
-                {/* KPI Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3 lg:ml-auto shrink-0">
-                  {[
-                    { label: 'Total Workforce', value: `${totalEmployees}`, sub: 'Active Staff', icon: Users, color: 'text-blue-300' },
-                    { label: 'Departments', value: `${totalDepts}`, sub: 'Core Divisions', icon: Layers, color: 'text-violet-300' },
-                    { label: 'Designations', value: `${totalDesignations}`, sub: 'Job Titles', icon: Briefcase, color: 'text-emerald-300' },
-                    { label: 'Locations', value: `${totalLocations || 1}`, sub: 'Offices', icon: MapPin, color: 'text-amber-300' },
-                  ].map(({ label, value, sub, icon: Icon, color }) => (
-                    <div key={label} className="relative p-4 rounded-2xl overflow-hidden transition-transform hover:scale-105 cursor-default"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}>
-                      <Icon className={`w-4 h-4 ${color} mb-2`} />
-                      <div className="text-2xl font-black text-white">{value}</div>
-                      <div className={`text-[10px] font-bold uppercase tracking-wider ${color}`}>{label}</div>
-                      <div className="text-[10px] text-white/50 mt-0.5">{sub}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Info Grid: Leadership + Corporate Identity ───── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-            {/* Leadership Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b, #f97316, #ef4444)' }} />
-              <div className="p-6">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-                    <Crown className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">Founder & Leadership</h3>
-                    <p className="text-[11px] text-slate-400">Executive management profile</p>
-                  </div>
-                  <span className="ml-auto px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black border border-amber-200 uppercase tracking-wide">
-                    Owner
-                  </span>
-                </div>
-
-                {/* Executive Leadership Profile */}
-                <div className="p-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-emerald-50/30">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #059669, #064e3b)' }}>
-                      EX
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-base font-black text-slate-900">Executive Management</h4>
-                      <p className="text-xs font-bold text-emerald-700">Company Board & Managing Director</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Corporate Headquarters</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quote */}
-                <div className="mt-4 p-4 rounded-2xl bg-slate-50 border-l-4 border-indigo-400 text-xs text-slate-600 leading-relaxed italic">
-                  "At Paneliya Technology, our core foundation is our people. We believe in crafting reliable, high-performance software while creating an inspiring environment where every team member can achieve their full potential."
-                </div>
-
-                {/* Contact Grid */}
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
-                      <Mail className="w-3 h-3" /> Direct Email
-                    </div>
-                    <p className="text-xs font-bold text-emerald-700 truncate select-all">contact@paneliya.com</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
-                      <MapPin className="w-3 h-3" /> Location
-                    </div>
-                    <p className="text-xs font-bold text-slate-800">Surat HQ, Gujarat</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Corporate Identity Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)' }} />
-              <div className="p-6">
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">Corporate Identity</h3>
-                    <p className="text-[11px] text-slate-400">Official enterprise registration details</p>
-                  </div>
-                  <span className="ml-auto px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black border border-indigo-200 uppercase tracking-wide">
-                    Official
-                  </span>
-                </div>
-
-                <div className="space-y-2.5">
-                  {[
-                    { icon: Shield, label: 'Legal Name', value: 'Paneliya Technology Inc.', mono: false },
-                    { icon: Sparkles, label: 'Industry', value: 'Information Technology & SaaS', mono: false },
-                    { icon: FileText, label: 'Tax / EIN ID', value: 'PT-2021-GJ-001', mono: true },
-                    { icon: Mail, label: 'Support Email', value: 'support@paneliya.com', mono: false },
-                    { icon: Users, label: 'HR Desk', value: 'hr@paneliya.com', mono: false },
-                    { icon: Globe, label: 'Website', value: 'https://paneliya.tech', mono: false },
-                    { icon: Phone, label: 'Office Phone', value: '+91 98765 43210', mono: false },
-                  ].map(({ icon: Icon, label, value, mono }) => (
-                    <div key={label} className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:bg-indigo-50/40 hover:border-indigo-100 transition-colors group">
-                      <div className="flex items-center gap-2.5 text-xs text-slate-500">
-                        <Icon className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-600 transition-colors" />
-                        <span className="font-medium">{label}</span>
+                  <div className="relative z-10 p-6 sm:p-10">
+                    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start lg:items-center">
+                      {/* Company logo area */}
+                      <div className="flex items-center gap-5 min-w-0">
+                        <div className="relative shrink-0">
+                          <div
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center font-black text-white text-4xl shadow-2xl border border-white/20"
+                            style={{ background: 'linear-gradient(135deg, #059669, #0d9488, #10b981)' }}
+                          >
+                            {compInitial}
+                          </div>
+                          <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center">
+                            <span className="w-2 h-2 rounded-full bg-white"></span>
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              ✓ {currentCompany?.status || 'Active'} Company
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                              {estYear}
+                            </span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={handleOpenEditCompany}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition cursor-pointer"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>Edit Profile</span>
+                              </button>
+                            )}
+                          </div>
+                          <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight truncate">
+                            {compName}
+                          </h2>
+                          <p className="text-emerald-300 text-xs sm:text-sm font-semibold mt-1">
+                            {compIndustry}
+                          </p>
+                          <p className="text-indigo-200/80 text-xs mt-2 max-w-xl leading-relaxed line-clamp-2">
+                            {compDesc}
+                          </p>
+                        </div>
                       </div>
-                      <span className={`text-xs font-bold text-slate-800 ${mono ? 'font-mono' : ''} max-w-[180px] truncate text-right`}>{value}</span>
+
+                      {/* KPI Stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3 lg:ml-auto shrink-0 w-full lg:w-auto">
+                        {[
+                          { label: 'Total Workforce', value: `${totalEmployees}`, sub: 'Active Staff', icon: Users, color: 'text-blue-300' },
+                          { label: 'Departments', value: `${totalDepts}`, sub: 'Core Divisions', icon: Layers, color: 'text-violet-300' },
+                          { label: 'Designations', value: `${totalDesignations}`, sub: 'Job Titles', icon: Briefcase, color: 'text-emerald-300' },
+                          { label: 'Locations', value: `${totalLocations || (currentCompany?.address ? 1 : 0)}`, sub: 'Offices', icon: MapPin, color: 'text-amber-300' },
+                        ].map(({ label, value, sub, icon: Icon, color }) => (
+                          <div
+                            key={label}
+                            className="relative p-3.5 sm:p-4 rounded-2xl overflow-hidden cursor-default"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
+                          >
+                            <Icon className={`w-4 h-4 ${color} mb-2`} />
+                            <div className="text-xl sm:text-2xl font-black text-white">{value}</div>
+                            <div className={`text-[10px] font-bold uppercase tracking-wider ${color}`}>{label}</div>
+                            <div className="text-[10px] text-white/50 mt-0.5">{sub}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Info Grid: Leadership + Corporate Identity ───── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Leadership Card */}
+                  <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #059669, #10b981, #06b6d4)' }} />
+                    <div className="p-6">
+                      <div className="flex items-center gap-2.5 mb-5">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+                          <Crown className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900">Founder &amp; Executive Leadership</h3>
+                          <p className="text-[11px] text-slate-400">Authenticated enterprise management</p>
+                        </div>
+                        <span className="ml-auto px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-200 uppercase tracking-wide">
+                          Verified
+                        </span>
+                      </div>
+
+                      {/* Executive Leadership Profile */}
+                      <div className="p-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-emerald-50/30">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #059669, #064e3b)' }}
+                          >
+                            {(ownerDisplayName[0] || 'L').toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-base font-black text-slate-900 truncate">{ownerDisplayName}</h4>
+                            <p className="text-xs font-bold text-emerald-700">{ownerDisplayRole}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{compName}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quote */}
+                      <div className="mt-4 p-4 rounded-2xl bg-slate-50 border-l-4 border-emerald-500 text-xs text-slate-600 leading-relaxed italic">
+                        "Our core foundation is our people. We believe in providing an empowering workspace with complete transparency and dependable engineering excellence."
+                      </div>
+
+                      {/* Contact Grid */}
+                      <div className="grid grid-cols-2 gap-3 mt-4">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
+                            <Mail className="w-3 h-3" /> Direct Email
+                          </div>
+                          <p className="text-xs font-bold text-emerald-700 truncate select-all">{compEmail}</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
+                            <MapPin className="w-3 h-3" /> Location
+                          </div>
+                          <p className="text-xs font-bold text-slate-800 truncate">{compCityState}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Corporate Identity Card */}
+                  <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)' }} />
+                    <div className="p-6">
+                      <div className="flex items-center gap-2.5 mb-5">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                          <Shield className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900">Corporate Identity &amp; Tax</h3>
+                          <p className="text-[11px] text-slate-400">Official company registration details</p>
+                        </div>
+                        <span className="ml-auto px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black border border-indigo-200 uppercase tracking-wide">
+                          Official
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {[
+                          { icon: Shield, label: 'Legal Name', value: compName, mono: false },
+                          { icon: Sparkles, label: 'Industry', value: compIndustry, mono: false },
+                          { icon: FileText, label: 'Tax ID / GSTIN', value: compGst, mono: true },
+                          { icon: Mail, label: 'Official Email', value: compEmail, mono: false },
+                          { icon: Phone, label: 'Contact Phone', value: compPhone, mono: false },
+                          { icon: Globe, label: 'Website', value: compWebsite, mono: false },
+                          { icon: MapPin, label: 'City & State', value: compCityState, mono: false },
+                        ].map(({ icon: Icon, label, value, mono }) => (
+                          <div
+                            key={label}
+                            className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:bg-indigo-50/40 hover:border-indigo-100 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2.5 text-xs text-slate-500">
+                              <Icon className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-600 transition-colors" />
+                              <span className="font-medium">{label}</span>
+                            </div>
+                            <span className={`text-xs font-bold text-slate-800 ${mono ? 'font-mono' : ''} max-w-[220px] truncate text-right`}>
+                              {value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Three Value Cards ──────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {[
+                    {
+                      icon: MapPin,
+                      title: 'Corporate Headquarters',
+                      color: 'from-blue-500 to-cyan-500',
+                      bg: 'bg-blue-50',
+                      iconColor: 'text-blue-600',
+                      body: compAddress !== 'Not provided' ? compAddress : 'Corporate office address is not provided yet.',
+                      footer: `📍 ${compCityState}`,
+                    },
+                    {
+                      icon: Target,
+                      title: 'Mission & Vision',
+                      color: 'from-emerald-500 to-teal-500',
+                      bg: 'bg-emerald-50',
+                      iconColor: 'text-emerald-600',
+                      body: compDesc,
+                      footer: `🎯 ${compName}`,
+                    },
+                    {
+                      icon: Heart,
+                      title: 'Workplace Values',
+                      color: 'from-rose-500 to-pink-500',
+                      bg: 'bg-rose-50',
+                      iconColor: 'text-rose-600',
+                      body: 'Dedicated to transparency, teamwork, employee wellness, and building sustainable business operations.',
+                      footer: '🌟 Growth • Excellence • Integrity',
+                    },
+                  ].map(({ icon: Icon, title, color, bg, iconColor, body, footer }) => (
+                    <div
+                      key={title}
+                      className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
+                    >
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${color}`} />
+                      <div className="p-5">
+                        <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                          <Icon className={`w-5 h-5 ${iconColor}`} />
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 mb-2">{title}</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{body}</p>
+                        <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500">{footer}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Three Value Cards ──────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              {
-                icon: MapPin,
-                title: 'Corporate Headquarters',
-                color: 'from-blue-500 to-cyan-500',
-                bg: 'bg-blue-50',
-                iconColor: 'text-blue-600',
-                body: 'Paneliya Technology Tower, Ring Road, Surat, Gujarat — 395002, India',
-                footer: '🏢 Mon–Fri • 09:00 AM – 06:00 PM IST',
-              },
-              {
-                icon: Target,
-                title: 'Mission & Vision',
-                color: 'from-emerald-500 to-teal-500',
-                bg: 'bg-emerald-50',
-                iconColor: 'text-emerald-600',
-                body: 'Empowering modern enterprises with state-of-the-art software that simplifies complex operations.',
-                footer: '🎯 To be the most trusted tech engineering partner globally',
-              },
-              {
-                icon: Heart,
-                title: 'Culture & Values',
-                color: 'from-rose-500 to-pink-500',
-                bg: 'bg-rose-50',
-                iconColor: 'text-rose-600',
-                body: 'We believe in transparency, continuous learning, respect, and recognizing every individual\'s contribution.',
-                footer: '🌟 Supportive environment • Career growth • Wellness',
-              },
-            ].map(({ icon: Icon, title, color, bg, iconColor, body, footer }) => (
-              <div key={title} className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-                <div className={`h-1.5 w-full bg-gradient-to-r ${color}`} />
-                <div className="p-5">
-                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                    <Icon className={`w-5 h-5 ${iconColor}`} />
-                  </div>
-                  <h4 className="text-sm font-black text-slate-900 mb-2">{title}</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">{body}</p>
-                  <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500">{footer}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              </>
+            );
+          })()}
 
           {/* ── Department Snapshot ─────────────────────────── */}
           <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
@@ -845,6 +990,160 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           </div>
         </div>
       )}
-    </div>
+    
+      {/* ── Edit Organization Modal for Admin ── */}
+      {isEditCompanyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto [scrollbar-width:thin] p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Edit Organization Profile</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditCompanyOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCompany} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">Company Legal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCompanyName}
+                  onChange={(e) => setEditCompanyName(e.target.value)}
+                  placeholder="e.g. Acme Technologies Pvt Ltd"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Industry Sector</label>
+                  <input
+                    type="text"
+                    value={editIndustry}
+                    onChange={(e) => setEditIndustry(e.target.value)}
+                    placeholder="e.g. IT & Software"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">GSTIN / Tax ID</label>
+                  <input
+                    type="text"
+                    value={editGst}
+                    onChange={(e) => setEditGst(e.target.value)}
+                    placeholder="e.g. 24AAAAA0000A1Z5"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">Company Description</label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Briefly describe your company's core operations..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Official Email</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="contact@company.com"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">Office Street Address</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="e.g. 402, Business Hub, Ring Road"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    placeholder="e.g. Surat"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">State</label>
+                  <input
+                    type="text"
+                    value={editState}
+                    onChange={(e) => setEditState(e.target.value)}
+                    placeholder="e.g. Gujarat"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">Website URL</label>
+                <input
+                  type="text"
+                  value={editWebsite}
+                  onChange={(e) => setEditWebsite(e.target.value)}
+                  placeholder="https://company.com"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditCompanyOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCompany}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {savingCompany ? 'Saving...' : 'Save Organization Profile'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+</div>
   );
 };

@@ -798,15 +798,15 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-4 leading-relaxed font-serif">
               <div className="text-center pb-3 border-b border-slate-200">
                 <h4 className="font-black text-slate-900 text-base tracking-wide font-sans">
-                  PANELIYA TECHNOLOGY INC.
+                  {(user?.companyName || 'Organization').toUpperCase()}
                 </h4>
                 <p className="text-[10px] text-slate-500 font-sans">
-                  Enterprise Cloud & Next-Gen Software Engineering
+                  Official Service Experience & Relieving Record
                 </p>
               </div>
 
               <div className="flex justify-between font-sans text-[11px] font-semibold text-slate-500">
-                <span>Ref: PTI/REL/{relievingLetterItem.employeeCode}/2026</span>
+                <span>Ref: REL/{relievingLetterItem.employeeCode}/2026</span>
                 <span>Date: {relievingLetterItem.lastWorkingDay}</span>
               </div>
 
@@ -817,7 +817,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
               <p>
                 This is to certify that <strong>{relievingLetterItem.employeeName}</strong> (Employee ID:{' '}
                 <strong>{relievingLetterItem.employeeCode}</strong>) was employed with{' '}
-                <strong>Paneliya Technology Inc.</strong> in the department of{' '}
+                <strong>{user?.companyName || 'the organization'}</strong> in the department of{' '}
                 <strong>{relievingLetterItem.departmentName || 'Engineering & Operations'}</strong>.
               </p>
 
@@ -830,13 +830,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
               </p>
 
               <p>
-                During the tenure with Paneliya Technology, conduct and professional dedication were found to be
+                During the tenure with {user?.companyName || 'the organization'}, conduct and professional dedication were found to be
                 exemplary. We wish {relievingLetterItem.employeeName} every success in all future professional
                 endeavors.
               </p>
 
               <div className="pt-6 font-sans text-xs">
-                <p className="font-bold text-slate-900">For Paneliya Technology Inc.</p>
+                <p className="font-bold text-slate-900">For {user?.companyName || 'the organization'}</p>
                 <div className="mt-8">
                   <p className="font-bold text-slate-800">Authorized Signatory</p>
                   <p className="text-slate-500 text-[11px]">Human Resources & Operations</p>

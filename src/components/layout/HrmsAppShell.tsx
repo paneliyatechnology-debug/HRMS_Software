@@ -143,6 +143,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [assets, setAssets] = useState<CompanyAsset[]>([]);
+  const [currentCompany, setCurrentCompany] = useState<any>(null);
 
   // Modals state
   const [clockModalOpen, setClockModalOpen] = useState(false);
@@ -227,18 +228,24 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         jobsData,
         candidatesData,
         assetsData,
+        myCompanyData,
       ] = await Promise.all([
-        api.getDashboardStats(),
-        api.getEmployees(),
-        api.getDepartments(),
-        api.getDesignations(),
-        api.getLeaves(),
-        api.getAttendance(),
-        api.getPayroll(),
-        api.getJobs(),
-        api.getCandidates(),
-        api.getAssets(),
+        api.getDashboardStats().catch(() => null),
+        api.getEmployees().catch(() => []),
+        api.getDepartments().catch(() => []),
+        api.getDesignations().catch(() => []),
+        api.getLeaves().catch(() => []),
+        api.getAttendance().catch(() => []),
+        api.getPayroll().catch(() => []),
+        api.getJobs().catch(() => []),
+        api.getCandidates().catch(() => []),
+        api.getAssets().catch(() => []),
+        api.getMyCompany().catch(() => null),
       ]);
+
+      if (myCompanyData) {
+        setCurrentCompany(myCompanyData);
+      }
 
       const seenEmpIds = new Set<string>();
       const safeEmployees = Array.isArray(employeesData)
@@ -250,10 +257,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         : [];
 
       // Multi-Tenant Isolation: Scope data to the logged-in company
-      const activeCompanyId = user?.companyId || 'comp-paneliya';
+      const activeCompanyId = user?.companyId || myCompanyData?.id || '';
 
       let scopedEmployees: Employee[] = [];
-      if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
+      if (!activeCompanyId) {
+        scopedEmployees = [];
+      } else if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
         scopedEmployees = safeEmployees.filter(
           (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
         );
@@ -262,7 +271,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           (e) =>
             e.companyId === activeCompanyId ||
             (e as any).companyCode === activeCompanyId ||
-            (user?.companyCode && (e as any).companyCode === user.companyCode)
+            (user?.companyCode && (e as any).companyCode === user.companyCode) ||
+            (myCompanyData?.code && (e as any).companyCode === myCompanyData.code)
         );
       }
       setEmployees(scopedEmployees);
@@ -541,6 +551,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onRefresh={loadData}
                 portalMode={portalMode}
                 employees={employees}
+                company={currentCompany}
               />
             )}
 
@@ -571,7 +582,17 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 portalMode={portalMode}
               />
             )}
-            {activeModule === 'reports' && <ReportsModule />}
+            {activeModule === 'reports' && (
+              <ReportsModule
+                company={currentCompany}
+                employees={employees}
+                departments={departments}
+                attendance={attendance}
+                payroll={payroll}
+                leaves={leaves}
+                stats={stats}
+              />
+            )}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
