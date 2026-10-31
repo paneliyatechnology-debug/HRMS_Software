@@ -46,7 +46,7 @@ export interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
   const router = useRouter();
   const { login, registerCompanyAccount } = useAuth();
-  const handleBack = onBackToHome || (() => router.push('/'));
+  const handleBack = onBackToHome || (() => router.push('/dashboard'));
   
   const [viewMode, setViewMode] = useState<'login' | 'signup'>('login');
 
@@ -141,7 +141,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
           res.message || 'Invalid credentials. Please verify your email, mobile number or employee code and password.'
         );
       } else {
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication error. Please try again.');
@@ -251,7 +251,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
       } else {
         setSuccessMessage(`Company "${companyName.trim()}" registered successfully! Launching your Owner Workspace...`);
         setTimeout(() => {
-          router.push('/');
+          router.push('/dashboard');
         }, 900);
       }
     } catch (err: any) {

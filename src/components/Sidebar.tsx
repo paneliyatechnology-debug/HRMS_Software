@@ -33,7 +33,7 @@ import { getAllCompanies } from '../lib/companyService';
 
 interface SidebarProps {
   activeModule: string;
-  setActiveModule: (m: string) => void;
+  setActiveModule: (m: string, subTab?: string) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onSelectSubTab?: (subTab: string) => void;
@@ -150,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleNav = (moduleId: string, subTab?: string) => {
-    setActiveModule(moduleId);
+    setActiveModule(moduleId, subTab);
     if (onSelectSubTab && subTab) {
       onSelectSubTab(subTab);
     }

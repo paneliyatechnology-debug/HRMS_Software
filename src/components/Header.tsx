@@ -33,7 +33,7 @@ interface HeaderProps {
   onOpenChat?: () => void;
   onOpenSearchModal?: () => void;
   onOpenMobileModal?: () => void;
-  onNavigateModule?: (moduleName: string) => void;
+  onNavigateModule?: (moduleName: string, subTab?: string) => void;
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
   portalMode?: 'employee' | 'admin';

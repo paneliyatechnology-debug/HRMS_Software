@@ -66,7 +66,7 @@ interface DashboardViewProps {
   employees: Employee[];
   leaves: LeaveRequest[];
   attendance: AttendanceRecord[];
-  onNavigateModule: (moduleName: string) => void;
+  onNavigateModule: (moduleName: string, subTab?: string) => void;
   onOpenClockModal: () => void;
   onOpenLeaveModal: () => void;
   onOpenAddEmployeeModal: () => void;
