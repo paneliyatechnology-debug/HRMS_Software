@@ -15,28 +15,29 @@ let liveAttendanceRecords: AttendanceRecord[] = [];
  * Safely parse a time string (e.g. "09:30 AM", "14:15") or createdAt timestamp to epoch ms
  */
 export function parseTimeStringToTimestamp(timeStr?: string, dateStr?: string, createdAt?: string): number {
+  if (timeStr && typeof timeStr === 'string') {
+    try {
+      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        const mins = parseInt(match[2], 10);
+        const secs = match[3] ? parseInt(match[3], 10) : 0;
+        const ampm = match[4]?.toUpperCase();
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+
+        const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+        base.setHours(hours, mins, secs, 0);
+        const ts = base.getTime();
+        if (!isNaN(ts)) return ts;
+      }
+    } catch {}
+  }
+
   if (createdAt) {
     const t = new Date(createdAt).getTime();
     if (!isNaN(t) && t > 0) return t;
   }
-  if (!timeStr) return Date.now();
-
-  try {
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-    if (match) {
-      let hours = parseInt(match[1], 10);
-      const mins = parseInt(match[2], 10);
-      const secs = match[3] ? parseInt(match[3], 10) : 0;
-      const ampm = match[4]?.toUpperCase();
-      if (ampm === 'PM' && hours < 12) hours += 12;
-      if (ampm === 'AM' && hours === 12) hours = 0;
-
-      const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
-      base.setHours(hours, mins, secs, 0);
-      const ts = base.getTime();
-      if (!isNaN(ts)) return ts;
-    }
-  } catch {}
 
   return Date.now();
 }
@@ -118,15 +119,16 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
     if (record.activeSeconds && record.activeSeconds > 0) {
       return record.activeSeconds;
     }
-    if (record.workingHours && record.workingHours > 0) {
-      return Math.round(record.workingHours * 3600);
-    }
     if (record.checkIn && record.checkOut) {
-      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date);
       const outTs = parseTimeStringToTimestamp(record.checkOut, record.date);
       const diffSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
       const breakSecs = (record.breakDurationMinutes || 0) * 60 + (record.breakSeconds || 0);
-      return Math.max(0, diffSecs - breakSecs);
+      const actualSecs = Math.max(0, diffSecs - breakSecs);
+      return actualSecs;
+    }
+    if (record.workingHours && record.workingHours > 0) {
+      return Math.round(record.workingHours * 3600);
     }
     return record.activeSeconds || 0;
   }
@@ -137,7 +139,7 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
       return record.activeSeconds;
     }
     if (record.checkIn) {
-      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date);
       const breakStart = record.lastBreakTimestamp || Date.now();
       const diffSecs = Math.max(0, Math.floor((breakStart - inTs) / 1000));
       return Math.max(0, diffSecs - (record.breakSeconds || 0));
@@ -148,7 +150,7 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
   // 3. If Checked In & working: Timer CALCULATING LIVE & TICKING
   if (record.checkIn) {
     if (!record.lastActiveTimestamp) {
-      record.lastActiveTimestamp = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+      record.lastActiveTimestamp = parseTimeStringToTimestamp(record.checkIn, record.date);
     }
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastActiveTimestamp) / 1000));
     return (record.activeSeconds || 0) + elapsed;
@@ -674,14 +676,15 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
 
     let activeSec = existing.activeSeconds || 0;
     if (hasCheckOut) {
-      if (backendRec.workingHours && backendRec.workingHours > 0) {
-        activeSec = Math.round(backendRec.workingHours * 3600);
-      } else if (existing.activeSeconds && existing.activeSeconds > 0) {
+      if (existing.activeSeconds && existing.activeSeconds > 0) {
         activeSec = existing.activeSeconds;
       } else if (backendRec.checkIn && backendRec.checkOut) {
-        const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt);
+        const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today);
         const outTs = parseTimeStringToTimestamp(backendRec.checkOut, today);
-        activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        const breakSecs = (backendRec.breakDurationMinutes || 0) * 60;
+        activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000) - breakSecs);
+      } else if (backendRec.workingHours && backendRec.workingHours > 0) {
+        activeSec = Math.round(backendRec.workingHours * 3600);
       }
     }
 
@@ -720,12 +723,13 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
   } else {
     const isCompleted = hasCheckOut;
     let activeSec = 0;
-    if (backendRec.workingHours && backendRec.workingHours > 0) {
-      activeSec = Math.round(backendRec.workingHours * 3600);
-    } else if (hasCheckOut && backendRec.checkIn && backendRec.checkOut) {
-      const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt);
+    if (hasCheckOut && backendRec.checkIn && backendRec.checkOut) {
+      const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today);
       const outTs = parseTimeStringToTimestamp(backendRec.checkOut, today);
-      activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000));
+      const breakSecs = (backendRec.breakDurationMinutes || 0) * 60;
+      activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000) - breakSecs);
+    } else if (backendRec.workingHours && backendRec.workingHours > 0) {
+      activeSec = Math.round(backendRec.workingHours * 3600);
     }
 
     updated = {
