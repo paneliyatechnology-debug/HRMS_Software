@@ -19,7 +19,7 @@ const DEFAULT_MONTHS = [
  * Calculate salary breakdown for an employee
  */
 export function calculateEmployeeSalary(emp: Employee | any) {
-  const basic = emp.salary?.basic || 45000;
+  const basic = emp.salary?.basic || 0;
   const hra = emp.salary?.hra || Math.round(basic * 0.4);
   const allowances = emp.salary?.allowances || Math.round(basic * 0.15);
   const bonus = emp.salary?.bonus || 0;
@@ -28,7 +28,7 @@ export function calculateEmployeeSalary(emp: Employee | any) {
 
   const pfDeduction = emp.salary?.pf || Math.round(basic * 0.12);
   const taxDeduction = emp.salary?.tax || Math.round(grossSalary * 0.05);
-  const professionalTax = emp.salary?.professionalTax || 200;
+  const professionalTax = emp.salary?.professionalTax || (basic > 0 ? 200 : 0);
   const otherDeductions = 0;
   const totalDeductions = pfDeduction + taxDeduction + professionalTax + otherDeductions;
   const netSalary = Math.max(0, grossSalary - totalDeductions);
@@ -50,56 +50,10 @@ export function calculateEmployeeSalary(emp: Employee | any) {
 }
 
 /**
- * Generate seed payroll records for all employees across the last 6 months
+ * Retrieve seed payroll records (empty array - all real records originate from database)
  */
 export function generateSeedPayrollRecords(): PayrollRecord[] {
-  const employees = getAllEmployees();
-  const records: PayrollRecord[] = [];
-
-  if (employees.length === 0) {
-    return [];
-  }
-
-  const employeeList = employees;
-
-  employeeList.forEach((emp) => {
-    const salary = calculateEmployeeSalary(emp);
-    const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email || 'Employee';
-
-    DEFAULT_MONTHS.forEach((m, idx) => {
-      // Add a slight realistic variation for bonus on specific festival month (e.g. October)
-      const bonus = idx === 0 ? 5000 : 0;
-      const gross = salary.grossSalary + bonus;
-      const net = gross - salary.totalDeductions;
-
-      records.push({
-        id: `pay-${emp.id}-${m.month}`,
-        payrollMonth: m.month,
-        employeeId: emp.id,
-        employeeName: empName,
-        employeeCode: emp.employeeCode || `EMP-${emp.id.replace('emp-', '')}`,
-        designationTitle: emp.designationTitle || 'Staff Member',
-        departmentName: emp.departmentName || 'Technology',
-        basicSalary: salary.basicSalary,
-        hra: salary.hra,
-        allowances: salary.allowances,
-        bonus,
-        overtimePay: 0,
-        grossSalary: gross,
-        pfDeduction: salary.pfDeduction,
-        taxDeduction: salary.taxDeduction,
-        professionalTax: salary.professionalTax,
-        otherDeductions: 0,
-        totalDeductions: salary.totalDeductions,
-        netSalary: net,
-        status: 'Paid',
-        paymentDate: m.date,
-        paymentMethod: 'Bank Direct Deposit (NEFT/RTGS)',
-      });
-    });
-  });
-
-  return records;
+  return [];
 }
 
 // Pure In-Memory Payroll Storage - live from database via API
@@ -146,7 +100,7 @@ export function getEmployeePayslips(
   const codeNorm = (employeeCode || '').toLowerCase().trim();
   const nameNorm = (employeeName || '').toLowerCase().trim();
 
-  let matched = allRecords.filter((r) => {
+  const matched = allRecords.filter((r) => {
     const rId = (r.employeeId || '').toLowerCase().trim();
     const rCode = (r.employeeCode || '').toLowerCase().trim();
     const rName = (r.employeeName || '').toLowerCase().trim();
@@ -158,81 +112,8 @@ export function getEmployeePayslips(
     );
   });
 
-  // If no records matched for this employee, dynamically generate their 6-month history!
-  if (matched.length === 0) {
-    const employees = getAllEmployees();
-    const foundEmp = employees.find(
-      (e) =>
-        (idNorm && e.id.toLowerCase() === idNorm) ||
-        (emailNorm && e.email.toLowerCase() === emailNorm) ||
-        (codeNorm && e.employeeCode.toLowerCase() === codeNorm)
-    );
-
-    const empObj = foundEmp || {
-      id: employeeId || 'emp-self',
-      employeeCode: employeeCode || 'EMP-101',
-      firstName: employeeName ? employeeName.split(' ')[0] : 'Employee',
-      lastName: employeeName ? employeeName.split(' ').slice(1).join(' ') : '',
-      email: employeeEmail || 'staff@paneliya.com',
-      departmentName: 'Engineering',
-      designationTitle: 'Staff Member',
-      salary: {
-        basic: 50000,
-        hra: 20000,
-        allowances: 10000,
-        bonus: 0,
-        pf: 6000,
-        tax: 4000,
-        professionalTax: 200,
-        gross: 80000,
-        net: 69800,
-      },
-    };
-
-    const salary = calculateEmployeeSalary(empObj);
-    const resolvedName =
-      `${empObj.firstName || ''} ${empObj.lastName || ''}`.trim() ||
-      employeeName ||
-      'Employee';
-
-    const newRecords: PayrollRecord[] = DEFAULT_MONTHS.map((m, idx) => {
-      const bonus = idx === 0 ? 5000 : 0;
-      const gross = salary.grossSalary + bonus;
-      const net = gross - salary.totalDeductions;
-
-      return {
-        id: `pay-${empObj.id}-${m.month}`,
-        payrollMonth: m.month,
-        employeeId: empObj.id,
-        employeeName: resolvedName,
-        employeeCode: empObj.employeeCode || `EMP-${empObj.id}`,
-        designationTitle: empObj.designationTitle || 'Staff Member',
-        departmentName: empObj.departmentName || 'Paneliya Technology',
-        basicSalary: salary.basicSalary,
-        hra: salary.hra,
-        allowances: salary.allowances,
-        bonus,
-        overtimePay: 0,
-        grossSalary: gross,
-        pfDeduction: salary.pfDeduction,
-        taxDeduction: salary.taxDeduction,
-        professionalTax: salary.professionalTax,
-        otherDeductions: 0,
-        totalDeductions: salary.totalDeductions,
-        netSalary: net,
-        status: 'Paid',
-        paymentDate: m.date,
-        paymentMethod: 'Bank Direct Deposit (NEFT/RTGS)',
-      };
-    });
-
-    const updatedAll = [...allRecords, ...newRecords];
-    savePayrollRecords(updatedAll);
-    matched = newRecords;
-  }
-
   // Sort descending by month (latest month first)
-  return matched.sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
+  return matched.sort((a, b) => (b.payrollMonth || '').localeCompare(a.payrollMonth || ''));
 }
 
 /**

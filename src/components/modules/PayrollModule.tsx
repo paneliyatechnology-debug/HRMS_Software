@@ -78,11 +78,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
   const handleExportACH = () => {
     const csvContent =
-      'EmployeeCode,EmployeeName,BankName,AccountNumber,RoutingCode,NetSalaryUSD,Month\n' +
-      payslipRows
+      'EmployeeCode,EmployeeName,BankName,AccountNumber,RoutingCode,NetSalary,Month\n' +
+      records
         .map(
           (r) =>
-            `${r.code},"${r.name}","Silicon Valley Bank","99201948191","SVB00129",${r.net},${selectedMonth}`
+            `${r.employeeCode || r.id},"${r.employeeName || ''}","${(r as any).bankName || ''}","${(r as any).accountNumber || ''}","${(r as any).ifscOrRouting || ''}",${r.netSalary || 0},${selectedMonth}`
         )
         .join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -102,37 +102,22 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const handleViewSlip = async (rec: any) => {
     try {
       const data = await api.getPayslip(rec.id);
-      setSelectedPayslip(data);
-    } catch (err) {
-      // Fallback structured view
-      setSelectedPayslip({
-        employee: {
-          name: rec.name,
-          code: rec.code,
-          department: 'Engineering',
-          designation: rec.role,
-          joiningDate: '2023-01-10',
-          bankName: 'Silicon Valley Bank',
-          accountNumber: '**** **** 4819',
-          panOrSsn: 'SSN-***-**-9281',
-        },
-        payPeriod: selectedMonth,
-        paymentDate: '2026-10-31',
-        paymentMethod: 'Direct Deposit ACH',
-        earnings: [
-          { item: 'Basic Salary', amount: rec.basic },
-          { item: 'House Rent Allowance (HRA)', amount: rec.allowances * 0.6 },
-          { item: 'Special Allowance', amount: rec.allowances * 0.4 },
-        ],
-        deductions: [
-          { item: 'Provident Fund (PF)', amount: rec.deductions * 0.6 },
-          { item: 'Tax Withholding (TDS)', amount: rec.deductions * 0.4 },
-        ],
-        summary: {
-          grossEarnings: rec.gross,
-          totalDeductions: rec.deductions,
-          netSalary: rec.net,
-        },
+      if (data) {
+        setSelectedPayslip(data);
+      } else {
+        showToast({
+          title: 'Payslip Notice',
+          message: 'No itemized payslip breakdown available for this record.',
+          type: 'error',
+          module: 'payroll',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        title: 'Error Loading Payslip',
+        message: err.message || 'Could not fetch payslip details from backend database.',
+        type: 'error',
+        module: 'payroll',
       });
     }
   };

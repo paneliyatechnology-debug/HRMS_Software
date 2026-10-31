@@ -225,59 +225,71 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
       {/* Tab 1: Programs Grid */}
       {activeTab === 'programs' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {programs.map((prog) => (
-            <div
-              key={prog.id}
-              className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
-                    {prog.status || 'Active'}
-                  </span>
-                  <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {prog.durationHours} Hours
-                  </span>
-                </div>
-
-                <h3 className="font-extrabold text-base text-slate-900 mt-3">
-                  {prog.title}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                  {prog.description}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {(prog.skillsCovered || []).map((s) => (
-                    <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-semibold">
-                      {s}
-                    </span>
-                  ))}
-                </div>
+          {programs.length === 0 ? (
+            <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 border border-blue-200">
+                <Award className="w-6 h-6" />
               </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Instructor</span>
-                  <span className="font-semibold text-slate-800">{prog.trainerName}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-blue-600 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" /> {prog.enrolledCount || 0}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSelectedProgramId(prog.id);
-                      setIsEnrollOpen(true);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold transition"
-                  >
-                    Enroll
-                  </button>
-                </div>
-              </div>
+              <h3 className="font-bold text-slate-900 text-sm">No training courses found</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                No active training curricula registered yet. Click &ldquo;Add Training Course&rdquo; to create a new program.
+              </p>
             </div>
-          ))}
+          ) : (
+            programs.map((prog) => (
+              <div
+                key={prog.id}
+                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                      {prog.status || 'Active'}
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {prog.durationHours} Hours
+                    </span>
+                  </div>
+
+                  <h3 className="font-extrabold text-base text-slate-900 mt-3">
+                    {prog.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                    {prog.description}
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {(prog.skillsCovered || []).map((s) => (
+                      <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-semibold">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Instructor</span>
+                    <span className="font-semibold text-slate-800">{prog.trainerName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-blue-600 flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" /> {prog.enrolledCount || 0}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedProgramId(prog.id);
+                        setIsEnrollOpen(true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold transition"
+                    >
+                      Enroll
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -301,55 +313,63 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {enrollments.map((en) => (
-                  <tr key={en.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {en.employeeName}
-                      <span className="block text-[10px] text-slate-400 font-normal font-mono">{en.employeeId}</span>
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-700">{en.trainingTitle}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="w-40 space-y-1">
-                        <div className="flex justify-between text-[11px] font-bold">
-                          <span>{en.progressPercent}%</span>
-                          <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
-                            {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'
-                            }`}
-                            style={{ width: `${Math.min(100, en.progressPercent)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          en.status === 'Completed'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-blue-50 text-blue-600'
-                        }`}
-                      >
-                        {en.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => {
-                          setProgressModalEnrollment(en);
-                          setProgressVal(en.progressPercent);
-                        }}
-                        className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
-                      >
-                        Update Progress
-                      </button>
+                {enrollments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
+                      No employee enrollments found. Click &ldquo;Enroll Employee&rdquo; to register staff members into courses.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  enrollments.map((en) => (
+                    <tr key={en.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {en.employeeName}
+                        <span className="block text-[10px] text-slate-400 font-normal font-mono">{en.employeeId}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-700">{en.trainingTitle}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="w-40 space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span>{en.progressPercent}%</span>
+                            <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
+                              {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'
+                              }`}
+                              style={{ width: `${Math.min(100, en.progressPercent)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            en.status === 'Completed'
+                              ? 'bg-emerald-50 text-emerald-600'
+                              : 'bg-blue-50 text-blue-600'
+                          }`}
+                        >
+                          {en.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => {
+                            setProgressModalEnrollment(en);
+                            setProgressVal(en.progressPercent);
+                          }}
+                          className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
+                        >
+                          Update Progress
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

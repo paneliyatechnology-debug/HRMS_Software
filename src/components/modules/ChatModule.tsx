@@ -83,6 +83,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileInputAccept, setFileInputAccept] = useState<string>('*/*');
 
   // Load and sync conversations
   const loadConversations = () => {
@@ -332,22 +334,27 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     emitChatMessage(sent);
   };
 
-  const handleAddSampleAttachment = (type: 'document' | 'image') => {
-    if (type === 'document') {
-      setPendingAttachment({
-        id: `att-${Date.now()}`,
-        name: 'Sprint_Work_Report.pdf',
-        size: '1.4 MB',
-        type: 'pdf',
-      });
-    } else {
-      setPendingAttachment({
-        id: `att-${Date.now()}`,
-        name: 'Architecture_Diagram.png',
-        size: '850 KB',
-        type: 'image',
-      });
-    }
+  const handleOpenAttachFile = (accept: string) => {
+    setFileInputAccept(accept);
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 50);
+  };
+
+  const handleRealFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isImg = file.type.startsWith('image/');
+    const sizeKb = Math.round(file.size / 1024);
+    const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+    setPendingAttachment({
+      id: `att-${Date.now()}`,
+      name: file.name,
+      size: sizeStr,
+      type: isImg ? 'image' : 'pdf',
+    });
+    e.target.value = '';
   };
 
   const handleStartEdit = (msg: ChatMessage) => {
@@ -943,11 +950,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               onSubmit={handleSendMessage}
               className="p-3 sm:p-4 bg-white border-t border-slate-200 flex items-center gap-2"
             >
+              {/* Hidden File Input for Real Attachments */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={fileInputAccept}
+                onChange={handleRealFileChange}
+                className="hidden"
+              />
+
               {/* Attachment Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => handleAddSampleAttachment('document')}
+                  onClick={() => handleOpenAttachFile('.pdf,.doc,.docx,.txt')}
                   className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   title="Attach Document"
                 >
@@ -955,7 +971,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddSampleAttachment('image')}
+                  onClick={() => handleOpenAttachFile('image/*')}
                   className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors hidden sm:block"
                   title="Attach Image"
                 >

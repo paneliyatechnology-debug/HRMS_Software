@@ -40,76 +40,64 @@ export function saveEmployees(employees: Employee[]): void {
 export function addEmployee(data: Partial<Employee>): Employee {
   const current = getAllEmployees();
   const nextNum = current.length + 1;
-  const newId = `emp-${Date.now()}`;
+  const newId = data.id || `emp-${Date.now()}`;
   const code = data.employeeCode || `EMP-${nextNum}`;
 
   const newEmployee: Employee = {
     id: newId,
     employeeCode: code,
-    companyId: data.companyId || 'comp-paneliya',
-    companyName: data.companyName || 'Paneliya Technology Inc.',
-    firstName: data.firstName || 'New',
-    lastName: data.lastName || 'Staff',
-    email: data.email || `employee.${Date.now()}@paneliya.com`,
-    phone: data.phone || '+91 98765 43210',
-    password: data.password || 'Password@123',
+    companyId: data.companyId || '',
+    companyName: data.companyName || '',
+    firstName: data.firstName || '',
+    lastName: data.lastName || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    password: data.password || '',
     avatarUrl: data.avatarUrl || '',
-    gender: data.gender || 'Male',
-    dateOfBirth: data.dateOfBirth || '1995-01-01',
-    address: data.address || 'Corporate Tower, My Own HRMS',
+    gender: data.gender || 'Other',
+    dateOfBirth: data.dateOfBirth || '',
+    address: data.address || '',
     emergencyContact: data.emergencyContact || {
-      name: 'Emergency Contact',
-      relationship: 'Family',
-      phone: '+91 98765 00000',
+      name: '',
+      relationship: '',
+      phone: '',
     },
     joiningDate: data.joiningDate || new Date().toISOString().split('T')[0],
     employmentType: data.employmentType || 'Full-time',
-    status: 'Active',
-    departmentId: data.departmentId || 'dept-1',
-    departmentName: data.departmentName || 'Engineering',
-    designationId: data.designationId || 'desig-1',
-    designationTitle: data.designationTitle || 'Software Engineer',
-    reportingManagerId: data.reportingManagerId || 'emp-admin',
-    reportingManagerName: data.reportingManagerName || 'HR Administration',
-    workLocationId: 'loc-1',
-    workLocationName: 'Corporate Headquarters',
-    shift: data.shift || 'General Shift (09:30 AM - 06:30 PM)',
+    status: data.status || 'Active',
+    departmentId: data.departmentId || '',
+    departmentName: data.departmentName || '',
+    designationId: data.designationId || '',
+    designationTitle: data.designationTitle || '',
+    reportingManagerId: data.reportingManagerId || '',
+    reportingManagerName: data.reportingManagerName || '',
+    workLocationId: data.workLocationId || '',
+    workLocationName: data.workLocationName || '',
+    shift: data.shift || 'General Shift',
     bankDetails: data.bankDetails || {
-      bankName: 'HDFC Bank',
-      accountNumber: '99201948191',
-      ifscOrRouting: 'HDFC0001234',
-      accountHolderName: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+      bankName: '',
+      accountNumber: '',
+      ifscOrRouting: '',
+      accountHolderName: '',
     },
-    taxInformation: {
-      taxId: 'PAN123456',
-      panOrSsn: 'ABCDE1234F',
-      taxRegime: 'New Regime (2026-2027)',
+    taxInformation: data.taxInformation || {
+      taxId: '',
+      panOrSsn: '',
+      taxRegime: 'New Regime',
     },
-    education: [
-      {
-        degree: 'Bachelor of Technology in Computer Engineering',
-        institution: 'Gujarat Technological University',
-        year: 2020,
-      },
-    ],
-    previousExperience: [
-      {
-        company: 'Technology Solutions Ltd.',
-        role: 'Junior Engineer',
-        years: 2,
-      },
-    ],
-    skills: ['TypeScript', 'React', 'Node.js', 'System Architecture'],
+    education: data.education || [],
+    previousExperience: data.previousExperience || [],
+    skills: data.skills || [],
     salary: data.salary || {
-      basic: 65000,
-      hra: 26000,
-      allowances: 10000,
-      bonus: 5000,
-      pf: 7800,
-      tax: 8000,
-      professionalTax: 200,
-      gross: 106000,
-      net: 90000,
+      basic: 0,
+      hra: 0,
+      allowances: 0,
+      bonus: 0,
+      pf: 0,
+      tax: 0,
+      professionalTax: 0,
+      gross: 0,
+      net: 0,
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -129,11 +117,6 @@ export function removeEmployee(id: string): { success: boolean; message: string 
 
   if (!found) {
     return { success: false, message: 'Employee not found.' };
-  }
-
-  // Prevent deleting primary super admin
-  if (found.email === 'keyur.sangani@paneliya.com' && current.length > 1) {
-    return { success: false, message: 'Cannot remove the primary Super Admin account.' };
   }
 
   const updated = current.filter((e) => e.id !== id);

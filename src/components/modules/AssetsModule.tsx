@@ -230,71 +230,85 @@ export const AssetsModule: React.FC = () => {
 
       {/* Assets Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {filtered.map((asset) => (
-          <div
-            key={asset.id}
-            className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">
-                  {asset.assetCode}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    asset.status === 'Assigned'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'bg-emerald-50 text-emerald-600'
-                  }`}
-                >
-                  {asset.status}
-                </span>
-              </div>
-
-              <h4 className="font-extrabold text-sm text-slate-900 mt-3 line-clamp-2">
-                {asset.name}
-              </h4>
-              <p className="text-[11px] text-slate-400 mt-0.5 font-mono">SN: {asset.serialNumber}</p>
+        {filtered.length === 0 ? (
+          <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 border border-blue-200">
+              <HardDrive className="w-6 h-6" />
             </div>
-
-            <div className="mt-5 pt-3 border-t border-slate-100 text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 text-[11px]">Condition:</span>
-                <span className="font-bold text-emerald-600">{asset.condition}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 text-[11px]">Assigned to:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[130px]">
-                  {asset.assignedToEmployeeName || 'IT Storage'}
-                </span>
-              </div>
-
-              {asset.status === 'Assigned' ? (
-                <button
-                  onClick={() => {
-                    setReturnModalAsset(asset);
-                    setReturnCondition(asset.condition || 'Good');
-                  }}
-                  className="w-full mt-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Process Return</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setAssignModalAsset(asset);
-                    if (employees.length > 0) setAssignEmployeeId(employees[0].id);
-                  }}
-                  className="w-full mt-2 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs flex items-center justify-center gap-1.5 transition"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Assign to Staff</span>
-                </button>
-              )}
-            </div>
+            <h3 className="font-bold text-slate-900 text-sm">No assets found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              {searchTerm || selectedCategory !== 'ALL'
+                ? 'No company assets match your search criteria.'
+                : 'No company assets currently registered. Click "Register New Asset" to add hardware or equipment.'}
+            </p>
           </div>
-        ))}
+        ) : (
+          filtered.map((asset) => (
+            <div
+              key={asset.id}
+              className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">
+                    {asset.assetCode}
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      asset.status === 'Assigned'
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'bg-emerald-50 text-emerald-600'
+                    }`}
+                  >
+                    {asset.status}
+                  </span>
+                </div>
+
+                <h4 className="font-extrabold text-sm text-slate-900 mt-3 line-clamp-2">
+                  {asset.name}
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5 font-mono">SN: {asset.serialNumber}</p>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-slate-100 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-[11px]">Condition:</span>
+                  <span className="font-bold text-emerald-600">{asset.condition}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-[11px]">Assigned to:</span>
+                  <span className="font-bold text-slate-800 truncate max-w-[130px]">
+                    {asset.assignedToEmployeeName || 'IT Storage'}
+                  </span>
+                </div>
+
+                {asset.status === 'Assigned' ? (
+                  <button
+                    onClick={() => {
+                      setReturnModalAsset(asset);
+                      setReturnCondition(asset.condition || 'Good');
+                    }}
+                    className="w-full mt-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Process Return</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAssignModalAsset(asset);
+                      if (employees.length > 0) setAssignEmployeeId(employees[0].id);
+                    }}
+                    className="w-full mt-2 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Assign to Staff</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Modal: Register New Asset */}

@@ -201,30 +201,12 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
       rzpInstance.open();
     } catch (err: any) {
       console.error('Razorpay Checkout initialization failed:', err);
-      // Clean fallback in case network blocked Razorpay test servers
       showToast({
         type: 'error',
-        title: 'Razorpay Notice',
-        message: err.message || 'Could not connect to Razorpay. Falling back to test activation.',
+        title: 'Payment Gateway Notice',
+        message: err.message || 'Could not connect to payment gateway. Please check your internet connection.',
       });
-
-      // Allow 1-click fallback activation if API key cannot reach internet
-      setTimeout(() => {
-        const dummyPayId = `pay_mock_${Date.now()}`;
-        updateCompanySubscription(companyId, plan.id, billingCycle, {
-          razorpayPaymentId: dummyPayId,
-          razorpayOrderId: `order_mock_${Date.now()}`,
-          paymentMethod: 'Razorpay Test Simulation',
-        });
-        showToast({
-          type: 'success',
-          title: 'Plan Activated (Test Mode)',
-          message: `Upgraded to ${plan.name} (${billingCycle}). Mock ID: ${dummyPayId}`,
-        });
-        setUpgradingPlanId(null);
-        if (onPlanUpdated) onPlanUpdated();
-        onClose();
-      }, 900);
+      setUpgradingPlanId(null);
     }
   };
 

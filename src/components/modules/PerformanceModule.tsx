@@ -123,95 +123,107 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
       {/* Review Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {reviews.map((rev) => (
-          <div
-            key={rev.id}
-            className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4 hover:shadow-md transition flex flex-col justify-between"
-          >
-            <div className="space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-extrabold text-base text-slate-900">
-                    {rev.employeeName}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Manager: {rev.managerName}</p>
-                </div>
-                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-600 font-black text-xs">
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  <span>{rev.finalRating || rev.managerRating || rev.selfRating || 4.5} / 5.0</span>
-                </div>
-              </div>
-
-              {/* OKR Goals Progress */}
-              <div>
-                <p className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2">
-                  Key Objectives & Deliverables (OKRs)
-                </p>
-                <div className="space-y-3">
-                  {(rev.goals || []).map((g, idx) => (
-                    <div key={idx} className="space-y-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold">
-                        <span className="text-slate-700">{g.title}</span>
-                        <span className="text-blue-600 font-bold">{g.progress}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className="h-full bg-blue-600 rounded-full transition-all"
-                          style={{ width: `${g.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Feedback box */}
-              {(rev.managerFeedback || rev.selfComments) && (
-                <div className="p-3.5 rounded-2xl bg-slate-50 text-xs text-slate-600 border border-slate-100 space-y-2">
-                  {rev.selfComments && (
-                    <div>
-                      <span className="font-bold block text-slate-700">Self Assessment:</span>
-                      <p className="text-[11px]">{rev.selfComments}</p>
-                    </div>
-                  )}
-                  {rev.managerFeedback && (
-                    <div>
-                      <span className="font-bold block text-slate-700">Manager Appraisal:</span>
-                      <p className="text-[11px]">{rev.managerFeedback}</p>
-                    </div>
-                  )}
-                  {rev.appraisalRecommended && (
-                    <p className="pt-1 text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                      <Award className="w-3.5 h-3.5" /> {rev.appraisalRecommended}
-                    </p>
-                  )}
-                </div>
-              )}
+        {reviews.length === 0 ? (
+          <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 border border-amber-200">
+              <Star className="w-6 h-6" />
             </div>
-
-            {/* Action Footer */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                {rev.status || 'Active Cycle'}
-              </span>
-
-              <button
-                onClick={() => {
-                  setRatingModalReview(rev);
-                  setSelfScore(rev.selfRating || 4.5);
-                  setSelfComments(rev.selfComments || '');
-                  setManagerScore(rev.managerRating || 4.8);
-                  setManagerFeedback(rev.managerFeedback || '');
-                  setAppraisalReco(rev.appraisalRecommended || 'Merit Promotion + 12% Increment');
-                }}
-                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5"
-              >
-                <Star className="w-3.5 h-3.5" />
-                <span>Rate & Appraise</span>
-              </button>
-            </div>
+            <h3 className="font-bold text-slate-900 text-sm">No performance reviews found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              No active appraisal cycles or reviews found for your organization.
+            </p>
           </div>
-        ))}
+        ) : (
+          reviews.map((rev) => (
+            <div
+              key={rev.id}
+              className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4 hover:shadow-md transition flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900">
+                      {rev.employeeName}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Manager: {rev.managerName || '—'}</p>
+                  </div>
+                  <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-600 font-black text-xs">
+                    <Star className="w-3.5 h-3.5 fill-current" />
+                    <span>{rev.finalRating ? `${rev.finalRating} / 5.0` : rev.managerRating ? `${rev.managerRating} / 5.0` : 'Not Rated'}</span>
+                  </div>
+                </div>
+
+                {/* OKR Goals Progress */}
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-2">
+                    Key Objectives & Deliverables (OKRs)
+                  </p>
+                  <div className="space-y-3">
+                    {(rev.goals || []).map((g, idx) => (
+                      <div key={idx} className="space-y-1 text-xs">
+                        <div className="flex items-center justify-between font-semibold">
+                          <span className="text-slate-700">{g.title}</span>
+                          <span className="text-blue-600 font-bold">{g.progress}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 rounded-full transition-all"
+                            style={{ width: `${g.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Feedback box */}
+                {(rev.managerFeedback || rev.selfComments) && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 text-xs text-slate-600 border border-slate-100 space-y-2">
+                    {rev.selfComments && (
+                      <div>
+                        <span className="font-bold block text-slate-700">Self Assessment:</span>
+                        <p className="text-[11px]">{rev.selfComments}</p>
+                      </div>
+                    )}
+                    {rev.managerFeedback && (
+                      <div>
+                        <span className="font-bold block text-slate-700">Manager Appraisal:</span>
+                        <p className="text-[11px]">{rev.managerFeedback}</p>
+                      </div>
+                    )}
+                    {rev.appraisalRecommended && (
+                      <p className="pt-1 text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
+                        <Award className="w-3.5 h-3.5" /> {rev.appraisalRecommended}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Footer */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  {rev.status || 'Active Cycle'}
+                </span>
+
+                <button
+                  onClick={() => {
+                    setRatingModalReview(rev);
+                    setSelfScore(rev.selfRating || 0);
+                    setSelfComments(rev.selfComments || '');
+                    setManagerScore(rev.managerRating || 0);
+                    setManagerFeedback(rev.managerFeedback || '');
+                    setAppraisalReco(rev.appraisalRecommended || '');
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  <span>Rate & Appraise</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Modal: Rate Performance Review */}

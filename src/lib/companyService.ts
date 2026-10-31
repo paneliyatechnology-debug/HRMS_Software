@@ -227,8 +227,8 @@ export function addEmployeeToCompany(
     id: newEmpId,
     employeeCode: code,
     companyId: companyId,
-    companyName: company?.name || 'Paneliya Technology Inc.',
-    password: employeeData.password || 'Password@123',
+    companyName: company?.name || '',
+    password: employeeData.password || '',
     role: employeeData.role || 'EMPLOYEE',
     firstName: employeeData.firstName,
     lastName: employeeData.lastName,
@@ -236,35 +236,35 @@ export function addEmployeeToCompany(
     phone: employeeData.phone,
     avatarUrl: '',
     gender: 'Other',
-    dateOfBirth: '1995-01-01',
-    address: `${company?.city || 'Surat'}, ${company?.state || 'Gujarat'}`,
-    emergencyContact: { name: 'Emergency Contact', relationship: 'Family', phone: employeeData.phone },
+    dateOfBirth: '',
+    address: [company?.city, company?.state].filter(Boolean).join(', '),
+    emergencyContact: { name: '', relationship: '', phone: employeeData.phone },
     joiningDate: new Date().toISOString().split('T')[0],
     employmentType: employeeData.employmentType || 'Full-time',
     status: 'Active',
-    departmentId: `dept-${Date.now()}`,
-    departmentName: employeeData.departmentName || 'General',
-    designationId: `des-${Date.now()}`,
-    designationTitle: employeeData.designationTitle || 'Staff',
-    reportingManagerName: company?.adminUser.fullName || 'Company Admin',
-    workLocationId: 'loc-main',
-    workLocationName: `${company?.city || 'Corporate'} Office`,
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: { bankName: 'HDFC Bank', accountNumber: '000012345678', ifscOrRouting: 'HDFC0001234', accountHolderName: `${employeeData.firstName} ${employeeData.lastName}` },
-    taxInformation: { taxId: 'TAX-000', panOrSsn: 'ABCDE1234F', taxRegime: 'New Regime' },
+    departmentId: '',
+    departmentName: employeeData.departmentName || '',
+    designationId: '',
+    designationTitle: employeeData.designationTitle || '',
+    reportingManagerName: company?.adminUser?.fullName || '',
+    workLocationId: '',
+    workLocationName: company?.city ? `${company.city} Office` : '',
+    shift: 'General Shift',
+    bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
     education: [],
     previousExperience: [],
-    skills: ['Operations', 'Teamwork'],
+    skills: [],
     salary: {
-      basic: employeeData.salaryBasic || 40000,
-      hra: Math.round((employeeData.salaryBasic || 40000) * 0.4),
-      allowances: 10000,
-      bonus: 5000,
-      pf: 4800,
-      tax: 2500,
-      professionalTax: 200,
-      gross: (employeeData.salaryBasic || 40000) + Math.round((employeeData.salaryBasic || 40000) * 0.4) + 15000,
-      net: (employeeData.salaryBasic || 40000) + Math.round((employeeData.salaryBasic || 40000) * 0.4) + 7500,
+      basic: employeeData.salaryBasic || 0,
+      hra: Math.round((employeeData.salaryBasic || 0) * 0.4),
+      allowances: 0,
+      bonus: 0,
+      pf: Math.round((employeeData.salaryBasic || 0) * 0.12),
+      tax: 0,
+      professionalTax: employeeData.salaryBasic ? 200 : 0,
+      gross: Math.round((employeeData.salaryBasic || 0) * 1.4),
+      net: Math.round((employeeData.salaryBasic || 0) * 1.4) - Math.round((employeeData.salaryBasic || 0) * 0.12) - (employeeData.salaryBasic ? 200 : 0),
     },
     createdAt: new Date().toISOString().split('T')[0],
     updatedAt: new Date().toISOString().split('T')[0],
@@ -334,12 +334,12 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         role: comp.adminUser?.role || 'HR_ADMIN',
         isCompanyAdmin: true,
         matchedVia: 'company_admin',
-        password: comp.adminUser?.password || 'Admin@123',
+        password: comp.adminUser?.password,
       };
     }
   }
 
-  // 2. Check Primary Company Employees (comp-paneliya)
+  // 2. Check Primary Company Employees
   const primaryEmployees = getAllEmployees();
   for (const emp of primaryEmployees) {
     const empEmail = emp.email?.trim().toLowerCase();
@@ -353,20 +353,19 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
     ) {
       return {
         isMember: true,
-        companyId: emp.companyId || 'comp-paneliya',
-        companyName: emp.companyName || 'Paneliya Technology Inc.',
+        companyId: emp.companyId,
+        companyName: emp.companyName,
         employee: emp,
         role: emp.role || 'EMPLOYEE',
         isCompanyAdmin: emp.role === 'HR_ADMIN',
         matchedVia: 'employee',
-        password: emp.password || 'Password@123',
+        password: emp.password,
       };
     }
   }
 
   // 3. Check Multi-Tenant Company Employees
   for (const comp of allCompanies) {
-    if (comp.id === 'comp-paneliya') continue;
     const tenantEmps = getCompanyEmployees(comp.id, []);
     for (const emp of tenantEmps) {
       const empEmail = emp.email?.trim().toLowerCase();
@@ -386,7 +385,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
           role: emp.role || 'EMPLOYEE',
           isCompanyAdmin: emp.role === 'HR_ADMIN',
           matchedVia: 'employee',
-          password: emp.password || 'Password@123',
+          password: emp.password,
         };
       }
     }

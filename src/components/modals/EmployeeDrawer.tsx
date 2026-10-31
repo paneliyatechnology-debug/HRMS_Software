@@ -76,15 +76,15 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     employmentType: 'Full-time' as const,
     workLocationId: 'loc-1',
     shift: 'General Shift (9 AM - 6 PM)',
-    basicSalary: 6500,
-    bankName: 'Silicon Valley Bank',
+    basicSalary: '',
+    bankName: '',
     accountNumber: '',
     routingNumber: '',
     emergencyName: '',
-    emergencyRelationship: 'Spouse',
+    emergencyRelationship: '',
     emergencyPhone: '',
     taxId: '',
-    initialPassword: 'Password@123',
+    initialPassword: '',
     role: 'EMPLOYEE' as Role,
     avatarUrl: '',
   });
@@ -180,13 +180,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
       const selectedDept = departments.find((d) => d.id === formData.departmentId) || departments[0];
       const selectedDes = designations.find((d) => d.id === formData.designationId) || designations[0];
+      const basicNum = Number(formData.basicSalary) || 0;
 
       const employeePayload: Partial<Employee> = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
-        password: formData.initialPassword || 'Password@123',
+        password: formData.initialPassword || '',
         role: formData.role || 'EMPLOYEE',
         avatarUrl: formData.avatarUrl,
         companyId: adminCompanyId,
@@ -194,36 +195,36 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
         address: formData.address,
-        departmentId: formData.departmentId || selectedDept?.id || 'dept-1',
-        departmentName: selectedDept?.name || 'Engineering',
-        designationId: formData.designationId || selectedDes?.id || 'des-1',
-        designationTitle: selectedDes?.title || 'Software Engineer',
+        departmentId: formData.departmentId || selectedDept?.id || '',
+        departmentName: selectedDept?.name || '',
+        designationId: formData.designationId || selectedDes?.id || '',
+        designationTitle: selectedDes?.title || '',
         employmentType: formData.employmentType,
         workLocationId: formData.workLocationId,
-        workLocationName: `${adminCompanyName} Office`,
+        workLocationName: adminCompanyName ? `${adminCompanyName} Office` : '',
         shift: formData.shift,
-        salary: {
-          basic: Number(formData.basicSalary) || 25000,
-          hra: (Number(formData.basicSalary) || 25000) * 0.4,
-          allowances: 1500,
-          bonus: 800,
-          pf: (Number(formData.basicSalary) || 25000) * 0.12,
-          tax: (Number(formData.basicSalary) || 25000) * 0.15,
+        salary: basicNum > 0 ? {
+          basic: basicNum,
+          hra: basicNum * 0.4,
+          allowances: 0,
+          bonus: 0,
+          pf: basicNum * 0.12,
+          tax: 0,
           professionalTax: 200,
-          gross: (Number(formData.basicSalary) || 25000) * 1.4 + 2300,
-          net: (Number(formData.basicSalary) || 25000) * 1.4 + 2300 - ((Number(formData.basicSalary) || 25000) * 0.27 + 200),
-        },
-        bankDetails: {
-          bankName: formData.bankName || 'HDFC Bank',
-          accountNumber: formData.accountNumber || '99201948191',
-          ifscOrRouting: formData.routingNumber || 'HDFC0001234',
-          accountHolderName: `${formData.firstName} ${formData.lastName}`,
-        },
-        emergencyContact: {
-          name: formData.emergencyName || 'Emergency Contact',
-          relationship: formData.emergencyRelationship || 'Spouse',
+          gross: basicNum * 1.4,
+          net: basicNum * 1.4 - (basicNum * 0.12 + 200),
+        } : undefined,
+        bankDetails: formData.bankName || formData.accountNumber ? {
+          bankName: formData.bankName || '',
+          accountNumber: formData.accountNumber || '',
+          ifscOrRouting: formData.routingNumber || '',
+          accountHolderName: `${formData.firstName} ${formData.lastName}`.trim(),
+        } : undefined,
+        emergencyContact: formData.emergencyName || formData.emergencyPhone ? {
+          name: formData.emergencyName || '',
+          relationship: formData.emergencyRelationship || '',
           phone: formData.emergencyPhone || formData.phone,
-        },
+        } : undefined,
       };
 
       console.log('[EmployeeDrawer] Submitting employee payload to backend API:', employeePayload);
@@ -511,7 +512,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   type="text"
                   value={formData.initialPassword}
                   onChange={(e) => setFormData({ ...formData, initialPassword: e.target.value })}
-                  placeholder="Password@123"
+                  placeholder="Create initial login password"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                 />
                 <p className="text-[11px] text-indigo-600 mt-1 font-medium leading-snug">
@@ -624,7 +625,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <input
                   type="number"
                   value={formData.basicSalary}
-                  onChange={(e) => setFormData({ ...formData, basicSalary: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, basicSalary: e.target.value })}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">

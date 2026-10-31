@@ -225,14 +225,14 @@ export const api = {
       typeof window !== 'undefined'
         ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken')
         : null;
-    const authToken = storedToken || 'jwt_token_ravi140714@gmail.com';
+    const authToken = storedToken;
 
     const res = await fetch(`${getApiBase()}/super-admin/companies`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify(createPayload),
     });
@@ -415,18 +415,9 @@ export const api = {
     headName?: string;
     description?: string;
   }) {
-    const newDept: Department = {
-      id: `dept-${Date.now()}`,
-      name: data.name,
-      code: data.code,
-      headName: data.headName || 'HR Administration',
-      employeeCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
     return fetchWithFallback<Department>(
       '/organization/departments',
-      { method: 'POST', body: JSON.stringify(data) },
-      newDept
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -442,8 +433,7 @@ export const api = {
   ) {
     return fetchWithFallback<Department>(
       `/organization/departments/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      { id, ...data } as Department
+      { method: 'PUT', body: JSON.stringify(data) }
     );
   },
 
@@ -457,19 +447,9 @@ export const api = {
     minSalary?: number;
     maxSalary?: number;
   }) {
-    const newDes: Designation = {
-      id: `des-${Date.now()}`,
-      title: data.title,
-      departmentId: data.departmentId,
-      departmentName: 'Department',
-      minSalary: data.minSalary || 50000,
-      maxSalary: data.maxSalary || 100000,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
     return fetchWithFallback<Designation>(
       '/organization/designations',
-      { method: 'POST', body: JSON.stringify(data) },
-      newDes
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -653,20 +633,14 @@ export const api = {
   }) {
     return fetchWithFallback<any>(
       '/attendance/regularize',
-      { method: 'POST', body: JSON.stringify(data) },
-      {
-        success: true,
-        message: 'Attendance regularized successfully',
-        entry: data,
-      }
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async syncBiometricAttendance(logs: any[], deviceId = 'GATE-01-TERMINAL') {
     return fetchWithFallback<any>(
       '/attendance/biometric-sync',
-      { method: 'POST', body: JSON.stringify({ logs, deviceId }) },
-      { status: 'success', syncedRecords: logs.length, deviceId }
+      { method: 'POST', body: JSON.stringify({ logs, deviceId }) }
     );
   },
 
@@ -695,8 +669,7 @@ export const api = {
   }) {
     return fetchWithFallback<any>(
       '/attendance/work/start',
-      { method: 'POST', body: JSON.stringify(data) },
-      { success: true, message: 'Work started successfully', ...data }
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -709,8 +682,7 @@ export const api = {
   }) {
     return fetchWithFallback<any>(
       '/attendance/work/stop',
-      { method: 'POST', body: JSON.stringify(data) },
-      { success: true, message: 'Work stopped successfully', ...data }
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -804,31 +776,12 @@ export const api = {
   async generatePayroll(month: string, actorName = 'Finance Admin') {
     return fetchWithFallback<any>(
       '/payroll/generate',
-      { method: 'POST', body: JSON.stringify({ month, actorName }) },
-      { success: true, month, recordsGenerated: 21, actorName }
+      { method: 'POST', body: JSON.stringify({ month, actorName }) }
     );
   },
 
   async getPayslip(id: string) {
-    return fetchWithFallback<any>(`/payroll/payslip/${id}`, undefined, {
-      id,
-      payrollMonth: '2026-10',
-      employeeName: 'Paneliya Staff',
-      employeeCode: id,
-      designationTitle: 'Team Member',
-      departmentName: 'Paneliya Technology',
-      basicSalary: 0,
-      hra: 0,
-      allowances: 0,
-      bonus: 0,
-      grossSalary: 0,
-      pfDeduction: 0,
-      taxDeduction: 0,
-      professionalTax: 0,
-      totalDeductions: 0,
-      netSalary: 0,
-      paymentMethod: 'Bank Transfer',
-    });
+    return fetchWithFallback<any>(`/payroll/payslip/${id}`, undefined, null);
   },
 
   async updatePayrollStatus(
@@ -840,8 +793,7 @@ export const api = {
     const actor = typeof statusOrPayload === 'string' ? actorName : (statusOrPayload.actorName || actorName);
     return fetchWithFallback<any>(
       `/payroll/${id}/status`,
-      { method: 'PUT', body: JSON.stringify({ status, actorName: actor }) },
-      { id, status, actorName: actor, updatedAt: new Date().toISOString() }
+      { method: 'PUT', body: JSON.stringify({ status, actorName: actor }) }
     );
   },
 
@@ -853,27 +805,9 @@ export const api = {
   },
 
   async createJob(data: Partial<JobOpening>) {
-    const newJob: JobOpening = {
-      id: `job-${Date.now()}`,
-      title: data.title || 'New Job Opening',
-      departmentId: data.departmentId || 'dept-2',
-      departmentName: data.departmentName || 'Engineering & Technology',
-      designationTitle: data.designationTitle || data.title || 'Software Engineer',
-      location: data.location || 'Surat, Gujarat',
-      employmentType: data.employmentType || 'Full-time',
-      experienceLevel: data.experienceLevel || 'Mid-Senior',
-      openingsCount: data.openingsCount || 1,
-      salaryRange: data.salaryRange || '₹8,00,000 - ₹12,00,000',
-      description: data.description || '',
-      skillsRequired: data.skillsRequired || ['TypeScript', 'React'],
-      status: 'Published',
-      postedDate: new Date().toISOString().split('T')[0],
-      applicantCount: 0,
-    };
     return fetchWithFallback<JobOpening>(
       '/recruitment/jobs',
-      { method: 'POST', body: JSON.stringify(data) },
-      newJob
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -883,35 +817,16 @@ export const api = {
   },
 
   async createCandidate(data: Partial<Candidate>) {
-    const newCand: Candidate = {
-      id: `cand-${Date.now()}`,
-      jobId: data.jobId || 'job-1',
-      jobTitle: data.jobTitle || 'Senior Software Engineer',
-      fullName: data.fullName || 'Candidate Name',
-      email: data.email || 'candidate@example.com',
-      phone: data.phone || '+91 98765 00000',
-      resumeUrl: data.resumeUrl || '/resumes/sample.pdf',
-      experienceYears: data.experienceYears || 3,
-      currentCompany: data.currentCompany || 'Tech Corp',
-      skills: data.skills || ['React', 'TypeScript'],
-      source: data.source || 'Website',
-      status: 'Applied',
-      appliedDate: new Date().toISOString().split('T')[0],
-      rating: 4.5,
-      notes: data.notes || '',
-    };
     return fetchWithFallback<Candidate>(
       '/recruitment/candidates',
-      { method: 'POST', body: JSON.stringify(data) },
-      newCand
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async updateCandidateStatus(id: string, status: string, actorName = 'Lead Recruiter') {
     return fetchWithFallback<Candidate>(
       `/recruitment/candidates/${id}/status`,
-      { method: 'PUT', body: JSON.stringify({ status, actorName }) },
-      ({ id, status } as any)
+      { method: 'PUT', body: JSON.stringify({ status, actorName }) }
     );
   },
 
@@ -921,16 +836,14 @@ export const api = {
   ) {
     return fetchWithFallback<any>(
       `/recruitment/candidates/${id}/schedule-interview`,
-      { method: 'POST', body: JSON.stringify(data) },
-      { id, ...data, status: 'Scheduled' }
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async convertCandidateToEmployee(id: string, actorName = 'HR Admin') {
     return fetchWithFallback<any>(
       `/recruitment/candidates/${id}/convert`,
-      { method: 'POST', body: JSON.stringify({ actorName }) },
-      { success: true, candidateId: id, status: 'Hired', convertedAt: new Date().toISOString() }
+      { method: 'POST', body: JSON.stringify({ actorName }) }
     );
   },
 
@@ -964,8 +877,7 @@ export const api = {
   ) {
     return fetchWithFallback<PerformanceReview>(
       `/performance/reviews/${id}/rate`,
-      { method: 'POST', body: JSON.stringify(data) },
-      ({ id, ...data, status: 'Completed' } as any)
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -985,22 +897,9 @@ export const api = {
     endDate: string;
     durationHours: number;
   }) {
-    const newProg: TrainingProgram = {
-      id: `trn-${Date.now()}`,
-      title: data.title,
-      description: data.description,
-      trainerName: data.trainerName,
-      skillsCovered: data.skillsCovered || [],
-      startDate: data.startDate,
-      endDate: data.endDate,
-      durationHours: data.durationHours,
-      status: 'Upcoming',
-      enrolledCount: 0,
-    };
     return fetchWithFallback<TrainingProgram>(
       '/training/programs',
-      { method: 'POST', body: JSON.stringify(data) },
-      newProg
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -1018,27 +917,17 @@ export const api = {
     employeeId?: string
   ) {
     const trainingId = typeof trainingIdOrPayload === 'string' ? trainingIdOrPayload : trainingIdOrPayload.trainingId;
-    const empId = typeof trainingIdOrPayload === 'string' ? (employeeId || 'emp-1') : trainingIdOrPayload.employeeId;
+    const empId = typeof trainingIdOrPayload === 'string' ? (employeeId || '') : trainingIdOrPayload.employeeId;
     return fetchWithFallback<any>(
       '/training/enroll',
-      { method: 'POST', body: JSON.stringify({ trainingId, employeeId: empId }) },
-      {
-        id: `enr-${Date.now()}`,
-        trainingId,
-        employeeId: empId,
-        trainingTitle: 'Professional Upskilling Program',
-        employeeName: 'Enrolled Employee',
-        status: 'In Progress',
-        progressPercent: 0,
-      }
+      { method: 'POST', body: JSON.stringify({ trainingId, employeeId: empId }) }
     );
   },
 
   async updateTrainingProgress(id: string, progressPercent: number) {
     return fetchWithFallback<any>(
       `/training/enrollments/${id}/progress`,
-      { method: 'PUT', body: JSON.stringify({ progressPercent }) },
-      { id, progressPercent }
+      { method: 'PUT', body: JSON.stringify({ progressPercent }) }
     );
   },
 
@@ -1058,20 +947,9 @@ export const api = {
     condition: 'Excellent' | 'Good' | 'Fair' | 'Damaged';
     purchaseDate: string;
   }) {
-    const newAsset: CompanyAsset = {
-      id: `ast-${Date.now()}`,
-      name: data.name,
-      category: data.category,
-      assetCode: data.assetCode,
-      serialNumber: data.serialNumber,
-      condition: data.condition,
-      status: 'Available',
-      purchaseDate: data.purchaseDate,
-    };
     return fetchWithFallback<CompanyAsset>(
       '/assets',
-      { method: 'POST', body: JSON.stringify(data) },
-      newAsset
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
@@ -1084,8 +962,7 @@ export const api = {
     const actor = typeof employeeIdOrPayload === 'string' ? actorName : (employeeIdOrPayload.actorName || actorName);
     return fetchWithFallback<any>(
       `/assets/${id}/assign`,
-      { method: 'PUT', body: JSON.stringify({ employeeId, actorName: actor }) },
-      { id, assignedToEmployeeId: employeeId, status: 'Assigned', actorName: actor }
+      { method: 'PUT', body: JSON.stringify({ employeeId, actorName: actor }) }
     );
   },
 
@@ -1098,8 +975,7 @@ export const api = {
     const actor = typeof conditionOrPayload === 'string' ? actorName : (conditionOrPayload.actorName || actorName);
     return fetchWithFallback<any>(
       `/assets/${id}/return`,
-      { method: 'PUT', body: JSON.stringify({ condition, actorName: actor }) },
-      { id, status: 'Available', condition, actorName: actor }
+      { method: 'PUT', body: JSON.stringify({ condition, actorName: actor }) }
     );
   },
 
@@ -1122,29 +998,9 @@ export const api = {
       reason: data.reason,
       noticePeriodDays: noticePeriod,
     };
-    const newRes: Resignation = {
-      id: `res-${Date.now()}`,
-      employeeId: targetEmpId,
-      employeeName: 'Employee',
-      employeeCode: targetEmpId,
-      departmentName: 'Paneliya Technology',
-      resignationDate: new Date().toISOString().split('T')[0],
-      lastWorkingDay: new Date(Date.now() + noticePeriod * 86400000).toISOString().split('T')[0],
-      noticePeriodDays: noticePeriod,
-      reason: data.reason,
-      status: 'Submitted' as any,
-      managerApproval: { status: 'Pending' },
-      clearance: {
-        departmentClearance: false,
-        assetReturned: false,
-        financeSettlement: false,
-        exitInterviewCompleted: false,
-      },
-    };
     return fetchWithFallback<Resignation>(
       '/resignations/submit',
-      { method: 'POST', body: JSON.stringify(payload) },
-      newRes
+      { method: 'POST', body: JSON.stringify(payload) }
     );
   },
 
@@ -1184,8 +1040,7 @@ export const api = {
     const actor = 'actorName' in clearanceOrPayload && clearanceOrPayload.actorName ? clearanceOrPayload.actorName : actorName;
     return fetchWithFallback<any>(
       `/resignations/${id}/clearance`,
-      { method: 'PUT', body: JSON.stringify({ clearance, actorName: actor }) },
-      { id, clearance, actorName: actor, status: 'Completed' }
+      { method: 'PUT', body: JSON.stringify({ clearance, actorName: actor }) }
     );
   },
 
@@ -1204,22 +1059,16 @@ export const api = {
     description: string;
     locationId?: string;
   }) {
-    const newHol: Holiday = {
-      id: `hol-${Date.now()}`,
-      ...data,
-    };
     return fetchWithFallback<Holiday>(
       '/holidays',
-      { method: 'POST', body: JSON.stringify(data) },
-      newHol
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async deleteHoliday(id: string) {
     return fetchWithFallback<{ success: boolean }>(
       `/holidays/${id}`,
-      { method: 'DELETE' },
-      { success: true }
+      { method: 'DELETE' }
     );
   },
 
@@ -1241,31 +1090,17 @@ export const api = {
   }) {
     return fetchWithFallback<any>(
       '/documents',
-      { method: 'POST', body: JSON.stringify(data) },
-      { id: `doc-${Date.now()}`, ...data, verificationStatus: 'Pending' }
+      { method: 'POST', body: JSON.stringify(data) }
     );
   },
 
   async uploadDocumentFile(formData: FormData) {
-    try {
-      const res = await fetch(`${getApiBase()}/documents/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Upload failed with status ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend upload fallback:', err);
-      return {
-        id: `doc-${Date.now()}`,
-        title: formData.get('title') || 'Uploaded Document',
-        category: formData.get('category') || 'Other',
-        fileUrl: '/docs/sample.pdf',
-        fileSize: '1.2 MB',
-        uploadDate: new Date().toISOString().split('T')[0],
-        verificationStatus: 'Pending',
-      };
-    }
+    const res = await fetch(`${getApiBase()}/documents/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`Upload failed with status ${res.status}`);
+    return await res.json();
   },
 
   async verifyDocument(id: string, status: 'Verified' | 'Rejected', verifiedBy = 'HR Admin') {
@@ -1322,7 +1157,7 @@ export const api = {
   },
 
   async markAllNotificationsRead() {
-    return fetchWithFallback<any>('/notifications/mark-all-read', { method: 'PUT' }, { success: true });
+    return fetchWithFallback<any>('/notifications/mark-all-read', { method: 'PUT' });
   },
 
   // =========================================================================
@@ -1354,8 +1189,7 @@ export const api = {
   async updateSettings(data: any) {
     return fetchWithFallback<any>(
       '/settings',
-      { method: 'PUT', body: JSON.stringify(data) },
-      { ...data, updatedAt: new Date().toISOString() }
+      { method: 'PUT', body: JSON.stringify(data) }
     );
   },
 
@@ -1373,8 +1207,7 @@ export const api = {
   async updateCompany(id: string, data: { companyName?: string; phone?: string; address?: string; status?: string }) {
     return fetchWithFallback<any>(
       `/companies/${encodeURIComponent(id)}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      { id, ...data, updatedAt: new Date().toISOString() }
+      { method: 'PUT', body: JSON.stringify(data) }
     );
   },
 

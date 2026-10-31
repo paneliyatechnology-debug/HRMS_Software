@@ -126,38 +126,6 @@ export function evaluateInactivity(
   return newlyIdle;
 }
 
-/**
- * Helper to simulate an employee being idle (>5 minutes) for instant admin testing
- */
-export function simulateEmployeeIdle(
-  employeeId: string,
-  employeeName: string,
-  employeeCode: string,
-  minutesAgo: number = 6
-): void {
-  const map = getAllEmployeeActivities();
-  const fakePastTime = Date.now() - minutesAgo * 60 * 1000;
-
-  map[employeeId] = {
-    employeeId,
-    employeeName,
-    employeeCode,
-    lastActiveTimestamp: fakePastTime,
-    isIdle: true,
-    idleSeconds: minutesAgo * 60,
-    status: 'Idle',
-    alertTriggered: true,
-  };
-
-  saveAllEmployeeActivities(map);
-
-  // Trigger alert event for admin
-  window.dispatchEvent(
-    new CustomEvent('hrms_employee_idle_alert', {
-      detail: map[employeeId],
-    })
-  );
-}
 
 /**
  * Helper to reset idle status for an employee

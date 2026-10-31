@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Clock,
   Calendar,
@@ -191,6 +191,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
   }, [activeEmpId, currentEmpId, user.email]);
+
+  // Real announcements, holidays, and leave balance states
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchExtraData = async () => {
+      try {
+        const [annRes, holRes] = await Promise.all([
+          api.getAnnouncements(),
+          api.getHolidays(),
+        ]);
+        if (isMounted) {
+          setAnnouncements(Array.isArray(annRes) ? annRes : []);
+          setHolidays(Array.isArray(holRes) ? holRes : []);
+        }
+      } catch (err) {
+        console.warn('DashboardView fetch extra data notice:', err);
+      }
+
+      if (activeEmpId) {
+        try {
+          const bal = await api.getLeaveBalances(activeEmpId);
+          if (isMounted) setLeaveBalances(bal);
+        } catch (_) {}
+      }
+    };
+    fetchExtraData();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeEmpId]);
+
+  // Set of all identifier keys for this employee to match attendance records accurately
+  const myCandidateIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (activeEmpId) ids.add(activeEmpId.toLowerCase());
+    if (currentEmp?.id) ids.add(currentEmp.id.toLowerCase());
+    if (user?.id) ids.add(user.id.toLowerCase());
+    if (user?.employeeId) ids.add(user.employeeId.toLowerCase());
+    if (currentEmp?.employeeCode) ids.add(currentEmp.employeeCode.toLowerCase());
+    return ids;
+  }, [activeEmpId, currentEmp, user]);
+
+  // Real 7-day attendance turnout for admin panel
+  const sevenDaysData = useMemo(() => {
+    const result = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const isToday = i === 0;
+
+      const dayLabel = isToday
+        ? 'Today'
+        : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+
+      const dayRecords = allAttendance.filter((a) => a.date === dateStr);
+      const totalEmps = Math.max(1, employees.length);
+      const percentage = employees.length > 0 ? Math.min(100, Math.round((dayRecords.length / totalEmps) * 100)) : 0;
+
+      result.push({
+        day: dayLabel,
+        date: dateStr,
+        val: percentage,
+        count: `${dayRecords.length} Present`,
+        isToday,
+      });
+    }
+    return result;
+  }, [allAttendance, employees.length]);
+
+  // Real employee recent attendance (last 5 records)
+  const myRecentAttendance = useMemo(() => {
+    return allAttendance
+      .filter((a) => myCandidateIds.has((a.employeeId || '').toLowerCase()))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+      .slice(0, 5);
+  }, [allAttendance, myCandidateIds]);
+
+  // Upcoming holidays
+  const upcomingHolidays = useMemo(() => {
+    const todayStr = getTodayDateString();
+    return holidays
+      .filter((h) => h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 3);
+  }, [holidays]);
 
   // Leave processing state for admin
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
@@ -538,26 +632,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="tag">Last 7 Days</span>
               </h3>
               <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
-                {[
-                  { day: '22 Oct', val: 92, count: `${Math.max(1, Math.round(employees.length * 0.92))} Present` },
-                  { day: '23 Oct', val: 88, count: `${Math.max(1, Math.round(employees.length * 0.88))} Present` },
-                  { day: '24 Oct', val: 95, count: `${Math.max(1, Math.round(employees.length * 0.95))} Present` },
-                  { day: '25 Oct', val: 90, count: `${Math.max(1, Math.round(employees.length * 0.90))} Present` },
-                  { day: '26 Oct', val: 85, count: `${Math.max(1, Math.round(employees.length * 0.85))} Present` },
-                  { day: '27 Oct', val: 94, count: `${Math.max(1, Math.round(employees.length * 0.94))} Present` },
-                  {
-                    day: 'Today',
-                    val: Math.min(100, Math.round((todayRecords.length / Math.max(1, employees.length)) * 100)) || 96,
-                    count: `${todayRecords.length || employees.length} Present`,
-                    isToday: true,
-                  },
-                ].map((item, idx) => (
+                {sevenDaysData.map((item: { day: string; date: string; val: number; count: string; isToday: boolean }, idx: number) => (
                   <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
                     <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
                       {item.val}%
                     </div>
                     <div
-                      style={{ height: `${item.val}%` }}
+                      style={{ height: `${Math.max(4, item.val)}%` }}
                       className={`w-full max-w-[42px] rounded-t-lg transition-all shadow-xs ${item.isToday
                           ? 'bg-gradient-to-t from-[#047857] to-[#10b981] ring-2 ring-[#10b981]/50'
                           : 'bg-gradient-to-t from-[#059669] to-[#34d399] group-hover:brightness-110'
@@ -575,7 +656,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
                 <span className="font-medium">
-                  <strong className="text-[#0d271d]">{todayRecords.length || employees.length}</strong> checked-in out of{' '}
+                  <strong className="text-[#0d271d]">{todayRecords.length}</strong> checked-in out of{' '}
                   <strong className="text-[#0d271d]">{employees.length}</strong> team members today
                 </span>
                 <button
@@ -600,35 +681,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   View all
                 </button>
               </h3>
-              <div className="space-y-1">
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Diwali Holiday Schedule</strong>
-                    <span className="tag orange">Holiday</span>
-                  </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    The office will be closed from 31 Oct to 2 Nov. Please plan your shifts.
-                  </div>
+              {announcements.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No company announcements published yet.
                 </div>
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Monthly Town Hall</strong>
-                    <span className="tag">Event</span>
-                  </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    Join monthly town hall on 27 Oct at 3:00 PM in main conference room.
-                  </div>
+              ) : (
+                <div className="space-y-1">
+                  {announcements.slice(0, 3).map((item) => (
+                    <div key={item.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#152345] truncate">{item.title}</strong>
+                        <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
+                          {item.priority || 'Notice'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed line-clamp-2">
+                        {item.content}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="item">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-xs text-[#152345]">Security Policy Update</strong>
-                    <span className="tag green">Policy</span>
-                  </div>
-                  <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                    All employees should review the updated security policy.
-                  </div>
-                </div>
-              </div>
+              )}
             </section>
 
             {/* Panel 3: Quick Actions */}
@@ -1049,14 +1122,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
-                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '₹45,000'}</p>
+                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
                       <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat 4: Manager */}
-                <div onClick={() => onOpenChatWithEmployee?.('emp-1')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
+                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
                   <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
                   <div className="flex items-center gap-3 mt-2">
                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
@@ -1064,7 +1137,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'HR Administration'}</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
                       <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
                     </div>
                   </div>
@@ -1417,74 +1490,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {[
-                        {
-                          day: 'Today (Live)',
-                          date: '24 Oct 2026',
-                          inTime: punchState.record?.checkIn || '—',
-                          outTime: punchState.record?.checkOut || '—',
-                          break: liveBreakWords !== '0s' ? liveBreakWords : '0m',
-                          hours: punchState.status === 'working' ? liveWorkedHMS : punchState.record?.workingHours ? `${punchState.record.workingHours}h` : '—',
-                          status: punchState.status === 'working' ? 'Present' : punchState.status === 'completed' ? 'Present' : 'Not Punched',
-                          statusClass: punchState.status === 'working' ? 'bg-emerald-50 text-emerald-700' : punchState.status === 'completed' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600',
-                        },
-                        {
-                          day: 'Friday',
-                          date: '23 Oct 2026',
-                          inTime: '09:22 AM',
-                          outTime: '06:30 PM',
-                          break: '25m',
-                          hours: '9.1 hrs',
-                          status: 'Present',
-                          statusClass: 'bg-emerald-50 text-emerald-700',
-                        },
-                        {
-                          day: 'Thursday',
-                          date: '22 Oct 2026',
-                          inTime: '09:18 AM',
-                          outTime: '06:35 PM',
-                          break: '20m',
-                          hours: '9.2 hrs',
-                          status: 'Present',
-                          statusClass: 'bg-emerald-50 text-emerald-700',
-                        },
-                        {
-                          day: 'Wednesday',
-                          date: '21 Oct 2026',
-                          inTime: '09:30 AM',
-                          outTime: '06:30 PM',
-                          break: '30m',
-                          hours: '9.0 hrs',
-                          status: 'Present',
-                          statusClass: 'bg-emerald-50 text-emerald-700',
-                        },
-                        {
-                          day: 'Tuesday',
-                          date: '20 Oct 2026',
-                          inTime: '09:15 AM',
-                          outTime: '06:20 PM',
-                          break: '20m',
-                          hours: '9.1 hrs',
-                          status: 'Present',
-                          statusClass: 'bg-emerald-50 text-emerald-700',
-                        },
-                      ].map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-3 font-bold text-slate-900">
-                            <div>{row.day}</div>
-                            <div className="text-[10px] text-slate-400 font-normal">{row.date}</div>
-                          </td>
-                          <td className="py-3 px-3 font-medium text-slate-700">{row.inTime}</td>
-                          <td className="py-3 px-3 font-medium text-slate-700">{row.outTime}</td>
-                          <td className="py-3 px-3 text-slate-500">{row.break}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-slate-900">{row.hours}</td>
-                          <td className="py-3 px-3 text-right">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${row.statusClass}`}>
-                              {row.status}
-                            </span>
+                      {myRecentAttendance.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                            No attendance history recorded yet. Punch in to begin tracking your work hours!
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        myRecentAttendance.map((rec: any) => {
+                          const recDate = new Date(rec.date);
+                          const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'long' });
+                          const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                          const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && punchState.status === 'working' ? liveWorkedHMS : '—');
+                          const breakStr = rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m';
+
+                          return (
+                            <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3 px-3 font-bold text-slate-900">
+                                <div>{dayName}</div>
+                                <div className="text-[10px] text-slate-400 font-normal">{formattedDate}</div>
+                              </td>
+                              <td className="py-3 px-3 font-medium text-slate-700">{rec.checkIn || '—'}</td>
+                              <td className="py-3 px-3 font-medium text-slate-700">{rec.checkOut || '—'}</td>
+                              <td className="py-3 px-3 text-slate-500">{breakStr}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-slate-900">{workedStr}</td>
+                              <td className="py-3 px-3 text-right">
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                                }`}>
+                                  {rec.status || 'Present'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1509,18 +1549,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
                     <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Casual</span>
-                      <span className="text-lg font-black text-blue-700 block mt-0.5">4 Left</span>
-                      <span className="text-[10px] text-slate-500">of 12 Total</span>
+                      <span className="text-lg font-black text-blue-700 block mt-0.5">
+                        {leaveBalances?.casualLeave?.remaining ?? 0} Left
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        of {leaveBalances?.casualLeave?.total ?? 12} Total
+                      </span>
                     </div>
                     <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Sick</span>
-                      <span className="text-lg font-black text-emerald-700 block mt-0.5">3 Left</span>
-                      <span className="text-[10px] text-slate-500">of 10 Total</span>
+                      <span className="text-lg font-black text-emerald-700 block mt-0.5">
+                        {leaveBalances?.sickLeave?.remaining ?? 0} Left
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        of {leaveBalances?.sickLeave?.total ?? 10} Total
+                      </span>
                     </div>
                     <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Annual</span>
-                      <span className="text-lg font-black text-purple-700 block mt-0.5">5 Left</span>
-                      <span className="text-[10px] text-slate-500">of 15 Total</span>
+                      <span className="text-lg font-black text-purple-700 block mt-0.5">
+                        {leaveBalances?.paidLeave?.remaining ?? 0} Left
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        of {leaveBalances?.paidLeave?.total ?? 15} Total
+                      </span>
                     </div>
                   </div>
                 </div></div>
@@ -1540,38 +1592,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
 
                   <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">🪔</span>
-                        <div>
-                          <span className="font-bold text-slate-900 block">Diwali Festival</span>
-                          <span className="text-[10px] text-slate-400">Public Holiday</span>
-                        </div>
-                      </div>
-                      <span className="font-semibold text-slate-700 text-[11px]">Nov 01, 2026 (Fri)</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">🎄</span>
-                        <div>
-                          <span className="font-bold text-slate-900 block">Christmas Day</span>
-                          <span className="text-[10px] text-slate-400">Public Holiday</span>
-                        </div>
-                      </div>
-                      <span className="font-semibold text-slate-700 text-[11px]">Dec 25, 2026 (Wed)</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">🎉</span>
-                        <div>
-                          <span className="font-bold text-slate-900 block">New Year 2027</span>
-                          <span className="text-[10px] text-slate-400">Company Holiday</span>
-                        </div>
-                      </div>
-                      <span className="font-semibold text-slate-700 text-[11px]">Jan 01, 2027 (Wed)</span>
-                    </div>
+                    {upcomingHolidays.length === 0 ? (
+                      <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
+                    ) : (
+                      upcomingHolidays.map((h: any) => {
+                        const holDate = new Date(h.date);
+                        const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
+                        return (
+                          <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-base">📅</span>
+                              <div>
+                                <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
+                                <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
+                              </div>
+                            </div>
+                            <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div></div>
             </div>

@@ -260,17 +260,19 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <span className="text-[11px] font-black uppercase text-amber-700 tracking-wider">
               Payment Account
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+            <span className={`flex items-center gap-1 text-[10px] font-bold ${employeeDetails?.bankDetails?.accountNumber ? 'text-emerald-600' : 'text-slate-400'}`}>
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Verified</span>
+              <span>{employeeDetails?.bankDetails?.accountNumber ? 'Verified' : 'Unset'}</span>
             </span>
           </div>
           <div className="mt-2.5">
             <p className="text-base font-bold text-slate-900 truncate">
-              {employeeDetails?.bankDetails?.bankName || 'HDFC Bank'}
+              {employeeDetails?.bankDetails?.bankName || 'Not Configured'}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
-              A/C: **** {employeeDetails?.bankDetails?.accountNumber?.slice(-4) || '4819'} • Direct Deposit
+              {employeeDetails?.bankDetails?.accountNumber
+                ? `A/C: **** ${employeeDetails.bankDetails.accountNumber.slice(-4)} • Direct Deposit`
+                : 'No bank account linked'}
             </p>
           </div>
         </div>
