@@ -177,7 +177,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     setRemoveLoading(true);
     try {
       const empIdToDelete = removingEmp.id || (removingEmp as any).employeeId || '';
-      const res = await api.deleteEmployee(empIdToDelete);
+      const payload = {
+        firstName: removingEmp.firstName || '',
+        lastName: removingEmp.lastName || '',
+        phone: removingEmp.phone || '',
+        status: removingEmp.status || 'Active',
+      };
+      const res = await api.deleteEmployee(empIdToDelete, payload);
 
       showToast({
         type: 'success',

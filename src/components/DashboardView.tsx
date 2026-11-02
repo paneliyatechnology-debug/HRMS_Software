@@ -362,26 +362,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (!removingEmpDashboard) return;
     setRemoveEmpLoading(true);
     try {
-      const res = await api.deleteEmployee(removingEmpDashboard.id);
-      if (res.success) {
-        showToast({
-          type: 'success',
-          title: 'Employee Removed',
-          message: res.message || `${removingEmpDashboard.firstName} ${removingEmpDashboard.lastName} removed from staff.`,
-        });
-        setRemovingEmpDashboard(null);
-        if (onRefreshData) onRefreshData();
-      } else {
-        showToast({
-          type: 'error',
-          title: 'Remove Failed',
-          message: res.message || 'Could not remove employee.',
-        });
-      }
+      const empIdToDelete = removingEmpDashboard.id || (removingEmpDashboard as any).employeeId || '';
+      const payload = {
+        firstName: removingEmpDashboard.firstName || '',
+        lastName: removingEmpDashboard.lastName || '',
+        phone: removingEmpDashboard.phone || '',
+        status: removingEmpDashboard.status || 'Active',
+      };
+      const res = await api.deleteEmployee(empIdToDelete, payload);
+      showToast({
+        type: 'success',
+        title: 'Employee Removed',
+        message: res?.message || `${removingEmpDashboard.firstName} ${removingEmpDashboard.lastName} removed from staff.`,
+      });
+      setRemovingEmpDashboard(null);
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       showToast({
         type: 'error',
-        title: 'Error',
+        title: 'Remove Failed',
         message: err.message || 'Failed to remove employee.',
       });
     } finally {

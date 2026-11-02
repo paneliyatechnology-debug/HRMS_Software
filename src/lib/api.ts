@@ -411,15 +411,18 @@ export const api = {
     );
   },
 
-  async deleteEmployee(id: string) {
+  async deleteEmployee(id: string, data?: Record<string, any>) {
     const cleanId = encodeURIComponent(String(id || '').trim());
+    const payload = data ? JSON.stringify(data) : undefined;
     return fetchWithFallback<{ success: boolean; message: string }>(
-      `/employees/${cleanId}`,
+      `/admin/employees/${cleanId}`,
       {
         method: 'DELETE',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
+        ...(payload ? { body: payload } : {}),
       }
     );
   },
