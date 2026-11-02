@@ -261,7 +261,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
       let scopedEmployees: Employee[] = [];
       if (!activeCompanyId) {
-        scopedEmployees = [];
+        scopedEmployees = safeEmployees;
       } else if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
         scopedEmployees = safeEmployees.filter(
           (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
@@ -269,11 +269,15 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       } else {
         scopedEmployees = safeEmployees.filter(
           (e) =>
+            !e.companyId ||
             e.companyId === activeCompanyId ||
             (e as any).companyCode === activeCompanyId ||
             (user?.companyCode && (e as any).companyCode === user.companyCode) ||
             (myCompanyData?.code && (e as any).companyCode === myCompanyData.code)
         );
+        if (scopedEmployees.length === 0 && safeEmployees.length > 0) {
+          scopedEmployees = safeEmployees;
+        }
       }
       setEmployees(scopedEmployees);
       setLiveEmployees(scopedEmployees);

@@ -37,7 +37,9 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
   try {
     const storedToken =
       typeof window !== 'undefined'
-        ? getCookie('hrms_auth_token') || getCookie('bearerToken')
+        ? getCookie('hrms_auth_token') ||
+          getCookie('bearerToken') ||
+          (window.localStorage ? window.localStorage.getItem('hrms_auth_token') || window.localStorage.getItem('bearerToken') : null)
         : null;
 
     const token = storedToken;
@@ -226,7 +228,9 @@ export const api = {
 
     const storedToken =
       typeof window !== 'undefined'
-        ? getCookie('hrms_auth_token') || getCookie('bearerToken')
+        ? getCookie('hrms_auth_token') ||
+          getCookie('bearerToken') ||
+          (window.localStorage ? window.localStorage.getItem('hrms_auth_token') || window.localStorage.getItem('bearerToken') : null)
         : null;
     const authToken = storedToken;
 

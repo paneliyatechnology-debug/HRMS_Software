@@ -50,11 +50,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
+  const [fetchLoading, setFetchLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('Active');
+  const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (employees && employees.length > 0) {
+      setLocalEmployees(employees);
+    }
+  }, [employees]);
+
+  // Live backend API fetch
+  const loadLiveEmployees = async () => {
+    try {
+      setFetchLoading(true);
+      const res = await api.getEmployees();
+      if (Array.isArray(res) && res.length > 0) {
+        setLocalEmployees(res);
+      }
+    } catch (err) {
+      console.warn('EmployeesModule live fetch error:', err);
+    } finally {
+      setFetchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLiveEmployees();
+  }, []);
 
   // Focus search on '/' key press
   useEffect(() => {
@@ -92,18 +119,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const handleRoleUpdated = (updated: Employee) => {
     setRoleTargetEmp(null);
+    loadLiveEmployees();
     if (onRefresh) onRefresh();
   };
 
+  const sourceEmployees = localEmployees.length > 0 ? localEmployees : (employees || []);
   const query = search.trim().toLowerCase();
-  const filtered = employees.filter((emp) => {
-    if (
-      emp.id === 'admin-keyur' ||
-      emp.email?.toLowerCase().includes('keyur')
-    ) {
-      return false;
-    }
-
+  const filtered = sourceEmployees.filter((emp) => {
     const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
     const email = (emp.email || '').toLowerCase();
     const code = (emp.employeeCode || '').toLowerCase();
@@ -122,7 +144,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     let matchesStatus = true;
     if (selectedStatus === 'Active') {
-      matchesStatus = (emp.status || '').toLowerCase() !== 'inactive';
+      matchesStatus = (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation';
     } else if (selectedStatus === 'Inactive') {
       matchesStatus = (emp.status || '').toLowerCase() === 'inactive';
     } else if (selectedStatus === 'All') {
@@ -314,8 +336,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 focus:outline-none cursor-pointer shadow-2xs"
             >
-              <option value="Active">Active</option>
               <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
