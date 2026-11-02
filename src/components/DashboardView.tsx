@@ -718,11 +718,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span>Mark punch</span>
                 </button>
                 <button
-                  onClick={onOpenLeaveModal}
+                  onClick={() => onNavigateModule('leaves')}
                   className="btn-secondary justify-center py-2.5"
                 >
-                  <Shield className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Apply leave</span>
+                  <CalendarCheck className="w-4 h-4 text-[#4f5fe8]" />
+                  <span>Leave requests</span>
                 </button>
                 <button
                   onClick={onOpenAddEmployeeModal}
