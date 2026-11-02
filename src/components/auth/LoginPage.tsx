@@ -48,7 +48,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const router = useRouter();
   const { login, registerCompanyAccount } = useAuth();
   const handleBack = onBackToHome || (() => router.push('/dashboard'));
-  
+
   const [viewMode, setViewMode] = useState<'login' | 'signup'>(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/register') {
       return 'signup';
@@ -353,13 +353,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
   return (
     <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-3 sm:px-6 py-6 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-hidden">
-      
+
       {/* Elegant ambient light mint / emerald glows */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-teal-200/35 blur-3xl -z-10 pointer-events-none" />
 
       <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : 'max-w-md'} transition-all duration-300 relative z-10`}>
-        
+
         {/* Top Navigation Row: Back Link */}
         <div className="flex items-center justify-start mb-5">
           <button
@@ -390,7 +390,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
         {/* Luxury Green Main Card */}
         <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d8ebd9] shadow-[0_12px_40px_rgba(6,45,31,0.06)] p-4 sm:p-8">
-          
+
           {/* Top Header Row for Signup Mode */}
           {viewMode === 'signup' && (
             <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 mb-5 pb-3 border-b border-[#d8ebd9]">
@@ -440,28 +440,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               autoCorrect="off"
               autoCapitalize="off"
             >
-              {/* Workspace Sign-In Header Banner */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#d8ebd9] mb-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#059669]">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-[#0d271d]">Sign In to Your Workspace</h2>
-                    <p className="text-[11px] text-[#4e6a5d]">Automatic Role Detection (Employee & Owner)</p>
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[#059669] text-[10px] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Single Login
-                </span>
-              </div>
 
               {/* Identifier Input */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-[#0d271d]">
-                    Work Email, Mobile Number or Employee ID
+                    Enter your Work Email, Mobile Number
                   </label>
                   {fieldErrors.identifier && (
                     <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
@@ -483,12 +467,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                       setIdentifier(e.target.value);
                       clearFieldError('identifier');
                     }}
-                    placeholder="Enter email, mobile number or employee code"
-                    className={`w-full h-11 pl-10 pr-3.5 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                      fieldErrors.identifier
-                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                    }`}
+                    placeholder="Enter email, mobile number"
+                    className={`w-full h-11 pl-10 pr-3.5 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.identifier
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                   />
                 </div>
               </div>
@@ -525,11 +508,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                       clearFieldError('password');
                     }}
                     placeholder="••••••••"
-                    className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                      fieldErrors.password
-                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                    }`}
+                    className={`w-full h-11 pl-10 pr-10 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.password
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                      }`}
                   />
                   <button
                     id="btn-toggle-login-password"
@@ -645,11 +627,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         clearFieldError('companyName');
                       }}
                       placeholder="e.g. Paneliya Infotech Pvt Ltd"
-                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                        fieldErrors.companyName
-                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                      }`}
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.companyName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                     />
                   </div>
 
@@ -679,11 +660,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         clearFieldError('companyGst');
                       }}
                       placeholder="e.g. 24AAAAA0000A1Z5"
-                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all uppercase ${
-                        fieldErrors.companyGst
-                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                      }`}
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all uppercase ${fieldErrors.companyGst
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                     />
                     <p className="text-[10px] text-[#4e6a5d] mt-1">15-char format (e.g. 24AAAAA0000A1Z5)</p>
                   </div>
@@ -797,11 +777,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         clearFieldError('ownerFirstName');
                       }}
                       placeholder="e.g. Ravi"
-                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                        fieldErrors.ownerFirstName
-                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                      }`}
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerFirstName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                     />
                   </div>
                   <div>
@@ -830,11 +809,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         clearFieldError('ownerLastName');
                       }}
                       placeholder="e.g. Paneliya"
-                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                        fieldErrors.ownerLastName
-                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                      }`}
+                      className={`w-full h-10 px-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerLastName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                        }`}
                     />
                   </div>
                 </div>
@@ -868,11 +846,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                           clearFieldError('ownerEmail');
                         }}
                         placeholder="owner@company.com"
-                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                          fieldErrors.ownerEmail
-                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                        }`}
+                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerEmail
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                          }`}
                       />
                     </div>
                   </div>
@@ -905,11 +882,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                           clearFieldError('ownerPhone');
                         }}
                         placeholder="9876543210"
-                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                          fieldErrors.ownerPhone
-                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                        }`}
+                        className={`w-full h-10 pl-8 pr-3 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerPhone
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                          }`}
                       />
                     </div>
                     <p className="text-[10px] text-[#4e6a5d] mt-1">10-digit Indian mobile number (e.g. 9876543210)</p>
@@ -948,11 +924,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                           clearFieldError('ownerPassword');
                         }}
                         placeholder="Min 6 characters"
-                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                          fieldErrors.ownerPassword
-                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                        }`}
+                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerPassword
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                          }`}
                       />
                       <button
                         type="button"
@@ -994,11 +969,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                           clearFieldError('ownerConfirmPassword');
                         }}
                         placeholder="Repeat password"
-                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${
-                          fieldErrors.ownerConfirmPassword
-                            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                            : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
-                        }`}
+                        className={`w-full h-10 pl-8 pr-9 rounded-xl border text-xs text-[#0d271d] placeholder:text-[#4e6a5d]/60 font-medium focus:outline-none transition-all ${fieldErrors.ownerConfirmPassword
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                          : 'border-[#d8ebd9] focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/15 bg-[#fcfdfd] focus:bg-white'
+                          }`}
                       />
                       <button
                         type="button"
