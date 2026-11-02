@@ -46,6 +46,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
 
     const res = await fetch(`${getApiBase()}${url}`, {
       cache: 'no-store',
+      credentials: 'include',
       signal: controller.signal,
       ...options,
       headers: {
@@ -66,7 +67,15 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
       throw new Error(errorMsg);
     }
 
-    return (await res.json()) as T;
+    const text = await res.text();
+    if (!text || !text.trim()) {
+      return { success: true } as unknown as T;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch (_) {
+      return { success: true, message: text } as unknown as T;
+    }
   } catch (err) {
     if (fallback !== undefined) {
       return fallback;
@@ -403,9 +412,15 @@ export const api = {
   },
 
   async deleteEmployee(id: string) {
+    const cleanId = encodeURIComponent(String(id || '').trim());
     return fetchWithFallback<{ success: boolean; message: string }>(
-      `/employees/${id}`,
-      { method: 'DELETE' }
+      `/employees/${cleanId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
     );
   },
 

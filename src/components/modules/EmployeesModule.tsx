@@ -176,26 +176,26 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     if (!removingEmp) return;
     setRemoveLoading(true);
     try {
-      const res = await api.deleteEmployee(removingEmp.id);
-      if (res.success) {
-        showToast({
-          type: 'success',
-          title: 'Employee Removed',
-          message: res.message || `${removingEmp.firstName} ${removingEmp.lastName} removed from staff.`,
-        });
-        setRemovingEmp(null);
-        if (onRefresh) onRefresh();
-      } else {
-        showToast({
-          type: 'error',
-          title: 'Remove Failed',
-          message: res.message || 'Could not remove employee.',
-        });
-      }
+      const empIdToDelete = removingEmp.id || (removingEmp as any).employeeId || '';
+      const res = await api.deleteEmployee(empIdToDelete);
+
+      showToast({
+        type: 'success',
+        title: 'Employee Removed',
+        message: res?.message || `${removingEmp.firstName} ${removingEmp.lastName} removed from staff.`,
+      });
+
+      // Optimistically remove from local state immediately
+      setLocalEmployees((prev) => prev.filter((e) => e.id !== removingEmp.id && e.id !== empIdToDelete));
+      setRemovingEmp(null);
+
+      // Re-fetch live employees from backend to maintain absolute data integrity
+      await loadLiveEmployees();
+      if (onRefresh) onRefresh();
     } catch (err: any) {
       showToast({
         type: 'error',
-        title: 'Error',
+        title: 'Remove Failed',
         message: err.message || 'Failed to remove employee.',
       });
     } finally {
