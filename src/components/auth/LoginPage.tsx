@@ -274,25 +274,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
     try {
       const res = await registerCompanyAccount({
         companyName: companyName.trim(),
-        gstNumber: companyGst.trim() ? companyGst.trim().toUpperCase() : undefined,
-        industry: companyIndustry || undefined,
-        address: companyAddress.trim() || undefined,
-        city: companyCity.trim() || undefined,
-        state: companyState.trim() || undefined,
+        companyLegalName: companyName.trim(),
+        gstNumber: companyGst.trim() ? companyGst.trim().toUpperCase() : '',
+        gstin: companyGst.trim() ? companyGst.trim().toUpperCase() : '',
+        industry: companyIndustry || 'Information Technology & Software',
+        industrySector: companyIndustry || 'Information Technology & Software',
+        address: companyAddress.trim() || '',
+        officeAddress: companyAddress.trim() || '',
+        city: companyCity.trim() || 'Surat',
+        state: companyState.trim() || 'Gujarat',
         firstName: ownerFirstName.trim(),
         lastName: ownerLastName.trim(),
         email: ownerEmail.trim().toLowerCase(),
+        officialEmail: ownerEmail.trim().toLowerCase(),
         phone: phoneCheck.cleanPhone || ownerPhone.trim(),
+        mobileNumber: phoneCheck.cleanPhone || ownerPhone.trim(),
         password: ownerPassword,
+        confirmPassword: ownerConfirmPassword || ownerPassword,
       });
 
       if (!res.success) {
         setErrorMessage(res.message || 'Company registration failed. Please try again.');
       } else {
-        setSuccessMessage(`Company "${companyName.trim()}" registered successfully! Launching your Owner Workspace...`);
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 900);
+        const msg = res.message || `Company "${companyName.trim()}" registered successfully!`;
+        setSuccessMessage(msg);
+        if (res.user) {
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 1200);
+        } else {
+          setTimeout(() => {
+            clearAllSignupFields();
+            setViewMode('login');
+          }, 3500);
+        }
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Company registration failed.');

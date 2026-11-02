@@ -69,16 +69,23 @@ interface AuthContextType {
   }) => Promise<{ success: boolean; message?: string; user?: any; notInOrganization?: boolean }>;
   registerCompanyAccount: (data: {
     companyName: string;
+    companyLegalName?: string;
     gstNumber?: string;
+    gstin?: string;
     industry?: string;
+    industrySector?: string;
     address?: string;
+    officeAddress?: string;
     city?: string;
     state?: string;
     firstName: string;
     lastName: string;
     email: string;
+    officialEmail?: string;
     phone: string;
+    mobileNumber?: string;
     password: string;
+    confirmPassword?: string;
   }) => Promise<{ success: boolean; message?: string; user?: any; company?: any }>;
   switchRole: (newRole: Role) => void;
   updateUserProfile: (updates: Partial<User>) => void;
@@ -442,58 +449,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const registerCompanyAccount = async (data: {
     companyName: string;
+    companyLegalName?: string;
     gstNumber?: string;
+    gstin?: string;
     industry?: string;
+    industrySector?: string;
     address?: string;
+    officeAddress?: string;
     city?: string;
     state?: string;
     firstName: string;
     lastName: string;
     email: string;
+    officialEmail?: string;
     phone: string;
+    mobileNumber?: string;
     password: string;
+    confirmPassword?: string;
   }): Promise<{ success: boolean; message?: string; user?: any; company?: any }> => {
     try {
-      // 1. Create company & owner admin in backend database companies table
+      // 1. Submit company registration request to /api/companies/register
       const res = await api.registerCompany(data);
 
       const createdCompany = res?.company || {};
-      const companyId = createdCompany.id || `cmp-${Date.now()}`;
+      const companyId = createdCompany.id || res?.requestId || `cmp-${Date.now()}`;
       const companyCode = createdCompany.companyCode || 'CMP-000001';
-      const companyName = createdCompany.name || createdCompany.companyName || data.companyName.trim();
+      const companyName = createdCompany.name || createdCompany.companyName || data.companyLegalName || data.companyName.trim();
 
-      const rawUser = res?.user || {
-        id: createdCompany.adminUserId || `user-${Date.now()}`,
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        email: data.email.trim().toLowerCase(),
-        phone: data.phone.trim(),
-        role: 'ADMIN',
-        companyId,
-        companyCode,
-      };
+      if (res?.user) {
+        const enriched = await enrichUserData({
+          ...res.user,
+          role: 'ADMIN',
+          companyId,
+          companyCode,
+          companyName,
+        });
 
-      const enriched = await enrichUserData({
-        ...rawUser,
-        role: 'ADMIN',
-        companyId,
-        companyCode,
-        companyName,
-      });
+        setUser(enriched);
+        setPortalModeState('admin');
+        setIsAuthenticated(true);
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', 'admin');
+        setCookie('hrms_current_role', 'ADMIN');
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
 
-      setUser(enriched);
-      setPortalModeState('admin');
-      setIsAuthenticated(true);
-      setCookie('hrms_is_authenticated', 'true');
-      setCookie('hrms_portal_mode', 'admin');
-      setCookie('hrms_current_role', 'ADMIN');
-      setCookie('hrms_auth_user', JSON.stringify(enriched));
-      purgeAuthLocalStorage();
+        window.dispatchEvent(new Event('hrms_companies_updated'));
+        window.dispatchEvent(new Event('hrms_employees_updated'));
+
+        return { success: true, message: res.message, user: enriched, company: createdCompany };
+      }
 
       window.dispatchEvent(new Event('hrms_companies_updated'));
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-
-      return { success: true, user: enriched, company: createdCompany };
+      return {
+        success: true,
+        message: res.message || 'Company registration request submitted successfully!',
+        company: createdCompany,
+      };
     } catch (err: any) {
       return {
         success: false,

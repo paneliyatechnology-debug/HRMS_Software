@@ -207,32 +207,48 @@ export const api = {
 
   async registerCompany(data: {
     companyName: string;
+    companyLegalName?: string;
     companyId?: string;
     gstNumber?: string;
+    gstin?: string;
     industry?: string;
+    industrySector?: string;
     address?: string;
+    officeAddress?: string;
     city?: string;
     state?: string;
     firstName: string;
     lastName: string;
     email: string;
+    officialEmail?: string;
     phone: string;
+    mobileNumber?: string;
     password: string;
+    confirmPassword?: string;
   }) {
-    const fullAddress = [data.address, data.city, data.state, 'India'].filter(Boolean).join(', ');
+    const legalName = (data.companyLegalName || data.companyName || '').trim();
+    const email = (data.officialEmail || data.email || '').trim().toLowerCase();
+    const phone = (data.mobileNumber || data.phone || '').trim();
+    const gstin = (data.gstin || data.gstNumber || '').trim().toUpperCase();
+    const address = (data.officeAddress || data.address || '').trim();
+    const city = (data.city || 'Surat').trim();
+    const state = (data.state || 'Gujarat').trim();
+    const industry = (data.industrySector || data.industry || 'Information Technology & Software').trim();
 
-    // Provision new company and administrator via backend API
-    // Inserts the new company into database `companies` table and provisions owner Admin
+    // Dedicated /api/companies/register payload
     const createPayload = {
-      companyName: data.companyName.trim(),
-      email: data.email.trim().toLowerCase(),
-      phone: data.phone.trim(),
-      address: fullAddress,
-      status: 'Active',
-      adminEmail: data.email.trim().toLowerCase(),
-      adminPassword: data.password,
-      adminFirstName: data.firstName.trim(),
-      adminLastName: data.lastName.trim(),
+      companyLegalName: legalName,
+      gstin: gstin,
+      industrySector: industry,
+      officeAddress: address || `${city}, ${state}`,
+      city: city,
+      state: state,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      officialEmail: email,
+      mobileNumber: phone,
+      password: data.password,
+      confirmPassword: data.confirmPassword || data.password,
     };
 
     const storedToken =
@@ -243,8 +259,9 @@ export const api = {
         : null;
     const authToken = storedToken;
 
-    const res = await fetch(`${getApiBase()}/super-admin/companies`, {
+    const res = await fetch(`${getApiBase()}/companies/register`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -260,36 +277,32 @@ export const api = {
         errData?.error?.message ||
         (Array.isArray(errData?.message) ? errData.message.join(', ') : null) ||
         errData?.message ||
-        `Company creation failed with status ${res.status}`;
+        `Company registration failed with status ${res.status}`;
       throw new Error(message);
     }
 
     const compRes = await res.json();
-    const createdCompany = compRes?.company || compRes;
-    const companyId = createdCompany?.id || `cmp-${Date.now()}`;
-    const companyCode = createdCompany?.companyCode || 'CMP-000001';
 
-    // Auto-login as Company Admin to get active session
+    // Auto-login if activated immediately
     let loginRes: any = null;
     try {
-      loginRes = await this.login(data.email.trim().toLowerCase(), data.password);
-    } catch (loginErr) {
-      console.warn('Auto-login after company creation warning:', loginErr);
+      loginRes = await this.login(email, data.password);
+    } catch (_) {
+      // Auto-login may fail if company is PENDING admin approval
     }
 
     return {
       success: true,
-      user: loginRes?.user || {
-        id: createdCompany?.adminUserId || `user-${Date.now()}`,
-        email: data.email.trim().toLowerCase(),
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-        role: 'ADMIN',
-        companyId,
-        companyCode,
+      message: compRes?.message || 'Company registration request submitted successfully!',
+      status: compRes?.status,
+      requestId: compRes?.requestId,
+      company: compRes?.company || {
+        id: compRes?.requestId || `cmp-${Date.now()}`,
+        name: legalName,
+        code: 'CMP-PENDING',
       },
+      user: loginRes?.user,
       token: loginRes?.accessToken || loginRes?.token,
-      company: createdCompany,
     };
   },
 
