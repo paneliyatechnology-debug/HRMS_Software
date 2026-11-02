@@ -204,18 +204,6 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Mobile & Multi-Device Access Button */}
-        {onOpenMobileModal && (
-          <button
-            id="btn-header-mobile"
-            onClick={onOpenMobileModal}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer group shrink-0"
-            title="Open HRMS on Mobile or other devices (Scan QR or direct IP)"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-emerald-700 group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden min-[500px]:inline">Mobile Connect</span>
-          </button>
-        )}
 
         {/* Quick Dynamic Check In / Check Out Button */}
         <button
