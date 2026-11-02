@@ -41,14 +41,50 @@ import {
 
 export interface LoginPageProps {
   onBackToHome?: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode = 'login' }) => {
   const router = useRouter();
   const { login, registerCompanyAccount } = useAuth();
   const handleBack = onBackToHome || (() => router.push('/dashboard'));
   
-  const [viewMode, setViewMode] = useState<'login' | 'signup'>('login');
+  const [viewMode, setViewMode] = useState<'login' | 'signup'>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/register') {
+      return 'signup';
+    }
+    return initialMode;
+  });
+
+  const handleSwitchToSignup = () => {
+    clearAllSignupFields();
+    setViewMode('signup');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
+      window.history.pushState(null, '', '/register');
+    }
+  };
+
+  const handleSwitchToLogin = () => {
+    clearAllSignupFields();
+    setViewMode('login');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.history.pushState(null, '', '/login');
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname === '/register') {
+        setViewMode('signup');
+      } else if (window.location.pathname === '/login') {
+        setViewMode('login');
+      }
+    }
+  }, []);
 
   // Login form state
   const [identifier, setIdentifier] = useState('');
@@ -304,8 +340,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
           }, 1200);
         } else {
           setTimeout(() => {
-            clearAllSignupFields();
-            setViewMode('login');
+            handleSwitchToLogin();
           }, 3500);
         }
       }
@@ -371,12 +406,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
               <button
                 id="btn-back-to-login-sides"
                 type="button"
-                onClick={() => {
-                  clearAllSignupFields();
-                  setViewMode('login');
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
+                onClick={handleSwitchToLogin}
                 className="text-xs font-semibold text-[#059669] hover:bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors cursor-pointer shrink-0"
               >
                 ← Back to Login
@@ -539,12 +569,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                   <button
                     id="link-switch-to-signup"
                     type="button"
-                    onClick={() => {
-                      clearAllSignupFields();
-                      setViewMode('signup');
-                      setErrorMessage(null);
-                      setSuccessMessage(null);
-                    }}
+                    onClick={handleSwitchToSignup}
                     className="font-bold text-[#059669] hover:text-[#047857] hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer"
                   >
                     Register Your Company Workspace →
@@ -1017,12 +1042,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome }) => {
                 <button
                   id="link-switch-to-login"
                   type="button"
-                  onClick={() => {
-                    clearAllSignupFields();
-                    setViewMode('login');
-                    setErrorMessage(null);
-                    setSuccessMessage(null);
-                  }}
+                  onClick={handleSwitchToLogin}
                   className="font-bold text-[#059669] hover:text-[#047857] hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer"
                 >
                   Sign in here
