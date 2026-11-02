@@ -440,6 +440,34 @@ export const api = {
     );
   },
 
+  async deactivateEmployee(id: string) {
+    const cleanId = encodeURIComponent(String(id || '').trim());
+    return fetchWithFallback<{ success: boolean; message: string }>(
+      `/employees/${cleanId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
+    );
+  },
+
+  async activateEmployee(id: string) {
+    const cleanId = encodeURIComponent(String(id || '').trim());
+    return fetchWithFallback<{ success: boolean; message: string; employee?: Employee }>(
+      `/employees/${cleanId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'Active' }),
+      }
+    );
+  },
+
   // =========================================================================
   // 4. ORGANIZATION (DEPARTMENTS, DESIGNATIONS, LOCATIONS, HIERARCHY)
   // =========================================================================
