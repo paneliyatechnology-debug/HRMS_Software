@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -89,6 +90,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   // Modal: Add Holiday
   const [isAddHolidayOpen, setIsAddHolidayOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     if (!isAddHolidayOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -329,7 +335,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   }, [holidaysList, holidaySearchQuery, holidayTypeFilter]);
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto select-none animate-in fade-in pb-12">
+    <div className="space-y-5 max-w-7xl mx-auto select-none pb-12">
 
 
       {/* =========================================================================
@@ -967,11 +973,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       {/* =========================================================================
           MODAL: ADD HOLIDAY
           ========================================================================= */}
-      {isAddHolidayOpen && (
+      {mounted && isAddHolidayOpen && typeof document !== 'undefined' && createPortal(
         <div onClick={(e) => {
             if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
@@ -1060,7 +1066,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
