@@ -806,7 +806,8 @@ export const api = {
   },
 
   async applyLeave(data: {
-    employeeId: string;
+    userId?: string;
+    employeeId?: string;
     leaveType: string;
     startDate: string;
     endDate: string;
@@ -816,9 +817,28 @@ export const api = {
     employeeAvatar?: string;
     departmentName?: string;
   }) {
+    const payload = {
+      userId: data.userId || data.employeeId || '',
+      leaveType: data.leaveType,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      isHalfDay: Boolean(data.isHalfDay),
+      reason: data.reason,
+      employeeId: data.employeeId || data.userId || '',
+      employeeName: data.employeeName,
+      departmentName: data.departmentName,
+    };
+
     return fetchWithFallback<LeaveRequest>(
       '/leaves/apply',
-      { method: 'POST', body: JSON.stringify(data) }
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
     );
   },
 

@@ -37,6 +37,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       const today = getTodayDate();
       setStartDate(today);
       setEndDate(today);
+      setLeaveType('Casual Leave');
+      setIsHalfDay(false);
+      setReason('');
       setFieldErrors({});
       setError('');
     }
@@ -98,16 +101,24 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setLoading(true);
     setError('');
     try {
+      const targetUserId =
+        (user as any)?.userId ||
+        (user as any)?.sub ||
+        user?.id ||
+        user?.employeeId ||
+        '';
+
       const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
       await api.applyLeave({
-        employeeId: user.employeeId || user.id || '',
+        userId: targetUserId,
+        employeeId: user.employeeId || targetUserId,
         employeeName: empName || 'Employee',
         departmentName: (user as any).departmentName || 'Paneliya Technology',
         leaveType,
         startDate,
         endDate,
-        isHalfDay,
-        reason,
+        isHalfDay: Boolean(isHalfDay),
+        reason: reason.trim(),
       });
       onRefresh();
       onClose();
