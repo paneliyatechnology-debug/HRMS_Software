@@ -945,33 +945,44 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Bell className="w-4 h-4" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+                  <Bell className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Send Notice to {noticeTargetEmp.firstName} {noticeTargetEmp.lastName}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">{noticeTargetEmp.employeeCode} &bull; {noticeTargetEmp.departmentName}</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                      Send Notice
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                      Direct Notice
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    To: <strong className="text-slate-700">{noticeTargetEmp.firstName} {noticeTargetEmp.lastName}</strong> ({noticeTargetEmp.employeeCode} • {noticeTargetEmp.departmentName || 'Staff'})
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => setNoticeTargetEmp(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="mt-4 space-y-4 text-xs">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Notice Subject / Title
+                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                  Notice Subject / Title *
                 </label>
                 <input
                   id="input-notice-title"
@@ -979,30 +990,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   value={noticeTitle}
                   onChange={(e) => setNoticeTitle(e.target.value)}
                   placeholder="e.g. Schedule Update, Mandatory Training, Performance Note..."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Priority
+                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                  Urgency / Priority Level
                 </label>
                 <select
                   id="select-notice-priority"
                   value={noticePriority}
                   onChange={(e) => setNoticePriority(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none cursor-pointer bg-white"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
                 >
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                  <option value="Urgent">Urgent / Important Notice</option>
+                  <option value="Low">🟢 Low Priority (General Notice)</option>
+                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
+                  <option value="High">🟠 High Priority (Action Required)</option>
+                  <option value="Urgent">🔴 Urgent Notice (Immediate Attention)</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Notice Details / Content
+                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                  Notice Details / Content *
                 </label>
                 <textarea
                   id="textarea-notice-content"
@@ -1010,17 +1021,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   value={noticeContent}
                   onChange={(e) => setNoticeContent(e.target.value)}
                   placeholder="Type the message or instructions for the employee..."
-                  className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-100">
               <button
                 id="btn-cancel-send-notice"
                 type="button"
                 onClick={() => setNoticeTargetEmp(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1029,7 +1040,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 type="button"
                 onClick={handleConfirmSendNotice}
                 disabled={noticeLoading}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{noticeLoading ? 'Sending...' : 'Send Notice'}</span>

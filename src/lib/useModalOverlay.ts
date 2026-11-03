@@ -47,3 +47,4 @@ export function useModalOverlay({
     };
   }, [isOpen, closeOnEscape, lockScroll, onClose]);
 }
+
