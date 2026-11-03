@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Bell,
   Plus,
@@ -36,6 +37,11 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterAudience, setFilterAudience] = useState<'All' | 'Company' | 'Personal'>('All');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,7 +176,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto select-none animate-in fade-in pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto select-none pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
         <div>
@@ -190,7 +196,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-colors self-start sm:self-auto"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>+ Send New Notice</span>
+            <span>Send New Notice</span>
           </button>
         )}
       </div>
@@ -200,31 +206,28 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
           <button
             onClick={() => setFilterAudience('All')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              filterAudience === 'All'
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'All'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             All Notices ({announcements.length})
           </button>
           <button
             onClick={() => setFilterAudience('Company')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              filterAudience === 'Company'
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Company'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Company-Wide ({announcements.filter((a) => a.targetAudience === 'All').length})
           </button>
           <button
             onClick={() => setFilterAudience('Personal')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              filterAudience === 'Personal'
+            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Personal'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Personal Circulars ({announcements.filter((a) => a.targetAudience === 'Individual').length})
           </button>
@@ -251,24 +254,22 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
             return (
               <div
                 key={anc.id}
-                className={`p-5 rounded-2xl bg-white border shadow-xs space-y-3 transition-colors ${
-                  isPersonalToMe
+                className={`p-5 rounded-2xl bg-white border shadow-xs space-y-3 transition-colors ${isPersonalToMe
                     ? 'border-indigo-300 ring-2 ring-indigo-50 bg-indigo-50/20'
                     : 'border-slate-200'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                        anc.priority === 'Urgent'
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${anc.priority === 'Urgent'
                           ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
                           : anc.priority === 'High'
-                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                          : anc.priority === 'Medium'
-                          ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}
+                            ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                            : anc.priority === 'Medium'
+                              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}
                     >
                       {anc.priority} Priority
                     </span>
@@ -330,13 +331,13 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
       </div>
 
       {/* Modern In-App Send Notice / Broadcast Modal */}
-      {modalOpen && (
+      {mounted && modalOpen && typeof document !== 'undefined' && createPortal(
         <div
           id="publish-notice-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -380,11 +381,10 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setAudienceType('All')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      audienceType === 'All'
+                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'All'
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <Users className="w-4 h-4" />
                     <span>Broadcast to All Staff</span>
@@ -392,11 +392,10 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setAudienceType('Individual')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      audienceType === 'Individual'
+                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Individual'
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <UserCheck className="w-4 h-4" />
                     <span>Specific Employee</span>
@@ -496,7 +495,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

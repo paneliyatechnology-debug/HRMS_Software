@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Plus,
@@ -52,6 +53,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const { showToast } = useSocket();
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
   const [fetchLoading, setFetchLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
@@ -892,13 +898,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       </div>
 
       {/* Modern In-App Remove Employee Confirmation Modal */}
-      {removingEmp && (
+      {mounted && removingEmp && typeof document !== 'undefined' && createPortal(
         <div
           id="remove-employee-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
@@ -935,17 +941,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modern In-App Send Notice Modal */}
-      {noticeTargetEmp && (
+      {mounted && noticeTargetEmp && typeof document !== 'undefined' && createPortal(
         <div
           id="send-notice-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1047,7 +1054,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Change Role Modal */}

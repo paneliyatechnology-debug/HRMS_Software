@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock,
   Calendar,
@@ -383,6 +384,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [checkOutModalOpen, rejectModalData, removingEmpDashboard, noticeTargetEmpDashboard]);
 
   const [roleTargetEmpDash, setRoleTargetEmpDash] = useState<Employee | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const empRoleDef = getRoleDefinition(currentEmp?.role || 'EMPLOYEE');
 
   const handleConfirmRemoveEmpDashboard = async () => {
@@ -1813,13 +1819,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Modern In-App Send Notice Modal (Dashboard) */}
-      {noticeTargetEmpDashboard && (
+      {mounted && noticeTargetEmpDashboard && typeof document !== 'undefined' && createPortal(
         <div
           id="dashboard-send-notice-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmpDashboard(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1921,7 +1927,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Change Role Modal on Dashboard */}
