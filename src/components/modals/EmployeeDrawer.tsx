@@ -183,15 +183,13 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         return;
       }
 
-      if (formData.initialPassword) {
-        const passCheck = validatePassword(formData.initialPassword, 6);
-        if (!passCheck.isValid) {
-          errors.initialPassword = passCheck.error || 'Password must be at least 6 characters long.';
-          setFieldErrors(errors);
-          setStep(1);
-          setLoading(false);
-          return;
-        }
+      const passCheck = validatePassword(formData.initialPassword, 6);
+      if (!passCheck.isValid) {
+        errors.initialPassword = passCheck.error || 'Password is required (minimum 6 characters).';
+        setFieldErrors(errors);
+        setStep(1);
+        setLoading(false);
+        return;
       }
 
       if (formData.emergencyPhone) {
@@ -225,7 +223,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim() || undefined,
         mobileNumber: formData.phone.trim() || undefined,
-        password: formData.initialPassword.trim() ? formData.initialPassword.trim() : undefined,
+        password: formData.initialPassword.trim(),
         role: formData.role || 'EMPLOYEE',
         avatarUrl: formData.avatarUrl,
         companyId: adminCompanyId,
@@ -618,7 +616,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-700">
-                    Initial Login Password / PIN
+                    Initial Login Password / PIN <span className="text-red-500">*</span>
                   </label>
                   {fieldErrors.initialPassword && (
                     <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
@@ -630,9 +628,11 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <input
                   id="input-employee-initial-password"
                   type="text"
+                  required
+                  autoComplete="new-password"
                   value={formData.initialPassword}
                   onChange={(e) => updateField('initialPassword', e.target.value)}
-                  placeholder="Create initial login password"
+                  placeholder="Create initial login password (min. 6 characters)"
                   className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
                     fieldErrors.initialPassword
                       ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
@@ -893,13 +893,11 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       setFieldErrors(step1Errors);
                       return;
                     }
-                    if (formData.initialPassword) {
-                      const passCheck = validatePassword(formData.initialPassword, 6);
-                      if (!passCheck.isValid) {
-                        step1Errors.initialPassword = passCheck.error || 'Password must be at least 6 characters long.';
-                        setFieldErrors(step1Errors);
-                        return;
-                      }
+                    const passCheck = validatePassword(formData.initialPassword, 6);
+                    if (!passCheck.isValid) {
+                      step1Errors.initialPassword = passCheck.error || 'Password is required (minimum 6 characters).';
+                      setFieldErrors(step1Errors);
+                      return;
                     }
                   }
                   setFieldErrors({});
