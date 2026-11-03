@@ -54,42 +54,16 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [nextEmployeeCode, setNextEmployeeCode] = useState<string>('');
 
-  const clearFieldError = (field: string) => {
-    setFieldErrors((prev) => {
-      if (!prev[field]) return prev;
-      const copy = { ...prev };
-      delete copy[field];
-      return copy;
-    });
-  };
-
-  const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    clearFieldError(field);
-    if (formError) setFormError(null);
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      api.getNextEmployeeCode(adminCompanyId)
-        .then((res) => {
-          if (res?.nextCode) setNextEmployeeCode(res.nextCode);
-        })
-        .catch((err) => console.warn('Could not fetch next employee code:', err));
-    }
-  }, [isOpen, adminCompanyId]);
-
-  // Form State
-  const [formData, setFormData] = useState({
+  const getInitialFormData = () => ({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     gender: 'Male' as const,
-    dateOfBirth: '1995-05-15',
+    dateOfBirth: '',
     address: '',
-    departmentId: departments[0]?.id || 'dept-1',
-    designationId: designations[0]?.id || 'des-3',
+    departmentId: departments[0]?.id || '',
+    designationId: designations[0]?.id || '',
     employmentType: 'Full-time' as const,
     workLocationId: 'loc-1',
     shift: 'General Shift (9 AM - 6 PM)',
@@ -106,7 +80,50 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     avatarUrl: '',
   });
 
-  useModalOverlay({ isOpen, onClose });
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  const resetFormState = () => {
+    setFormData(getInitialFormData());
+    setStep(1);
+    setLoading(false);
+    setFormError(null);
+    setFieldErrors({});
+  };
+
+  const handleClose = () => {
+    resetFormState();
+    onClose();
+  };
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+  };
+
+  const updateField = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    clearFieldError(field);
+    if (formError) setFormError(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetFormState();
+    } else {
+      resetFormState();
+      api.getNextEmployeeCode(adminCompanyId)
+        .then((res) => {
+          if (res?.nextCode) setNextEmployeeCode(res.nextCode);
+        })
+        .catch((err) => console.warn('Could not fetch next employee code:', err));
+    }
+  }, [isOpen, adminCompanyId]);
+
+  useModalOverlay({ isOpen, onClose: handleClose });
 
   if (!isOpen) return null;
 
@@ -264,6 +281,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         message: `${formData.firstName} ${formData.lastName} has been successfully added to ${adminCompanyName}.`,
       });
 
+      resetFormState();
       onRefresh();
       onClose();
     } catch (err: any) {
@@ -308,7 +326,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   return (
     <div
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex justify-end cursor-pointer"
     >
@@ -339,7 +357,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 shrink-0 cursor-pointer">
+          <button onClick={handleClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 shrink-0 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -820,7 +838,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           ) : (
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
             >
               Cancel
