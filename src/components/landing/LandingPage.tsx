@@ -52,6 +52,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
     notes: '',
   });
 
+  useEffect(() => {
+    if (!isDemoModalOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsDemoModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDemoModalOpen]);
+
   // Contact section state
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [contactData, setContactData] = useState({
@@ -1267,8 +1281,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* 13. INTERACTIVE "BOOK A DEMO" MODAL - LUXURY EMERALD                  */}
       {/* ===================================================================== */}
       {isDemoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsDemoModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto">
             {/* Close Button */}
             <button
               onClick={() => setIsDemoModalOpen(false)}

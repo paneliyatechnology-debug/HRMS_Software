@@ -43,6 +43,20 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const [category, setCategory] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  useEffect(() => {
+    if (!isUploadOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsUploadOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isUploadOpen]);
+
   const [uploading, setUploading] = useState(false);
 
   // Company and Owner Details State
@@ -444,7 +458,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in cursor-pointer overflow-y-auto"
         >
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default my-auto max-h-[92vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default my-auto max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setIsUploadOpen(false)}
               className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"

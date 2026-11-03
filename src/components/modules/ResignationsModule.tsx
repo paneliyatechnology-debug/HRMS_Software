@@ -56,6 +56,25 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   // Modal: Relieving Letter
   const [relievingLetterItem, setRelievingLetterItem] = useState<Resignation | null>(null);
 
+  useEffect(() => {
+    const isAnyOpen = isSubmitOpen || !!relievingLetterItem;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isSubmitOpen) setIsSubmitOpen(false);
+        if (relievingLetterItem) setRelievingLetterItem(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSubmitOpen, relievingLetterItem]);
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -687,8 +706,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: File Resignation on Behalf of Employee (Admin)                     */}
       {/* ========================================================================= */}
       {isSubmitOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsSubmitOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <LogOut className="w-5 h-5 text-emerald-600" />
@@ -770,8 +794,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: Printable Relieving & Experience Certificate                       */}
       {/* ========================================================================= */}
       {relievingLetterItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setRelievingLetterItem(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Building className="w-5 h-5 text-emerald-600" />

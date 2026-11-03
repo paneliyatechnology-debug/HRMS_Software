@@ -34,6 +34,7 @@ import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { ChangeRoleModal } from './ChangeRoleModal';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { api } from '../../lib/api';
@@ -142,6 +143,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     }
   };
 
+  useModalOverlay({ isOpen, onClose });
+
   if (!isOpen || !employee || !currentEmp) return null;
 
   const roleDef = getRoleDefinition(currentEmp.role || 'EMPLOYEE');
@@ -167,7 +170,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[90vh] sm:h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[90vh] sm:h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom"
+      >
         {/* Header Profile Hero */}
         <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
           <button

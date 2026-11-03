@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, User, Briefcase, FileText, Calendar, Building } from 'lucide-react';
 import { Employee } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -23,16 +24,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 }) => {
   const [query, setQuery] = useState('');
 
-  // Handle keyboard shortcuts (Escape to close, Ctrl+K to toggle)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -85,7 +77,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-modal-zoom"
+      >
         {/* Search Input Bar */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
           <Search className="w-5 h-5 text-[#4f5fe8] shrink-0" />

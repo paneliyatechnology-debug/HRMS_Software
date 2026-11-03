@@ -5,6 +5,7 @@ import { X, Calendar, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { LeaveType } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface LeaveModalProps {
   isOpen: boolean;
@@ -73,6 +74,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     clearFieldError('endDate');
   };
 
+  useModalOverlay({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,7 +125,10 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       }}
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
     >
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default animate-modal-zoom max-h-[92vh] overflow-y-auto">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default animate-modal-zoom max-h-[92vh] overflow-y-auto"
+      >
         <button
           onClick={onClose}
           className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"

@@ -37,6 +37,20 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
   // Modal: Rate Appraisal
   const [ratingModalReview, setRatingModalReview] = useState<PerformanceReview | null>(null);
+  useEffect(() => {
+    if (!ratingModalReview) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRatingModalReview(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [ratingModalReview]);
+
   const [selfScore, setSelfScore] = useState(4.5);
   const [selfComments, setSelfComments] = useState('');
   const [managerScore, setManagerScore] = useState(4.8);
@@ -228,8 +242,13 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
       {/* Modal: Rate Performance Review */}
       {ratingModalReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setRatingModalReview(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />

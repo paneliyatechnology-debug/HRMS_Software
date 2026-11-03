@@ -36,6 +36,21 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
   const { user } = useAuth();
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
+
+  useEffect(() => {
+    if (!selectedPayslip) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedPayslip(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedPayslip]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('All');
 
@@ -398,8 +413,13 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       {/* DETAILED PRINTABLE PAYSLIP MODAL */}
       {/* ========================================================================= */}
       {selectedPayslip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto [scrollbar-width:thin]">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedPayslip(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto [scrollbar-width:thin]">
             {/* Modal Actions Header (Hidden when printing) */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 print:hidden">
               <div className="flex items-center gap-2">

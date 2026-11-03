@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UserCheck,
   Briefcase,
@@ -39,6 +39,26 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   const [createJobModalOpen, setCreateJobModalOpen] = useState(false);
   const [addCandidateModalOpen, setAddCandidateModalOpen] = useState(false);
   const [interviewModalCand, setInterviewModalCand] = useState<Candidate | null>(null);
+
+  useEffect(() => {
+    const isAnyOpen = createJobModalOpen || addCandidateModalOpen || !!interviewModalCand;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (createJobModalOpen) setCreateJobModalOpen(false);
+        if (addCandidateModalOpen) setAddCandidateModalOpen(false);
+        if (interviewModalCand) setInterviewModalCand(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [createJobModalOpen, addCandidateModalOpen, interviewModalCand]);
+
 
   // New Job Form State
   const [jobTitle, setJobTitle] = useState('');
@@ -422,7 +442,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
@@ -557,7 +577,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
@@ -701,7 +721,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Schedule Interview Round</h3>

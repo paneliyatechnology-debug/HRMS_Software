@@ -48,6 +48,26 @@ export const AssetsModule: React.FC = () => {
   const [returnModalAsset, setReturnModalAsset] = useState<CompanyAsset | null>(null);
   const [returnCondition, setReturnCondition] = useState<CompanyAsset['condition']>('Good');
 
+  useEffect(() => {
+    const isAnyModalOpen = isRegisterOpen || !!assignModalAsset || !!returnModalAsset;
+    if (!isAnyModalOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isRegisterOpen) setIsRegisterOpen(false);
+        if (assignModalAsset) setAssignModalAsset(null);
+        if (returnModalAsset) setReturnModalAsset(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRegisterOpen, assignModalAsset, returnModalAsset]);
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -313,8 +333,13 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Register New Asset */}
       {isRegisterOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsRegisterOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <HardDrive className="w-5 h-5 text-blue-600" />
@@ -429,8 +454,13 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Assign Asset */}
       {assignModalAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setAssignModalAsset(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-blue-600" />
@@ -489,8 +519,13 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Process Return */}
       {returnModalAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setReturnModalAsset(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <RotateCcw className="w-5 h-5 text-blue-600" />

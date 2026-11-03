@@ -128,6 +128,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, setIsOpen]);
+
   const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
   const companyLogo = companyInfo.logoUrl;

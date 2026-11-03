@@ -54,6 +54,26 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
   const [progressModalEnrollment, setProgressModalEnrollment] = useState<EmployeeTraining | null>(null);
   const [progressVal, setProgressVal] = useState(50);
 
+  useEffect(() => {
+    const isAnyOpen = isCreateOpen || isEnrollOpen || !!progressModalEnrollment;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isCreateOpen) setIsCreateOpen(false);
+        if (isEnrollOpen) setIsEnrollOpen(false);
+        if (progressModalEnrollment) setProgressModalEnrollment(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCreateOpen, isEnrollOpen, progressModalEnrollment]);
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -378,8 +398,13 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Add Training Program */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-blue-600" />
@@ -495,8 +520,13 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Enroll in Training */}
       {isEnrollOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEnrollOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-blue-600" />
@@ -563,8 +593,13 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Update Progress */}
       {progressModalEnrollment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setProgressModalEnrollment(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-blue-600" />

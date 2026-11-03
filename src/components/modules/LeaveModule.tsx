@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Upload,
@@ -50,6 +50,20 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   // Rejection modal / prompt state
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
+  useEffect(() => {
+    if (!rejectingLeave) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRejectingLeave(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [rejectingLeave]);
+
   const [rejectionReason, setRejectionReason] = useState('');
 
   const myId = user.employeeId || user.id || '';
@@ -855,8 +869,13 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
       {/* Rejection Modal Dialog */}
       {rejectingLeave && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setRejectingLeave(null);
+          }}
+          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">

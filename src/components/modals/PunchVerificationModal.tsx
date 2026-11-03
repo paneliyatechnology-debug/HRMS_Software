@@ -23,6 +23,7 @@ import {
   Fingerprint,
 } from 'lucide-react';
 import { AttendanceRecord, Employee, DevicePunchInfo } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import { formatSecondsToWords, formatSecondsToHMS } from '../../lib/attendanceService';
 
 interface PunchVerificationModalProps {
@@ -40,6 +41,17 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
 }) => {
   const [copiedUA, setCopiedUA] = useState<string | null>(null);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+
+  useModalOverlay({
+    isOpen,
+    onClose: () => {
+      if (expandedPhoto) {
+        setExpandedPhoto(null);
+      } else {
+        onClose();
+      }
+    },
+  });
 
   if (!isOpen || !record) return null;
 
@@ -246,8 +258,15 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-        <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white border-[3px] border-black rounded-3xl shadow-[8px_8px_0px_0px_#000] overflow-hidden">
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white border-[3px] border-black rounded-3xl shadow-[8px_8px_0px_0px_#000] overflow-hidden">
           {/* Header */}
           <div className="px-5 py-4 border-b-2 border-black bg-[#FFE600] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">

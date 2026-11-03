@@ -24,6 +24,7 @@ import {
 } from '../../lib/subscriptionService';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface UpgradePlanModalProps {
   isOpen: boolean;
@@ -64,6 +65,8 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
     currentSub.billingCycle || 'Annual'
   );
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
+
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -226,8 +229,16 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto select-none animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 my-auto space-y-6 relative">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto select-none animate-in fade-in duration-200 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 my-auto space-y-6 relative cursor-default"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}

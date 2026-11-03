@@ -33,6 +33,7 @@ import {
 import { isEmployeeWFHEnabled } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
 import { ModernDigitClock } from '../common/ModernDigitClock';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import {
   verifyShiftTimeWindow,
   ShiftVerificationResult,
@@ -246,6 +247,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }
     };
   }, [selfieMode, capturedPhoto]);
+
+  useModalOverlay({ isOpen, onClose: handleModalClose });
 
   if (!isOpen) return null;
 
@@ -571,7 +574,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }}
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
     >
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom"
+      >
         <button
           onClick={handleModalClose}
           className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-none hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"

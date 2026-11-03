@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import {
   Smartphone,
   X,
@@ -71,6 +72,8 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useModalOverlay({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
@@ -78,8 +81,16 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
   )}&color=064e3b&bgcolor=f0fdf4`;
 
   return (
- <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-emerald-900/10 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-emerald-900/10 overflow-hidden flex flex-col max-h-[90vh] cursor-default"
+      >
         {/* Header */}
         <div className="relative px-6 py-5 bg-gradient-to-r from-[#064e3b] via-[#059669] to-[#047857] text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">

@@ -39,6 +39,7 @@ import {
 import { api } from '../../lib/api';
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface BiometricHubModalProps {
   isOpen: boolean;
@@ -148,12 +149,24 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
     }
   };
 
+  useModalOverlay({ isOpen, onClose });
+
   const webhookUrl = getCloudWebhookUrl();
   const activeDevice = selectedDevice || devices[0];
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">

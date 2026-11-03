@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Menu,
@@ -62,7 +62,29 @@ export const Header: React.FC<HeaderProps> = ({
   const router = useRouter();
   const { user, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  // Close profile dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [profileMenuOpen]);
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
@@ -267,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* User Profile Dropdown */}
-        <div className="relative shrink-0">
+        <div ref={profileMenuRef} className="relative shrink-0">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#ecfdf5] transition-colors cursor-pointer shrink-0"

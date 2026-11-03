@@ -94,6 +94,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   // Edit organization modal state
   const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
+
   const [editCompanyName, setEditCompanyName] = useState('');
   const [editIndustry, setEditIndustry] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -165,6 +166,25 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   // Modals state
   const [addDeptModalOpen, setAddDeptModalOpen] = useState(false);
   const [addDesModalOpen, setAddDesModalOpen] = useState(false);
+
+  useEffect(() => {
+    const isAnyOpen = addDeptModalOpen || addDesModalOpen || isEditCompanyOpen;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (addDeptModalOpen) setAddDeptModalOpen(false);
+        if (addDesModalOpen) setAddDesModalOpen(false);
+        if (isEditCompanyOpen) setIsEditCompanyOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [addDeptModalOpen, addDesModalOpen, isEditCompanyOpen]);
 
   // Department form state
   const [deptName, setDeptName] = useState('');
@@ -796,7 +816,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => { if (e.target === e.currentTarget) setAddDeptModalOpen(false); }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
               style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}>
               <div className="flex items-center gap-2.5">
@@ -897,7 +917,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => { if (e.target === e.currentTarget) setAddDesModalOpen(false); }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
               style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}>
               <div className="flex items-center gap-2.5">
@@ -993,8 +1013,13 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     
       {/* ── Edit Organization Modal for Admin ── */}
       {isEditCompanyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto [scrollbar-width:thin] p-6 space-y-4">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto [scrollbar-width:thin] p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-emerald-600" />

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Check, ChevronRight, ChevronLeft, Camera, Upload, Trash2, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation, Role } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getCompanySubscription } from '../../lib/subscriptionService';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -104,6 +105,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     role: 'EMPLOYEE' as Role,
     avatarUrl: '',
   });
+
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -293,7 +296,10 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex justify-end cursor-pointer"
     >
-      <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-100 cursor-default">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-100 cursor-default"
+      >
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 flex items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">

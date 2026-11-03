@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Employee, Role } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import { ROLE_DEFINITIONS, getRoleDefinition, RoleDefinition } from '../../lib/roleConfig';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
@@ -45,6 +46,8 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
       setErrorMsg(null);
     }
   }, [employee, isOpen]);
+
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen || !employee) return null;
 
@@ -117,7 +120,10 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
       }}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex items-center justify-center p-3 sm:p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default transition-all my-auto max-h-[90vh]">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default transition-all my-auto max-h-[90vh]"
+      >
         {/* Header */}
         <div className="p-6 bg-slate-900 text-white relative flex items-start justify-between">
           <div className="flex items-center gap-4">

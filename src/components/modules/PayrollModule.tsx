@@ -30,6 +30,21 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const { showToast } = useSocket();
   const [selectedMonth, setSelectedMonth] = useState('2026-10');
   const [selectedPayslip, setSelectedPayslip] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!selectedPayslip) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedPayslip(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedPayslip]);
+
   const [loading, setLoading] = useState(false);
 
   const [records, setRecords] = useState<PayrollRecord[]>(payrollRecords || []);
@@ -315,8 +330,13 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
       {/* Printable Payslip Modal */}
       {selectedPayslip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedPayslip(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
