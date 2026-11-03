@@ -252,8 +252,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  // Step 1: Open selfie camera for Check In (Strictly validated by Admin Shift Time & Buffer)
-  const handleInitiateCheckIn = () => {
+  // Step 1: Direct Check In (Selfie/Photo feature temporarily disabled per user request)
+  const handleInitiateCheckIn = async () => {
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
@@ -261,16 +261,55 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       return;
     }
 
-    setCapturedPhoto(null);
-    setCameraError(null);
-    setSelfieMode('check_in');
+    setLoading(true);
+    try {
+      const fullRemarks = remarks || 'Morning shift clock-in';
+      const res = await api.startWork({});
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckIn({
+          id: currentEmpId,
+          firstName: user.firstName || 'Employee',
+          lastName: user.lastName || '',
+          employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
+          companyId: userCompanyId,
+          remarks: fullRemarks,
+        });
+      }
+      const eligibility = checkEmployeePunchEligibility(currentEmpId);
+      setPunchState(eligibility);
+      onRefresh();
+      handleModalClose();
+    } catch (err: any) {
+      alert(err.message || 'Check-in failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Step 1: Open selfie camera for Check Out
-  const handleInitiateCheckOut = () => {
-    setCapturedPhoto(null);
-    setCameraError(null);
-    setSelfieMode('check_out');
+  // Step 1: Direct Check Out (Selfie/Photo feature temporarily disabled per user request)
+  const handleInitiateCheckOut = async () => {
+    setLoading(true);
+    try {
+      const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
+      const res = await api.stopWork({});
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckOut(currentEmpId, {
+          remarks: fullRemarks,
+        });
+      }
+      const eligibility = checkEmployeePunchEligibility(currentEmpId);
+      setPunchState(eligibility);
+      onRefresh();
+      handleModalClose();
+    } catch (err: any) {
+      alert(err.message || 'Check-out failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Standard Geotag & Timestamp watermark banner drawer
@@ -798,7 +837,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               </div>
               <h3 className="text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                GPS Geofenced shift tracking & Location Selfie
+                Shift timing & attendance tracking
               </p>
             </div>
 
@@ -947,14 +986,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
                       shiftStatus.isEarly
                         ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed'
                     }`}
                   >
-                    <Camera className="w-4 h-4" />
+                    <Play className="w-4 h-4 fill-current" />
                     <span>
-                      {shiftStatus.isEarly
+                      {loading
+                        ? 'Checking In...'
+                        : shiftStatus.isEarly
                         ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
-                        : 'Take Selfie & Check In'}
+                        : 'Check In Now'}
                     </span>
                   </button>
                 </div>
@@ -968,15 +1009,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className="py-3 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                   >
                     <Coffee className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Take Break</span>
+                    <span className="truncate">{loading ? 'Starting Break...' : 'Take Break'}</span>
                   </button>
                   <button
                     onClick={handleInitiateCheckOut}
                     disabled={loading}
                     className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Camera className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Selfie Check Out</span>
+                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                    <span className="truncate">{loading ? 'Checking Out...' : 'Check Out'}</span>
                   </button>
                 </div>
               )}
@@ -989,15 +1030,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className="py-3 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
                   >
                     <Play className="w-4 h-4 fill-current shrink-0" />
-                    <span className="truncate">Resume Work</span>
+                    <span className="truncate">{loading ? 'Resuming...' : 'Resume Work'}</span>
                   </button>
                   <button
                     onClick={handleInitiateCheckOut}
                     disabled={loading}
                     className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Camera className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Selfie Check Out</span>
+                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                    <span className="truncate">{loading ? 'Checking Out...' : 'Check Out'}</span>
                   </button>
                 </div>
               )}
@@ -1031,8 +1072,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     disabled={loading}
                     className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white transition-all cursor-pointer shadow-sm disabled:opacity-40"
                   >
-                    <Camera className="w-4 h-4" />
-                    <span>Take Selfie &amp; Check In Again</span>
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>{loading ? 'Checking In...' : 'Check In Again'}</span>
                   </button>
                 </div>
               )}
