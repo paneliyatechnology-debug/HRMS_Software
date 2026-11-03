@@ -45,7 +45,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     // Elegant placeholder while mounting to avoid SSR hydration mismatch
     return (
       <div
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 animate-pulse text-xs text-slate-400 select-none ${className}`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-transparent animate-pulse text-xs text-slate-400 select-none ${className}`}
       >
         <Clock className="w-3.5 h-3.5 text-slate-400" />
         <span className="font-mono font-medium">--:--:-- --</span>
@@ -184,7 +184,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     <div
       id="live-clock-pill"
       onClick={handleClick}
-      className={`group inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1.5 rounded-[11px] bg-[#ecfdf5]/70 border border-[#a7f3d0] shadow-2xs hover:border-[#059669]/60 hover:bg-white hover:shadow-xs transition-all duration-200 cursor-pointer select-none ${className}`}
+      className={`group inline-flex items-center gap-2 sm:gap-2.5 px-2.5 py-1.5 rounded-[11px] bg-transparent hover:bg-slate-100/60 transition-all duration-200 cursor-pointer select-none ${className}`}
       title="Live System Time (Auto-synced) • Click to toggle 12h/24h"
     >
       {/* Live Indicator Dot & Badge */}
