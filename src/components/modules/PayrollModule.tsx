@@ -186,7 +186,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
             <span>Period: {selectedMonth}</span>
-            <span>23 Staff</span>
+            <span>{records.length} Staff</span>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
             <span>PF, ESI & Tax Withheld</span>
-            <span>10.5% Avg</span>
+            <span>{totalGross > 0 ? `${Math.round((totalDeductions / totalGross) * 100)}% Avg` : '0%'}</span>
           </div>
         </div>
 
@@ -229,8 +229,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto [scrollbar-width:thin]">
+          <table className="w-full min-w-[760px] text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                 <th className="py-2.5 px-3">Employee</th>
@@ -315,8 +315,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
       {/* Printable Payslip Modal */}
       {selectedPayslip && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />

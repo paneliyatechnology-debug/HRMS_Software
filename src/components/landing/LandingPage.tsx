@@ -1267,8 +1267,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* 13. INTERACTIVE "BOOK A DEMO" MODAL - LUXURY EMERALD                  */}
       {/* ===================================================================== */}
       {isDemoModalOpen && (
- <div className="fixed inset-0 z-50 bg-transparent flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-8 border border-[#d8ebd9] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto">
             {/* Close Button */}
             <button
               onClick={() => setIsDemoModalOpen(false)}

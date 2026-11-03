@@ -622,7 +622,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Main Dashboard Grid (1.2fr 1fr .9fr on desktop) */}
           <div className="dashboard-grid">
             {/* Panel 1: Attendance Overview (7 Days Chart) */}
-            <section className="panel sm:col-span-2">
+            <section className="panel md:col-span-2">
               <h3>
                 <span className="flex items-center gap-2">
                   <span className="text-base">📊</span> Attendance Rate & Turnout
@@ -742,7 +742,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </section>
 
             {/* Panel 4: Pending Approvals */}
-            <section className="panel sm:col-span-2">
+            <section className="panel md:col-span-2">
               <h3>
                 <span className="flex items-center gap-2">
                   <span>✅</span> Pending leave approvals ({pendingLeaves.length})

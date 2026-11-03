@@ -165,9 +165,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
- className="fixed inset-0 z-50 overflow-hidden bg-transparent flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer"
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[90vh] sm:h-[85vh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
         {/* Header Profile Hero */}
         <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
           <button

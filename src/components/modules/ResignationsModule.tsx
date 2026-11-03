@@ -687,8 +687,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: File Resignation on Behalf of Employee (Admin)                     */}
       {/* ========================================================================= */}
       {isSubmitOpen && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                 <LogOut className="w-5 h-5 text-emerald-600" />
@@ -770,8 +770,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: Printable Relieving & Experience Certificate                       */}
       {/* ========================================================================= */}
       {relievingLetterItem && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Building className="w-5 h-5 text-emerald-600" />

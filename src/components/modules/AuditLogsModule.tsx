@@ -106,8 +106,8 @@ export const AuditLogsModule: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto [scrollbar-width:thin]">
+          <table className="w-full min-w-[720px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
               <tr>
                 <th className="py-3 px-4">Timestamp</th>

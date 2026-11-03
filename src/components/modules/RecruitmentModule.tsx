@@ -420,9 +420,9 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCreateJobModalOpen(false);
           }}
- className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
@@ -555,9 +555,9 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setAddCandidateModalOpen(false);
           }}
- className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
@@ -699,9 +699,9 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setInterviewModalCand(null);
           }}
- className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Schedule Interview Round</h3>
