@@ -18,10 +18,12 @@ export async function GET() {
     if (localIp !== '127.0.0.1') break;
   }
 
+  const backendUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '') || `http://${localIp}:4000`;
+
   return NextResponse.json({
     ip: localIp,
     localUrl: 'http://localhost:3000',
     mobileUrl: `http://${localIp}:3000`,
-    backendUrl: `http://${localIp}:4000`,
+    backendUrl,
   });
 }
