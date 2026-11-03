@@ -473,84 +473,126 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Check In handler (Triggers selfie & geofenced punch modal)
-  const handleCheckInAction = () => {
-    if (onOpenClockModal) {
-      onOpenClockModal();
-    }
-  };
-
-  // Break handler (Pause timer)
-  const handleTakeBreakAction = () => {
+  // Check In handler (Hits POST /api/attendance/work/start)
+  const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
-      const res = performTakeBreak(activeEmpId);
-      if (res.success) {
-        showToast({ type: 'info', title: 'Break Started', message: res.message });
-        refreshAttendanceState();
-        if (onRefreshData) onRefreshData();
+      const res = await api.startWork({});
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckIn({
+          id: activeEmpId,
+          firstName: currentEmp?.firstName || user?.firstName || 'Employee',
+          lastName: currentEmp?.lastName || user?.lastName || '',
+          employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || activeEmpId,
+          companyId: user?.companyId,
+          remarks: 'Morning shift clock-in',
+        });
       }
+      showToast({
+        type: 'success',
+        title: 'Check In Successful',
+        message: res?.message || 'Work timer started! Session marked active.',
+      });
+      refreshAttendanceState();
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
-      console.error(err);
+      console.error('[DashboardView] Check In error:', err);
+      showToast({
+        type: 'error',
+        title: 'Check In Failed',
+        message: err?.message || 'Failed to check in.',
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Resume handler (Restart timer)
-  const handleResumeWorkAction = () => {
+  // Break handler (Hits POST /api/attendance/work/break/start)
+  const handleTakeBreakAction = async () => {
     setActionLoading(true);
     try {
-      const res = performResumeWork(activeEmpId);
-      if (res.success) {
-        showToast({ type: 'success', title: 'Work Resumed', message: res.message });
-        refreshAttendanceState();
-        if (onRefreshData) onRefreshData();
-      }
+      const res = await api.startBreak({});
+      const localRes = performTakeBreak(activeEmpId);
+      showToast({
+        type: 'info',
+        title: 'Break Started',
+        message: res?.message || localRes?.message || 'Break started! Work timer paused.',
+      });
+      refreshAttendanceState();
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
-      console.error(err);
+      console.error('[DashboardView] Take Break error:', err);
+      showToast({
+        type: 'error',
+        title: 'Break Failed',
+        message: err?.message || 'Failed to start break.',
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Check Out modal trigger (Triggers selfie & geofenced punch modal)
-  const handleCheckOutAction = () => {
-    if (onOpenClockModal) {
-      onOpenClockModal();
-    } else {
-      setCheckOutModalOpen(true);
+  // Resume handler (Hits POST /api/attendance/work/break/resume)
+  const handleResumeWorkAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.resumeBreak({});
+      const localRes = performResumeWork(activeEmpId);
+      showToast({
+        type: 'success',
+        title: 'Work Resumed',
+        message: res?.message || localRes?.message || 'Break stopped! Work timer resumed.',
+      });
+      refreshAttendanceState();
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      console.error('[DashboardView] Resume Work error:', err);
+      showToast({
+        type: 'error',
+        title: 'Resume Failed',
+        message: err?.message || 'Failed to resume work.',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Check Out handler (Hits POST /api/attendance/work/stop)
+  const handleCheckOutAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.stopWork({});
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckOut(activeEmpId, {
+          remarks: 'Evening clock-out',
+        });
+      }
+      showToast({
+        type: 'success',
+        title: 'Shift Completed',
+        message: res?.message || 'Shift checked out successfully! Entry saved in database.',
+      });
+      refreshAttendanceState();
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      console.error('[DashboardView] Check Out error:', err);
+      showToast({
+        type: 'error',
+        title: 'Check Out Failed',
+        message: err?.message || 'Failed to check out.',
+      });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const executeCheckOut = async () => {
     setCheckOutModalOpen(false);
-    setActionLoading(true);
-    try {
-      const res = await api.checkOut(
-        activeEmpId,
-        'Evening clock-out',
-        {
-          email: user.email,
-          employeeCode: currentEmp?.employeeCode || (user as any).employeeCode,
-        }
-      );
-      if (res.success) {
-        if (res.record) {
-          updateLocalRecordFromBackend(res.record);
-        }
-        showToast({ type: 'success', title: 'Shift Completed', message: 'Shift checked out successfully! Entry saved in database.' });
-        refreshAttendanceState();
-        if (onRefreshData) onRefreshData();
-      } else {
-        showToast({ type: 'error', title: 'Check Out Failed', message: res.message || 'Failed to check out.' });
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast({ type: 'error', title: 'Check Out Error', message: err.message || 'Failed to check out.' });
-    } finally {
-      setActionLoading(false);
-    }
+    await handleCheckOutAction();
   };
 
   // Admin stats computation

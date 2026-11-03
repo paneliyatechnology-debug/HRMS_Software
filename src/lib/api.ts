@@ -638,10 +638,7 @@ export const api = {
 
     let backendRecord: any = null;
     try {
-      backendRecord = await fetchWithFallback<any>(
-        '/attendance/check-in',
-        { method: 'POST', body: JSON.stringify(payload) }
-      );
+      backendRecord = await this.startWork({});
     } catch (err: any) {
       console.error('Check-in backend POST error:', err);
       return {
@@ -650,11 +647,11 @@ export const api = {
       };
     }
 
-    if (backendRecord && backendRecord.id) {
+    if (backendRecord) {
       return {
         success: true,
-        message: 'Clocked in successfully!',
-        record: backendRecord,
+        message: backendRecord.message || 'Clocked in successfully!',
+        record: backendRecord.record || backendRecord,
       };
     }
 
@@ -687,10 +684,7 @@ export const api = {
 
     let backendRecord: any = null;
     try {
-      backendRecord = await fetchWithFallback<any>(
-        '/attendance/check-out',
-        { method: 'POST', body: JSON.stringify(payload) }
-      );
+      backendRecord = await this.stopWork({});
     } catch (err: any) {
       console.error('Check-out backend POST error:', err);
       return {
@@ -699,11 +693,11 @@ export const api = {
       };
     }
 
-    if (backendRecord && backendRecord.id) {
+    if (backendRecord) {
       return {
         success: true,
-        message: 'Clocked out successfully!',
-        record: backendRecord,
+        message: backendRecord.message || 'Clocked out successfully!',
+        record: backendRecord.record || backendRecord,
       };
     }
 
@@ -750,30 +744,40 @@ export const api = {
     });
   },
 
-  async startWork(data: {
-    latitude: number;
-    longitude: number;
-    accuracy?: number;
-    selfie?: string;
-    deviceInfo?: string;
-  }) {
+  async startWork(data: any = {}) {
     return fetchWithFallback<any>(
-      '/attendance/work/start',
-      { method: 'POST', body: JSON.stringify(data) }
+      '/api/attendance/work/start',
+      { method: 'POST', body: JSON.stringify(data || {}) }
     );
   },
 
-  async stopWork(data: {
-    latitude: number;
-    longitude: number;
-    accuracy?: number;
-    selfie?: string;
-    remarks?: string;
-  }) {
+  async stopWork(data: any = {}) {
     return fetchWithFallback<any>(
-      '/attendance/work/stop',
-      { method: 'POST', body: JSON.stringify(data) }
+      '/api/attendance/work/stop',
+      { method: 'POST', body: JSON.stringify(data || {}) }
     );
+  },
+
+  async startBreak(data: any = {}) {
+    return fetchWithFallback<any>(
+      '/api/attendance/work/break/start',
+      { method: 'POST', body: JSON.stringify(data || {}) }
+    );
+  },
+
+  async takeBreak(data: any = {}) {
+    return this.startBreak(data);
+  },
+
+  async resumeBreak(data: any = {}) {
+    return fetchWithFallback<any>(
+      '/api/attendance/work/break/resume',
+      { method: 'POST', body: JSON.stringify(data || {}) }
+    );
+  },
+
+  async resumeWork(data: any = {}) {
+    return this.resumeBreak(data);
   },
 
   async getWorkHistory(page = 1, limit = 10) {

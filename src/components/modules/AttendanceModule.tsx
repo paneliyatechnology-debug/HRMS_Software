@@ -558,29 +558,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.checkIn(
-        selfEmployee.id || myEmpId,
-        'Morning shift clock-in',
-        {
-          firstName: selfEmployee.firstName,
-          lastName: selfEmployee.lastName,
-          employeeCode: selfEmployee.employeeCode,
-          email: selfEmployee.email,
-        }
-      );
-      if (!res.success) {
-        showToast({ title: 'Check In', message: res.message || 'Check-in failed.', type: 'error' });
-      } else {
-        performCheckIn({
-          id: selfEmployee.id || myEmpId,
-          firstName: selfEmployee.firstName,
-          lastName: selfEmployee.lastName,
-          employeeCode: selfEmployee.employeeCode,
-          remarks: 'Morning shift clock-in',
-        });
-        showToast({ title: 'Shift Started', message: 'Checked in successfully! Work timer has started.', type: 'success' });
-        onRefresh();
-      }
+      const res = await api.startWork({});
+      performCheckIn({
+        id: selfEmployee.id || myEmpId,
+        firstName: selfEmployee.firstName,
+        lastName: selfEmployee.lastName,
+        employeeCode: selfEmployee.employeeCode,
+        remarks: 'Morning shift clock-in',
+      });
+      showToast({ title: 'Shift Started', message: res?.message || 'Checked in successfully! Work timer has started.', type: 'success' });
+      onRefresh();
     } catch (err: any) {
       showToast({ title: 'Check In Failed', message: err.message || 'Unable to check in.', type: 'error' });
     } finally {
@@ -588,31 +575,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   };
 
-  const handleTakeBreakAction = () => {
+  const handleTakeBreakAction = async () => {
     setActionLoading(true);
     try {
-      const res = performTakeBreak(selfEmployee.id || myEmpId);
-      if (!res.success) {
-        showToast({ title: 'Break Error', message: res.message, type: 'warning' });
-      } else {
-        showToast({ title: 'Break Started', message: 'Work timer paused! Enjoy your break.', type: 'info' });
-        onRefresh();
-      }
+      const res = await api.startBreak({});
+      const localRes = performTakeBreak(selfEmployee.id || myEmpId);
+      showToast({ title: 'Break Started', message: res?.message || localRes?.message || 'Work timer paused! Enjoy your break.', type: 'info' });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Break Error', message: err.message || 'Unable to start break.', type: 'error' });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleResumeWorkAction = () => {
+  const handleResumeWorkAction = async () => {
     setActionLoading(true);
     try {
-      const res = performResumeWork(selfEmployee.id || myEmpId);
-      if (!res.success) {
-        showToast({ title: 'Resume Error', message: res.message, type: 'warning' });
-      } else {
-        showToast({ title: 'Work Resumed', message: 'Work timer resumed and counting!', type: 'success' });
-        onRefresh();
-      }
+      const res = await api.resumeBreak({});
+      const localRes = performResumeWork(selfEmployee.id || myEmpId);
+      showToast({ title: 'Work Resumed', message: res?.message || localRes?.message || 'Work timer resumed and counting!', type: 'success' });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Resume Error', message: err.message || 'Unable to resume work.', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -621,27 +606,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckOutAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.checkOut(
-        selfEmployee.id || myEmpId,
-        'Evening clock-out',
-        {
-          employeeCode: selfEmployee.employeeCode,
-          email: selfEmployee.email,
-        }
-      );
-      if (!res.success) {
-        showToast({ title: 'Check Out', message: res.message || 'Check-out failed.', type: 'error' });
-      } else {
-        const outRes = performCheckOut(selfEmployee.id || myEmpId, {
-          remarks: 'Evening clock-out',
-        });
-        showToast({
-          title: 'Shift Checked Out',
-          message: outRes.message || 'Check-out complete! Final day hours calculated.',
-          type: 'success',
-        });
-        onRefresh();
-      }
+      const res = await api.stopWork({});
+      const outRes = performCheckOut(selfEmployee.id || myEmpId, {
+        remarks: 'Evening clock-out',
+      });
+      showToast({
+        title: 'Shift Checked Out',
+        message: res?.message || outRes.message || 'Check-out complete! Final day hours calculated.',
+        type: 'success',
+      });
+      onRefresh();
     } catch (err: any) {
       showToast({ title: 'Check Out Failed', message: err.message || 'Unable to check out.', type: 'error' });
     } finally {

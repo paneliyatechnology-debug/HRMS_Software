@@ -545,23 +545,29 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
   };
 
-  const handleTakeBreak = () => {
+  const handleTakeBreak = async () => {
     setLoading(true);
     try {
+      await api.startBreak({});
       const res = performTakeBreak(currentEmpId);
       if (!res.success) alert(res.message);
       onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to start break.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResumeWork = () => {
+  const handleResumeWork = async () => {
     setLoading(true);
     try {
+      await api.resumeBreak({});
       const res = performResumeWork(currentEmpId);
       if (!res.success) alert(res.message);
       onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to resume work.');
     } finally {
       setLoading(false);
     }
