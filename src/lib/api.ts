@@ -283,14 +283,6 @@ export const api = {
 
     const compRes = await res.json();
 
-    // Auto-login if activated immediately
-    let loginRes: any = null;
-    try {
-      loginRes = await this.login(email, data.password);
-    } catch (_) {
-      // Auto-login may fail if company is PENDING admin approval
-    }
-
     return {
       success: true,
       message: compRes?.message || 'Company registration request submitted successfully!',
@@ -301,8 +293,8 @@ export const api = {
         name: legalName,
         code: 'CMP-PENDING',
       },
-      user: loginRes?.user,
-      token: loginRes?.accessToken || loginRes?.token,
+      user: undefined as any,
+      token: undefined as any,
     };
   },
 

@@ -24,6 +24,7 @@ import {
   FileText,
   MapPin,
   Info,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -49,11 +50,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const { login, registerCompanyAccount } = useAuth();
   const handleBack = onBackToHome || (() => router.push('/dashboard'));
 
-  const [viewMode, setViewMode] = useState<'login' | 'signup'>(() => {
+  const [viewMode, setViewMode] = useState<'login' | 'signup' | 'registration_pending'>(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/register') {
       return 'signup';
     }
     return initialMode;
+  });
+
+  const [registeredCompanyInfo, setRegisteredCompanyInfo] = useState<{
+    companyName: string;
+    ownerEmail: string;
+    ownerName: string;
+  }>({
+    companyName: '',
+    ownerEmail: '',
+    ownerName: '',
   });
 
   const handleSwitchToSignup = () => {
@@ -332,17 +343,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       if (!res.success) {
         setErrorMessage(res.message || 'Company registration failed. Please try again.');
       } else {
-        const msg = res.message || `Company "${companyName.trim()}" registered successfully!`;
-        setSuccessMessage(msg);
-        if (res.user) {
-          setTimeout(() => {
-            router.push('/dashboard');
-          }, 1200);
-        } else {
-          setTimeout(() => {
-            handleSwitchToLogin();
-          }, 3500);
-        }
+        setRegisteredCompanyInfo({
+          companyName: companyName.trim(),
+          ownerEmail: ownerEmail.trim().toLowerCase(),
+          ownerName: `${ownerFirstName.trim()} ${ownerLastName.trim()}`,
+        });
+        setViewMode('registration_pending');
+        setErrorMessage(null);
+        setSuccessMessage(null);
+        clearAllSignupFields();
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Company registration failed.');
@@ -358,7 +367,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-teal-200/35 blur-3xl -z-10 pointer-events-none" />
 
-      <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : 'max-w-md'} transition-all duration-300 relative z-10`}>
+      <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : viewMode === 'registration_pending' ? 'max-w-lg' : 'max-w-md'} transition-all duration-300 relative z-10`}>
 
         {/* Top Navigation Row: Back Link */}
         <div className="flex items-center justify-start mb-5">
@@ -384,6 +393,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           <p className="text-xs font-medium text-[#4e6a5d] mt-1">
             {viewMode === 'signup'
               ? 'Register your company workspace & owner account'
+              : viewMode === 'registration_pending'
+              ? 'Company Registration Status'
               : 'Unified Workspace Login • Automatic Role Detection'}
           </p>
         </div>
@@ -429,7 +440,64 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
             </div>
           )}
 
-          {viewMode === 'login' ? (
+          {viewMode === 'registration_pending' ? (
+            /* ========================================================== */
+            /* PENDING APPROVAL CONFIRMATION VIEW                         */
+            /* ========================================================== */
+            <div className="py-2 text-center animate-in fade-in zoom-in-95 duration-200">
+              {/* Success Badge Icon */}
+              <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-xs">
+                <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
+              </div>
+
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[#0d271d] tracking-tight">
+                Company Registration Submitted!
+              </h2>
+              <p className="text-xs text-[#4e6a5d] mt-1 max-w-sm mx-auto">
+                Your company registration request has been successfully recorded.
+              </p>
+
+              {/* Informational Text Box requested by user */}
+              <div className="my-5 p-5 rounded-2xl bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/50 border border-emerald-200 text-left space-y-3 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800 shrink-0 mt-0.5">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                      Pending Administrator Approval
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                      Your company <strong className="text-slate-900 font-bold">{registeredCompanyInfo.companyName}</strong> has been registered successfully.
+                    </p>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      Your workspace is currently under review by the administrator. Once your company registration is approved by the admin, you will be able to log in to your account.
+                    </p>
+                  </div>
+                </div>
+
+                {registeredCompanyInfo.ownerEmail && (
+                  <div className="pt-3 border-t border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-[#4e6a5d]">
+                    <span>Registered Admin Email:</span>
+                    <span className="font-mono font-bold text-[#0d271d] break-all">{registeredCompanyInfo.ownerEmail}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Back to Login Page Button */}
+              <div className="pt-1">
+                <button
+                  id="btn-back-to-login-after-reg"
+                  type="button"
+                  onClick={handleSwitchToLogin}
+                  className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-[#062d1f] hover:bg-[#0b3b29] transition-all shadow-md shadow-emerald-950/20 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Login Page</span>
+                </button>
+              </div>
+            </div>
+          ) : viewMode === 'login' ? (
             /* ========================================================== */
             /* UNIFIED LOGIN FORM (Automatic Role Detection)             */
             /* ========================================================== */
