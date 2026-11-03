@@ -105,43 +105,47 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
   // Variant styling maps
   const variantMap = {
     emerald: {
-      cardBg: 'bg-white/10 backdrop-blur-md border border-[#10b981]/30 text-white shadow-sm',
-      cardTop: 'bg-gradient-to-r from-[#10b981]/50 to-[#059669]/50',
-      colonColor: 'text-[#34d399]',
-      secColor: 'text-[#6ee7b7]',
-      labelColor: 'text-[#a7f3d0]',
-      periodBg: 'bg-[#10b981]/25 text-[#a7f3d0] border border-[#10b981]/40',
-      ringColor: '#10b981',
-      ringBg: 'rgba(255,255,255,0.1)',
+      cardBg: 'bg-[#ecfdf5] border-2 border-[#a7f3d0] text-[#064e3b] shadow-2xs',
+      cardTop: 'bg-gradient-to-r from-[#10b981] to-[#059669]',
+      digitColor: 'text-[#064e3b]',
+      colonColor: 'text-[#059669]',
+      secColor: 'text-[#059669]',
+      labelColor: 'text-[#065f46]',
+      periodBg: 'bg-[#d1fae5] text-[#064e3b] border border-[#a7f3d0]',
+      ringColor: '#059669',
+      ringBg: '#d1fae5',
     },
     dark: {
       cardBg: 'bg-[#062d1f] border border-[#0d4a34] text-white shadow-md',
       cardTop: 'bg-[#10b981]/40',
+      digitColor: 'text-white',
       colonColor: 'text-[#10b981]',
       secColor: 'text-[#34d399]',
-      labelColor: 'text-[#6ee7b7]/80',
+      labelColor: 'text-[#a7f3d0]',
       periodBg: 'bg-[#0d4a34] text-[#a7f3d0] border border-[#10b981]/30',
       ringColor: '#10b981',
       ringBg: '#0b3b29',
     },
     light: {
-      cardBg: 'bg-white border border-[#d8ebd9] text-[#0d271d] shadow-2xs',
-      cardTop: 'bg-[#10b981]/15',
+      cardBg: 'bg-white border-2 border-[#d8ebd9] text-[#0d271d] shadow-2xs',
+      cardTop: 'bg-gradient-to-r from-[#10b981] to-[#059669]',
+      digitColor: 'text-[#0d271d]',
       colonColor: 'text-[#059669]',
       secColor: 'text-[#059669]',
-      labelColor: 'text-[#4e6a5d]',
+      labelColor: 'text-[#365347]',
       periodBg: 'bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]',
       ringColor: '#059669',
       ringBg: '#d8ebd9',
     },
     amber: {
-      cardBg: 'bg-amber-500/10 backdrop-blur-md border border-amber-500/30 text-amber-950 shadow-sm',
-      cardTop: 'bg-amber-500/30',
+      cardBg: 'bg-[#fffbeb] border-2 border-amber-200 text-amber-950 shadow-2xs',
+      cardTop: 'bg-amber-500',
+      digitColor: 'text-amber-950',
       colonColor: 'text-amber-600',
-      secColor: 'text-amber-600',
-      labelColor: 'text-amber-700',
-      periodBg: 'bg-amber-100 text-amber-800 border border-amber-300',
-      ringColor: '#f59e0b',
+      secColor: 'text-amber-700',
+      labelColor: 'text-amber-800',
+      periodBg: 'bg-amber-100 text-amber-900 border border-amber-300',
+      ringColor: '#d97706',
       ringBg: '#fef3c7',
     },
   }[variant];
@@ -208,7 +212,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
             className={`font-mono font-black tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
           >
             <div className={`absolute top-0 left-0 right-0 h-0.5 ${variantMap.cardTop}`} />
-            <span>{hours}</span>
+            <span className={variantMap.digitColor}>{hours}</span>
           </div>
           {showLabels && (
             <span className={`mt-1 font-bold uppercase tracking-wider ${sizeMap.label} ${variantMap.labelColor}`}>
@@ -230,7 +234,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
             className={`font-mono font-black tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
           >
             <div className={`absolute top-0 left-0 right-0 h-0.5 ${variantMap.cardTop}`} />
-            <span>{minutes}</span>
+            <span className={variantMap.digitColor}>{minutes}</span>
           </div>
           {showLabels && (
             <span className={`mt-1 font-bold uppercase tracking-wider ${sizeMap.label} ${variantMap.labelColor}`}>
