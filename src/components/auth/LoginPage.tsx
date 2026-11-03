@@ -79,6 +79,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
   const handleSwitchToLogin = () => {
     clearAllSignupFields();
+    clearLoginFields();
     setViewMode('login');
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -134,9 +135,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     });
   };
 
-  // Anti-autofill state for password fields so browser does not pre-fill them
+  // Anti-autofill state for login & password fields so browser never auto-detects or pre-fills them
+  const [loginIdentifierReadOnly, setLoginIdentifierReadOnly] = useState(true);
+  const [loginPasswordReadOnly, setLoginPasswordReadOnly] = useState(true);
   const [passwordReadOnly, setPasswordReadOnly] = useState(true);
   const [confirmPasswordReadOnly, setConfirmPasswordReadOnly] = useState(true);
+
+  const clearLoginFields = () => {
+    setIdentifier('');
+    setPassword('');
+    setLoginIdentifierReadOnly(true);
+    setLoginPasswordReadOnly(true);
+    setFieldErrors({});
+  };
 
   const clearAllSignupFields = () => {
     setCompanyName('');
@@ -155,6 +166,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setPasswordReadOnly(true);
     setConfirmPasswordReadOnly(true);
   };
+
+  useEffect(() => {
+    if (viewMode === 'login') {
+      clearLoginFields();
+      const t1 = setTimeout(() => {
+        setIdentifier('');
+        setPassword('');
+      }, 50);
+      const t2 = setTimeout(() => {
+        setIdentifier('');
+        setPassword('');
+      }, 150);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (viewMode === 'signup') {
@@ -395,7 +424,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               ? 'Register your company workspace & owner account'
               : viewMode === 'registration_pending'
               ? 'Company Registration Status'
-              : 'Unified Workspace Login • Automatic Role Detection'}
+              : 'Unified Workspace Login'}
           </p>
         </div>
 
@@ -499,15 +528,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
             </div>
           ) : viewMode === 'login' ? (
             /* ========================================================== */
-            /* UNIFIED LOGIN FORM (Automatic Role Detection)             */
+            /* UNIFIED LOGIN FORM                                         */
             /* ========================================================== */
             <form
               onSubmit={handleLoginSubmit}
               className="space-y-4"
               autoComplete="off"
               autoCorrect="off"
-              autoCapitalize="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
             >
+              {/* Trap inputs to absorb browser autofill and auto-detection */}
+              <div style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }}>
+                <input type="text" name="fake_user_trap_login" tabIndex={-1} autoComplete="off" />
+                <input type="password" name="fake_pwd_trap_login" tabIndex={-1} autoComplete="new-password" />
+              </div>
 
               {/* Identifier Input */}
               <div>
@@ -526,10 +564,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   <User className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     id="input-login-identifier"
-                    name="paneliya_auth_user"
+                    name="paneliya_fld_usr_noautofill"
                     type="text"
                     required
-                    autoComplete="username"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-form-type="other"
+                    readOnly={loginIdentifierReadOnly}
+                    onFocus={() => setLoginIdentifierReadOnly(false)}
                     value={identifier}
                     onChange={(e) => {
                       setIdentifier(e.target.value);
@@ -566,10 +612,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   <Lock className="w-4 h-4 text-[#059669] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     id="input-login-password"
-                    name="paneliya_auth_key"
+                    name="paneliya_fld_pwd_noautofill"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    autoComplete="current-password"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-form-type="other"
+                    readOnly={loginPasswordReadOnly}
+                    onFocus={() => setLoginPasswordReadOnly(false)}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -602,7 +656,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Signing In & Detecting Workspace...</span>
+                    <span>Signing In...</span>
                   </>
                 ) : (
                   <>
@@ -626,7 +680,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   </button>
                 </p>
               </div>
-
             </form>
           ) : (
             /* ========================================================== */
