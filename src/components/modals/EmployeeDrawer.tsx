@@ -192,11 +192,22 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       const selectedDes = designations.find((d) => d.id === formData.designationId) || designations[0];
       const basicNum = Number(formData.basicSalary) || 0;
 
-      const employeePayload: Partial<Employee> & { password?: string; joiningDate?: string } = {
+      const employeePayload: Partial<Employee> & {
+        password?: string;
+        joiningDate?: string;
+        basicSalary?: number;
+        mobileNumber?: string;
+        department?: string;
+        designation?: string;
+        bankName?: string;
+        accountNumber?: string;
+      } = {
+        employeeCode: nextEmployeeCode || undefined,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim() || undefined,
+        mobileNumber: formData.phone.trim() || undefined,
         password: formData.initialPassword.trim() ? formData.initialPassword.trim() : undefined,
         role: formData.role || 'EMPLOYEE',
         avatarUrl: formData.avatarUrl,
@@ -207,13 +218,16 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         joiningDate: new Date().toISOString().split('T')[0],
         address: formData.address,
         departmentId: formData.departmentId || selectedDept?.id || '',
+        department: selectedDept?.name || '',
         departmentName: selectedDept?.name || '',
         designationId: formData.designationId || selectedDes?.id || '',
+        designation: selectedDes?.title || '',
         designationTitle: selectedDes?.title || '',
         employmentType: formData.employmentType,
         workLocationId: formData.workLocationId,
         workLocationName: adminCompanyName ? `${adminCompanyName} Office` : '',
         shift: formData.shift,
+        basicSalary: basicNum > 0 ? basicNum : undefined,
         salary: basicNum > 0 ? {
           basic: basicNum,
           hra: basicNum * 0.4,
@@ -231,6 +245,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
           ifscOrRouting: formData.routingNumber || '',
           accountHolderName: `${formData.firstName} ${formData.lastName}`.trim(),
         } : undefined,
+        bankName: formData.bankName || undefined,
+        accountNumber: formData.accountNumber || undefined,
         emergencyContact: formData.emergencyName || formData.emergencyPhone ? {
           name: formData.emergencyName || '',
           relationship: formData.emergencyRelationship || '',

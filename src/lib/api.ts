@@ -39,7 +39,14 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
       typeof window !== 'undefined'
         ? getCookie('hrms_auth_token') ||
           getCookie('bearerToken') ||
-          (window.localStorage ? window.localStorage.getItem('hrms_auth_token') || window.localStorage.getItem('bearerToken') : null)
+          getCookie('accessToken') ||
+          getCookie('token') ||
+          (window.localStorage
+            ? window.localStorage.getItem('hrms_auth_token') ||
+              window.localStorage.getItem('bearerToken') ||
+              window.localStorage.getItem('accessToken') ||
+              window.localStorage.getItem('token')
+            : null)
         : null;
 
     const token = storedToken;
@@ -255,7 +262,14 @@ export const api = {
       typeof window !== 'undefined'
         ? getCookie('hrms_auth_token') ||
           getCookie('bearerToken') ||
-          (window.localStorage ? window.localStorage.getItem('hrms_auth_token') || window.localStorage.getItem('bearerToken') : null)
+          getCookie('accessToken') ||
+          getCookie('token') ||
+          (window.localStorage
+            ? window.localStorage.getItem('hrms_auth_token') ||
+              window.localStorage.getItem('bearerToken') ||
+              window.localStorage.getItem('accessToken') ||
+              window.localStorage.getItem('token')
+            : null)
         : null;
     const authToken = storedToken;
 
@@ -404,9 +418,16 @@ export const api = {
   async createEmployee(data: Partial<Employee>) {
     const result = await fetchWithFallback<any>(
       '/admin/employees',
-      { method: 'POST', body: JSON.stringify(data) }
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }
     );
-    return (result?.employee || result) as Employee;
+    return (result?.employee || result?.data || result) as Employee;
   },
 
   async updateEmployee(id: string, data: Partial<Employee>) {
