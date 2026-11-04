@@ -632,16 +632,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             )}
           </div>
 
-          {portalMode === 'admin' && (
-            <button
-              onClick={onOpenApplyModal}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Apply</span>
-            </button>
-          )}
-
           <button
             onClick={exportCSV}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs"
