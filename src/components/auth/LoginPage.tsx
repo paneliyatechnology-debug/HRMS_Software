@@ -390,7 +390,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-start sm:justify-center items-center px-3 sm:px-6 py-6 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden overflow-y-auto">
+    <div className="min-h-screen w-full bg-[#a3b18a] flex flex-col justify-start sm:justify-center items-center px-3 sm:px-6 py-6 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden overflow-y-auto">
 
       {/* Elegant ambient light mint / emerald glows */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
