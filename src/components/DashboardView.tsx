@@ -156,12 +156,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Live punch status for employee
   const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
+  const [punchStatus, setPunchStatus] = useState<'not_started' | 'working' | 'on_break' | 'completed' | null>(() => {
+    const elig = checkEmployeePunchEligibility(currentEmp.id || currentEmpId);
+    return elig.status !== 'not_started' ? elig.status : null;
+  });
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
   const activeEmpId = currentEmp.id || currentEmpId;
+  const currentStatus: 'not_started' | 'working' | 'on_break' | 'completed' = punchStatus || punchState.status;
+
+  // On mount: query backend for active work timer session
+  useEffect(() => {
+    let isMounted = true;
+    api.getWorkStatus()
+      .then((statusData: any) => {
+        if (!isMounted || !statusData) return;
+        if (statusData.hasActiveSession || statusData.activeSession?.status === 'ACTIVE') {
+          setPunchStatus('working');
+          const elapsed = statusData.activeSession?.elapsedSeconds || 0;
+          if (elapsed > 0) {
+            setLiveWorkedHMS(formatSecondsToHMS(elapsed));
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync and tick timer every second
   const refreshAttendanceState = () => {
@@ -175,9 +200,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const brk = getLiveBreakSeconds(eligibility.record);
       setLiveWorkedHMS(formatSecondsToHMS(active));
       setLiveBreakWords(formatSecondsToWords(brk));
+      if (!punchStatus && eligibility.status !== 'not_started') {
+        setPunchStatus(eligibility.status);
+      }
     } else {
-      setLiveWorkedHMS('00:00:00');
-      setLiveBreakWords('0s');
+      if (punchStatus !== 'working' && punchStatus !== 'on_break') {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+      }
     }
   };
 
@@ -192,7 +222,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       clearInterval(timer);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
-  }, [activeEmpId, currentEmpId, user.email]);
+  }, [activeEmpId, currentEmpId, user.email, punchStatus]);
 
   // Real announcements, holidays, and leave balance states
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -478,25 +508,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionLoading(true);
     try {
       const res = await api.startWork({});
-      if (res && res.record) {
-        updateLocalRecordFromBackend(res.record);
-      } else {
-        performCheckIn({
-          id: activeEmpId,
-          firstName: currentEmp?.firstName || user?.firstName || 'Employee',
-          lastName: currentEmp?.lastName || user?.lastName || '',
-          employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || activeEmpId,
-          companyId: user?.companyId,
-          remarks: 'Morning shift clock-in',
-        });
-      }
+      setPunchStatus('working');
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+
+      const newRec: AttendanceRecord = {
+        id: (res as any)?.sessionId || `att-${Date.now()}`,
+        employeeId: activeEmpId,
+        employeeName: `${currentEmp?.firstName || user?.firstName || 'Employee'} ${currentEmp?.lastName || user?.lastName || ''}`.trim(),
+        employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || 'EMP',
+        date: getTodayDateString(),
+        checkIn: timeStr,
+        status: 'Present',
+        isCompleted: false,
+        isOnBreak: false,
+        breakDurationMinutes: 0,
+        workingHours: 0,
+        overtimeHours: 0,
+        lastActiveTimestamp: now.getTime(),
+        createdAt: now.toISOString(),
+      };
+      updateLocalRecordFromBackend(newRec);
+
+      setPunchState({
+        canCheckIn: false,
+        status: 'working',
+        message: 'Shift is active. Clock running.',
+        record: newRec,
+      });
+
       showToast({
         type: 'success',
         title: 'Check In Successful',
         message: res?.message || 'Work timer started! Session marked active.',
       });
       refreshAttendanceState();
-      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       console.error('[DashboardView] Check In error:', err);
       showToast({
@@ -514,14 +566,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionLoading(true);
     try {
       const res = await api.startBreak({});
+      setPunchStatus('on_break');
       const localRes = performTakeBreak(activeEmpId);
+      setPunchState({
+        canCheckIn: false,
+        status: 'on_break',
+        message: 'Break started. Work timer is paused.',
+        record: localRes.record || punchState.record,
+      });
       showToast({
         type: 'info',
         title: 'Break Started',
         message: res?.message || localRes?.message || 'Break started! Work timer paused.',
       });
       refreshAttendanceState();
-      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       console.error('[DashboardView] Take Break error:', err);
       showToast({
@@ -539,14 +597,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionLoading(true);
     try {
       const res = await api.resumeBreak({});
+      setPunchStatus('working');
       const localRes = performResumeWork(activeEmpId);
+      setPunchState({
+        canCheckIn: false,
+        status: 'working',
+        message: 'Resumed work. Timer is active.',
+        record: localRes.record || punchState.record,
+      });
       showToast({
         type: 'success',
         title: 'Work Resumed',
         message: res?.message || localRes?.message || 'Break stopped! Work timer resumed.',
       });
       refreshAttendanceState();
-      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       console.error('[DashboardView] Resume Work error:', err);
       showToast({
@@ -564,20 +628,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActionLoading(true);
     try {
       const res = await api.stopWork({});
-      if (res && res.record) {
-        updateLocalRecordFromBackend(res.record);
-      } else {
-        performCheckOut(activeEmpId, {
-          remarks: 'Evening clock-out',
-        });
-      }
+      setPunchStatus('completed');
+      const outRes = performCheckOut(activeEmpId, {
+        remarks: 'Evening clock-out',
+      });
+      setPunchState({
+        canCheckIn: true,
+        status: 'completed',
+        message: 'Shift checked out successfully.',
+        record: outRes.record || punchState.record,
+      });
       showToast({
         type: 'success',
         title: 'Shift Completed',
         message: res?.message || 'Shift checked out successfully! Entry saved in database.',
       });
       refreshAttendanceState();
-      if (onRefreshData) onRefreshData();
     } catch (err: any) {
       console.error('[DashboardView] Check Out error:', err);
       showToast({
@@ -1084,7 +1150,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     )}
                   </div>
                   <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
-                    style={{ background: punchState.status === 'working' ? '#10b981' : punchState.status === 'on_break' ? '#f59e0b' : punchState.status === 'completed' ? '#059669' : '#4e6a5d' }}>
+                    style={{ background: currentStatus === 'working' ? '#10b981' : currentStatus === 'on_break' ? '#f59e0b' : currentStatus === 'completed' ? '#059669' : '#4e6a5d' }}>
                     <span className="w-2 h-2 rounded-full bg-white"></span>
                   </span>
                 </div>
@@ -1158,15 +1224,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                 {/* Stat 1: Attendance status */}
                 <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
+                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
                   <div className="flex items-center gap-3 mt-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${punchState.status === 'working' ? 'bg-emerald-50 text-emerald-600' : punchState.status === 'on_break' ? 'bg-amber-50 text-amber-600' : punchState.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       <Clock className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{punchState.status === 'working' ? 'Working' : punchState.status === 'on_break' ? 'On Break' : punchState.status === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{punchState.status === 'working' ? liveWorkedHMS : punchState.status === 'completed' ? `${punchState.record?.workingHours || 9}h logged` : '09:30 AM start'}</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
+                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${punchState.record?.workingHours || 9}h logged` : '09:30 AM start'}</p>
                     </div>
                   </div>
                 </div>
@@ -1224,7 +1290,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {/* Left 7 Cols: Shift Punch Console */}
             <div className="lg:col-span-7 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between overflow-hidden bg-white">
               {/* Colorful top bar */}
-              <div className="h-1.5 w-full" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#059669)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#059669,#10b981)' }} />
+              <div className="h-1.5 w-full" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#059669)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#059669,#10b981)' }} />
               <div className="p-6 flex flex-col flex-1">
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1251,7 +1317,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Status Hero Box */}
                   <div className="my-5">
-                    {punchState.status === 'not_started' && (
+                    {currentStatus === 'not_started' && (
                       <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-4">
                         <div className="flex justify-center">
                           <ModernDigitClock
@@ -1304,11 +1370,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     )}
 
-                    {punchState.status === 'working' && (
+                    {currentStatus === 'working' && (
                       <div className="p-4 sm:p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold max-w-full truncate">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="truncate">Shift is Active • In at {punchState.record?.checkIn}</span>
+                          <span className="truncate">Shift is Active • In at {punchState.record?.checkIn || 'Now'}</span>
                         </div>
 
                         <div className="py-2 flex justify-center">
@@ -1347,7 +1413,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     )}
 
-                    {punchState.status === 'on_break' && (
+                    {currentStatus === 'on_break' && (
                       <div className="p-4 sm:p-6 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center space-y-3">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold max-w-full truncate">
                           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
@@ -1391,7 +1457,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     )}
 
-                    {punchState.status === 'completed' && (
+                    {currentStatus === 'completed' && (
                       <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
                         <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
                           <Check className="w-6 h-6 stroke-[3]" />
@@ -1400,7 +1466,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           ✓ Session Checked Out
                         </h4>
                         <p className="text-xs text-slate-600 max-w-md mx-auto">
-                          First In: <strong>{punchState.record?.checkIn}</strong> • Latest Out: <strong>{punchState.record?.checkOut}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 0}h</strong>
+                          First In: <strong>{punchState.record?.checkIn || 'Completed'}</strong> • Latest Out: <strong>{punchState.record?.checkOut || 'Now'}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 0}h</strong>
                         </p>
                         <div className="py-2 flex justify-center">
                           <ModernDigitClock
@@ -1413,10 +1479,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                         <div className="pt-1">
                           <button
-                            onClick={onOpenClockModal}
-                            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                            id="btn-emp-check-in-again"
+                            onClick={handleCheckInAction}
+                            disabled={actionLoading}
+                            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           >
-                            <Clock className="w-4 h-4" />
+                            <Play className="w-4 h-4 fill-current" />
                             <span>Check In Again</span>
                           </button>
                         </div>
@@ -1589,7 +1657,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           const recDate = new Date(rec.date);
                           const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'long' });
                           const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                          const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && punchState.status === 'working' ? liveWorkedHMS : '—');
+                          const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
                           const breakStr = rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m';
 
                           return (

@@ -732,14 +732,17 @@ export const api = {
   // 5.1. SECURE GEO-FENCED WORK TIMER & SELFIE API (POSTMAN: Selfie_location)
   // =========================================================================
   async getWorkStatus(): Promise<{
-    active: boolean;
+    active?: boolean;
+    hasActiveSession?: boolean;
+    activeSession?: any;
     workSession?: any;
     elapsedSeconds?: number;
     assignedLocation?: any;
     serverTime?: string;
   }> {
-    return fetchWithFallback<any>('/attendance/work/status', undefined, {
+    return fetchWithFallback<any>('/api/attendance/work/status', undefined, {
       active: false,
+      hasActiveSession: false,
       serverTime: new Date().toISOString(),
     });
   },

@@ -43,6 +43,11 @@ export function parseTimeStringToTimestamp(timeStr?: string, dateStr?: string, c
 }
 
 export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
+  const today = getTodayDateString();
+  const currentActiveToday = liveAttendanceRecords.find(
+    (r) => r && r.date === today && !r.isCompleted && (r.checkIn || !r.checkOut)
+  );
+
   liveAttendanceRecords = Array.isArray(records)
     ? records.map((r) => {
         const hasCheckOut = Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== ''));
@@ -56,6 +61,17 @@ export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
         return r;
       })
     : [];
+
+  // Preserve today's active in-progress punch session so external refreshes don't wipe it out
+  if (currentActiveToday) {
+    const exists = liveAttendanceRecords.some(
+      (r) => r.date === today && isMatchEmployee(r, currentActiveToday.employeeId || (currentActiveToday as any).userId)
+    );
+    if (!exists) {
+      liveAttendanceRecords.unshift(currentActiveToday);
+    }
+  }
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('hrms_attendance_updated'));
   }
@@ -321,20 +337,14 @@ export function performCheckIn(
 ): { success: boolean; message: string; record?: AttendanceRecord } {
   // 1. Check shift timing window configured by Admin for this specific company
   const shiftCheck = verifyShiftTimeWindow(undefined, employee.companyId, employee.id);
-  if (shiftCheck.isEarly) {
-    return {
-      success: false,
-      message: shiftCheck.reason || 'Attendance Denied: Too early for shift check-in.',
-    };
-  }
 
   // 2. Check general punch eligibility
   const eligibility = checkEmployeePunchEligibility(employee.id);
 
-  if (!eligibility.canCheckIn) {
+  if (!eligibility.canCheckIn && eligibility.status === 'working') {
     return {
-      success: false,
-      message: eligibility.message,
+      success: true,
+      message: 'Already checked in and working.',
       record: eligibility.record || undefined,
     };
   }
