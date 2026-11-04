@@ -13,7 +13,7 @@
     /* Emerald Green Primary (Buttons & Active elements) */
     --blue-hover: #047857;
     /* Rich Dark Emerald */
-    --bg: #a3b18a;
+    --bg: #b7e4c7;
     /* Plain Light Green Canvas */
     --ink: #0d271d;
     /* Deep Forest Slate Ink for Headings & Crisp Body */
@@ -31,7 +31,7 @@
     /* Coral Rose */
     --purple: #059669;
 
-    --bg-page: #a3b18a;
+    --bg-page: #b7e4c7;
     --surface: #ffffff;
     --border-color: #d8ebd9;
     --text-primary: #0d271d;
@@ -481,10 +481,16 @@ button,
 /* LUXURY CLOCK & TIME DIGIT ANIMATIONS                        */
 /* ═══════════════════════════════════════════════════════════ */
 @keyframes clockColonPulse {
+
   0%,
   100% {
     opacity: 1;
-    transform: none;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.25;
+    transform: scale(0.9);
   }
 }
 
@@ -501,9 +507,13 @@ button,
 }
 
 @keyframes clockDigitFlip {
-  0%,
+  0% {
+    transform: translateY(-2px) scale(0.98);
+    opacity: 0.7;
+  }
+
   100% {
-    transform: none;
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -526,8 +536,7 @@ button,
 }
 
 .animate-clock-colon {
-  opacity: 1;
-  display: inline-block;
+  animation: clockColonPulse 1s ease-in-out infinite;
 }
 
 .animate-clock-glow {
@@ -535,7 +544,7 @@ button,
 }
 
 .animate-digit-tick {
-  opacity: 1;
+  animation: clockDigitFlip 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-radar-dot {
@@ -550,12 +559,10 @@ button,
 @keyframes moduleFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(8px) scale(0.995);
   }
 
   100% {
     opacity: 1;
-    transform: none;
   }
 }
 

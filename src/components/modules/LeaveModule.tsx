@@ -161,6 +161,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         message: `${empName}'s ${leaveType} has been approved and leave balance deducted.`,
       });
       onRefresh();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+      }
     } catch (err: any) {
       showToast({
         type: 'error',
@@ -196,6 +199,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       setRejectingLeave(null);
       setRejectionReason('');
       onRefresh();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+      }
     } catch (err: any) {
       showToast({
         type: 'error',
@@ -377,7 +383,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ Apply for Leave</span>
+              <span>Apply for Leave</span>
             </button>
           </div>
 

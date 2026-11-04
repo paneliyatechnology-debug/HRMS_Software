@@ -68,11 +68,12 @@ import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 import { ModernDigitClock } from '../common/ModernDigitClock';
+import { DailyShiftConsole } from '../common/DailyShiftConsole';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
   employees: Employee[];
-  initialTab?: 'today' | 'summary' | 'roster' | 'holidays';
+  initialTab?: 'today' | 'summary' | string;
   onOpenPunchModal: () => void;
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
@@ -187,26 +188,24 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     return false;
   };
 
-  const VALID_ATTENDANCE_TABS: Array<'today' | 'summary' | 'roster' | 'holidays'> = [
+  const VALID_ATTENDANCE_TABS: Array<'today' | 'summary'> = [
     'today',
     'summary',
-    'roster',
-    'holidays',
   ];
 
   const sanitizeAttendanceTab = (
     tab?: string
-  ): 'today' | 'summary' | 'roster' | 'holidays' => {
+  ): 'today' | 'summary' => {
     if (tab && (VALID_ATTENDANCE_TABS as string[]).includes(tab)) {
       return tab as any;
     }
     return 'today';
   };
 
-  const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(
+  const [activeTab, setActiveTab] = useState<'today' | 'summary'>(
     () => sanitizeAttendanceTab(initialTab)
   );
-  const resolvedTab: 'today' | 'summary' | 'roster' | 'holidays' =
+  const resolvedTab: 'today' | 'summary' =
     (VALID_ATTENDANCE_TABS as string[]).includes(activeTab) ? activeTab : 'today';
 
   const [attendanceSearch, setAttendanceSearch] = useState('');
@@ -267,7 +266,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       setDetailEmpLoading(false);
       setDetailEmpStatusData(null);
     }
-  }, [detailEmp?.id, fetchEmpWorkStatus]);
+  }, [detailEmp?.id]);
 
   // Sync logged in employee's live work status from backend on mount/refresh
   useEffect(() => {
@@ -424,7 +423,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         }
       } else {
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        if (!isWeekend && dateStr < todayStr) {
+        if (!isWeekend && dateStr < todayStr && allEmpRecs.length > 0) {
           absentDays++;
         }
       }
@@ -602,7 +601,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [isRegModalOpen, detailEmp]);
 
   const [regEmpId, setRegEmpId] = useState(employees[0]?.id || 'emp-1');
-  const [regDate, setRegDate] = useState('2026-10-21');
+  const [regDate, setRegDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [regCheckIn, setRegCheckIn] = useState('09:00 AM');
   const [regCheckOut, setRegCheckOut] = useState('06:00 PM');
   const [regStatus, setRegStatus] = useState<'Present' | 'Half Day' | 'Late'>('Present');
@@ -805,42 +804,77 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let csvContent = '';
     let fileName = '';
 
-    if (resolvedTab === 'today') {
+    if (isEmployeeView) {
       const todayDateStr = new Date().toISOString().split('T')[0];
-      fileName = `Attendance_Live_${todayDateStr}.csv`;
-      csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
-
-      visibleEmployees.forEach((emp) => {
-        const rec = getEmpTodayRecord(emp);
-        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
-
-        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-
-        const dateStr = rec?.date || todayDateStr;
-        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
-        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
-        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
-        const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
-        const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
-
-        const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-        const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
-        const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
-
-        const statusStr = rec
-          ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
-          : 'Not Punched';
-
-        const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
-        const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
-        const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
-        const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
-
-        csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
+      fileName = `My_Attendance_Records_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Check In,Check Out,Break,Worked Duration,Status\n';
+      const list = employeeDailyRecords.length > 0 ? employeeDailyRecords : records.filter(isMyAttendanceRecord);
+      list.forEach((rec) => {
+        const dateStr = rec.date || '';
+        const empCode = (selfEmployee?.employeeCode || selfEmployee?.id || '').replace(/"/g, '""');
+        const empName = `${selfEmployee?.firstName || ''} ${selfEmployee?.lastName || ''}`.trim().replace(/"/g, '""');
+        const checkIn = (rec.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec.checkOut || (rec.isCompleted ? 'Completed' : '—')).replace(/"/g, '""');
+        const breakStr = rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m';
+        const workHours = rec.workingHours ? `${rec.workingHours} hrs` : '—';
+        const status = rec.status || 'Present';
+        csvContent += `"${dateStr}","${empCode}","${empName}","${checkIn}","${checkOut}","${breakStr}","${workHours}","${status}"\n`;
       });
+    } else if (resolvedTab === 'today') {
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      if (adminTodayViewMode === 'daily_logs') {
+        fileName = `All_Attendance_Logs_${todayDateStr}.csv`;
+        csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Work Hours,Status,Office / Location,Device\n';
+        records.forEach((rec) => {
+          const emp = employees.find((e) => e.id === rec.employeeId);
+          const empCode = (emp?.employeeCode || rec.employeeId || '').replace(/"/g, '""');
+          const empName = (emp ? `${emp.firstName} ${emp.lastName}` : (rec as any).employeeName || 'Staff').replace(/"/g, '""');
+          const dept = (emp?.departmentName || 'General').replace(/"/g, '""');
+          const checkIn = (rec.checkIn || '—').replace(/"/g, '""');
+          const checkOut = (rec.checkOut || '—').replace(/"/g, '""');
+          const breakStr = rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m';
+          const workHours = rec.workingHours ? `${rec.workingHours} hrs` : '—';
+          const status = rec.status || 'Present';
+          const officeLoc = ((rec as any).officeLocationName || '').replace(/"/g, '""');
+          const dev = ((rec as any).deviceInfo || rec.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
+          csvContent += `"${rec.date}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakStr}","${workHours}","${status}"\n`;
+        });
+      } else {
+        fileName = `Attendance_Workforce_${todayDateStr}.csv`;
+        csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
+
+        visibleEmployees.forEach((emp) => {
+          const rec = getEmpTodayRecord(emp);
+          const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+          const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+
+          const dateStr = rec?.date || todayDateStr;
+          const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+          const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+          const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+          const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
+          const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
+
+          const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+          const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
+          const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
+
+          const statusStr = rec
+            ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
+            : 'Not Punched';
+
+          const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
+          const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
+          const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
+          const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
+
+          csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
+        });
+      }
     } else if (resolvedTab === 'summary') {
       fileName = `Attendance_Summary_${selectedMonth}_${selectedYear}.csv`;
       csvContent += 'Employee ID,Employee Name,Department,Month,Year,Present Days,Half Days,Absent Days,Total Work Hours,Daily Average (Hrs)\n';
@@ -853,21 +887,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
         csvContent += `"${empCode}","${empName}","${dept}","${selectedMonth}","${selectedYear}",${m.presentDays},${m.halfDays},${m.absentDays},${m.totalHours},${m.avgDailyHours}\n`;
       });
-    } else if (resolvedTab === 'roster') {
-      fileName = `Shift_Roster_${selectedMonth}_${selectedYear}.csv`;
-      csvContent += 'Employee ID,Employee Name,Department,Shift Name,Timing,Weekly Off\n';
-      visibleEmployees.forEach((emp) => {
-        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
-        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
-        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
-        csvContent += `"${empCode}","${empName}","${dept}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
-      });
     } else {
-      // Holidays tab
-      fileName = `Holiday_Schedule_${selectedYear}.csv`;
-      csvContent += 'Date,Holiday Name,Day,Type\n';
-      holidaysList.forEach((h) => {
-        csvContent += `"${h.date}","${h.name}","${h.day}","${h.type}"\n`;
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      fileName = `Attendance_Records_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Work Hours,Status\n';
+      records.forEach((rec) => {
+        const emp = employees.find((e) => e.id === rec.employeeId);
+        const empCode = (emp?.employeeCode || rec.employeeId || '').replace(/"/g, '""');
+        const empName = (emp ? `${emp.firstName} ${emp.lastName}` : (rec as any).employeeName || 'Staff').replace(/"/g, '""');
+        const dept = (emp?.departmentName || 'General').replace(/"/g, '""');
+        csvContent += `"${rec.date}","${empCode}","${empName}","${dept}","${rec.checkIn || '—'}","${rec.checkOut || '—'}","${rec.breakDurationMinutes || 0}m","${rec.workingHours || 0} hrs","${rec.status || 'Present'}"\n`;
       });
     }
 
@@ -901,7 +930,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Attendance</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Monitor daily clock punches, shifts roster, and company public holiday schedules
+            Monitor daily clock punches, live work timers, and workforce monthly summaries
           </p>
         </div>
 
@@ -926,26 +955,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             }`}
           >
             {isEmployeeView ? "My Monthly Summary" : "Monthly Summary"}
-          </button>
-          <button
-            onClick={() => setActiveTab('roster')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              resolvedTab === 'roster'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            {isEmployeeView ? "My Shift Schedule" : "Shift Roster"}
-          </button>
-          <button
-            onClick={() => setActiveTab('holidays')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              resolvedTab === 'holidays'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            Holiday Schedule
           </button>
         </div>
       </div>
@@ -1054,230 +1063,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
         return (
           <div className="space-y-4">
-            {/* DAILY ATTENDANCE CHRONOMETER & COUNTING CONSOLE (Employees only - commented out for admin) */}
-            {isEmployeeView && (() => {
-              const selfEmp = visibleEmployees[0] || selfEmployee;
-              const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
-              const isWorking = Boolean(rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut);
-              const isOnBreak = Boolean(rec && !rec.isCompleted && rec.isOnBreak);
-              const isDone = Boolean(rec && (rec.isCompleted || Boolean(rec.checkOut)));
-              const hasNotStarted = Boolean(!rec || (!rec.checkIn && !isWorking && !isOnBreak && !isDone));
-
-              const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-              const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-              const workedHoursNum = Number((liveSecs / 3600).toFixed(2));
-              const targetHours = 9.0;
-              const progressPct = Math.min(100, Math.round((workedHoursNum / targetHours) * 100));
-              const overtimeHours = workedHoursNum > 8.0 ? Number((workedHoursNum - 8.0).toFixed(2)) : 0;
-
-              return (
-                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 overflow-hidden relative">
-                  <div
-                    className={`h-1.5 w-full absolute top-0 left-0 ${
-                      isWorking
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                        : isOnBreak
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-400'
-                        : isDone
-                        ? 'bg-gradient-to-r from-slate-600 to-emerald-600'
-                        : 'bg-gradient-to-r from-slate-300 to-slate-200'
-                    }`}
-                  />
-
-                  <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6">
-                    {/* Left: Modern Chronometer Timer & Punch Actions */}
-                    <div className="flex flex-col sm:flex-row items-center gap-5">
-                      <div className="w-full sm:w-auto flex justify-center">
-                        <ModernDigitClock
-                          timeString={hasNotStarted ? '00:00:00' : liveWorkedHMS}
-                          size="lg"
-                          variant={isWorking ? 'emerald' : isOnBreak ? 'amber' : 'light'}
-                          showSweepRing={isWorking}
-                          label={
-                            isWorking
-                              ? 'Active Shift Timer (Running)'
-                              : isOnBreak
-                              ? 'Work Timer Paused (On Break)'
-                              : isDone
-                              ? 'Shift Finalized (Timer Stopped)'
-                              : 'Shift Chronometer'
-                          }
-                          subText={
-                            isWorking
-                              ? `Clocked in at ${rec?.checkIn} • Live Work Chronometer`
-                              : isOnBreak
-                              ? `Break duration: ${liveBreakWords}`
-                              : isDone
-                              ? `Finalized: ${liveWorkedHMS} total worked`
-                              : 'Ready to punch check-in'
-                          }
-                        />
-                      </div>
-
-                      {/* Interactive Buttons */}
-                      <div className="flex flex-col gap-2 w-full sm:w-52">
-                        {hasNotStarted && (
-                          <button
-                            id="btn-att-check-in-now"
-                            onClick={handleCheckInAction}
-                            disabled={actionLoading}
-                            className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                          >
-                            <Play className="w-4 h-4 fill-current" />
-                            <span>{actionLoading ? 'Starting...' : 'Check In (Start Timer)'}</span>
-                          </button>
-                        )}
-
-                        {isWorking && (
-                          <>
-                            <button
-                              id="btn-att-take-break"
-                              onClick={handleTakeBreakAction}
-                              disabled={actionLoading}
-                              className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-300 active:scale-95 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-                            >
-                              <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span>Take Break (Pause)</span>
-                            </button>
-                            <button
-                              id="btn-att-check-out"
-                              onClick={handleCheckOutAction}
-                              disabled={actionLoading}
-                              className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                            >
-                              <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                              <span>Check Out (Stop Timer)</span>
-                            </button>
-                          </>
-                        )}
-
-                        {isOnBreak && (
-                          <>
-                            <button
-                              id="btn-att-resume-work"
-                              onClick={handleResumeWorkAction}
-                              disabled={actionLoading}
-                              className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                            >
-                              <Play className="w-4 h-4 fill-current shrink-0" />
-                              <span>Resume Work</span>
-                            </button>
-                            <button
-                              id="btn-att-check-out-from-break"
-                              onClick={handleCheckOutAction}
-                              disabled={actionLoading}
-                              className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                            >
-                              <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                              <span>Check Out (End Day)</span>
-                            </button>
-                          </>
-                        )}
-
-                        {isDone && (
-                          <button
-                            id="btn-att-check-in-again"
-                            onClick={handleCheckInAction}
-                            disabled={actionLoading}
-                            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Check In Again (New Session)</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: End-of-Day Calculation & Cumulative Summary */}
-                    <div className="flex-1 border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                          Today's Full Day Time Calculation
-                        </span>
-                        <span className="text-[11px] font-semibold text-slate-400">
-                          Corporate Shift Target: 9.0h
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Worked Today</span>
-                          <span className="font-mono font-bold text-slate-900 text-sm">
-                            {hasNotStarted ? '0h 0m' : formatSecondsToWords(liveSecs)}
-                          </span>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-100">
-                          <span className="text-[10px] text-amber-700 font-bold uppercase block">Total Break Taken</span>
-                          <span className="font-mono font-bold text-amber-900 text-sm">
-                            {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
-                          </span>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
-                          <span className="text-[10px] text-emerald-700 font-bold uppercase block">First In → Latest Out</span>
-                          <span className="font-mono font-bold text-emerald-900 text-xs">
-                            {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
-                          </span>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Day Status</span>
-                          <span className="font-bold text-xs">
-                            {isWorking ? (
-                              <span className="text-emerald-600 font-bold flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Working
-                              </span>
-                            ) : isOnBreak ? (
-                              <span className="text-amber-600 font-bold flex items-center gap-1">
-                                <Pause className="w-3 h-3" />
-                                On Break
-                              </span>
-                            ) : isDone ? (
-                              <span className="text-slate-700 font-bold flex items-center gap-1">
-                                <Check className="w-3 h-3 text-emerald-600" />
-                                Completed
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">Not Punched</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Shift Completion Progress Bar */}
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] mb-1 font-semibold">
-                          <span className="text-slate-600">Shift Completion</span>
-                          <span className="font-mono font-bold text-slate-900">
-                            {workedHoursNum}h / 9.0h ({progressPct}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 rounded-full ${
-                              progressPct >= 100
-                                ? 'bg-emerald-500'
-                                : progressPct >= 50
-                                ? 'bg-emerald-600'
-                                : 'bg-amber-500'
-                            }`}
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                        {overtimeHours > 0 && (
-                          <p className="text-[10px] text-emerald-600 font-bold mt-1">
-                            🎉 Overtime logged today: +{overtimeHours} Hours
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* DAILY SHIFT CONSOLE (Unified across Dashboard and Attendance) */}
+            {isEmployeeView && (
+              <div className="mb-4">
+                <DailyShiftConsole />
+              </div>
+            )}
 
             {/* KPI Metrics for Admin */}
             {!isEmployeeView && (
@@ -2870,8 +2661,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               statusLabel = 'Today';
                               statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
                             } else if (isPast) {
-                              statusLabel = 'Absent';
-                              statusClass = 'bg-slate-100 text-slate-600';
+                              statusLabel = 'No Record';
+                              statusClass = 'bg-slate-50 text-slate-400 border border-slate-100';
                             } else {
                               statusLabel = 'Upcoming';
                               statusClass = 'bg-slate-50 text-slate-400';
@@ -2923,157 +2714,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
       )}
 
-      {/* TAB 2: Shift Roster */}
-      {resolvedTab === 'roster' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  {isEmployeeView ? "My Shift Schedule" : "Shift Roster & Work Schedules"}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {isEmployeeView ? "Your assigned shift timings and weekly off days" : "Assigned employee shifts and weekly off days"}
-                </p>
-              </div>
-            </div>
-
-            {!isEmployeeView && (
-              <button
-                onClick={() => alert('Opening shift assignment dialog')}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs"
-              >
-                + Assign Shift
-              </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto [scrollbar-width:thin] border border-slate-100 rounded-xl">
-            <table className="w-full min-w-[650px] text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">EMPLOYEE</th>
-                  <th className="py-3 px-4">CURRENT SHIFT</th>
-                  <th className="py-3 px-4">TIMING</th>
-                  <th className="py-3 px-4">GRACE PERIOD</th>
-                  <th className="py-3 px-4">WEEKLY OFF</th>
-                  {!isEmployeeView && <th className="py-3 px-4 text-right">ACTION</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visibleEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/70">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center">
-                        {emp.firstName[0]}
-                        {emp.lastName ? emp.lastName[0] : ''}
-                      </div>
-                      <div>
-                        <p>{emp.firstName} {emp.lastName}</p>
-                        <p className="text-[10px] font-normal text-slate-400">{emp.employeeCode}</p>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700 font-medium">
-                      General Corporate Shift
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-indigo-700 font-bold">
-                      09:00 AM – 06:00 PM
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      15 Minutes (till 09:15 AM)
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                        Saturday, Sunday
-                      </span>
-                    </td>
-                    {!isEmployeeView && (
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => alert(`Editing shift for ${emp.firstName}`)}
-                          className="text-xs text-indigo-600 hover:underline font-bold"
-                        >
-                          Modify
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: Holiday Schedule */}
-      {resolvedTab === 'holidays' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <CalendarDays className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Official Holiday Calendar (2026)</h3>
-                <p className="text-xs text-slate-500">Corporate declared gazetted, national & regional holidays</p>
-              </div>
-            </div>
-
-            {!isEmployeeView && (
-              <button
-                onClick={() => alert('New holiday added to schedule')}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs"
-              >
-                + Add Holiday
-              </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto [scrollbar-width:thin] border border-slate-100 rounded-xl">
-            <table className="w-full min-w-[650px] text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">DATE</th>
-                  <th className="py-3 px-4">HOLIDAY NAME</th>
-                  <th className="py-3 px-4">DAY OF WEEK</th>
-                  <th className="py-3 px-4">CATEGORY</th>
-                  <th className="py-3 px-4 text-right">STATUS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {holidaysList.map((h, i) => (
-                  <tr key={i} className="hover:bg-slate-50/70">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">
-                      {h.date}
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 flex items-center gap-2">
-                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{h.name}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      {h.day}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium text-[11px]">
-                        {h.type}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">
-                        Confirmed
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {/* Modal: HR Regularization */}
       {isRegModalOpen && (
         <div onClick={(e) => {
@@ -3118,6 +2758,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <input
                     type="date"
                     value={regDate}
+                    min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setRegDate(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
                   />

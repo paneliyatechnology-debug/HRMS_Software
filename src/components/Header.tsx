@@ -19,6 +19,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
@@ -40,6 +41,7 @@ interface HeaderProps {
   portalMode?: 'employee' | 'admin';
   pendingLeavesCount?: number;
   unreadChatCount?: number;
+  company?: any;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -58,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
   portalMode = 'admin',
   pendingLeavesCount = 0,
   unreadChatCount = 0,
+  company,
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -88,14 +91,23 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
-    name: user?.companyName || '',
+    name: company?.name || user?.companyName || '',
+    logoUrl: company?.logoUrl,
   });
 
   useEffect(() => {
     let isMounted = true;
+
+    if (company && company.name) {
+      setCompanyInfo({
+        name: company.name.replace(/\s+Inc\.?$/i, '').trim(),
+        logoUrl: company.logoUrl,
+      });
+      return;
+    }
+
     const updateBrand = async () => {
       try {
-        // First check backend for authenticated company
         let backendComp = null;
         try {
           backendComp = await api.getMyCompany();
@@ -147,26 +159,13 @@ export const Header: React.FC<HeaderProps> = ({
       isMounted = false;
       window.removeEventListener('hrms_companies_updated', updateBrand);
     };
-  }, [user]);
+  }, [company, user?.companyId, user?.companyName]);
 
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
-  // Dynamic Check In / Check Out Status
-  const [punchStatus, setPunchStatus] = useState<'not_started' | 'working' | 'on_break' | 'completed'>('not_started');
-
-  useEffect(() => {
-    const updatePunch = () => {
-      const targetId = user?.employeeId || user?.id || '';
-      if (targetId) {
-        const eligibility = checkEmployeePunchEligibility(targetId);
-        setPunchStatus(eligibility.status);
-      }
-    };
-    updatePunch();
-    window.addEventListener('hrms_attendance_updated', updatePunch);
-    return () => window.removeEventListener('hrms_attendance_updated', updatePunch);
-  }, [user]);
+  // Dynamic Check In / Check Out Status from unified Work Session Context
+  const { status: punchStatus } = useWorkSession();
 
   const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
@@ -264,17 +263,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Quick Add Employee (Admin only) */}
-        {portalMode === 'admin' && (
-          <button
-            onClick={onOpenAddEmployeeModal}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#059669] hover:bg-[#047857] text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer shrink-0"
-            title="Add New Employee"
-          >
-            <UserPlus className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden md:inline">Add Employee</span>
-          </button>
-        )}
+
 
         {/* Work Status Pill */}
         <div

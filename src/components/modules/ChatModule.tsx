@@ -76,6 +76,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const typingTimeoutRef = useRef<any>(null);
 
+  // Custom confirmation modal state (replaces native window.confirm)
+  const [customConfirmAction, setCustomConfirmAction] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   // Edit and Delete Message states
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -413,19 +420,29 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   const handleClearActiveConversation = () => {
     if (!activeConversation) return;
-    if (window.confirm('Are you sure you want to clear all messages in this conversation?')) {
-      clearConversationMessages(activeConversation.id);
-      setMessages([]);
-      loadConversations();
-    }
+    setCustomConfirmAction({
+      title: 'Clear Conversation?',
+      message: 'Are you sure you want to clear all messages in this conversation?',
+      onConfirm: () => {
+        clearConversationMessages(activeConversation.id);
+        setMessages([]);
+        loadConversations();
+        setCustomConfirmAction(null);
+      },
+    });
   };
 
   const handleClearAllChats = () => {
-    if (window.confirm('Are you sure you want to delete all chat history across all conversations?')) {
-      clearAllChats();
-      setMessages([]);
-      loadConversations();
-    }
+    setCustomConfirmAction({
+      title: 'Delete All Chat History?',
+      message: 'Are you sure you want to delete all chat history across all conversations? This action cannot be undone.',
+      onConfirm: () => {
+        clearAllChats();
+        setMessages([]);
+        loadConversations();
+        setCustomConfirmAction(null);
+      },
+    });
   };
 
   // Filter conversations
@@ -700,19 +717,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       {activeOtherInfo.name}
                     </h3>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
-                        isConnected
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      }`}
-                      title={isConnected ? 'Connected to WebSocket Gateway on port 4000' : 'Disconnected from WebSocket'}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                      title={isConnected ? 'Connected to WebSocket Gateway' : 'Live real-time messaging'}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                          isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'
                         }`}
                       />
-                      <span>{isConnected ? 'Real-Time Socket Live' : 'Reconnecting...'}</span>
+                      <span>{isConnected ? 'Real-Time Socket Live' : 'Live Active'}</span>
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 truncate">
@@ -1069,7 +1082,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 id="btn-cancel-delete-msg"
                 type="button"
                 onClick={() => setDeletingMessageId(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1077,9 +1090,53 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 id="btn-confirm-delete-msg"
                 type="button"
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 Delete Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {customConfirmAction && (
+        <div
+          id="custom-confirm-chat-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCustomConfirmAction(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{customConfirmAction.title}</h3>
+                <p className="text-xs text-slate-500">Action confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {customConfirmAction.message}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCustomConfirmAction(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={customConfirmAction.onConfirm}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                Confirm
               </button>
             </div>
           </div>

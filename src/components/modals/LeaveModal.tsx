@@ -88,6 +88,10 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     if (!reason.trim()) {
       errors.reason = 'Please provide a valid reason for leave.';
     }
+    const today = getTodayDate();
+    if (startDate < today) {
+      errors.startDate = 'Leave cannot be applied for past dates.';
+    }
     if (endDate < startDate) {
       errors.endDate = 'End date cannot be earlier than start date.';
     }
@@ -113,7 +117,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         userId: targetUserId,
         employeeId: user.employeeId || targetUserId,
         employeeName: empName || 'Employee',
-        departmentName: (user as any).departmentName || 'Paneliya Technology',
+        departmentName: (user as any).departmentName || (user as any).department || 'General',
         leaveType,
         startDate,
         endDate,
@@ -121,6 +125,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         reason: reason.trim(),
       });
       onRefresh();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+      }
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to submit leave request');
@@ -195,6 +202,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               <input
                 id="leave-start-date"
                 type="date"
+                min={getTodayDate()}
                 value={startDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"

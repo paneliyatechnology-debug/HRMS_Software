@@ -704,9 +704,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                               It's you
                             </span>
                           )}
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
-                            New Hire
-                          </span>
                         </div>
                       </div>
                     </td>

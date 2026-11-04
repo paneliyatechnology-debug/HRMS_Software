@@ -1,0 +1,165 @@
+﻿1 ama to pela language hindi che fix kar ane koi fix nhi game tyare chekin chack out kare avu kar ok 
+
+  
+
+2 delete dummy data api thi j data show thava joye 
+
+  
+
+
+3 tow time name show thay che fix kar ak jagiyaye name show thavu joye 
+
+
+  
+
+
+
+4 do not work delete button 
+
+  
+
+5 delete dummy data fix  and add api ane show data
+
+
+  
+
+
+6 UI improve is teamchat page 
+
+  
+
+7 fix UI 
+
+
+
+
+  
+
+8 UI  improve  this page 
+
+
+  
+
+9 fix dummy data delete and api data show 
+
+
+
+
+
+
+  
+
+10  admin me ani j apply  no thavu joye 
+  
+
+
+11 fix live chat thavu joye nhi thatu 
+
+  
+
+12 fix Ui ane popup background remve karo ok 
+
+
+  
+
+
+13 fix ui ane responsive karo 
+  
+14 ama previous date mabhi leve lay e fix avuno hovu joye je date jati ray che e date kevi rite live lay sake 
+  
+
+15 ava popup no hova joye custom bane add  karo ok 
+
+  
+16  AMA ADD EMPLOYEE BUTTON REMOVE KARO  VADHARANU KADHI NAKHO OK 
+
+
+  
+
+
+17 AA DELETE NHI THATU FIX KARO ANE ADD NEW NOTICE MA DUBOL VAAR ICON CHE FIX KRO 
+
+  
+
+18 Ui responsive karo 
+
+  
+
+19  am dummy data ave che fix karo
+
+
+  
+
+
+20 clock is not working 
+  
+
+21 amadate current default selte hovi joy pachi avnar date selet kari sake baki gai date na selete thavi joye ok 
+  22 amabhi date nu previous date jati ray hoy e no avi joye ok 
+
+
+  
+
+23 ama  lice puch in nu nhi avtu api call nhi thay lage che check karo ane fix karo |
+
+  
+
+24  ama hu allredy checkin toy badhi jagiye km button checkin ave che 
+  
+
+25 ama chet not working ane fix karo ok 
+  
+25 ama chene  hioliday add karu chu  nhi thata 
+
+  
+
+26 Ui tabal fix karo ane biju tabal fild  file vadhara ni che e kadhi nakho ok 
+
+  
+27 a page job valo section nhi working 
+  
+28 Ui sarkhu karo fix  karo ok 
+  
+29 aa nhi kam kartu  fix karo Ui and api problem 
+
+
+  
+
+30 ama clock is not working in real time 
+  
+31 ama department nhi show thatu fix kar ok “
+
+  
+32 ama real time request nhi padti refresh karvu pase e fix karo 
+
+  
+33 is   am status chnage nhi thatu fix karo 
+
+  
+34 fix ui ane proper layout add  to form
+
+  
+35 dubol icon remove ane fix  karo singal 
+
+  
+36  ama Ui fix kar layout sarkhu nhi 
+  
+37 MA  UI FIX KARO 
+  
+38 AMA TABAL LAYOUT ANE  UI FIX KARO 
+
+  
+39 FIX KARO  UI 
+  
+40 AMA AA SECTION REMOVE KARO EMPLOYE NA OK 
+
+
+
+
+
+
+
+
+  
+
+41 ama aa biometric revoke kro

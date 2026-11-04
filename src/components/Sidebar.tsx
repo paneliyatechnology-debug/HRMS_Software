@@ -34,6 +34,7 @@ import { api } from '../lib/api';
 
 interface SidebarProps {
   activeModule: string;
+  activeSubTab?: string;
   setActiveModule: (m: string, subTab?: string) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -43,10 +44,12 @@ interface SidebarProps {
   unreadChatCount?: number;
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
+  company?: any;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeModule,
+  activeSubTab = '',
   setActiveModule,
   isOpen,
   setIsOpen,
@@ -56,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   unreadChatCount = 0,
   isCollapsed: propIsCollapsed,
   onToggleCollapse,
+  company,
 }) => {
   const { user, logout } = useAuth();
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -65,11 +69,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
-    name: user?.companyName || '',
+    name: company?.name || user?.companyName || '',
+    logoUrl: company?.logoUrl,
   });
 
   useEffect(() => {
     let isMounted = true;
+
+    if (company && company.name) {
+      setCompanyInfo({
+        name: company.name.replace(/\s+Inc\.?$/i, '').trim(),
+        logoUrl: company.logoUrl,
+      });
+      return;
+    }
+
     const updateBrand = async () => {
       try {
         let backendComp = null;
@@ -123,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       isMounted = false;
       window.removeEventListener('hrms_companies_updated', updateBrand);
     };
-  }, [user]);
+  }, [company, user?.companyId, user?.companyName]);
 
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
@@ -195,7 +209,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     badge?: React.ReactNode,
     subTab?: string
   ) => {
-    const isActive = activeModule === id;
+    let isActive = activeModule === id;
+    if (id === 'organization') {
+      if (subTab === 'departments') {
+        isActive = activeModule === 'organization' && activeSubTab === 'departments';
+      } else {
+        isActive = activeModule === 'organization' && activeSubTab !== 'departments';
+      }
+    }
 
     if (effectiveCollapsed) {
       return (
@@ -425,7 +446,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         onClick={() => handleNav('organization', 'departments')}
                         className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${
-                          activeModule === 'organization'
+                          activeModule === 'organization' && activeSubTab === 'departments'
                             ? 'text-white font-bold bg-[#064e3b]'
                             : 'text-[#475569] hover:text-[#064e3b] hover:bg-[#ecfdf5]'
                         }`}
@@ -445,19 +466,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {/* Company section */}
-          <div className="space-y-0.5">
-            {effectiveCollapsed ? (
-              <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
-            ) : (
-              <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
-                Company
-              </p>
-            )}
-            {navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')}
-            {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
-            {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
-            {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
-          </div>
+          {portalMode === 'admin' ? (
+            <div className="space-y-0.5">
+              {effectiveCollapsed ? (
+                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
+              ) : (
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
+                  Company
+                </p>
+              )}
+              {navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')}
+              {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
+              {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
+              {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
+            </div>
+          ) : (
+            <div className="space-y-0.5">
+              {effectiveCollapsed ? (
+                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
+              ) : (
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
+                  Company
+                </p>
+              )}
+              {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
+              {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
+            </div>
+          )}
         </div>
 
         {/* Footer: User profile & Logout */}

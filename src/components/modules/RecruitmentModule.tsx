@@ -17,19 +17,21 @@ import {
   CalendarDays,
   Sparkles,
 } from 'lucide-react';
-import { JobOpening, Candidate, CandidateStatus } from '../../types/hrms';
+import { JobOpening, Candidate, CandidateStatus, Department } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 
 interface RecruitmentModuleProps {
   jobs: JobOpening[];
   candidates: Candidate[];
+  departments?: Department[];
   onRefresh: () => void;
 }
 
 export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   jobs,
   candidates,
+  departments = [],
   onRefresh,
 }) => {
   const { showToast } = useSocket();
@@ -65,7 +67,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   const [jobDepartment, setJobDepartment] = useState('Engineering & Technology');
   const [jobLocation, setJobLocation] = useState('Surat, Gujarat (Hybrid)');
   const [jobOpeningsCount, setJobOpeningsCount] = useState(1);
-  const [jobSalaryRange, setJobSalaryRange] = useState('₹10,00,000 - ₹15,00,000');
+  const [jobSalaryRange, setJobSalaryRange] = useState('â‚¹10,00,000 - â‚¹15,00,000');
   const [jobDescription, setJobDescription] = useState('');
   const [jobSubmitting, setJobSubmitting] = useState(false);
 
@@ -102,9 +104,13 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
 
     setJobSubmitting(true);
     try {
+      const matchedDept = departments.find(
+        (d) => d.name === jobDepartment || d.id === jobDepartment
+      );
       await api.createJob({
         title: jobTitle,
-        departmentName: jobDepartment,
+        departmentId: matchedDept?.id,
+        departmentName: matchedDept?.name || jobDepartment,
         location: jobLocation,
         openingsCount: Number(jobOpeningsCount),
         salaryRange: jobSalaryRange,
@@ -292,7 +298,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
               </div>
               <h3 className="font-bold text-sm text-slate-900 mt-2.5">{job.title}</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {job.location} • {job.experienceLevel} • {job.openingsCount} Openings
+                {job.location} â€¢ {job.experienceLevel} â€¢ {job.openingsCount} Openings
               </p>
               <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">
                 {job.description}
@@ -304,7 +310,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                 onClick={() => setSelectedJob(job.id)}
                 className="text-xs font-bold text-slate-900 hover:underline"
               >
-                View Pipeline →
+                View Pipeline â†’
               </button>
             </div>
           </div>
@@ -483,11 +489,21 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                     id="select-job-department"
                     value={jobDepartment}
                     onChange={(e) => setJobDepartment(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-800"
                   >
-                    <option value="Engineering & Technology">Engineering & Technology</option>
-                    <option value="Product & UX Design">Product & UX Design</option>
-                    <option value="Administration & Management">Administration</option>
+                    {departments.length > 0 ? (
+                      departments.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Engineering & Technology">Engineering & Technology</option>
+                        <option value="Product & UX Design">Product & UX Design</option>
+                        <option value="Administration & Management">Administration</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>

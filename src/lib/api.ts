@@ -734,10 +734,17 @@ export const api = {
   async getWorkStatus(): Promise<{
     active?: boolean;
     hasActiveSession?: boolean;
+    isOnBreak?: boolean;
     activeSession?: any;
     workSession?: any;
+    currentBreak?: any;
+    totalBreakSeconds?: number;
+    formattedTotalBreak?: string;
+    lastCompletedSession?: any;
+    todaySummary?: any;
     elapsedSeconds?: number;
     assignedLocation?: any;
+    assignedOffice?: any;
     serverTime?: string;
   }> {
     return fetchWithFallback<any>('/api/attendance/work/status', undefined, {
@@ -1183,9 +1190,15 @@ export const api = {
   },
 
   async deleteHoliday(id: string) {
-    return fetchWithFallback<{ success: boolean }>(
-      `/holidays/${id}`,
-      { method: 'DELETE' }
+    const cleanId = encodeURIComponent(String(id || '').trim());
+    return fetchWithFallback<{ success: boolean; message?: string }>(
+      `/holidays/${cleanId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
     );
   },
 

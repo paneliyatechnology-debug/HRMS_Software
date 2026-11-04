@@ -204,13 +204,19 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <span className="text-[11px] font-black uppercase text-indigo-600 tracking-wider">
               Latest In-Hand Salary
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-              Paid
-            </span>
+            {latestPayslip ? (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                Paid
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                No Record
+              </span>
+            )}
           </div>
           <div className="mt-2.5">
             <p className="text-2xl sm:text-3xl font-black text-slate-900">
-              ₹{(latestPayslip?.netSalary || 0).toLocaleString('en-IN')}
+              {latestPayslip ? `₹${latestPayslip.netSalary.toLocaleString('en-IN')}` : '—'}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -274,7 +280,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
               {employeeDetails?.bankDetails?.accountNumber
-                ? `A/C: **** ${employeeDetails.bankDetails.accountNumber.slice(-4)} • Direct Deposit`
+                ? `A/C: **** ${employeeDetails.bankDetails.accountNumber.slice(-4)} â€¢ Direct Deposit`
                 : 'No bank account linked'}
             </p>
           </div>
@@ -425,7 +431,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-extrabold text-slate-900 text-base">
-                  Employee Salary Slip • {formatMonthName(selectedPayslip.payrollMonth)}
+                  Employee Salary Slip â€¢ {formatMonthName(selectedPayslip.payrollMonth)}
                 </h3>
               </div>
               <div className="flex items-center gap-2">
@@ -464,7 +470,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 mt-2 max-w-sm">
-                    {user?.companyName ? `Corporate Payroll Division • ${user.companyName}` : 'Corporate Payroll & Finance Division'}
+                    {user?.companyName ? `Corporate Payroll Division â€¢ ${user.companyName}` : 'Corporate Payroll & Finance Division'}
                   </p>
                 </div>
 
@@ -615,7 +621,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     ₹{selectedPayslip.netSalary.toLocaleString('en-IN')}
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                    ● Disbursed to Bank
+                    â— Disbursed to Bank
                   </span>
                 </div>
               </div>
@@ -629,7 +635,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
                 <div className="text-left sm:text-right">
                   <span className="inline-block px-3 py-1 rounded-lg border-2 border-emerald-600 text-emerald-700 font-black text-[10px] uppercase tracking-widest rotate-[-2deg]">
-                    ✓ PAID & CONFIRMED
+                    âœ“ PAID & CONFIRMED
                   </span>
                 </div>
               </div>

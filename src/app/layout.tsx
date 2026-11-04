@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { SocketProvider } from '../context/SocketContext';
+import { WorkSessionProvider } from '../context/WorkSessionContext';
 import { OfflineScreen } from '../components/common/OfflineScreen';
 
 const inter = Inter({
@@ -71,7 +72,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>
-              {children}
+              <WorkSessionProvider>
+                {children}
+              </WorkSessionProvider>
             </SocketProvider>
           </AuthProvider>
         </ThemeProvider>

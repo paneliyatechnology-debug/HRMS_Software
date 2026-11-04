@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../Sidebar';
 import { Header } from '../Header';
@@ -215,7 +215,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  const isFetchingDataRef = useRef(false);
+
   const loadData = useCallback(async () => {
+    if (isFetchingDataRef.current) return;
+    isFetchingDataRef.current = true;
     try {
       const [
         statsData,
@@ -284,12 +288,36 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       setEmployees(scopedEmployees);
       setLiveEmployees(scopedEmployees);
 
-      // Scope Leaves to this company only
+      // Scope Leaves to this company only & populate department
       const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
       const rawLeaves = Array.isArray(leavesData) ? leavesData : [];
-      const scopedLeaves = rawLeaves.filter(
-        (l) => scopedEmpIds.has(l.employeeId) || ((l as any).companyId && (l as any).companyId === activeCompanyId)
-      );
+      const scopedLeaves = rawLeaves
+        .filter(
+          (l) =>
+            scopedEmpIds.has(l.employeeId) ||
+            scopedEmpIds.has((l as any).userId) ||
+            ((l as any).companyId && (l as any).companyId === activeCompanyId) ||
+            ((l as any).employee?.id && scopedEmpIds.has((l as any).employee.id))
+        )
+        .map((l) => {
+          const matchedEmp = scopedEmployees.find(
+            (e) =>
+              e.id === l.employeeId ||
+              e.id === (l as any).userId ||
+              e.id === (l as any).employee?.id ||
+              `${e.firstName} ${e.lastName}`.trim().toLowerCase() === (l.employeeName || '').trim().toLowerCase()
+          );
+          return {
+            ...l,
+            departmentName:
+              l.departmentName && l.departmentName !== '--'
+                ? l.departmentName
+                : matchedEmp?.departmentName || (matchedEmp as any)?.department || (l as any).employee?.departmentName || 'General',
+            employeeName:
+              l.employeeName ||
+              (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : (l as any).employee?.fullName || 'Staff Member'),
+          };
+        });
       setLeaves(scopedLeaves);
       setLiveLeaves(scopedLeaves);
 
@@ -330,14 +358,34 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     } catch (err) {
       console.warn('Could not refresh HRMS data:', err);
+    } finally {
+      isFetchingDataRef.current = false;
     }
-  }, [user, portalMode]);
+  }, [user?.id, user?.companyId, user?.companyCode, portalMode]);
+
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadData();
-    }
-  }, [isAuthenticated, loadData]);
+    if (!isAuthenticated) return;
+    loadDataRef.current();
+
+    // Periodic background refresh every 45s for fresh operational state
+    const pollTimer = setInterval(() => {
+      loadDataRef.current();
+    }, 45000);
+
+    const handleRefreshEvent = () => {
+      loadDataRef.current();
+    };
+
+    window.addEventListener('hrms_leaves_updated', handleRefreshEvent);
+
+    return () => {
+      clearInterval(pollTimer);
+      window.removeEventListener('hrms_leaves_updated', handleRefreshEvent);
+    };
+  }, [isAuthenticated, user?.id, portalMode]);
 
   // Clean Path-Based Navigation (no full-page reloads, clean history updates)
   const navigateToModule = (mod: string, tab?: string) => {
@@ -429,6 +477,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       {/* Left Sidebar */}
       <Sidebar
         activeModule={activeModule}
+        activeSubTab={subTab}
         setActiveModule={navigateToModule}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
@@ -436,6 +485,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         portalMode={portalMode}
         pendingLeavesCount={pendingLeavesCount}
         unreadChatCount={unreadChatCount}
+        company={currentCompany}
       />
 
       {/* Right Content Area */}
@@ -456,6 +506,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           portalMode={portalMode}
           pendingLeavesCount={pendingLeavesCount}
           unreadChatCount={unreadChatCount}
+          company={currentCompany}
         />
 
         <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-transparent relative z-10">
@@ -544,6 +595,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
               <RecruitmentModule
                 jobs={jobs}
                 candidates={candidates}
+                departments={departments}
                 onRefresh={loadData}
               />
             )}

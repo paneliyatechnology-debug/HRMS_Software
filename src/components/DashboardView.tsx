@@ -57,11 +57,23 @@ import {
   getLiveActiveSeconds,
   getLiveBreakSeconds,
   getAllAttendanceRecords,
+  saveAttendanceRecords,
+  isMatchEmployee,
   getTodayRecordForEmployee,
   getTodayDateString,
 } from '../lib/attendanceService';
 import { verifyShiftTimeWindow, getWorkScheduleConfig } from '../lib/shiftScheduleService';
 import { ModernDigitClock } from './common/ModernDigitClock';
+import { DailyShiftConsole } from './common/DailyShiftConsole';
+import { useWorkSession } from '../context/WorkSessionContext';
+
+function formatDisplayName(first?: string, last?: string): string {
+  const f = (first || '').trim();
+  const l = (last || '').trim();
+  if (!l || f.toLowerCase() === l.toLowerCase() || f.toLowerCase().includes(l.toLowerCase())) return f;
+  if (l.toLowerCase().includes(f.toLowerCase())) return l;
+  return `${f} ${l}`;
+}
 
 interface DashboardViewProps {
   stats: any;
@@ -157,151 +169,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   }, [employees, currentEmpId, user.email, (user as any).employeeCode, user.firstName, user.lastName]);
 
-  // Live punch status for employee
-  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
-  const [punchStatus, setPunchStatus] = useState<'not_started' | 'working' | 'on_break' | 'completed' | null>(() => {
-    const elig = checkEmployeePunchEligibility(currentEmp.id || currentEmpId);
-    return elig.status !== 'not_started' ? elig.status : null;
-  });
-  const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
-  const [liveBreakWords, setLiveBreakWords] = useState('0s');
-  const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
-  const [actionLoading, setActionLoading] = useState(false);
+  // Unified Punch & Work Session Context
+  const {
+    status: currentStatus,
+    liveWorkedHMS,
+    liveBreakWords,
+    activeSession,
+    lastCompletedSession,
+    todaySummary,
+    checkIn: handleCheckInAction,
+    takeBreak: handleTakeBreakAction,
+    resumeWork: handleResumeWorkAction,
+    checkOut: handleCheckOutAction,
+    actionLoading,
+  } = useWorkSession();
 
+  const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>(() => getAllAttendanceRecords());
   const activeEmpId = currentEmp.id || currentEmpId;
-  const currentStatus: 'not_started' | 'working' | 'on_break' | 'completed' = punchStatus || punchState.status;
 
-  // On mount: query backend for active work timer session and restore persistent state (Employee portal only)
+  // Sync attendance records on system events
   useEffect(() => {
-    // Admin has punch clock disabled; never poll or query work status in admin workspace
-    if (portalMode === 'admin') return;
-
-    let isMounted = true;
-    api.getWorkStatus()
-      .then((statusData: any) => {
-        if (!isMounted || !statusData) return;
-        const session =
-          statusData.activeSession ||
-          statusData.workSession ||
-          statusData.session ||
-          (statusData.hasActiveSession ? statusData : null);
-
-        if (!session) return;
-
-        const rawStatus = String(session.status || (statusData.hasActiveSession ? 'ACTIVE' : '')).toUpperCase();
-        const isWorking = rawStatus === 'ACTIVE' || rawStatus === 'WORKING' || Boolean(statusData.active);
-        const isOnBreak = rawStatus === 'BREAK' || rawStatus === 'ON_BREAK' || Boolean(statusData.onBreak);
-        const isCompleted = rawStatus === 'STOPPED' || rawStatus === 'COMPLETED';
-
-        const resolvedStatus: 'not_started' | 'working' | 'on_break' | 'completed' =
-          isOnBreak ? 'on_break' : isWorking ? 'working' : isCompleted ? 'completed' : 'not_started';
-
-        if (resolvedStatus === 'not_started') return;
-
-        const now = Date.now();
-        const todayStr = getTodayDateString();
-
-        let elapsed = 0;
-        if (typeof session.elapsedSeconds === 'number') {
-          elapsed = session.elapsedSeconds;
-        } else if (session.startTime || session.startedAt) {
-          const startMs = new Date(session.startTime || session.startedAt).getTime();
-          if (!isNaN(startMs) && startMs > 0) {
-            elapsed = Math.max(0, Math.floor((now - startMs) / 1000));
-          }
-        }
-
-        const startIso = session.startTime || session.startedAt || new Date().toISOString();
-        const timeStr = new Date(startIso).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        });
-
-        const newRec: AttendanceRecord = {
-          id: session._id || session.id || session.workSessionId || `ws-${now}`,
-          employeeId: activeEmpId,
-          employeeName: `${currentEmp?.firstName || user?.firstName || 'Employee'} ${currentEmp?.lastName || user?.lastName || ''}`.trim(),
-          employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || 'EMP',
-          date: todayStr,
-          checkIn: timeStr,
-          checkOut: isCompleted
-            ? (session.endTime ? new Date(session.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '06:00 PM')
-            : undefined,
-          status: 'Present',
-          isCompleted,
-          isOnBreak,
-          activeSeconds: elapsed,
-          breakSeconds: (session.breakDurationMinutes || 0) * 60,
-          breakDurationMinutes: session.breakDurationMinutes || 0,
-          workingHours: Number((elapsed / 3600).toFixed(2)),
-          overtimeHours: elapsed > 8.5 * 3600 ? Number(((elapsed - 8.5 * 3600) / 3600).toFixed(2)) : 0,
-          lastActiveTimestamp: isWorking ? now : undefined,
-          lastBreakTimestamp: isOnBreak ? now : undefined,
-          createdAt: startIso,
-        };
-
-        updateLocalRecordFromBackend(newRec);
-
-        setPunchStatus(resolvedStatus);
-        setLiveWorkedHMS(formatSecondsToHMS(elapsed));
-        setPunchState({
-          canCheckIn: isCompleted,
-          status: resolvedStatus,
-          message:
-            isWorking
-              ? 'Shift is active. Clock running.'
-              : isOnBreak
-              ? 'Break in progress. Work timer paused.'
-              : 'Shift completed for today.',
-          record: newRec,
-        });
-      })
-      .catch((err) => {
-        console.warn('[DashboardView] getWorkStatus error on mount:', err);
-      });
-
-    return () => {
-      isMounted = false;
+    const handleUpdate = () => {
+      setAllAttendance(getAllAttendanceRecords());
     };
-  }, [portalMode, activeEmpId]);
-
-  // Sync and tick timer every second
-  const refreshAttendanceState = () => {
-    const records = getAllAttendanceRecords();
-    setAllAttendance(records);
-    const eligibility = checkEmployeePunchEligibility(activeEmpId);
-    setPunchState(eligibility);
-
-    if (eligibility.record) {
-      const active = getLiveActiveSeconds(eligibility.record);
-      const brk = getLiveBreakSeconds(eligibility.record);
-      setLiveWorkedHMS(formatSecondsToHMS(active));
-      setLiveBreakWords(formatSecondsToWords(brk));
-      if (eligibility.status !== 'not_started') {
-        setPunchStatus(eligibility.status);
-      }
-    } else {
-      if (punchStatus !== 'working' && punchStatus !== 'on_break' && punchStatus !== 'completed') {
-        setLiveWorkedHMS('00:00:00');
-        setLiveBreakWords('0s');
-      }
-    }
-  };
-
-  useEffect(() => {
-    refreshAttendanceState();
-    const timer = setInterval(refreshAttendanceState, 1000);
-
-    const handleUpdate = () => refreshAttendanceState();
+    handleUpdate();
     window.addEventListener('hrms_attendance_updated', handleUpdate);
-
+    window.addEventListener('hrms_work_status_updated', handleUpdate);
     return () => {
-      clearInterval(timer);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
+      window.removeEventListener('hrms_work_status_updated', handleUpdate);
     };
-  }, [activeEmpId, currentEmpId, user.email, punchStatus]);
+  }, []);
 
   // Real announcements, holidays, and leave balance states
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -324,7 +222,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         console.warn('DashboardView fetch extra data notice:', err);
       }
 
-      if (activeEmpId) {
+      if (portalMode !== 'admin' && activeEmpId && activeEmpId !== 'emp-self') {
         try {
           const bal = await api.getLeaveBalances(activeEmpId);
           if (isMounted) setLeaveBalances(bal);
@@ -335,7 +233,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeEmpId]);
+  }, [portalMode, activeEmpId]);
 
   // Set of all identifier keys for this employee to match attendance records accurately
   const myCandidateIds = useMemo(() => {
@@ -579,147 +477,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       });
     } finally {
       setDashNoticeLoading(false);
-    }
-  };
-
-  // Check In handler (Hits POST /api/attendance/work/start)
-  const handleCheckInAction = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.startWork({});
-      setPunchStatus('working');
-      setLiveWorkedHMS('00:00:00');
-      setLiveBreakWords('0s');
-
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      });
-
-      const checkInRes = performCheckIn({
-        id: activeEmpId,
-        firstName: currentEmp?.firstName || user?.firstName || 'Employee',
-        lastName: currentEmp?.lastName || user?.lastName || '',
-        employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || 'EMP',
-        remarks: 'Work shift start',
-      });
-
-      const eligibility = checkEmployeePunchEligibility(activeEmpId);
-      setPunchState(eligibility);
-
-      showToast({
-        type: 'success',
-        title: 'Check In Successful',
-        message: res?.message || 'Work timer started! Session marked active.',
-      });
-      refreshAttendanceState();
-    } catch (err: any) {
-      console.error('[DashboardView] Check In error:', err);
-      showToast({
-        type: 'error',
-        title: 'Check In Failed',
-        message: err?.message || 'Failed to check in.',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Break handler (Hits POST /api/attendance/work/break/start)
-  const handleTakeBreakAction = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.startBreak({});
-      setPunchStatus('on_break');
-      const localRes = performTakeBreak(activeEmpId);
-      setPunchState({
-        canCheckIn: false,
-        status: 'on_break',
-        message: 'Break started. Work timer is paused.',
-        record: localRes.record || punchState.record,
-      });
-      showToast({
-        type: 'info',
-        title: 'Break Started',
-        message: res?.message || localRes?.message || 'Break started! Work timer paused.',
-      });
-      refreshAttendanceState();
-    } catch (err: any) {
-      console.error('[DashboardView] Take Break error:', err);
-      showToast({
-        type: 'error',
-        title: 'Break Failed',
-        message: err?.message || 'Failed to start break.',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Resume handler (Hits POST /api/attendance/work/break/resume)
-  const handleResumeWorkAction = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.resumeBreak({});
-      setPunchStatus('working');
-      const localRes = performResumeWork(activeEmpId);
-      setPunchState({
-        canCheckIn: false,
-        status: 'working',
-        message: 'Resumed work. Timer is active.',
-        record: localRes.record || punchState.record,
-      });
-      showToast({
-        type: 'success',
-        title: 'Work Resumed',
-        message: res?.message || localRes?.message || 'Break stopped! Work timer resumed.',
-      });
-      refreshAttendanceState();
-    } catch (err: any) {
-      console.error('[DashboardView] Resume Work error:', err);
-      showToast({
-        type: 'error',
-        title: 'Resume Failed',
-        message: err?.message || 'Failed to resume work.',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Check Out handler (Hits POST /api/attendance/work/stop)
-  const handleCheckOutAction = async () => {
-    setActionLoading(true);
-    try {
-      const res = await api.stopWork({});
-      setPunchStatus('completed');
-      const outRes = performCheckOut(activeEmpId, {
-        remarks: 'Evening clock-out',
-      });
-      setPunchState({
-        canCheckIn: true,
-        status: 'completed',
-        message: 'Shift checked out successfully.',
-        record: outRes.record || punchState.record,
-      });
-      showToast({
-        type: 'success',
-        title: 'Shift Completed',
-        message: res?.message || 'Shift checked out successfully! Entry saved in database.',
-      });
-      refreshAttendanceState();
-    } catch (err: any) {
-      console.error('[DashboardView] Check Out error:', err);
-      showToast({
-        type: 'error',
-        title: 'Check Out Failed',
-        message: err?.message || 'Failed to check out.',
-      });
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -1234,7 +991,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                    {currentEmp?.firstName || user.firstName} {currentEmp?.lastName || user.lastName}
+                    {formatDisplayName(currentEmp?.firstName || user.firstName, currentEmp?.lastName || user.lastName)}
                   </h2>
                   <p className="text-xs text-emerald-300 mt-1 flex flex-wrap items-center gap-1.5">
                     <span className="font-bold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
@@ -1301,7 +1058,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
                       <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${punchState.record?.workingHours || 9}h logged` : '09:30 AM start'}</p>
+                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
                     </div>
                   </div>
                 </div>
@@ -1356,243 +1113,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* ═══ 3. PUNCH CONSOLE + SIDEBAR ═══ */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 7 Cols: Shift Punch Console */}
-            <div className="lg:col-span-7 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between overflow-hidden bg-white">
-              {/* Colorful top bar */}
-              <div className="h-1.5 w-full" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#059669)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#059669,#10b981)' }} />
-              <div className="p-6 flex flex-col flex-1">
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
-                        <Clock className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 tracking-tight">Daily Shift Console</h3>
-                        <p className="text-[11px] text-slate-400">Check-in, break, and work time tracking</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="hidden sm:flex items-center">
-                        <ModernDigitClock
-                          timeString={currentTime}
-                          size="sm"
-                          variant="light"
-                          showLabels={false}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status Hero Box */}
-                  <div className="my-5">
-                    {currentStatus === 'not_started' && (
-                      <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-4">
-                        <div className="flex justify-center">
-                          <ModernDigitClock
-                            timeString={currentTime}
-                            size="md"
-                            variant="light"
-                            showSweepRing={true}
-                            label="Current Live Time"
-                          />
-                        </div>
-                        {(() => {
-                          const shiftCheck = verifyShiftTimeWindow();
-                          return (
-                            <>
-                              <h4 className="text-lg font-black text-slate-900">
-                                {shiftCheck.isAllowed ? "Ready to Start Today's Shift" : "Shift Check-In Currently Locked"}
-                              </h4>
-                              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                                Office Shift: <strong>{shiftCheck.shiftStart} – {shiftCheck.shiftEnd}</strong> (Grace Buffer: {shiftCheck.config.gracePeriodMinutes} mins).
-                              </p>
-                              {shiftCheck.isAllowed ? (
-                                <p className="text-[11px] text-emerald-800 font-extrabold bg-emerald-100/90 border border-emerald-300 py-1 px-3 rounded-full inline-block mt-1">
-                                  Allowed Window: {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
-                                </p>
-                              ) : (
-                                <p className="text-[11px] text-rose-800 font-extrabold bg-rose-100/90 border border-rose-300 py-1 px-3 rounded-full inline-block mt-1">
-                                  Locked: Check-in only allowed from {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
-                                </p>
-                              )}
-                            </>
-                          );
-                        })()}
-                        <div className="pt-1">
-                          <button
-                            id="btn-emp-check-in-main"
-                            onClick={handleCheckInAction}
-                            disabled={actionLoading}
-                            className={`w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-2xl active:scale-95 font-black text-sm transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 max-w-full text-center ${
-                              !verifyShiftTimeWindow().isAllowed
-                                ? 'bg-rose-700 hover:bg-rose-800 text-white shadow-md shadow-rose-700/20'
-                                : 'bg-[#059669] hover:bg-[#047857] text-white shadow-md shadow-[#059669]/25'
-                            }`}
-                          >
-                            <Play className="w-4 h-4 fill-current shrink-0" />
-                            <span className="truncate">
-                              {!verifyShiftTimeWindow().isAllowed ? 'Shift Locked (View Timing)' : 'Start Work (Check In Now)'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {currentStatus === 'working' && (
-                      <div className="p-4 sm:p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold max-w-full truncate">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="truncate">Shift is Active • In at {punchState.record?.checkIn || 'Now'}</span>
-                        </div>
-
-                        <div className="py-2 flex justify-center">
-                          <ModernDigitClock
-                            timeString={liveWorkedHMS}
-                            size="xl"
-                            variant="light"
-                            showSweepRing={true}
-                            label="Active Worked Timer"
-                          />
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          Worked time recorded today • Shift target: 9.0 Hours
-                        </p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 max-w-md mx-auto w-full">
-                          <button
-                            id="btn-emp-take-break"
-                            onClick={handleTakeBreakAction}
-                            disabled={actionLoading}
-                            className="w-full py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-2xs min-w-0"
-                          >
-                            <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span className="truncate">Take Break</span>
-                          </button>
-                          <button
-                            id="btn-emp-check-out"
-                            onClick={handleCheckOutAction}
-                            disabled={actionLoading}
-                            className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm shadow-rose-600/25 min-w-0"
-                          >
-                            <Square className="w-4 h-4 fill-current shrink-0" />
-                            <span className="truncate">End Day & Check Out</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {currentStatus === 'on_break' && (
-                      <div className="p-4 sm:p-6 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center space-y-3">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold max-w-full truncate">
-                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                          <span className="truncate">Break in Progress • Work Timer Paused</span>
-                        </div>
-
-                        <div className="py-2 flex justify-center">
-                          <ModernDigitClock
-                            timeString={liveWorkedHMS}
-                            size="xl"
-                            variant="amber"
-                            showSweepRing={true}
-                            label="Timer Paused (On Break)"
-                            subText={`Break Duration: ${liveBreakWords}`}
-                          />
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          Enjoy your break! Click resume when you are back at your workstation.
-                        </p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 max-w-md mx-auto w-full">
-                          <button
-                            id="btn-emp-resume-work"
-                            onClick={handleResumeWorkAction}
-                            disabled={actionLoading}
-                            className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm min-w-0"
-                          >
-                            <Play className="w-4 h-4 fill-current shrink-0" />
-                            <span className="truncate">Resume Work</span>
-                          </button>
-                          <button
-                            id="btn-emp-check-out-from-break"
-                            onClick={handleCheckOutAction}
-                            disabled={actionLoading}
-                            className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm min-w-0"
-                          >
-                            <Square className="w-4 h-4 fill-current shrink-0" />
-                            <span className="truncate">Check Out for Today</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {currentStatus === 'completed' && (
-                      <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
-                        <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
-                          <Check className="w-6 h-6 stroke-[3]" />
-                        </div>
-                        <h4 className="text-lg font-black text-slate-900">
-                          ✓ Session Checked Out
-                        </h4>
-                        <p className="text-xs text-slate-600 max-w-md mx-auto">
-                          First In: <strong>{punchState.record?.checkIn || 'Completed'}</strong> • Latest Out: <strong>{punchState.record?.checkOut || 'Now'}</strong> • Total Hours: <strong>{punchState.record?.workingHours || 0}h</strong>
-                        </p>
-                        <div className="py-2 flex justify-center">
-                          <ModernDigitClock
-                            timeString={liveWorkedHMS}
-                            size="xl"
-                            variant="light"
-                            showSweepRing={false}
-                            label="Shift Completed (Timer Stopped)"
-                          />
-                        </div>
-                        <div className="pt-1">
-                          <button
-                            id="btn-emp-check-in-again"
-                            onClick={handleCheckInAction}
-                            disabled={actionLoading}
-                            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                          >
-                            <Play className="w-4 h-4 fill-current" />
-                            <span>Check In Again</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3 Clear Policy Features */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                      ✓
-                    </span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Exact Timestamps</span>
-                      <span className="text-slate-500 text-[11px]">In & Out times recorded securely.</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                      ✓
-                    </span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Break Protection</span>
-                      <span className="text-slate-500 text-[11px]">Pause for tea/lunch anytime.</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                      ✓
-                    </span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Payroll Linked</span>
-                      <span className="text-slate-500 text-[11px]">Synced with salary computation.</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Left 7 Cols: Unified Daily Shift Console */}
+            <div className="lg:col-span-7">
+              <DailyShiftConsole />
             </div>
 
             {/* Right 5 Cols: Profile + Workplace Cards */}
@@ -1608,7 +1131,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">{currentEmp?.firstName} {currentEmp?.lastName}</h4>
+                      <h4 className="text-sm font-black text-slate-900 leading-tight">{formatDisplayName(currentEmp?.firstName, currentEmp?.lastName)}</h4>
                       <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
                       <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 mt-1">Active</span>
                     </div>
@@ -1775,28 +1298,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Casual</span>
                       <span className="text-lg font-black text-blue-700 block mt-0.5">
-                        {leaveBalances?.casualLeave?.remaining ?? 0} Left
+                        {leaveBalances?.casualLeave?.remaining != null ? `${leaveBalances.casualLeave.remaining} Left` : '—'}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        of {leaveBalances?.casualLeave?.total ?? 12} Total
+                        {leaveBalances?.casualLeave?.total != null ? `of ${leaveBalances.casualLeave.total} Total` : 'Standard Quota'}
                       </span>
                     </div>
                     <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Sick</span>
                       <span className="text-lg font-black text-emerald-700 block mt-0.5">
-                        {leaveBalances?.sickLeave?.remaining ?? 0} Left
+                        {leaveBalances?.sickLeave?.remaining != null ? `${leaveBalances.sickLeave.remaining} Left` : '—'}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        of {leaveBalances?.sickLeave?.total ?? 10} Total
+                        {leaveBalances?.sickLeave?.total != null ? `of ${leaveBalances.sickLeave.total} Total` : 'Standard Quota'}
                       </span>
                     </div>
                     <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Annual</span>
                       <span className="text-lg font-black text-purple-700 block mt-0.5">
-                        {leaveBalances?.paidLeave?.remaining ?? 0} Left
+                        {leaveBalances?.paidLeave?.remaining != null ? `${leaveBalances.paidLeave.remaining} Left` : '—'}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        of {leaveBalances?.paidLeave?.total ?? 15} Total
+                        {leaveBalances?.paidLeave?.total != null ? `of ${leaveBalances.paidLeave.total} Total` : 'Standard Quota'}
                       </span>
                     </div>
                   </div>
@@ -1845,13 +1368,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Modern In-App Check Out Confirmation Modal */}
-      {checkOutModalOpen && (
+      {mounted && checkOutModalOpen && typeof document !== 'undefined' && createPortal(
         <div
           id="checkout-confirm-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setCheckOutModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
@@ -1873,7 +1396,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 id="btn-cancel-checkout"
                 type="button"
                 onClick={() => setCheckOutModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1882,23 +1405,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={executeCheckOut}
                 disabled={actionLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {actionLoading ? 'Finalizing...' : 'Confirm Check Out'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modern In-App Leave Rejection Modal for Admin */}
-      {rejectModalData && (
+      {mounted && rejectModalData && typeof document !== 'undefined' && createPortal(
         <div
           id="dashboard-reject-leave-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setRejectModalData(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -1907,7 +1431,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h3>
               <button
                 onClick={() => setRejectModalData(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1932,7 +1456,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 id="btn-cancel-reject-leave"
                 type="button"
                 onClick={() => setRejectModalData(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -1941,23 +1465,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={executeRejectLeave}
                 disabled={processingLeaveId === rejectModalData.id}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {processingLeaveId === rejectModalData.id ? 'Saving...' : 'Confirm Reject'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modern In-App Remove Employee Confirmation Modal (Dashboard) */}
-      {removingEmpDashboard && (
+      {mounted && removingEmpDashboard && typeof document !== 'undefined' && createPortal(
         <div
           id="dashboard-remove-employee-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmpDashboard(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
         >
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
@@ -1979,7 +1504,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 id="btn-cancel-dash-remove-emp"
                 type="button"
                 onClick={() => setRemovingEmpDashboard(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1988,13 +1513,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={handleConfirmRemoveEmpDashboard}
                 disabled={removeEmpLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {removeEmpLoading ? 'Removing...' : 'Confirm Remove'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modern In-App Send Notice Modal (Dashboard) */}

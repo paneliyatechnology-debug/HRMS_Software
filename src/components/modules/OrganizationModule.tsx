@@ -286,7 +286,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             </span>
             About Organisation
           </h1>
-          <p className="text-xs text-slate-500 mt-1 ml-10">Company profile, structure & corporate identity</p>
+          <p className="text-xs text-slate-500 mt-1">Company profile, structure & corporate identity</p>
         </div>
         <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
           {[
@@ -320,9 +320,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
           {/* ── Dynamic Organization Hero Banner ─────────── */}
           {(() => {
-            const compName = currentCompany?.companyName || currentCompany?.name || user?.companyName || 'Not configured';
-            const compInitial = compName !== 'Not configured' ? (compName[0] || 'C').toUpperCase() : 'C';
-            const compIndustry = currentCompany?.industry || 'Not configured';
+            const compName = currentCompany?.companyName || currentCompany?.name || user?.companyName || user?.companyCode || 'Company Workspace';
+            const compInitial = (compName[0] || 'C').toUpperCase();
+            const compIndustry = currentCompany?.industry || 'Corporate Workspace';
             const compDesc = currentCompany?.description || 'Corporate workspace structure and workforce management identity.';
             const compEmail = currentCompany?.email || currentCompany?.contactEmail || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? user?.email : 'Not provided');
             const compPhone = currentCompany?.phone || currentCompany?.contactPhone || 'Not provided';

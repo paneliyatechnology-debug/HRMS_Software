@@ -104,9 +104,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const socketUrl = getSocketBaseUrl();
     const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 2,
-      reconnectionDelay: 2000,
-      timeout: 3000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 3000,
+      timeout: 5000,
     });
 
     s.on('connect', () => {

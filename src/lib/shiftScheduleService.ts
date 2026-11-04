@@ -205,47 +205,10 @@ export function verifyShiftTimeWindow(
   const allowedStartStr = formatMinutesToTimeString(allowedStartMins);
   const allowedEndStr = formatMinutesToTimeString(allowedEndMins);
 
-  // If this specific company has NOT enabled strict shift buffer enforcement, allow punch anytime!
-  if (!config.enforceShiftWindow) {
-    return {
-      isAllowed: true,
-      enforceActive: false,
-      isLate: false,
-      isEarly: false,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: 0,
-      config,
-    };
-  }
-
-  // Check if current time falls within [allowedStartMins, allowedEndMins]
-  if (currentMinutes < allowedStartMins) {
-    const minsUntilStart = allowedStartMins - currentMinutes;
-    return {
-      isAllowed: false,
-      enforceActive: true,
-      isLate: false,
-      isEarly: true,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: -minsUntilStart,
-      reason: `Attendance Locked: Too early for shift check-in. Your company's shift begins at ${config.shiftStartTime} with an early buffer of ${earlyBuffer} mins (Allowed window starts at ${allowedStartStr}).`,
-      config,
-    };
-  }
-
+  // Punch anytime: allow check in and check out at any time without locking
   return {
     isAllowed: true,
-    enforceActive: true,
+    enforceActive: false,
     isLate: false,
     isEarly: false,
     companyId: resolvedCompanyId,

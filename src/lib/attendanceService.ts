@@ -72,9 +72,8 @@ export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
     }
   }
 
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('hrms_attendance_updated'));
-  }
+  // NOTE: We do not dispatch 'hrms_attendance_updated' here to prevent
+  // cyclic infinite loops when parent containers (like HrmsAppShell) sync from backend.
 }
 
 /**

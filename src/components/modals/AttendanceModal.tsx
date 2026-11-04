@@ -872,18 +872,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               />
             </div>
 
-            {shiftStatus.enforceActive && shiftStatus.isEarly && punchState.status === 'not_started' && (
-              <div className="my-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Early Arrival: Office check-in window opens at <strong>{shiftStatus.allowedStart}</strong>.</span>
-                </div>
-                <span className="text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
-                  Locked
-                </span>
-              </div>
-            )}
-
             {/* WFH Indicator (if enabled) */}
             {isWFH && (
               <div className="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs flex items-center justify-between">
@@ -982,20 +970,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading || shiftStatus.isEarly}
-                    className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
-                      shiftStatus.isEarly
-                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed'
-                    }`}
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>
-                      {loading
-                        ? 'Checking In...'
-                        : shiftStatus.isEarly
-                        ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
-                        : 'Check In Now'}
+                      {loading ? 'Checking In...' : 'Check In Now'}
                     </span>
                   </button>
                 </div>

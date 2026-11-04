@@ -36,7 +36,7 @@ import { useAuth } from '../../context/AuthContext';
 
 interface CalendarModuleProps {
   attendance: AttendanceRecord[];
-  leaves: LeaveRequest[];
+  leaves?: LeaveRequest[];
   onOpenLeaveModal?: () => void;
   onOpenClockModal?: () => void;
   portalMode?: 'employee' | 'admin';
@@ -44,8 +44,8 @@ interface CalendarModuleProps {
 
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
   attendance,
-  leaves,
-  onOpenLeaveModal,
+  leaves: _leaves,
+  onOpenLeaveModal: _onOpenLeaveModal,
   onOpenClockModal,
   portalMode = 'admin',
 }) => {
@@ -63,17 +63,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       )
     : attendance;
 
-  const userLeaves = portalMode === 'employee'
-    ? leaves.filter((l) =>
-        (myEmpId && l.employeeId === myEmpId) ||
-        (myEmpCode && (l as any).employeeCode === myEmpCode) ||
-        (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail)
-      )
-    : leaves;
-
   // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster)
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays'>('grid');
-  const [filterType, setFilterType] = useState<'all' | 'attendance' | 'holidays' | 'leaves'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'attendance' | 'holidays'>('all');
 
   const today = useMemo(() => new Date(), []);
   const todayYear = today.getFullYear();
@@ -90,6 +82,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   // Modal: Add Holiday
   const [isAddHolidayOpen, setIsAddHolidayOpen] = useState(false);
+  // Modal: Delete Holiday
+  const [deletingHoliday, setDeletingHoliday] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingHoliday, setIsDeletingHoliday] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -164,18 +159,35 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     }
   };
 
-  const handleDeleteHoliday = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to remove the holiday "${name}"?`)) return;
+  const handleConfirmDeleteHoliday = async () => {
+    if (!deletingHoliday) return;
+    const { id, name } = deletingHoliday;
+    setIsDeletingHoliday(true);
     try {
       await api.deleteHoliday(id);
-      setHolidaysList((prev) => prev.filter((h) => h.id !== id));
+      setHolidaysList((prev) =>
+        prev.filter((h) => {
+          const itemKey = String(h.id || (h as any)._id || (h as any).holidayId || '').trim();
+          return itemKey !== id;
+        })
+      );
       showToast({
         type: 'success',
         title: 'Holiday Removed',
         message: `${name} has been removed from the calendar.`,
       });
+      setDeletingHoliday(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_holidays_updated'));
+      }
     } catch (err: any) {
-      showToast({ type: 'error', title: 'Delete Failed', message: err.message || 'Could not delete holiday.' });
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete holiday.',
+      });
+    } finally {
+      setIsDeletingHoliday(false);
     }
   };
 
@@ -254,7 +266,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       const attRec = userAttendance.find((a) => a.date === dateStr);
-      const leaveRec = userLeaves.find((l) => dateStr >= l.startDate && dateStr <= l.endDate);
       const holObj = holidayDateMap[dateStr];
 
       list.push({
@@ -264,7 +275,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         isWeekend,
         dayOfWeek,
         attendance: attRec,
-        leave: leaveRec,
         holiday: holObj?.name,
         holidayObj: holObj,
       });
@@ -286,7 +296,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     }
 
     return list;
-  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, userLeaves, holidayDateMap]);
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap]);
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
@@ -296,7 +306,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const presentCount = currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Present').length;
     const lateCount = currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Late').length;
     const holidaysCount = currentMonthDays.filter((d) => d.holiday).length;
-    const leavesCount = currentMonthDays.filter((d) => d.leave).length;
+    const weekendsCount = currentMonthDays.filter((d) => d.isWeekend).length;
     const totalHoursWorked = currentMonthDays.reduce((acc, d) => acc + (d.attendance?.workingHours || 0), 0);
     const completionPercent = workingDays > 0 ? Math.min(100, Math.round(((presentCount + lateCount) / workingDays) * 100)) : 0;
 
@@ -306,7 +316,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       presentCount,
       lateCount,
       holidaysCount,
-      leavesCount,
+      weekendsCount,
       totalHoursWorked: Math.round(totalHoursWorked * 10) / 10,
       completionPercent,
     };
@@ -314,10 +324,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   const selectedDayInfo = days.find((d) => d.isCurrentMonth && d.day === selectedDay);
 
-  // Filtered days for Agenda view
+  // Filtered days for Agenda view (only official holidays and weekends, plus verified attendance)
   const agendaEvents = useMemo(() => {
     return days
-      .filter((d) => d.isCurrentMonth && (d.attendance || d.holiday || d.leave))
+      .filter((d) => d.isCurrentMonth && (d.holiday || d.isWeekend || d.attendance))
       .sort((a, b) => (a.day || 0) - (b.day || 0));
   }, [days]);
 
@@ -419,7 +429,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             {stats.totalHoursWorked} <span className="text-xs font-semibold text-slate-400">Hrs</span>
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-purple-700 font-medium">
-            <span>{stats.leavesCount > 0 ? `${stats.leavesCount} leave(s) recorded` : 'Regular attendance'}</span>
+            <span>{stats.weekendsCount} weekend days • {stats.holidaysCount} holidays</span>
           </div>
         </div>
       </div>
@@ -528,16 +538,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </button>
             )}
 
-            {/* [DISABLED FOR ADMIN]: admin side se apply leave ka button nikal de */}
-            {portalMode !== 'admin' && onOpenLeaveModal && (
-              <button
-                onClick={onOpenLeaveModal}
-                className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-extrabold transition-all shadow-2xs active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Apply Leave</span>
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -555,17 +555,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50/80 text-amber-900 border border-amber-300">
+                <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" /> Holiday
+              </span>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="w-2 h-2 rounded-full bg-slate-400" /> Weekend
+              </span>
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" /> Present
               </span>
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
                 <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
-              </span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50/80 text-amber-900 border border-amber-300">
-                <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" /> Holiday
-              </span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-                <span className="w-2 h-2 rounded-full bg-indigo-500" /> Leave
               </span>
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
                 <span className="w-2 h-2 rounded-full bg-cyan-500" /> Remote WFH
@@ -642,32 +642,32 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     )}
                   </div>
 
-                  {/* Day Badges and Event Tags */}
+                  {/* Day Badges and Event Tags: ONLY official holidays and weekends */}
                   <div className="space-y-1 mt-1 text-[10px]">
-                    {/* Official Holiday Tag */}
+                    {/* Official Holiday Tag (Added by Admin) */}
                     {item.holiday && (
                       <div
                         className="truncate px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-50 to-amber-100 text-amber-900 font-extrabold border border-amber-300 shadow-2xs flex items-center gap-1"
-                        title={item.holiday}
+                        title={`Holiday: ${item.holiday}`}
                       >
                         <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-600 shrink-0" />
                         <span className="truncate">{item.holiday}</span>
                       </div>
                     )}
 
-                    {/* Approved Leave Tag */}
-                    {item.leave && (
+                    {/* Weekend Tag */}
+                    {item.isWeekend && !item.holiday && item.isCurrentMonth && (
                       <div
-                        className="truncate px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 font-bold border border-indigo-200 shadow-2xs flex items-center gap-1"
-                        title={`${item.leave.leaveType} (${item.leave.status})`}
+                        className="truncate px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200 shadow-2xs flex items-center gap-1"
+                        title="Weekend"
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                        <span className="truncate">{item.leave.leaveType}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                        <span className="truncate">Weekend</span>
                       </div>
                     )}
 
-                    {/* Attendance Record Status */}
-                    {item.attendance && (
+                    {/* Attendance Record Status (Regular Working Days Only) */}
+                    {item.attendance && !item.holiday && !item.isWeekend && (
                       <div
                         className={`truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 ${
                           item.attendance.status === 'Present'
@@ -688,13 +688,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                           }`}
                         />
                         <span className="truncate">{item.attendance.status}</span>
-                      </div>
-                    )}
-
-                    {/* Weekend tag */}
-                    {item.isWeekend && !item.holiday && !item.attendance && item.isCurrentMonth && (
-                      <div className="hidden sm:block text-slate-400 font-semibold px-1 text-[9px] uppercase tracking-wider">
-                        Weekend
                       </div>
                     )}
                   </div>
@@ -733,7 +726,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </span>
               )}
 
-              {selectedDayInfo.attendance && (
+              {selectedDayInfo.isWeekend && !selectedDayInfo.holiday && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>Weekend Off</span>
+                </span>
+              )}
+
+              {selectedDayInfo.attendance && !selectedDayInfo.holiday && !selectedDayInfo.isWeekend && (
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
                     selectedDayInfo.attendance.status === 'Present'
@@ -747,12 +747,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <span>Attendance: {selectedDayInfo.attendance.status}</span>
                 </span>
               )}
-
-              {selectedDayInfo.leave && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-2xs">
-                  Leave: {selectedDayInfo.leave.leaveType}
-                </span>
-              )}
             </div>
           </div>
 
@@ -761,13 +755,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             {/* Shift Timing */}
             <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
               <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Shift Schedule</span>
-              <span className="font-extrabold text-slate-900 text-sm mt-1 block">09:00 AM – 06:00 PM</span>
-              <span className="text-[11px] text-slate-500 mt-0.5 block">Standard Corporate Shift (8h net)</span>
+              <span className="font-extrabold text-slate-900 text-sm mt-1 block">
+                {selectedDayInfo.holiday || selectedDayInfo.isWeekend ? 'Off Duty' : '09:00 AM – 06:00 PM'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-0.5 block">
+                {selectedDayInfo.holiday ? 'Corporate Public Holiday' : selectedDayInfo.isWeekend ? 'Weekend Weekly Rest' : 'Standard Corporate Shift (8h net)'}
+              </span>
             </div>
 
             {/* Punch In & Punch Out */}
             <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Biometric / Web Punch</span>
+              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Attendance Punch</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.attendance?.checkIn || '--'} → {selectedDayInfo.attendance?.checkOut || '--'}
               </span>
@@ -778,14 +776,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </span>
             </div>
 
-            {/* Leave / Absence Info */}
+            {/* Day Classification */}
             <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Leave & Excuses</span>
+              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Classification</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
-                {selectedDayInfo.leave ? selectedDayInfo.leave.leaveType : 'Regular Work Day'}
+                {selectedDayInfo.holiday ? selectedDayInfo.holiday : selectedDayInfo.isWeekend ? 'Weekend Off' : 'Regular Work Day'}
               </span>
               <span className="text-[11px] text-slate-500 mt-0.5 block">
-                {selectedDayInfo.leave?.reason || 'No leave applied for this date'}
+                {selectedDayInfo.holidayObj?.description || (selectedDayInfo.isWeekend ? 'Saturday / Sunday corporate weekend' : 'Scheduled operational business day')}
               </span>
             </div>
 
@@ -814,7 +812,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 Monthly Schedule & Event Timeline ({agendaEvents.length})
               </h3>
               <p className="text-xs text-slate-500">
-                Chronological list of all logged punches, applied leaves, and official holidays for {monthNames[month]} {year}.
+                Chronological list of official corporate holidays and weekend schedule for {monthNames[month]} {year}.
               </p>
             </div>
           </div>
@@ -822,7 +820,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {agendaEvents.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <CalendarDays className="w-12 h-12 mx-auto text-slate-300 mb-2" />
-              <p className="text-sm font-semibold">No recorded events or punches for this month.</p>
+              <p className="text-sm font-semibold">No holidays or weekend events for this month.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -842,8 +840,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       <h4 className="text-sm font-bold text-slate-900">
                         {evt.holiday
                           ? `🌟 ${evt.holiday}`
-                          : evt.leave
-                          ? `🌴 ${evt.leave.leaveType} (${evt.leave.status})`
+                          : evt.isWeekend
+                          ? `🗓️ Weekend (${new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })})`
                           : `💼 Work Shift: ${evt.attendance?.status || 'Scheduled'}`}
                       </h4>
                       <p className="text-xs text-slate-500 mt-0.5">
@@ -853,20 +851,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {evt.attendance && (
-                      <div className="text-xs text-slate-600 bg-white border border-[#d8ebd9] px-3 py-1.5 rounded-xl font-medium">
-                        Punch: <span className="font-bold text-slate-900">{evt.attendance.checkIn} → {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
-                      </div>
-                    )}
                     {evt.holiday && (
                       <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                         Official Holiday
                       </span>
                     )}
-                    {evt.leave && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        {evt.leave.status}
+                    {evt.isWeekend && !evt.holiday && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                        Weekend Off
                       </span>
+                    )}
+                    {evt.attendance && !evt.holiday && !evt.isWeekend && (
+                      <div className="text-xs text-slate-600 bg-white border border-[#d8ebd9] px-3 py-1.5 rounded-xl font-medium">
+                        Punch: <span className="font-bold text-slate-900">{evt.attendance.checkIn} → {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
+                      </div>
                     )}
                   </div>
                 </div>
@@ -929,9 +927,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 }
               }
 
+              const holidayId = String(h.id || (h as any)._id || (h as any).holidayId || '').trim();
+
               return (
                 <div
-                  key={h.id}
+                  key={holidayId || `${h.name}-${h.date}`}
                   className="p-4 rounded-2xl bg-gradient-to-br from-white to-[#fafdfa] border border-[#d8ebd9] hover:border-emerald-300 hover:shadow-xs transition-all flex items-start justify-between gap-3"
                 >
                   <div className="flex items-start gap-3">
@@ -956,15 +956,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     </div>
                   </div>
 
-                  {portalMode !== 'employee' && (
-                    <button
-                      onClick={() => handleDeleteHoliday(h.id, h.name)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete Holiday"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingHoliday({ id: holidayId, name: h.name });
+                    }}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                    title="Delete Holiday"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               );
             })}
@@ -1067,6 +1069,53 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modern In-App Remove Holiday Confirmation Modal */}
+      {mounted && deletingHoliday && typeof document !== 'undefined' && createPortal(
+        <div
+          id="delete-holiday-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeletingHoliday) setDeletingHoliday(null);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in"
+        >
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Remove Holiday?</h3>
+                <p className="text-xs text-slate-500">Official calendar modification</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove <strong className="text-slate-900">{deletingHoliday.name}</strong> from the company calendar? This will delete the holiday from the backend.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingHoliday}
+                onClick={() => setDeletingHoliday(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingHoliday}
+                onClick={handleConfirmDeleteHoliday}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingHoliday ? 'Deleting...' : 'Confirm Remove'}
+              </button>
+            </div>
           </div>
         </div>,
         document.body

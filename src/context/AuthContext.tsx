@@ -98,7 +98,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User>(emptyUser);
-  const [portalMode, setPortalModeState] = useState<'admin' | 'employee'>('employee');
+  const [portalMode, setPortalModeState] = useState<'admin' | 'employee'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = getCookie('hrms_portal_mode');
+      if (savedMode === 'admin' || savedMode === 'employee') return savedMode;
+    }
+    return 'employee';
+  });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
