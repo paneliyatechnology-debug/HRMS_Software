@@ -167,8 +167,11 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
   const firstLetter = (currentEmp.firstName || 'E').trim().charAt(0).toUpperCase();
   const lastLetter = (currentEmp.lastName || '').trim().charAt(0).toUpperCase();
-  const initials = `${firstLetter}${lastLetter}`.trim() || 'EMP';
-  const designationSubtitle = [currentEmp.designationTitle, currentEmp.departmentName].filter(Boolean).join(' • ');
+  const initials = lastLetter ? `${firstLetter} ${lastLetter}` : firstLetter || 'EMP';
+  const designationSubtitle = [currentEmp.designationTitle, currentEmp.departmentName]
+    .map((s) => (s || '').trim())
+    .filter((s) => s && s !== '.' && s !== '-')
+    .join(' • ');
 
   return (
     <div
@@ -223,7 +226,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
                 {/* Upload Hover Overlay */}
                 <label
-                  className="absolute inset-0 rounded-2xl bg-black/60 text-white opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity backdrop-blur-2xs"
+                  className={`absolute inset-0 rounded-2xl bg-black/60 text-white flex flex-col items-center justify-center transition-opacity backdrop-blur-2xs ${
+                    uploadingPhoto ? 'opacity-100 pointer-events-none' : 'opacity-0 group-hover/avatar:opacity-100 cursor-pointer'
+                  }`}
                   title="Change profile picture"
                 >
                   {uploadingPhoto ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle } from 'lucide-react';
+import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
@@ -47,6 +47,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const adminCompanyName = user?.companyName || currentCompany?.name || 'Paneliya Technology Inc.';
 
   const [loading, setLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [nextEmployeeCode, setNextEmployeeCode] = useState<string>('');
@@ -67,6 +68,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const resetFormState = () => {
     setFormData(getInitialFormData());
     setLoading(false);
+    setPhotoUploading(false);
     setFormError(null);
     setFieldErrors({});
   };
@@ -297,33 +299,60 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
             {/* Profile Photo Upload Option */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-13 h-13 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold overflow-hidden shrink-0">
+                <div className="relative w-13 h-13 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold overflow-hidden shrink-0">
                   {formData.avatarUrl ? (
                     <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <Camera className="w-5 h-5 text-emerald-600" />
                   )}
+                  {photoUploading && (
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xs flex flex-col items-center justify-center text-white">
+                      <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-800">Profile Picture (Optional)</p>
-                  <p className="text-[10px] text-slate-500">Upload employee photo for directory & attendance</p>
+                  <p className="text-[10px] text-slate-500">
+                    {photoUploading ? 'Uploading and processing photo...' : 'Upload employee photo for directory & attendance'}
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer transition active:scale-95 shadow-xs">
-                  <span>{formData.avatarUrl ? 'Change' : 'Upload'}</span>
+                <label
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs transition shadow-xs ${
+                    photoUploading
+                      ? 'bg-emerald-700/70 cursor-wait pointer-events-none'
+                      : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer active:scale-95'
+                  }`}
+                >
+                  {photoUploading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{formData.avatarUrl ? 'Change' : 'Upload'}</span>
+                    </>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={photoUploading}
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const val = validateImageFile(file);
                       if (!val.valid) {
                         setFormError(val.error || 'Invalid file');
+                        e.target.value = '';
                         return;
                       }
+                      setPhotoUploading(true);
+                      setFormError(null);
                       try {
                         let photoUrl = '';
                         try {
@@ -339,16 +368,20 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         setFormError(null);
                       } catch (err: any) {
                         setFormError(err.message || 'Could not process photo');
+                      } finally {
+                        setPhotoUploading(false);
+                        e.target.value = '';
                       }
                     }}
                     className="hidden"
                   />
                 </label>
-                {formData.avatarUrl && (
+                {formData.avatarUrl && !photoUploading && (
                   <button
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, avatarUrl: '' }))}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Remove Photo"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
