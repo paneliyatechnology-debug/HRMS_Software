@@ -802,30 +802,84 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [initialTab]);
 
   const exportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    if (resolvedTab === 'summary') {
-      csvContent += 'Employee ID,Name,Month,Year\n';
-      visibleEmployees.forEach((e) => {
-        csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}",${selectedMonth},${selectedYear}\n`;
+    let csvContent = '';
+    let fileName = '';
+
+    if (resolvedTab === 'today') {
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      fileName = `Attendance_Live_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
+
+      visibleEmployees.forEach((emp) => {
+        const rec = getEmpTodayRecord(emp);
+        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+
+        const dateStr = rec?.date || todayDateStr;
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+        const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
+
+        const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+        const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
+        const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
+
+        const statusStr = rec
+          ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
+          : 'Not Punched';
+
+        const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
+        const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
+        const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
+        const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
+
+        csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
+      });
+    } else if (resolvedTab === 'summary') {
+      fileName = `Attendance_Summary_${selectedMonth}_${selectedYear}.csv`;
+      csvContent += 'Employee ID,Employee Name,Department,Month,Year,Present Days,Half Days,Absent Days,Total Work Hours,Daily Average (Hrs)\n';
+
+      visibleEmployees.forEach((emp) => {
+        const m = getEmployeeMonthlyMetrics(emp);
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+
+        csvContent += `"${empCode}","${empName}","${dept}","${selectedMonth}","${selectedYear}",${m.presentDays},${m.halfDays},${m.absentDays},${m.totalHours},${m.avgDailyHours}\n`;
       });
     } else if (resolvedTab === 'roster') {
-      csvContent += 'Employee ID,Name,Shift Name,Timing,Weekly Off\n';
-      visibleEmployees.forEach((e) => {
-        csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
+      fileName = `Shift_Roster_${selectedMonth}_${selectedYear}.csv`;
+      csvContent += 'Employee ID,Employee Name,Department,Shift Name,Timing,Weekly Off\n';
+      visibleEmployees.forEach((emp) => {
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+        csvContent += `"${empCode}","${empName}","${dept}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
       });
     } else {
+      // Holidays tab
+      fileName = `Holiday_Schedule_${selectedYear}.csv`;
       csvContent += 'Date,Holiday Name,Day,Type\n';
       holidaysList.forEach((h) => {
         csvContent += `"${h.date}","${h.name}","${h.day}","${h.type}"\n`;
       });
     }
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${activeTab}_${selectedMonth}_${selectedYear}.csv`);
+    link.href = url;
+    link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const holidaysList = [
@@ -929,23 +983,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           )}
 
           {!isEmployeeView && (
-            <>
-              <button
-                onClick={() => setIsRegModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-              >
-                <Sliders className="w-3.5 h-3.5 text-blue-600" />
-                <span>Regularize Punch</span>
-              </button>
-
-              <button
-                onClick={() => setIsBiometricModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-              >
-                <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Biometric Sync</span>
-              </button>
-            </>
+            <button
+              onClick={() => setIsRegModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-600" />
+              <span>Regularize Punch</span>
+            </button>
           )}
 
           <button
@@ -1745,27 +1789,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2 pt-0.5">
-                            <div className="flex items-center gap-1.5">
-                              {isAdminUser ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleWFH(emp)}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                                    isWfhActive
-                                      ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                      : 'bg-slate-100 text-slate-600 border-slate-200'
-                                  }`}
-                                >
-                                  {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                                </button>
-                              ) : (
-                                <span className="text-[10px] font-bold text-slate-500">
-                                  {isWfhActive ? '🏡 WFH' : '🏢 Office'}
-                                </span>
-                              )}
-                            </div>
-
+                          <div className="flex items-center justify-end gap-2 pt-0.5">
                             {rec && (rec.checkInDevice || rec.checkInPhoto) && (
                               <button
                                 type="button"
@@ -1791,7 +1815,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         <tr>
                           <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
                           <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
-                          <th className="py-2.5 px-4 font-medium">WORK FROM HOME (WFH)</th>
                           <th className="py-2.5 px-4 font-medium">CHECK IN</th>
                           <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
                           <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
@@ -1825,52 +1848,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 </div>
                               </td>
                               <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                              <td className="py-3 px-4">
-                                {isAdminUser ? (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      role="switch"
-                                      id={`wfh-toggle-${emp.id}`}
-                                      aria-checked={isWfhActive}
-                                      onClick={() => handleToggleWFH(emp)}
-                                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                        isWfhActive ? 'bg-purple-600' : 'bg-slate-300'
-                                      }`}
-                                      title={
-                                        isWfhActive
-                                          ? 'WFH Active: Click to switch to Office Mode'
-                                          : 'Office Mode: Click to switch to WFH'
-                                      }
-                                    >
-                                      <span
-                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
-                                          isWfhActive ? 'translate-x-4' : 'translate-x-0'
-                                        }`}
-                                      />
-                                    </button>
-                                    <span
-                                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${
-                                        isWfhActive
-                                          ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                                      }`}
-                                    >
-                                      {isWfhActive ? '🏡 WFH Active' : '🏢 Office'}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span
-                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                                      isWfhActive
-                                        ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                                    }`}
-                                  >
-                                    {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                                  </span>
-                                )}
-                              </td>
                               <td className="py-3 px-4 font-mono text-slate-700">
                                 {rec?.checkIn ? (
                                   <div className="flex items-center gap-1.5">
