@@ -168,25 +168,98 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const activeEmpId = currentEmp.id || currentEmpId;
   const currentStatus: 'not_started' | 'working' | 'on_break' | 'completed' = punchStatus || punchState.status;
 
-  // On mount: query backend for active work timer session
+  // On mount: query backend for active work timer session and restore persistent state
   useEffect(() => {
     let isMounted = true;
     api.getWorkStatus()
       .then((statusData: any) => {
         if (!isMounted || !statusData) return;
-        if (statusData.hasActiveSession || statusData.activeSession?.status === 'ACTIVE') {
-          setPunchStatus('working');
-          const elapsed = statusData.activeSession?.elapsedSeconds || 0;
-          if (elapsed > 0) {
-            setLiveWorkedHMS(formatSecondsToHMS(elapsed));
+        const session =
+          statusData.activeSession ||
+          statusData.workSession ||
+          statusData.session ||
+          (statusData.hasActiveSession ? statusData : null);
+
+        if (!session) return;
+
+        const rawStatus = String(session.status || (statusData.hasActiveSession ? 'ACTIVE' : '')).toUpperCase();
+        const isWorking = rawStatus === 'ACTIVE' || rawStatus === 'WORKING' || Boolean(statusData.active);
+        const isOnBreak = rawStatus === 'BREAK' || rawStatus === 'ON_BREAK' || Boolean(statusData.onBreak);
+        const isCompleted = rawStatus === 'STOPPED' || rawStatus === 'COMPLETED';
+
+        const resolvedStatus: 'not_started' | 'working' | 'on_break' | 'completed' =
+          isOnBreak ? 'on_break' : isWorking ? 'working' : isCompleted ? 'completed' : 'not_started';
+
+        if (resolvedStatus === 'not_started') return;
+
+        const now = Date.now();
+        const todayStr = getTodayDateString();
+
+        let elapsed = 0;
+        if (typeof session.elapsedSeconds === 'number') {
+          elapsed = session.elapsedSeconds;
+        } else if (session.startTime || session.startedAt) {
+          const startMs = new Date(session.startTime || session.startedAt).getTime();
+          if (!isNaN(startMs) && startMs > 0) {
+            elapsed = Math.max(0, Math.floor((now - startMs) / 1000));
           }
         }
+
+        const startIso = session.startTime || session.startedAt || new Date().toISOString();
+        const timeStr = new Date(startIso).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        const newRec: AttendanceRecord = {
+          id: session._id || session.id || session.workSessionId || `ws-${now}`,
+          employeeId: activeEmpId,
+          employeeName: `${currentEmp?.firstName || user?.firstName || 'Employee'} ${currentEmp?.lastName || user?.lastName || ''}`.trim(),
+          employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || 'EMP',
+          date: todayStr,
+          checkIn: timeStr,
+          checkOut: isCompleted
+            ? (session.endTime ? new Date(session.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '06:00 PM')
+            : undefined,
+          status: 'Present',
+          isCompleted,
+          isOnBreak,
+          activeSeconds: elapsed,
+          breakSeconds: (session.breakDurationMinutes || 0) * 60,
+          breakDurationMinutes: session.breakDurationMinutes || 0,
+          workingHours: Number((elapsed / 3600).toFixed(2)),
+          overtimeHours: elapsed > 8.5 * 3600 ? Number(((elapsed - 8.5 * 3600) / 3600).toFixed(2)) : 0,
+          lastActiveTimestamp: isWorking ? now : undefined,
+          lastBreakTimestamp: isOnBreak ? now : undefined,
+          createdAt: startIso,
+        };
+
+        updateLocalRecordFromBackend(newRec);
+
+        setPunchStatus(resolvedStatus);
+        setLiveWorkedHMS(formatSecondsToHMS(elapsed));
+        setPunchState({
+          canCheckIn: isCompleted,
+          status: resolvedStatus,
+          message:
+            isWorking
+              ? 'Shift is active. Clock running.'
+              : isOnBreak
+              ? 'Break in progress. Work timer paused.'
+              : 'Shift completed for today.',
+          record: newRec,
+        });
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('[DashboardView] getWorkStatus error on mount:', err);
+      });
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeEmpId, currentEmp, user]);
 
   // Sync and tick timer every second
   const refreshAttendanceState = () => {
@@ -200,11 +273,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const brk = getLiveBreakSeconds(eligibility.record);
       setLiveWorkedHMS(formatSecondsToHMS(active));
       setLiveBreakWords(formatSecondsToWords(brk));
-      if (!punchStatus && eligibility.status !== 'not_started') {
+      if (eligibility.status !== 'not_started') {
         setPunchStatus(eligibility.status);
       }
     } else {
-      if (punchStatus !== 'working' && punchStatus !== 'on_break') {
+      if (punchStatus !== 'working' && punchStatus !== 'on_break' && punchStatus !== 'completed') {
         setLiveWorkedHMS('00:00:00');
         setLiveBreakWords('0s');
       }
@@ -528,6 +601,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         status: 'Present',
         isCompleted: false,
         isOnBreak: false,
+        activeSeconds: 0,
+        breakSeconds: 0,
         breakDurationMinutes: 0,
         workingHours: 0,
         overtimeHours: 0,

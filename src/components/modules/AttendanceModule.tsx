@@ -56,6 +56,7 @@ import {
   performResumeWork,
   performCheckOut,
   extractRecordsFromWorkStatus,
+  updateLocalRecordFromBackend,
 } from '../../lib/attendanceService';
 import {
   getEmployeeWFHMap,
@@ -261,6 +262,78 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       setDetailEmpLoading(false);
     }
   }, [detailEmp, fetchEmpWorkStatus]);
+
+  // Sync logged in employee's live work status from backend on mount/refresh
+  useEffect(() => {
+    let isMounted = true;
+    api.getWorkStatus()
+      .then((statusData: any) => {
+        if (!isMounted || !statusData) return;
+        const session =
+          statusData.activeSession ||
+          statusData.workSession ||
+          statusData.session ||
+          (statusData.hasActiveSession ? statusData : null);
+
+        if (!session) return;
+
+        const rawStatus = String(session.status || (statusData.hasActiveSession ? 'ACTIVE' : '')).toUpperCase();
+        const isWorking = rawStatus === 'ACTIVE' || rawStatus === 'WORKING' || Boolean(statusData.active);
+        const isOnBreak = rawStatus === 'BREAK' || rawStatus === 'ON_BREAK' || Boolean(statusData.onBreak);
+        const isCompleted = rawStatus === 'STOPPED' || rawStatus === 'COMPLETED';
+
+        const now = Date.now();
+        const todayStr = getTodayDateString();
+
+        let elapsed = 0;
+        if (typeof session.elapsedSeconds === 'number') {
+          elapsed = session.elapsedSeconds;
+        } else if (session.startTime || session.startedAt) {
+          const startMs = new Date(session.startTime || session.startedAt).getTime();
+          if (!isNaN(startMs) && startMs > 0) {
+            elapsed = Math.max(0, Math.floor((now - startMs) / 1000));
+          }
+        }
+
+        const startIso = session.startTime || session.startedAt || new Date().toISOString();
+        const timeStr = new Date(startIso).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        const myRec: AttendanceRecord = {
+          id: session._id || session.id || session.workSessionId || `ws-${now}`,
+          employeeId: selfEmployee.id || myEmpId,
+          employeeName: `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim(),
+          employeeCode: selfEmployee.employeeCode,
+          date: todayStr,
+          checkIn: timeStr,
+          checkOut: isCompleted
+            ? (session.endTime ? new Date(session.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '06:00 PM')
+            : undefined,
+          status: 'Present',
+          isCompleted,
+          isOnBreak,
+          activeSeconds: elapsed,
+          breakSeconds: (session.breakDurationMinutes || 0) * 60,
+          breakDurationMinutes: session.breakDurationMinutes || 0,
+          workingHours: Number((elapsed / 3600).toFixed(2)),
+          overtimeHours: elapsed > 8.5 * 3600 ? Number(((elapsed - 8.5 * 3600) / 3600).toFixed(2)) : 0,
+          lastActiveTimestamp: isWorking ? now : undefined,
+          lastBreakTimestamp: isOnBreak ? now : undefined,
+          createdAt: startIso,
+        };
+
+        updateLocalRecordFromBackend(myRec);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selfEmployee, myEmpId]);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
