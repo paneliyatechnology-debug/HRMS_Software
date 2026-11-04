@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   User,
@@ -31,6 +31,8 @@ import {
   CheckCircle2,
   Clock,
   Award,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +63,14 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsRef.current) {
+      const scrollAmount = direction === 'left' ? -220 : 220;
+      tabsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   React.useEffect(() => {
     setCurrentEmp(employee);
@@ -182,7 +192,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full h-[92vh] sm:h-[86vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full h-[92vh] sm:h-[86vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom"
       >
         {/* Header Profile Hero */}
         <div className="p-5 sm:p-6 bg-white border-b border-slate-100 text-slate-900 relative shrink-0">
@@ -351,27 +361,53 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </div>
 
         {/* Horizontal Navigation Tabs */}
-        <div className="border-b border-slate-100 px-4 sm:px-6 bg-slate-50/70 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0">
-          <div className="flex items-center gap-1.5 py-2.5 min-w-max">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 py-2 px-3.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                    isActive
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200/80'
-                  }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+        <div className="relative border-b border-slate-100 bg-slate-50/70 shrink-0 flex items-center px-1 sm:px-2">
+          <button
+            type="button"
+            onClick={() => scrollTabs('left')}
+            className="hidden sm:flex items-center justify-center w-7 h-7 mx-0.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors shrink-0 shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer"
+            title="Scroll left"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div
+            ref={tabsRef}
+            className="flex-1 overflow-x-auto scroll-smooth py-2 px-1 [scrollbar-width:thin] scrollbar-thin scrollbar-thumb-slate-300"
+          >
+            <div className="flex items-center gap-1.5 min-w-max">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={(e) => {
+                      setActiveTab(tab.id);
+                      e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                    }}
+                    className={`flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200/80'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => scrollTabs('right')}
+            className="hidden sm:flex items-center justify-center w-7 h-7 mx-0.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors shrink-0 shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer"
+            title="Scroll right"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Tab Content Body */}
