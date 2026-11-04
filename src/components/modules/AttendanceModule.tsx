@@ -187,7 +187,28 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     return false;
   };
 
-  const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
+  const VALID_ATTENDANCE_TABS: Array<'today' | 'summary' | 'roster' | 'holidays'> = [
+    'today',
+    'summary',
+    'roster',
+    'holidays',
+  ];
+
+  const sanitizeAttendanceTab = (
+    tab?: string
+  ): 'today' | 'summary' | 'roster' | 'holidays' => {
+    if (tab && (VALID_ATTENDANCE_TABS as string[]).includes(tab)) {
+      return tab as any;
+    }
+    return 'today';
+  };
+
+  const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(
+    () => sanitizeAttendanceTab(initialTab)
+  );
+  const resolvedTab: 'today' | 'summary' | 'roster' | 'holidays' =
+    (VALID_ATTENDANCE_TABS as string[]).includes(activeTab) ? activeTab : 'today';
+
   const [attendanceSearch, setAttendanceSearch] = useState('');
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
@@ -765,19 +786,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
+    if (initialTab && (VALID_ATTENDANCE_TABS as string[]).includes(initialTab)) {
+      setActiveTab(initialTab as any);
+    } else if (initialTab) {
+      setActiveTab('today');
     }
   }, [initialTab]);
 
   const exportCSV = () => {
     let csvContent = 'data:text/csv;charset=utf-8,';
-    if (activeTab === 'summary') {
+    if (resolvedTab === 'summary') {
       csvContent += 'Employee ID,Name,Month,Year\n';
       visibleEmployees.forEach((e) => {
         csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}",${selectedMonth},${selectedYear}\n`;
       });
-    } else if (activeTab === 'roster') {
+    } else if (resolvedTab === 'roster') {
       csvContent += 'Employee ID,Name,Shift Name,Timing,Weekly Off\n';
       visibleEmployees.forEach((e) => {
         csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
@@ -825,7 +848,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <button
             onClick={() => setActiveTab('today')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'today'
+              resolvedTab === 'today'
                 ? 'bg-white text-slate-900 font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
@@ -835,7 +858,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <button
             onClick={() => setActiveTab('summary')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'summary'
+              resolvedTab === 'summary'
                 ? 'bg-white text-slate-900 font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
@@ -845,7 +868,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <button
             onClick={() => setActiveTab('roster')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'roster'
+              resolvedTab === 'roster'
                 ? 'bg-white text-slate-900 font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
@@ -855,7 +878,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <button
             onClick={() => setActiveTab('holidays')}
             className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'holidays'
+              resolvedTab === 'holidays'
                 ? 'bg-white text-slate-900 font-bold shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 font-medium'
             }`}
@@ -950,7 +973,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
 
         {/* Filters dropdowns for Summary */}
-        {activeTab === 'summary' && (
+        {resolvedTab === 'summary' && (
           <div className="flex items-center gap-2 text-xs">
             <span className="font-bold text-slate-500">Month:</span>
             <select
@@ -967,7 +990,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       </div>
 
       {/* TAB: Today's Live Attendance & Break Tracker */}
-      {activeTab === 'today' && (() => {
+      {resolvedTab === 'today' && (() => {
         const todayDate = getTodayDateString();
         const mergedRecords = Array.isArray(records) && records.length > 0 ? records : liveRecords;
         const todayRecords = isEmployeeView
@@ -1970,7 +1993,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       })()}
 
       {/* TAB 1: Attendance Summary (Employee-Wise & Grid View) */}
-      {activeTab === 'summary' && (
+      {resolvedTab === 'summary' && (
         <div className="space-y-4 animate-in fade-in">
           {/* Top Header Card */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
@@ -2836,7 +2859,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       )}
 
       {/* TAB 2: Shift Roster */}
-      {activeTab === 'roster' && (
+      {resolvedTab === 'roster' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -2921,7 +2944,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       )}
 
       {/* TAB 3: Holiday Schedule */}
-      {activeTab === 'holidays' && (
+      {resolvedTab === 'holidays' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">

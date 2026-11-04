@@ -180,8 +180,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNav = (moduleId: string, subTab?: string) => {
     setActiveModule(moduleId, subTab);
-    if (onSelectSubTab && subTab) {
-      onSelectSubTab(subTab);
+    if (onSelectSubTab) {
+      onSelectSubTab(subTab || '');
     }
     if (window.innerWidth < 1024) {
       setIsOpen(false);

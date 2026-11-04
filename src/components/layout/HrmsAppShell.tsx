@@ -108,9 +108,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const parsed = parseRoutePath(currentPath);
       if (parsed.isValid) {
         setActiveModule(parsed.module);
-        if (parsed.subTab) {
-          setSubTab(parsed.subTab);
-        }
+        setSubTab(parsed.subTab || '');
       }
     }
   }, [pathname, searchParams, router]);
@@ -121,9 +119,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const parsed = parseRoutePath(window.location.pathname);
       if (parsed.isValid) {
         setActiveModule(parsed.module);
-        if (parsed.subTab) {
-          setSubTab(parsed.subTab);
-        }
+        setSubTab(parsed.subTab || '');
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -347,7 +343,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const navigateToModule = (mod: string, tab?: string) => {
     const route = getRouteForModule(mod, tab);
     setActiveModule(mod);
-    if (tab) setSubTab(tab);
+    setSubTab(tab || '');
 
     if (typeof window !== 'undefined') {
       try {
@@ -513,7 +509,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
               <AttendanceModule
                 records={attendance}
                 employees={employees}
-                initialTab={(subTab as any) || (portalMode === 'employee' ? 'today' : 'summary')}
+                initialTab={
+                  subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
+                    ? (subTab as any)
+                    : 'today'
+                }
                 onOpenPunchModal={() => setClockModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
