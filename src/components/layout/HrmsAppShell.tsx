@@ -246,7 +246,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         api.getCandidates().catch(() => []),
         api.getAssets().catch(() => []),
         api.getMyCompany().catch(() => null),
-        api.getWorkStatus().catch(() => null),
+        portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
       ]);
 
       if (myCompanyData) {
@@ -335,7 +335,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     } catch (err) {
       console.warn('Could not refresh HRMS data:', err);
     }
-  }, [user]);
+  }, [user, portalMode]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -418,7 +418,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-[#a3b18a] flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-[#b7e4c7] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <span className="text-xs font-semibold text-slate-700">
           {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
@@ -428,7 +428,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }
 
   return (
-    <div className="h-screen w-full bg-[#a3b18a] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
+    <div className="h-screen w-full bg-[#b7e4c7] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar

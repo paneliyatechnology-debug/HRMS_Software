@@ -205,8 +205,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailEmpLoading, setDetailEmpLoading] = useState(false);
   const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
 
-  const fetchEmpWorkStatus = React.useCallback(async (targetEmp?: Employee | null) => {
-    const empToLoad = targetEmp || detailEmp;
+  const fetchEmpWorkStatus = React.useCallback(async (empToLoad: Employee) => {
     if (!empToLoad) return;
     setDetailEmpLoading(true);
     try {
@@ -252,7 +251,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     } finally {
       setDetailEmpLoading(false);
     }
-  }, [detailEmp, employees]);
+  }, [employees]);
 
   useEffect(() => {
     if (detailEmp) {
@@ -261,10 +260,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       setDetailEmpRecords([]);
       setDetailEmpLoading(false);
     }
-  }, [detailEmp, fetchEmpWorkStatus]);
+  }, [detailEmp?.id, fetchEmpWorkStatus]);
 
   // Sync logged in employee's live work status from backend on mount/refresh
   useEffect(() => {
+    if (!isEmployeeView || portalMode === 'admin') return;
+
     let isMounted = true;
     api.getWorkStatus()
       .then((statusData: any) => {
@@ -333,7 +334,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selfEmployee, myEmpId]);
+  }, [isEmployeeView, portalMode, selfEmployee.id, myEmpId]);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',

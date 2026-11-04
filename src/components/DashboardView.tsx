@@ -114,45 +114,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Determine current active employee for self-service punch
+  // Determine current active employee for self-service punch (memoized to prevent re-creation loops)
   const currentEmpId = user.employeeId || user.id || '';
-  const currentEmp: Employee =
-    employees.find(
-      (e) =>
-        (currentEmpId && e.id === currentEmpId) ||
-        (user.email && e.email && e.email.toLowerCase() === user.email.toLowerCase()) ||
-        ((user as any).employeeCode && e.employeeCode && e.employeeCode.toLowerCase() === (user as any).employeeCode.toLowerCase())
-    ) || {
-      id: currentEmpId || 'emp-self',
-      employeeCode: (user as any).employeeCode || 'EMP',
-      firstName: user.firstName || 'Employee',
-      lastName: user.lastName || '',
-      email: user.email || '',
-      phone: (user as any).phone || '',
-      avatarUrl: user.avatarUrl || '',
-      gender: 'Other',
-      dateOfBirth: '',
-      address: '',
-      emergencyContact: { name: '', relationship: '', phone: '' },
-      joiningDate: '',
-      employmentType: 'Full-time',
-      status: 'Active',
-      departmentId: '',
-      departmentName: (user as any).departmentName || 'General',
-      designationId: '',
-      designationTitle: (user as any).designationTitle || 'Staff Member',
-      workLocationId: '',
-      workLocationName: '',
-      shift: 'General Shift',
-      bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
-      taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
-      education: [],
-      previousExperience: [],
-      skills: [],
-      salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
-      createdAt: '',
-      updatedAt: '',
-    };
+  const currentEmp: Employee = useMemo(() => {
+    return (
+      employees.find(
+        (e) =>
+          (currentEmpId && e.id === currentEmpId) ||
+          (user.email && e.email && e.email.toLowerCase() === user.email.toLowerCase()) ||
+          ((user as any).employeeCode && e.employeeCode && e.employeeCode.toLowerCase() === (user as any).employeeCode.toLowerCase())
+      ) || {
+        id: currentEmpId || 'emp-self',
+        employeeCode: (user as any).employeeCode || 'EMP',
+        firstName: user.firstName || 'Employee',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: (user as any).phone || '',
+        avatarUrl: user.avatarUrl || '',
+        gender: 'Other',
+        dateOfBirth: '',
+        address: '',
+        emergencyContact: { name: '', relationship: '', phone: '' },
+        joiningDate: '',
+        employmentType: 'Full-time',
+        status: 'Active',
+        departmentId: '',
+        departmentName: (user as any).departmentName || 'General',
+        designationId: '',
+        designationTitle: (user as any).designationTitle || 'Staff Member',
+        workLocationId: '',
+        workLocationName: '',
+        shift: 'General Shift',
+        bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+        taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
+        education: [],
+        previousExperience: [],
+        skills: [],
+        salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+        createdAt: '',
+        updatedAt: '',
+      }
+    );
+  }, [employees, currentEmpId, user.email, (user as any).employeeCode, user.firstName, user.lastName]);
 
   // Live punch status for employee
   const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
@@ -168,8 +171,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const activeEmpId = currentEmp.id || currentEmpId;
   const currentStatus: 'not_started' | 'working' | 'on_break' | 'completed' = punchStatus || punchState.status;
 
-  // On mount: query backend for active work timer session and restore persistent state
+  // On mount: query backend for active work timer session and restore persistent state (Employee portal only)
   useEffect(() => {
+    // Admin has punch clock disabled; never poll or query work status in admin workspace
+    if (portalMode === 'admin') return;
+
     let isMounted = true;
     api.getWorkStatus()
       .then((statusData: any) => {
@@ -259,7 +265,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeEmpId, currentEmp, user]);
+  }, [portalMode, activeEmpId]);
 
   // Sync and tick timer every second
   const refreshAttendanceState = () => {
