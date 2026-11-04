@@ -790,3 +790,144 @@ export function syncBackendAttendanceRecords(backendRecords: any[]): void {
   }
 }
 
+/**
+ * Convert raw work session data from `/api/attendance/work/status` into AttendanceRecord format
+ */
+export function parseWorkSessionToRecord(session: any, empList: Employee[] = []): AttendanceRecord | null {
+  if (!session || typeof session !== 'object') return null;
+  const rawId = session._id || session.id || session.workSessionId || `ws-${Date.now()}`;
+  const userId = session.userId || session.employeeId || session.user || '';
+
+  const matchedEmp = empList.find((e: any) =>
+    (userId && (e.id === userId || e.userId === userId || (e as any)._id === userId)) ||
+    (session.employeeCode && e.employeeCode === session.employeeCode) ||
+    (session.email && e.email?.toLowerCase() === session.email.toLowerCase())
+  );
+
+  const empId = matchedEmp ? matchedEmp.id : (userId || 'emp-unknown');
+  const empName = matchedEmp
+    ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim()
+    : (session.employeeName || session.userName || 'Employee');
+  const empCode = matchedEmp?.employeeCode || session.employeeCode || '';
+  const deptName = matchedEmp?.departmentName || session.departmentName || 'General Staff';
+
+  const startDate = session.startTime || session.startedAt || session.checkIn || session.createdAt || session.date;
+  const endDate = session.endTime || session.stoppedAt || session.checkOut || session.updatedAt;
+
+  const recDate = session.date
+    ? (typeof session.date === 'string' && session.date.includes('T') ? session.date.split('T')[0] : session.date)
+    : (startDate ? new Date(startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+
+  const formatTime = (isoOrTime?: string) => {
+    if (!isoOrTime) return '';
+    if (typeof isoOrTime === 'string' && isoOrTime.includes(':') && !isoOrTime.includes('T')) return isoOrTime;
+    try {
+      const d = new Date(isoOrTime);
+      if (isNaN(d.getTime())) return String(isoOrTime);
+      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return String(isoOrTime);
+    }
+  };
+
+  const checkIn = formatTime(startDate) || '09:00 AM';
+  const hasEnded = Boolean(endDate && endDate !== startDate);
+  const checkOut = hasEnded ? formatTime(endDate) : undefined;
+
+  const statusStr = String(session.status || '').toUpperCase();
+  const isWorking = statusStr === 'ACTIVE' || statusStr === 'WORKING' || Boolean(session.active);
+  const isOnBreak = statusStr === 'BREAK' || statusStr === 'ON_BREAK' || Boolean(session.onBreak);
+  const isCompleted = statusStr === 'COMPLETED' || statusStr === 'STOPPED' || Boolean(checkOut);
+
+  let breakSeconds = 0;
+  if (Array.isArray(session.breaks)) {
+    session.breaks.forEach((b: any) => {
+      if (typeof b.durationSeconds === 'number') breakSeconds += b.durationSeconds;
+      else if (b.startBreak && b.resumeBreak) {
+        breakSeconds += Math.max(0, (new Date(b.resumeBreak).getTime() - new Date(b.startBreak).getTime()) / 1000);
+      }
+    });
+  } else if (typeof session.breakDurationMinutes === 'number') {
+    breakSeconds = session.breakDurationMinutes * 60;
+  } else if (typeof session.breakSeconds === 'number') {
+    breakSeconds = session.breakSeconds;
+  }
+
+  const activeSeconds = session.elapsedSeconds || session.activeSeconds || (session.workingHours ? session.workingHours * 3600 : 0);
+  const workingHours = activeSeconds > 0 ? Number((activeSeconds / 3600).toFixed(2)) : 0;
+
+  return {
+    id: String(rawId),
+    employeeId: empId,
+    employeeName: empName,
+    employeeCode: empCode,
+    departmentName: deptName,
+    date: recDate,
+    checkIn,
+    checkOut,
+    breakDurationMinutes: Math.round(breakSeconds / 60),
+    workingHours,
+    overtimeHours: workingHours > 8.5 ? Number((workingHours - 8.5).toFixed(2)) : 0,
+    status: isCompleted ? 'Present' : isWorking ? 'Present' : isOnBreak ? 'Present' : 'Present',
+    createdAt: startDate || new Date().toISOString(),
+    activeSeconds,
+    breakSeconds,
+    isOnBreak,
+    isCompleted,
+    punches: [
+      {
+        id: `p-${rawId}-in`,
+        type: 'IN',
+        timestamp: startDate || new Date().toISOString(),
+        time: checkIn,
+      },
+      ...(checkOut
+        ? [
+            {
+              id: `p-${rawId}-out`,
+              type: 'OUT' as const,
+              timestamp: endDate || new Date().toISOString(),
+              time: checkOut,
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
+/**
+ * Extract all valid AttendanceRecords from an arbitrary work status API response
+ */
+export function extractRecordsFromWorkStatus(response: any, empList: Employee[] = []): AttendanceRecord[] {
+  if (!response || typeof response !== 'object') return [];
+  const results: AttendanceRecord[] = [];
+
+  const rawList = Array.isArray(response)
+    ? response
+    : Array.isArray(response.data)
+    ? response.data
+    : Array.isArray(response.history)
+    ? response.history
+    : Array.isArray(response.sessions)
+    ? response.sessions
+    : Array.isArray(response.records)
+    ? response.records
+    : [];
+
+  rawList.forEach((item: any) => {
+    const r = parseWorkSessionToRecord(item, empList);
+    if (r) results.push(r);
+  });
+
+  const active = response.activeSession || response.workSession || response.session || (response.hasActiveSession ? response : null);
+  if (active && typeof active === 'object') {
+    const r = parseWorkSessionToRecord(active, empList);
+    if (r && !results.some((x) => x.id === r.id || (x.employeeId === r.employeeId && x.date === r.date))) {
+      results.unshift(r);
+    }
+  }
+
+  return results;
+}
+
+

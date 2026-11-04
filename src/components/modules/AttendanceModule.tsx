@@ -38,6 +38,7 @@ import {
   Play,
   Square,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { PunchVerificationModal } from '../modals/PunchVerificationModal';
 import { BiometricHubModal } from '../modals/BiometricHubModal';
@@ -54,6 +55,7 @@ import {
   performTakeBreak,
   performResumeWork,
   performCheckOut,
+  extractRecordsFromWorkStatus,
 } from '../../lib/attendanceService';
 import {
   getEmployeeWFHMap,
@@ -199,6 +201,66 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [summaryViewMode, setSummaryViewMode] = useState<'cards' | 'grid'>('cards');
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
   const [detailModalTab, setDetailModalTab] = useState<'logs' | 'matrix'>('logs');
+  const [detailEmpLoading, setDetailEmpLoading] = useState(false);
+  const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
+
+  const fetchEmpWorkStatus = React.useCallback(async (targetEmp?: Employee | null) => {
+    const empToLoad = targetEmp || detailEmp;
+    if (!empToLoad) return;
+    setDetailEmpLoading(true);
+    try {
+      // Hit attendance work status API per user requirement:
+      // curl --location 'http://192.168.1.107:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
+      const res = await api.getWorkStatus();
+      if (!res) return;
+      const extracted = extractRecordsFromWorkStatus(res, employees);
+
+      const targetId = String(empToLoad.id || '').trim();
+      const targetUserId = String((empToLoad as any).userId || (empToLoad as any)._id || '').trim();
+      const targetCode = String(empToLoad.employeeCode || '').trim();
+      const targetEmail = String(empToLoad.email || '').trim().toLowerCase();
+      const targetName = `${empToLoad.firstName || ''} ${empToLoad.lastName || ''}`.trim().toLowerCase();
+
+      const matched = extracted.filter((r) => {
+        const rEmpId = String(r.employeeId || '').trim();
+        const rEmpCode = String(r.employeeCode || '').trim();
+        const rEmpName = String(r.employeeName || '').trim().toLowerCase();
+        return (
+          (targetId && rEmpId.toLowerCase() === targetId.toLowerCase()) ||
+          (targetUserId && rEmpId.toLowerCase() === targetUserId.toLowerCase()) ||
+          (targetCode && rEmpCode.toLowerCase() === targetCode.toLowerCase()) ||
+          (targetName && rEmpName === targetName)
+        );
+      });
+
+      if (matched.length > 0) {
+        setDetailEmpRecords(matched);
+      } else if (extracted.length > 0) {
+        const bound = extracted.map((rec) => ({
+          ...rec,
+          employeeId: empToLoad.id,
+          employeeName: `${empToLoad.firstName} ${empToLoad.lastName}`.trim(),
+          employeeCode: empToLoad.employeeCode || rec.employeeCode,
+        }));
+        setDetailEmpRecords(bound);
+      } else {
+        setDetailEmpRecords([]);
+      }
+    } catch (err) {
+      console.warn('[AttendanceModule] Failed to fetch work status from /api/attendance/work/status:', err);
+    } finally {
+      setDetailEmpLoading(false);
+    }
+  }, [detailEmp, employees]);
+
+  useEffect(() => {
+    if (detailEmp) {
+      fetchEmpWorkStatus(detailEmp);
+    } else {
+      setDetailEmpRecords([]);
+      setDetailEmpLoading(false);
+    }
+  }, [detailEmp, fetchEmpWorkStatus]);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -221,6 +283,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   // Helper to compute monthly metrics for each employee from live database records
   const getEmployeeMonthlyMetrics = (emp: Employee) => {
     const empRecordsMap = new Map<string, AttendanceRecord>();
+    const extraDetailRecs =
+      detailEmp && (emp.id === detailEmp.id || (emp.employeeCode && emp.employeeCode === detailEmp.employeeCode))
+        ? detailEmpRecords
+        : [];
     const allEmpRecs = [
       ...records.filter(
         (r) =>
@@ -231,6 +297,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase())
       ),
       ...liveRecords.filter((r) => r.employeeId === emp.id),
+      ...extraDetailRecs,
     ];
     allEmpRecs.forEach((r) => {
       if (r.date) empRecordsMap.set(r.date, r);
@@ -2428,14 +2495,25 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setDetailEmp(null)}
-                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                      title="Close"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => fetchEmpWorkStatus(detailEmp)}
+                        disabled={detailEmpLoading}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-emerald-600 transition cursor-pointer disabled:opacity-50"
+                        title="Refresh live punch status from /api/attendance/work/status"
+                      >
+                        <RotateCcw className={`w-4 h-4 ${detailEmpLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailEmp(null)}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                        title="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Real Metrics KPI Strip */}
@@ -2470,7 +2548,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       }`}
                     >
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Punch Logs & History ({m.allRecords.length})</span>
+                      <span>Punch Logs & History {detailEmpLoading ? '(Syncing...)' : `(${m.allRecords.length})`}</span>
                     </button>
                     <button
                       type="button"
@@ -2489,7 +2567,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   {/* TAB 1: Real Punch Logs & History */}
                   {detailModalTab === 'logs' && (
                     <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
-                      {m.allRecords.length === 0 ? (
+                      {detailEmpLoading ? (
+                        <div className="py-14 px-4 text-center">
+                          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-3" />
+                          <h4 className="text-sm font-bold text-slate-800">Checking Live Attendance Records...</h4>
+                          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                            Querying /api/attendance/work/status for {detailEmp.firstName} {detailEmp.lastName}...
+                          </p>
+                        </div>
+                      ) : m.allRecords.length === 0 ? (
                         <div className="py-14 px-4 text-center">
                           <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                             <Clock className="w-6 h-6" />

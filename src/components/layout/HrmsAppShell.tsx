@@ -33,7 +33,11 @@ import { GlobalSearchModal } from '../modals/GlobalSearchModal';
 import { MobileConnectModal } from '../modals/MobileConnectModal';
 import { MobileBottomNav } from '../common/MobileBottomNav';
 import { WavyBackground } from '../common/WavyBackground';
-import { checkEmployeePunchEligibility, setLiveAttendanceRecords } from '../../lib/attendanceService';
+import {
+  checkEmployeePunchEligibility,
+  setLiveAttendanceRecords,
+  extractRecordsFromWorkStatus,
+} from '../../lib/attendanceService';
 import { setLiveEmployees } from '../../lib/employeeService';
 import { setLiveLeaves } from '../../lib/leaveService';
 import { purgeLocalBusinessData } from '../../lib/storageCleanup';
@@ -229,6 +233,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         candidatesData,
         assetsData,
         myCompanyData,
+        workStatusData,
       ] = await Promise.all([
         api.getDashboardStats().catch(() => null),
         api.getEmployees().catch(() => []),
@@ -241,6 +246,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         api.getCandidates().catch(() => []),
         api.getAssets().catch(() => []),
         api.getMyCompany().catch(() => null),
+        api.getWorkStatus().catch(() => null),
       ]);
 
       if (myCompanyData) {
@@ -250,10 +256,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const seenEmpIds = new Set<string>();
       const safeEmployees = Array.isArray(employeesData)
         ? employeesData.filter((emp) => {
-            if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
-            seenEmpIds.add(emp.id);
-            return true;
-          })
+          if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
+          seenEmpIds.add(emp.id);
+          return true;
+        })
         : [];
 
       // Multi-Tenant Isolation: Scope data to the logged-in company
@@ -291,8 +297,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       setLeaves(scopedLeaves);
       setLiveLeaves(scopedLeaves);
 
-      // Scope Attendance to this company only
-      const rawAttendance = Array.isArray(attendanceData) ? attendanceData : [];
+      // Scope Attendance to this company only (including records from /api/attendance/work/status)
+      const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmployees);
+      const rawAttendance = [
+        ...(Array.isArray(attendanceData) ? attendanceData : []),
+        ...workStatusRecords,
+      ];
       const scopedAttendance = rawAttendance.filter(
         (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
       );
@@ -342,7 +352,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     if (typeof window !== 'undefined') {
       try {
         window.history.pushState({ module: mod, subTab: tab }, '', route);
-      } catch (_) {}
+      } catch (_) { }
     }
   };
 
@@ -408,7 +418,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-[#a3b18a] flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-[#b7e4c7] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <span className="text-xs font-semibold text-slate-700">
           {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
@@ -418,7 +428,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }
 
   return (
-    <div className="h-screen w-full bg-[#a3b18a] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
+    <div className="h-screen w-full bg-[#b7e4c7] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar

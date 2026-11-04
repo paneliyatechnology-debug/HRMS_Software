@@ -789,7 +789,7 @@ export const api = {
       total: number;
       page: number;
       limit: number;
-    }>(`/attendance/work/history?page=${page}&limit=${limit}`, undefined, {
+    }>(`/api/attendance/work/history?page=${page}&limit=${limit}`, undefined, {
       data: [],
       total: 0,
       page,
