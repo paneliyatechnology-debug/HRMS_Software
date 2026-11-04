@@ -213,8 +213,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedDesig, setSelectedDesig] = useState('All');
-  const [selectedMonth, setSelectedMonth] = useState('October');
-  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const mNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return mNames[new Date().getMonth()] || 'November';
+  });
+  const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
@@ -225,6 +231,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailModalTab, setDetailModalTab] = useState<'logs' | 'matrix'>('logs');
   const [detailEmpLoading, setDetailEmpLoading] = useState(false);
   const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
+  const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
 
   const fetchEmpWorkStatus = React.useCallback(async (empToLoad: Employee) => {
     if (!empToLoad) return;
@@ -234,39 +241,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       // curl --location 'http://192.168.1.107:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
       const res = await api.getWorkStatus();
       if (!res) return;
+      setDetailEmpStatusData(res);
       const extracted = extractRecordsFromWorkStatus(res, employees);
 
-      const targetId = String(empToLoad.id || '').trim();
-      const targetUserId = String((empToLoad as any).userId || (empToLoad as any)._id || '').trim();
-      const targetCode = String(empToLoad.employeeCode || '').trim();
-      const targetEmail = String(empToLoad.email || '').trim().toLowerCase();
-      const targetName = `${empToLoad.firstName || ''} ${empToLoad.lastName || ''}`.trim().toLowerCase();
+      const bound = extracted.map((rec) => ({
+        ...rec,
+        employeeId: rec.employeeId || empToLoad.id,
+        employeeName: rec.employeeName || `${empToLoad.firstName} ${empToLoad.lastName}`.trim(),
+        employeeCode: rec.employeeCode || empToLoad.employeeCode || 'EMP',
+      }));
 
-      const matched = extracted.filter((r) => {
-        const rEmpId = String(r.employeeId || '').trim();
-        const rEmpCode = String(r.employeeCode || '').trim();
-        const rEmpName = String(r.employeeName || '').trim().toLowerCase();
-        return (
-          (targetId && rEmpId.toLowerCase() === targetId.toLowerCase()) ||
-          (targetUserId && rEmpId.toLowerCase() === targetUserId.toLowerCase()) ||
-          (targetCode && rEmpCode.toLowerCase() === targetCode.toLowerCase()) ||
-          (targetName && rEmpName === targetName)
-        );
-      });
-
-      if (matched.length > 0) {
-        setDetailEmpRecords(matched);
-      } else if (extracted.length > 0) {
-        const bound = extracted.map((rec) => ({
-          ...rec,
-          employeeId: empToLoad.id,
-          employeeName: `${empToLoad.firstName} ${empToLoad.lastName}`.trim(),
-          employeeCode: empToLoad.employeeCode || rec.employeeCode,
-        }));
-        setDetailEmpRecords(bound);
-      } else {
-        setDetailEmpRecords([]);
-      }
+      setDetailEmpRecords(bound);
     } catch (err) {
       console.warn('[AttendanceModule] Failed to fetch work status from /api/attendance/work/status:', err);
     } finally {
@@ -280,6 +265,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     } else {
       setDetailEmpRecords([]);
       setDetailEmpLoading(false);
+      setDetailEmpStatusData(null);
     }
   }, [detailEmp?.id, fetchEmpWorkStatus]);
 
@@ -444,6 +430,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       }
     });
 
+    const todaySummary = detailEmp && detailEmp.id === emp.id ? detailEmpStatusData?.todaySummary : null;
+    if (todaySummary?.totalSecondsWorked && todaySummary.totalSecondsWorked > 0) {
+      totalWorkSeconds = Math.max(totalWorkSeconds, todaySummary.totalSecondsWorked);
+    }
+    if (todaySummary?.totalSessionsToday && todaySummary.totalSessionsToday > 0) {
+      presentDays = Math.max(presentDays, 1);
+    }
+
     const elapsedWorkDays = daysInMonth.filter(({ day, dayOfWeek }) => {
       const dayStr = String(day).padStart(2, '0');
       const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
@@ -455,6 +449,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     const score = Math.min(100, Math.round((effectivePresent / workingDays) * 100));
     const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '0.0';
 
+    const distinctLogs: AttendanceRecord[] = [];
+    const seenIds = new Set<string>();
+    [...extraDetailRecs, ...allEmpRecs].forEach((r) => {
+      const key = r.id || `${r.date}-${r.checkIn}-${r.checkOut || 'active'}`;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        distinctLogs.push(r);
+      }
+    });
+
     return {
       presentDays,
       lateDays,
@@ -465,7 +469,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       score,
       totalHours: Math.round(totalWorkSeconds / 3600),
       avgDailyHours,
-      allRecords: Array.from(empRecordsMap.values()).sort((a, b) => (b.date || '').localeCompare(a.date || '')),
+      allRecords: distinctLogs.sort((a, b) => {
+        const timeA = a.punches?.[0]?.timestamp || a.lastActiveTimestamp || a.createdAt || a.date || '';
+        const timeB = b.punches?.[0]?.timestamp || b.lastActiveTimestamp || b.createdAt || b.date || '';
+        return String(timeB).localeCompare(String(timeA));
+      }),
     };
   };
 
@@ -2614,24 +2622,92 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </div>
 
                   {/* Real Metrics KPI Strip */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                    <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
-                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Present Days</div>
-                      <div className="text-lg font-black text-emerald-800 mt-0.5">{m.presentDays} Days</div>
+                  {(() => {
+                    const todaySummary = detailEmpStatusData?.todaySummary;
+                    const presentCount = todaySummary?.totalSessionsToday && todaySummary.totalSessionsToday > 0
+                      ? Math.max(1, m.presentDays)
+                      : m.presentDays;
+                    const totalWorkHrsStr = todaySummary?.totalDurationFormatted
+                      ? todaySummary.totalDurationFormatted
+                      : `${m.totalHours} hrs`;
+                    const totalBreakStr = todaySummary?.totalBreakFormatted || detailEmpStatusData?.formattedTotalBreak || `${m.allRecords.reduce((acc, r) => acc + (r.breakDurationMinutes || 0), 0)}m`;
+                    const avgHrsStr = Number(m.avgDailyHours) > 0 ? `${m.avgDailyHours} h/day` : (todaySummary?.totalDurationFormatted ? `${todaySummary.totalDurationFormatted}/day` : '0.0 h/day');
+
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                        <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                          <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Present Days</div>
+                          <div className="text-lg font-black text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Total Break Taken</div>
+                          <div className="text-lg font-black text-amber-800 mt-0.5">{totalBreakStr}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                          <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
+                          <div className="text-lg font-black text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
+                          <div className="text-lg font-black text-slate-800 mt-0.5">{avgHrsStr}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Real-time Status Banner from /api/attendance/work/status */}
+                  {detailEmpStatusData && (
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : 'bg-slate-200/80 text-slate-700'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${
+                            detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                              ? 'bg-amber-500 animate-pulse'
+                              : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-slate-400'
+                          }`} />
+                          {detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                            ? '☕ Currently on Break'
+                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                            ? '● Live Shift Active'
+                            : 'Shift Completed'}
+                        </span>
+
+                        {detailEmpStatusData.currentBreak && (
+                          <span className="text-amber-800 font-semibold text-[11px]">
+                            Break Elapsed: <strong>{detailEmpStatusData.currentBreak.formattedElapsed}</strong>
+                          </span>
+                        )}
+
+                        {detailEmpStatusData.activeSession && (
+                          <span className="text-slate-600 text-[11px]">
+                            Total Session Time: <strong className="text-slate-900">{detailEmpStatusData.activeSession.formattedTotalAttendance || detailEmpStatusData.activeSession.formattedElapsed || '—'}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                        {(detailEmpStatusData.assignedOffice || detailEmpStatusData.activeSession?.officeLocationName) && (
+                          <span className="flex items-center gap-1 font-semibold text-slate-700">
+                            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                            {detailEmpStatusData.assignedOffice?.name || detailEmpStatusData.activeSession?.officeLocationName}
+                          </span>
+                        )}
+                        {detailEmpStatusData.todaySummary?.totalSessionsToday !== undefined && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold text-slate-800">
+                            {detailEmpStatusData.todaySummary.totalSessionsToday} Sessions Today
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
-                      <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Half Days</div>
-                      <div className="text-lg font-black text-amber-800 mt-0.5">{m.halfDays} Days</div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
-                      <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
-                      <div className="text-lg font-black text-indigo-800 mt-0.5">{m.totalHours} hrs</div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
-                      <div className="text-lg font-black text-slate-800 mt-0.5">{m.avgDailyHours} h/day</div>
-                    </div>
-                  </div>
+                  )}
 
                   {/* View Tabs inside Modal */}
                   <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -2712,7 +2788,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <td className="py-2.5 px-3">
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                        st === 'late'
+                                        rec.isOnBreak || st === 'on_break'
+                                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                          : st === 'late'
                                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                           : st === 'half day'
                                           ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -2721,14 +2799,19 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                           : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                       }`}
                                     >
-                                      {rec.status || 'Present'}
+                                      {rec.isOnBreak || st === 'on_break' ? '☕ On Break' : (rec.status || 'Present')}
                                     </span>
                                   </td>
                                   <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
                                     {rec.checkIn || '—'}
                                   </td>
                                   <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
-                                    {isWorkingNow ? (
+                                    {rec.isOnBreak ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 animate-pulse">
+                                        <Pause className="w-2.5 h-2.5" />
+                                        Break Active
+                                      </span>
+                                    ) : isWorkingNow ? (
                                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 animate-pulse">
                                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                                         In Progress
@@ -2738,15 +2821,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                     )}
                                   </td>
                                   <td className="py-2.5 px-3 text-slate-600 font-mono">
-                                    {rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m'}
+                                    {(rec as any).formattedTotalBreak || (rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m')}
                                   </td>
                                   <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                                    {rec.workingHours ? `${rec.workingHours} hrs` : (isWorkingNow ? 'Active' : '—')}
+                                    {(rec as any).durationFormatted || (rec.workingHours ? `${rec.workingHours} hrs` : (isWorkingNow ? 'Active' : '—'))}
                                   </td>
                                   <td className="py-2.5 px-3 text-right">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                                      {rec.checkInDevice?.deviceType || (rec.isWFH ? 'Remote / WFH' : 'Web Punch')}
-                                    </span>
+                                    <div className="inline-flex flex-col items-end gap-0.5">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                                        {(rec as any).officeLocationName || (rec as any).deviceInfo || rec.checkInDevice?.deviceType || (rec.isWFH ? 'Remote / WFH' : 'Web Punch')}
+                                      </span>
+                                      {(rec as any).ipAddress && (
+                                        <span className="text-[9px] font-mono text-slate-400">IP: {(rec as any).ipAddress}</span>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );

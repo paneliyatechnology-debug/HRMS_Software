@@ -872,6 +872,9 @@ export function parseWorkSessionToRecord(session: any, empList: Employee[] = [])
 
   const activeSeconds = session.elapsedSeconds || session.activeSeconds || (session.workingHours ? session.workingHours * 3600 : 0);
   const workingHours = activeSeconds > 0 ? Number((activeSeconds / 3600).toFixed(2)) : 0;
+  const officeLoc = session.officeLocationName || session.officeLocation?.name || session.officeName || '';
+  const devInfo = session.deviceInfo || session.device?.deviceType || (typeof session.device === 'string' ? session.device : '');
+  const ip = session.ipAddress || '';
 
   return {
     id: String(rawId),
@@ -885,18 +888,24 @@ export function parseWorkSessionToRecord(session: any, empList: Employee[] = [])
     breakDurationMinutes: Math.round(breakSeconds / 60),
     workingHours,
     overtimeHours: workingHours > 8.5 ? Number((workingHours - 8.5).toFixed(2)) : 0,
-    status: isCompleted ? 'Present' : isWorking ? 'Present' : isOnBreak ? 'Present' : 'Present',
+    status: isCompleted ? 'Present' : isOnBreak ? 'On Break' : isWorking ? 'Present' : 'Present',
     createdAt: startDate || new Date().toISOString(),
     activeSeconds,
     breakSeconds,
     isOnBreak,
     isCompleted,
+    deviceInfo: devInfo,
+    ipAddress: ip,
+    officeLocationName: officeLoc,
+    durationFormatted: session.durationFormatted || session.formattedElapsed,
+    formattedTotalBreak: session.formattedTotalBreak,
     punches: [
       {
         id: `p-${rawId}-in`,
         type: 'IN',
         timestamp: startDate || new Date().toISOString(),
         time: checkIn,
+        device: devInfo ? { deviceType: devInfo, browser: devInfo } : undefined,
       },
       ...(checkOut
         ? [
@@ -905,11 +914,12 @@ export function parseWorkSessionToRecord(session: any, empList: Employee[] = [])
               type: 'OUT' as const,
               timestamp: endDate || new Date().toISOString(),
               time: checkOut,
+              device: devInfo ? { deviceType: devInfo, browser: devInfo } : undefined,
             },
           ]
         : []),
     ],
-  };
+  } as any;
 }
 
 /**
@@ -936,11 +946,48 @@ export function extractRecordsFromWorkStatus(response: any, empList: Employee[] 
     if (r) results.push(r);
   });
 
+  // 1. Check lastCompletedSession from backend status response
+  if (response.lastCompletedSession && typeof response.lastCompletedSession === 'object') {
+    const lastComp = response.lastCompletedSession;
+    const r = parseWorkSessionToRecord(lastComp, empList);
+    if (r) {
+      if (lastComp.deviceInfo) (r as any).deviceInfo = lastComp.deviceInfo;
+      if (lastComp.ipAddress) (r as any).ipAddress = lastComp.ipAddress;
+      if (lastComp.officeLocationName) (r as any).officeLocationName = lastComp.officeLocationName;
+      if (lastComp.durationFormatted) (r as any).durationFormatted = lastComp.durationFormatted;
+      if (!results.some((x) => x.id === r.id)) {
+        results.push(r);
+      }
+    }
+  }
+
+  // 2. Check activeSession / workSession
   const active = response.activeSession || response.workSession || response.session || (response.hasActiveSession ? response : null);
   if (active && typeof active === 'object') {
-    const r = parseWorkSessionToRecord(active, empList);
-    if (r && !results.some((x) => x.id === r.id || (x.employeeId === r.employeeId && x.date === r.date))) {
-      results.unshift(r);
+    const activeWithMeta = {
+      ...active,
+      isOnBreak: Boolean(response.isOnBreak ?? active.isOnBreak),
+      status: response.isOnBreak || active.status === 'ON_BREAK' ? 'ON_BREAK' : (active.status || 'ACTIVE'),
+      officeLocationName: active.officeLocationName || response.assignedOffice?.name,
+      totalBreakSeconds: response.totalBreakSeconds || active.totalBreakSeconds,
+      formattedTotalBreak: response.formattedTotalBreak || active.formattedTotalBreak,
+      formattedElapsed: active.formattedElapsed,
+      formattedTotalAttendance: active.formattedTotalAttendance,
+      todaySummary: response.todaySummary,
+      currentBreak: response.currentBreak,
+      assignedOffice: response.assignedOffice,
+    };
+    const r = parseWorkSessionToRecord(activeWithMeta, empList);
+    if (r) {
+      (r as any).currentBreak = response.currentBreak;
+      (r as any).formattedTotalBreak = response.formattedTotalBreak;
+      (r as any).todaySummary = response.todaySummary;
+      (r as any).assignedOffice = response.assignedOffice;
+      (r as any).officeLocationName = active.officeLocationName || response.assignedOffice?.name;
+      (r as any).durationFormatted = active.formattedElapsed || response.todaySummary?.totalDurationFormatted;
+      if (!results.some((x) => x.id === r.id)) {
+        results.unshift(r);
+      }
     }
   }
 
