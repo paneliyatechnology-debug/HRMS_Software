@@ -387,10 +387,11 @@ export function performCheckIn(
       record.breakDurationMinutes = Math.round((record.breakSeconds || 0) / 60);
     }
 
-    record.checkIn = record.checkIn || timeStr;
+    record.checkIn = timeStr;
     record.checkOut = undefined; // Actively clocked in
     record.isCompleted = false;
     record.isOnBreak = false;
+    record.activeSeconds = 0; // Restart session timer from 00 as requested
     record.lastActiveTimestamp = now.getTime();
     record.lastBreakTimestamp = undefined;
     record.lastCheckOutTimestamp = undefined;
@@ -406,7 +407,7 @@ export function performCheckIn(
 
     return {
       success: true,
-      message: `Checked in again successfully at ${timeStr}. Work timer resumed!`,
+      message: `Checked in again successfully at ${timeStr}. Work timer started from 00:00:00!`,
       record,
     };
   }
@@ -683,8 +684,9 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
   if (idx !== -1) {
     const existing = all[idx];
     const isCompleted = hasCheckOut;
+    const isReCheckIn = (existing.isCompleted || Boolean(existing.checkOut)) && !hasCheckOut;
 
-    let activeSec = existing.activeSeconds || 0;
+    let activeSec = 0;
     if (hasCheckOut) {
       if (existing.activeSeconds && existing.activeSeconds > 0) {
         activeSec = existing.activeSeconds;
@@ -696,27 +698,42 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       } else if (backendRec.workingHours && backendRec.workingHours > 0) {
         activeSec = Math.round(backendRec.workingHours * 3600);
       }
+    } else if (isReCheckIn || backendRec.activeSeconds === 0) {
+      activeSec = typeof backendRec.activeSeconds === 'number' ? backendRec.activeSeconds : 0;
+    } else if (typeof backendRec.activeSeconds === 'number') {
+      activeSec = backendRec.activeSeconds;
+    } else {
+      activeSec = existing.activeSeconds || 0;
     }
+
+    const nowTs = Date.now();
+    const lastActive = isCompleted
+      ? undefined
+      : (backendRec.isOnBreak
+          ? undefined
+          : (isReCheckIn
+              ? nowTs
+              : (backendRec.lastActiveTimestamp || existing.lastActiveTimestamp || nowTs)));
 
     updated = {
       ...existing,
       id: backendRec.id || existing.id,
-      employeeId: backendRec.employeeId,
+      employeeId: backendRec.employeeId || existing.employeeId,
       employeeName: backendRec.employeeName || existing.employeeName,
       date: today,
-      checkIn: backendRec.checkIn || existing.checkIn,
+      checkIn: isReCheckIn ? (backendRec.checkIn || existing.checkIn) : (backendRec.checkIn || existing.checkIn),
       checkOut: hasCheckOut ? backendRec.checkOut : undefined,
       status: backendRec.status || existing.status || 'Present',
       remarks: backendRec.remarks || existing.remarks,
       isCompleted,
-      isOnBreak: isCompleted ? false : existing.isOnBreak,
-      activeSeconds: activeSec,
+      isOnBreak: isCompleted ? false : (backendRec.isOnBreak ?? existing.isOnBreak),
+      activeSeconds: isReCheckIn ? 0 : activeSec,
       breakDurationMinutes: backendRec.breakDurationMinutes ?? existing.breakDurationMinutes ?? 0,
       breakSeconds: (backendRec.breakDurationMinutes ?? 0) * 60 || existing.breakSeconds || 0,
-      workingHours: hasCheckOut ? (backendRec.workingHours || Number((activeSec / 3600).toFixed(2))) : (existing.workingHours || 0),
+      workingHours: hasCheckOut ? (backendRec.workingHours || Number((activeSec / 3600).toFixed(2))) : (isReCheckIn ? 0 : (existing.workingHours || 0)),
       overtimeHours: backendRec.overtimeHours ?? existing.overtimeHours ?? 0,
-      lastActiveTimestamp: isCompleted ? undefined : (existing.isOnBreak ? undefined : (existing.lastActiveTimestamp || parseTimeStringToTimestamp(backendRec.checkIn, today, backendRec.createdAt))),
-      lastCheckOutTimestamp: isCompleted ? Date.now() : undefined,
+      lastActiveTimestamp: lastActive,
+      lastCheckOutTimestamp: isCompleted ? nowTs : undefined,
       checkInLatitude: backendRec.latitude ?? backendRec.checkInLatitude ?? existing.checkInLatitude,
       checkInLongitude: backendRec.longitude ?? backendRec.checkInLongitude ?? existing.checkInLongitude,
       checkInAccuracy: backendRec.accuracy ?? backendRec.checkInAccuracy ?? existing.checkInAccuracy,

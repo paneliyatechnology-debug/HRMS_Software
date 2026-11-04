@@ -588,6 +588,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     try {
       const res = await api.startWork({});
       setPunchStatus('working');
+      setLiveWorkedHMS('00:00:00');
+      setLiveBreakWords('0s');
 
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-US', {
@@ -597,32 +599,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         hour12: true,
       });
 
-      const newRec: AttendanceRecord = {
-        id: (res as any)?.sessionId || `att-${Date.now()}`,
-        employeeId: activeEmpId,
-        employeeName: `${currentEmp?.firstName || user?.firstName || 'Employee'} ${currentEmp?.lastName || user?.lastName || ''}`.trim(),
+      const checkInRes = performCheckIn({
+        id: activeEmpId,
+        firstName: currentEmp?.firstName || user?.firstName || 'Employee',
+        lastName: currentEmp?.lastName || user?.lastName || '',
         employeeCode: currentEmp?.employeeCode || (user as any)?.employeeCode || 'EMP',
-        date: getTodayDateString(),
-        checkIn: timeStr,
-        status: 'Present',
-        isCompleted: false,
-        isOnBreak: false,
-        activeSeconds: 0,
-        breakSeconds: 0,
-        breakDurationMinutes: 0,
-        workingHours: 0,
-        overtimeHours: 0,
-        lastActiveTimestamp: now.getTime(),
-        createdAt: now.toISOString(),
-      };
-      updateLocalRecordFromBackend(newRec);
-
-      setPunchState({
-        canCheckIn: false,
-        status: 'working',
-        message: 'Shift is active. Clock running.',
-        record: newRec,
+        remarks: 'Work shift start',
       });
+
+      const eligibility = checkEmployeePunchEligibility(activeEmpId);
+      setPunchState(eligibility);
 
       showToast({
         type: 'success',
