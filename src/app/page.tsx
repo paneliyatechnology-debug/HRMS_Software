@@ -32,7 +32,7 @@ function HomePageContent() {
 
   if (isLoading && !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-gradient-to-br from-[#a3b18a] via-[#b5c49f] to-[#8f9e76] flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-[#a3b18a] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <span className="text-xs font-semibold text-slate-700">Loading Paneliya HRMS...</span>
       </div>
@@ -50,7 +50,7 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="h-screen w-full bg-gradient-to-br from-[#a3b18a] via-[#b5c49f] to-[#8f9e76] flex flex-col items-center justify-center gap-3">
+        <div className="h-screen w-full bg-[#a3b18a] flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
           <span className="text-xs font-semibold text-slate-700">Loading Paneliya HRMS...</span>
         </div>

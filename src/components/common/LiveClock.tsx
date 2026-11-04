@@ -118,12 +118,12 @@ export const LiveClock: React.FC<LiveClockProps> = ({
         <div className="flex items-center gap-1 font-mono font-bold tracking-tight text-white text-xs sm:text-sm">
           <Clock className="w-3.5 h-3.5 text-emerald-400 mr-0.5" />
           <span>{hours}</span>
-          <span className="animate-clock-colon text-emerald-400">:</span>
+          <span className="text-emerald-400">:</span>
           <span>{minutes}</span>
           {showSeconds && (
             <>
-              <span className="animate-clock-colon text-emerald-400">:</span>
-              <span key={seconds} className="animate-digit-tick text-emerald-300">
+              <span className="text-emerald-400">:</span>
+              <span className="text-emerald-300">
                 {seconds}
               </span>
             </>
@@ -163,14 +163,14 @@ export const LiveClock: React.FC<LiveClockProps> = ({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
         )}
-        <Clock className="w-3 h-3 text-emerald-600 mr-0.5" />
+        <Clock className="w-3.5 h-3.5 text-emerald-600 mr-0.5" />
         <span>{hours}</span>
-        <span className="animate-clock-colon text-emerald-600">:</span>
+        <span className="text-emerald-600">:</span>
         <span>{minutes}</span>
         {showSeconds && (
           <>
-            <span className="animate-clock-colon text-emerald-600">:</span>
-            <span key={seconds} className="animate-digit-tick text-emerald-600">
+            <span className="text-emerald-600">:</span>
+            <span className="text-emerald-600">
               {seconds}
             </span>
           </>
@@ -209,7 +209,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
         <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
           {hours}
         </span>
-        <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+        <span className="text-[#059669] font-bold text-xs sm:text-[13px] px-0.5">
           :
         </span>
         <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
@@ -217,12 +217,11 @@ export const LiveClock: React.FC<LiveClockProps> = ({
         </span>
         {showSeconds && (
           <>
-            <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+            <span className="text-[#059669] font-bold text-xs sm:text-[13px] px-0.5">
               :
             </span>
             <span
-              key={seconds}
-              className="font-bold text-xs sm:text-[13px] tracking-tight text-[#059669] animate-digit-tick inline-block min-w-[16px] text-center"
+              className="font-bold text-xs sm:text-[13px] tracking-tight text-[#059669] inline-block min-w-[16px] text-center"
             >
               {seconds}
             </span>
