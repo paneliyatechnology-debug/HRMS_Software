@@ -528,7 +528,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </button>
             )}
 
-            {onOpenLeaveModal && (
+            {/* [DISABLED FOR ADMIN]: admin side se apply leave ka button nikal de */}
+            {portalMode !== 'admin' && onOpenLeaveModal && (
               <button
                 onClick={onOpenLeaveModal}
                 className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-extrabold transition-all shadow-2xs active:scale-95 cursor-pointer"
