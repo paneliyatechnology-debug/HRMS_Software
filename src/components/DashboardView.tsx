@@ -851,6 +851,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </h3>
               <div className="grid grid-cols-2 gap-2 mt-2">
+                {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde
                 <button
                   onClick={onOpenClockModal}
                   className="btn-secondary justify-center py-2.5"
@@ -858,6 +859,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Clock className="w-4 h-4 text-[#4f5fe8]" />
                   <span>Mark punch</span>
                 </button>
+                */}
                 <button
                   onClick={() => onNavigateModule('leaves')}
                   className="btn-secondary justify-center py-2.5"

@@ -727,31 +727,34 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       {/* Action Buttons Row */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={onOpenPunchModal}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${
-              myIsWorking || myIsOnBreak
-                ? 'bg-rose-600 hover:bg-rose-700'
-                : 'bg-emerald-600 hover:bg-emerald-700'
-            }`}
-          >
-            {myIsWorking || myIsOnBreak ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                <span className="truncate">Check Out</span>
-              </>
-            ) : myIsDone ? (
-              <>
-                <Clock className="w-4 h-4" />
-                <span className="truncate">Check In Again</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span className="truncate">Check In</span>
-              </>
-            )}
-          </button>
+          {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+          {isEmployeeView && (
+            <button
+              onClick={onOpenPunchModal}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${
+                myIsWorking || myIsOnBreak
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {myIsWorking || myIsOnBreak ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="truncate">Check Out</span>
+                </>
+              ) : myIsDone ? (
+                <>
+                  <Clock className="w-4 h-4" />
+                  <span className="truncate">Check In Again</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span className="truncate">Check In</span>
+                </>
+              )}
+            </button>
+          )}
 
           {!isEmployeeView && (
             <>
@@ -835,8 +838,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
         return (
           <div className="space-y-4">
-            {/* DAILY ATTENDANCE CHRONOMETER & COUNTING CONSOLE */}
-            {(() => {
+            {/* DAILY ATTENDANCE CHRONOMETER & COUNTING CONSOLE (Employees only - commented out for admin) */}
+            {isEmployeeView && (() => {
               const selfEmp = visibleEmployees[0] || selfEmployee;
               const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
               const isWorking = Boolean(rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut);
@@ -1183,31 +1186,34 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <span className="hidden sm:inline">Refresh</span>
                   </button>
 
-                  <button
-                    onClick={onOpenPunchModal}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
-                      myIsWorking || myIsOnBreak
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    }`}
-                  >
-                    {myIsWorking || myIsOnBreak ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                        <span>Check Out</span>
-                      </>
-                    ) : myIsDone ? (
-                      <>
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Check In Again</span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Check In</span>
-                      </>
-                    )}
-                  </button>
+                  {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+                  {isEmployeeView && (
+                    <button
+                      onClick={onOpenPunchModal}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${
+                        myIsWorking || myIsOnBreak
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {myIsWorking || myIsOnBreak ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span>Check Out</span>
+                        </>
+                      ) : myIsDone ? (
+                        <>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Check In Again</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Check In</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

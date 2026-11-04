@@ -74,28 +74,46 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Tracker</span>
       </button>
 
-      {/* 3. Center Elevated Quick Punch Button */}
+      {/* 3. Center Elevated Quick Button (Punch for Employee, Staff for Admin) */}
       <div className="relative -mt-5 flex flex-col items-center">
-        <button
-          id="btn-mobile-nav-center-punch"
-          type="button"
-          onClick={onOpenClockModal}
-          className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#047857] via-[#059669] to-[#10b981] text-white flex flex-col items-center justify-center shadow-lg shadow-emerald-700/35 active:scale-90 transition-transform cursor-pointer border-4 border-white"
-          title="Attendance Punch Clock"
-        >
-          {punchStatus === 'working' ? (
-            <div className="relative flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-white animate-ping absolute" />
-              <Square className="w-5 h-5 fill-current" />
-            </div>
-          ) : punchStatus === 'on_break' ? (
-            <Coffee className="w-5 h-5" />
-          ) : (
-            <Play className="w-5 h-5 fill-current ml-0.5" />
-          )}
-        </button>
+        {portalMode === 'admin' ? (
+          <button
+            id="btn-mobile-nav-center-staff"
+            type="button"
+            onClick={() => setActiveModule('employees')}
+            className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#047857] via-[#059669] to-[#10b981] text-white flex flex-col items-center justify-center shadow-lg shadow-emerald-700/35 active:scale-90 transition-transform cursor-pointer border-4 border-white"
+            title="Manage Employees"
+          >
+            <Users className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            id="btn-mobile-nav-center-punch"
+            type="button"
+            onClick={onOpenClockModal}
+            className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#047857] via-[#059669] to-[#10b981] text-white flex flex-col items-center justify-center shadow-lg shadow-emerald-700/35 active:scale-90 transition-transform cursor-pointer border-4 border-white"
+            title="Attendance Punch Clock"
+          >
+            {punchStatus === 'working' ? (
+              <div className="relative flex items-center justify-center">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping absolute" />
+                <Square className="w-5 h-5 fill-current" />
+              </div>
+            ) : punchStatus === 'on_break' ? (
+              <Coffee className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            )}
+          </button>
+        )}
         <span className="text-[10px] font-extrabold text-[#065f46] tracking-tight mt-0.5">
-          {punchStatus === 'working' ? 'Out' : punchStatus === 'on_break' ? 'Break' : 'Punch'}
+          {portalMode === 'admin'
+            ? 'Staff'
+            : punchStatus === 'working'
+            ? 'Out'
+            : punchStatus === 'on_break'
+            ? 'Break'
+            : 'Punch'}
         </span>
       </div>
 

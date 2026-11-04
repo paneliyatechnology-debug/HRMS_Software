@@ -517,7 +517,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </button>
             )}
 
-            {onOpenClockModal && (
+            {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+            {portalMode !== 'admin' && onOpenClockModal && (
               <button
                 onClick={onOpenClockModal}
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"

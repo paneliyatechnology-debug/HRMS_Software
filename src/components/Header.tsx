@@ -205,7 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Center: Live Digital Clock Widget */}
       <div className="hidden md:flex items-center justify-center px-2 min-w-0">
-        <LiveClock onClick={onOpenClockModal} />
+        <LiveClock onClick={portalMode !== 'admin' ? onOpenClockModal : undefined} />
       </div>
 
       {/* Right: Actions, Role Pill, Notifications, Profile */}
@@ -227,40 +227,42 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
 
-        {/* Quick Dynamic Check In / Check Out Button */}
-        <button
-          id="btn-header-punch-toggle"
-          onClick={onOpenClockModal}
-          className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
-            punchStatus === 'working' || punchStatus === 'on_break'
-              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-              : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
-          }`}
-          title={
-            punchStatus === 'working' || punchStatus === 'on_break'
-              ? 'Currently checked in. Click to Check Out'
-              : punchStatus === 'completed'
-              ? 'Previous session checked out. Click to Check In again'
-              : 'Click to Check In for today'
-          }
-        >
-          {punchStatus === 'working' || punchStatus === 'on_break' ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-              <span className="hidden min-[480px]:inline">Check Out</span>
-            </>
-          ) : punchStatus === 'completed' ? (
-            <>
-              <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-              <span className="hidden min-[480px]:inline">Check In</span>
-            </>
-          ) : (
-            <>
-              <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-              <span className="hidden min-[480px]:inline">Check In</span>
-            </>
-          )}
-        </button>
+        {/* Quick Dynamic Check In / Check Out Button (Employees only - commented out for admin) */}
+        {portalMode !== 'admin' && (
+          <button
+            id="btn-header-punch-toggle"
+            onClick={onOpenClockModal}
+            className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
+              punchStatus === 'working' || punchStatus === 'on_break'
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+                : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
+            }`}
+            title={
+              punchStatus === 'working' || punchStatus === 'on_break'
+                ? 'Currently checked in. Click to Check Out'
+                : punchStatus === 'completed'
+                ? 'Previous session checked out. Click to Check In again'
+                : 'Click to Check In for today'
+            }
+          >
+            {punchStatus === 'working' || punchStatus === 'on_break' ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                <span className="hidden min-[480px]:inline">Check Out</span>
+              </>
+            ) : punchStatus === 'completed' ? (
+              <>
+                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span className="hidden min-[480px]:inline">Check In</span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span className="hidden min-[480px]:inline">Check In</span>
+              </>
+            )}
+          </button>
+        )}
 
         {/* Quick Add Employee (Admin only) */}
         {portalMode === 'admin' && (
