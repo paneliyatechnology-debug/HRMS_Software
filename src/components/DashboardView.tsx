@@ -105,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   portalMode = 'admin',
 }) => {
   const { user } = useAuth();
-  const { showToast } = useSocket();
+  const { showToast, emitLeaveStatusUpdated } = useSocket();
 
   // Current system clock
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -302,7 +302,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [rejectModalData, setRejectModalData] = useState<{ id: string; empName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('Operational requirements');
 
-  const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string) => {
+  const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string, empId?: string) => {
     setProcessingLeaveId(id);
     try {
       await api.approveLeave(id, 'HR_ADMIN', 'HR Administration', 'Approved from Dashboard');
@@ -311,6 +311,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         title: 'Approved',
         message: `${empName}'s ${leaveType} has been approved.`,
       });
+      emitLeaveStatusUpdated({
+        id,
+        employeeId: empId,
+        employeeName: empName,
+        leaveType,
+        status: 'Approved',
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Approved' } }));
+      }
       if (onRefreshData) onRefreshData();
     } catch (err: any) {
       showToast({
@@ -323,14 +333,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  const handleDashboardRejectLeave = (id: string, empName: string) => {
-    setRejectModalData({ id, empName });
+  const handleDashboardRejectLeave = (id: string, empName: string, empId?: string) => {
+    setRejectModalData({ id, empName, empId } as any);
     setRejectReason('Operational requirements');
   };
 
   const executeRejectLeave = async () => {
     if (!rejectModalData) return;
     const { id, empName } = rejectModalData;
+    const empId = (rejectModalData as any).empId;
     setProcessingLeaveId(id);
     try {
       await api.rejectLeave(id, 'HR Administration', rejectReason || 'Operational requirements');
@@ -339,6 +350,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         title: 'Rejected',
         message: `${empName}'s leave request was rejected.`,
       });
+      emitLeaveStatusUpdated({
+        id,
+        employeeId: empId,
+        employeeName: empName,
+        status: 'Rejected',
+        reason: rejectReason,
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Rejected' } }));
+      }
       setRejectModalData(null);
       if (onRefreshData) onRefreshData();
     } catch (err: any) {
@@ -754,14 +775,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                           <button
-                            onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType)}
+                            onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
                             disabled={isProcessing}
                             className="btn-primary text-xs py-1.5 px-3 bg-[#16a779] hover:bg-[#13865f]"
                           >
                             {isProcessing ? 'Saving...' : 'Approve'}
                           </button>
                           <button
-                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName)}
+                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
                             disabled={isProcessing}
                             className="btn-danger text-xs py-1.5 px-3"
                           >
@@ -1250,7 +1271,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'long' });
                           const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
                           const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
-                          const breakStr = rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m';
+                          const bSecs = getLiveBreakSeconds(rec);
+                          const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
 
                           return (
                             <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">

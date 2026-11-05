@@ -5,32 +5,43 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../Sidebar';
 import { Header } from '../Header';
 import { DashboardView } from '../DashboardView';
-import { CalendarModule } from '../modules/CalendarModule';
-import { EmployeesModule } from '../modules/EmployeesModule';
-import { AttendanceModule } from '../modules/AttendanceModule';
-import { LeaveModule } from '../modules/LeaveModule';
-import { PayrollModule } from '../modules/PayrollModule';
-import { EmployeePayslipsModule } from '../modules/EmployeePayslipsModule';
-import { RecruitmentModule } from '../modules/RecruitmentModule';
-import { PerformanceModule } from '../modules/PerformanceModule';
-import { OrganizationModule } from '../modules/OrganizationModule';
-import { TrainingModule } from '../modules/TrainingModule';
-import { DocumentsModule } from '../modules/DocumentsModule';
-import { AssetsModule } from '../modules/AssetsModule';
-import { ResignationsModule } from '../modules/ResignationsModule';
-import { AnnouncementsModule } from '../modules/AnnouncementsModule';
-import { ChatModule } from '../modules/ChatModule';
-import { ReportsModule } from '../modules/ReportsModule';
-import { AuditLogsModule } from '../modules/AuditLogsModule';
-import { SettingsModule } from '../modules/SettingsModule';
+import dynamic from 'next/dynamic';
+
+const ModuleLoadingSkeleton = () => (
+  <div className="w-full min-h-[350px] flex items-center justify-center p-8 text-slate-400">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">Loading module...</span>
+    </div>
+  </div>
+);
+
+const CalendarModule = dynamic(() => import('../modules/CalendarModule').then((m) => m.CalendarModule), { loading: () => <ModuleLoadingSkeleton /> });
+const EmployeesModule = dynamic(() => import('../modules/EmployeesModule').then((m) => m.EmployeesModule), { loading: () => <ModuleLoadingSkeleton /> });
+const AttendanceModule = dynamic(() => import('../modules/AttendanceModule').then((m) => m.AttendanceModule), { loading: () => <ModuleLoadingSkeleton /> });
+const LeaveModule = dynamic(() => import('../modules/LeaveModule').then((m) => m.LeaveModule), { loading: () => <ModuleLoadingSkeleton /> });
+const PayrollModule = dynamic(() => import('../modules/PayrollModule').then((m) => m.PayrollModule), { loading: () => <ModuleLoadingSkeleton /> });
+const EmployeePayslipsModule = dynamic(() => import('../modules/EmployeePayslipsModule').then((m) => m.EmployeePayslipsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const RecruitmentModule = dynamic(() => import('../modules/RecruitmentModule').then((m) => m.RecruitmentModule), { loading: () => <ModuleLoadingSkeleton /> });
+const PerformanceModule = dynamic(() => import('../modules/PerformanceModule').then((m) => m.PerformanceModule), { loading: () => <ModuleLoadingSkeleton /> });
+const OrganizationModule = dynamic(() => import('../modules/OrganizationModule').then((m) => m.OrganizationModule), { loading: () => <ModuleLoadingSkeleton /> });
+const TrainingModule = dynamic(() => import('../modules/TrainingModule').then((m) => m.TrainingModule), { loading: () => <ModuleLoadingSkeleton /> });
+const DocumentsModule = dynamic(() => import('../modules/DocumentsModule').then((m) => m.DocumentsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const AssetsModule = dynamic(() => import('../modules/AssetsModule').then((m) => m.AssetsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const ResignationsModule = dynamic(() => import('../modules/ResignationsModule').then((m) => m.ResignationsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const AnnouncementsModule = dynamic(() => import('../modules/AnnouncementsModule').then((m) => m.AnnouncementsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const ChatModule = dynamic(() => import('../modules/ChatModule').then((m) => m.ChatModule), { loading: () => <ModuleLoadingSkeleton /> });
+const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) => m.ReportsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
 
-import { AttendanceModal } from '../modals/AttendanceModal';
-import { LeaveModal } from '../modals/LeaveModal';
-import { EmployeeDrawer } from '../modals/EmployeeDrawer';
-import { EmployeeProfileModal } from '../modals/EmployeeProfileModal';
-import { GlobalSearchModal } from '../modals/GlobalSearchModal';
-import { MobileConnectModal } from '../modals/MobileConnectModal';
+const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
+const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
+const EmployeeDrawer = dynamic(() => import('../modals/EmployeeDrawer').then((m) => m.EmployeeDrawer), { ssr: false });
+const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
+const GlobalSearchModal = dynamic(() => import('../modals/GlobalSearchModal').then((m) => m.GlobalSearchModal), { ssr: false });
+const MobileConnectModal = dynamic(() => import('../modals/MobileConnectModal').then((m) => m.MobileConnectModal), { ssr: false });
 import { MobileBottomNav } from '../common/MobileBottomNav';
 import { WavyBackground } from '../common/WavyBackground';
 import {
@@ -215,177 +226,317 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  const isFetchingDataRef = useRef(false);
+  const isFetchingDataRef = useRef<Record<string, boolean>>({});
+  const employeesRef = useRef<Employee[]>([]);
 
-  const loadData = useCallback(async () => {
-    if (isFetchingDataRef.current) return;
-    isFetchingDataRef.current = true;
-    try {
-      const [
-        statsData,
-        employeesData,
-        departmentsData,
-        designationsData,
-        leavesData,
-        attendanceData,
-        payrollData,
-        jobsData,
-        candidatesData,
-        assetsData,
-        myCompanyData,
-        workStatusData,
-      ] = await Promise.all([
-        api.getDashboardStats().catch(() => null),
-        api.getEmployees().catch(() => []),
-        api.getDepartments().catch(() => []),
-        api.getDesignations().catch(() => []),
-        api.getLeaves().catch(() => []),
-        api.getAttendance().catch(() => []),
-        api.getPayroll().catch(() => []),
-        api.getJobs().catch(() => []),
-        api.getCandidates().catch(() => []),
-        api.getAssets().catch(() => []),
-        api.getMyCompany().catch(() => null),
-        portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
-      ]);
+  useEffect(() => {
+    employeesRef.current = employees;
+  }, [employees]);
 
-      if (myCompanyData) {
-        setCurrentCompany(myCompanyData);
-      }
+  const activeCompanyId = user?.companyId || currentCompany?.id || '';
+  const activeCompanyCode = (user as any)?.companyCode || currentCompany?.code || '';
 
-      const seenEmpIds = new Set<string>();
-      const safeEmployees = Array.isArray(employeesData)
-        ? employeesData.filter((emp) => {
+  // Helpers for multi-tenant company isolation
+  const scopeEmployees = useCallback((rawEmps: Employee[]): Employee[] => {
+    const seenEmpIds = new Set<string>();
+    const safe = Array.isArray(rawEmps)
+      ? rawEmps.filter((emp) => {
           if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
           seenEmpIds.add(emp.id);
           return true;
         })
-        : [];
+      : [];
 
-      // Multi-Tenant Isolation: Scope data to the logged-in company
-      const activeCompanyId = user?.companyId || myCompanyData?.id || '';
-
-      let scopedEmployees: Employee[] = [];
-      if (!activeCompanyId) {
-        scopedEmployees = safeEmployees;
-      } else if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
-        scopedEmployees = safeEmployees.filter(
-          (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
-        );
-      } else {
-        scopedEmployees = safeEmployees.filter(
-          (e) =>
-            !e.companyId ||
-            e.companyId === activeCompanyId ||
-            (e as any).companyCode === activeCompanyId ||
-            (user?.companyCode && (e as any).companyCode === user.companyCode) ||
-            (myCompanyData?.code && (e as any).companyCode === myCompanyData.code)
-        );
-        if (scopedEmployees.length === 0 && safeEmployees.length > 0) {
-          scopedEmployees = safeEmployees;
-        }
-      }
-      setEmployees(scopedEmployees);
-      setLiveEmployees(scopedEmployees);
-
-      // Scope Leaves to this company only & populate department
-      const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
-      const rawLeaves = Array.isArray(leavesData) ? leavesData : [];
-      const scopedLeaves = rawLeaves
-        .filter(
-          (l) =>
-            scopedEmpIds.has(l.employeeId) ||
-            scopedEmpIds.has((l as any).userId) ||
-            ((l as any).companyId && (l as any).companyId === activeCompanyId) ||
-            ((l as any).employee?.id && scopedEmpIds.has((l as any).employee.id))
-        )
-        .map((l) => {
-          const matchedEmp = scopedEmployees.find(
-            (e) =>
-              e.id === l.employeeId ||
-              e.id === (l as any).userId ||
-              e.id === (l as any).employee?.id ||
-              `${e.firstName} ${e.lastName}`.trim().toLowerCase() === (l.employeeName || '').trim().toLowerCase()
-          );
-          return {
-            ...l,
-            departmentName:
-              l.departmentName && l.departmentName !== '--'
-                ? l.departmentName
-                : matchedEmp?.departmentName || (matchedEmp as any)?.department || (l as any).employee?.departmentName || 'General',
-            employeeName:
-              l.employeeName ||
-              (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : (l as any).employee?.fullName || 'Staff Member'),
-          };
-        });
-      setLeaves(scopedLeaves);
-      setLiveLeaves(scopedLeaves);
-
-      // Scope Attendance to this company only (including records from /api/attendance/work/status)
-      const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmployees);
-      const rawAttendance = [
-        ...(Array.isArray(attendanceData) ? attendanceData : []),
-        ...workStatusRecords,
-      ];
-      const scopedAttendance = rawAttendance.filter(
-        (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
+    if (!activeCompanyId) return safe;
+    if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
+      return safe.filter(
+        (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
       );
-      setAttendance(scopedAttendance);
-      setLiveAttendanceRecords(scopedAttendance);
-
-      // Scope Payroll to this company only
-      const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
-      const scopedPayroll = rawPayroll.filter(
-        (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
-      );
-      setPayroll(scopedPayroll);
-
-      setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
-      setDesignations(Array.isArray(designationsData) ? designationsData : []);
-      setJobs(Array.isArray(jobsData) ? jobsData : []);
-      setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
-      setAssets(Array.isArray(assetsData) ? assetsData : []);
-
-      const anyStats = statsData as any;
-      if (anyStats) {
-        setStats({
-          ...anyStats,
-          totalEmployees: scopedEmployees.length,
-          activeEmployees: scopedEmployees.filter((e) => e.status === 'Active').length,
-          attendanceRate: scopedEmployees.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
-          totalHours: scopedEmployees.length > 0 ? (anyStats?.totalHours || 0) : 0,
-        });
-      }
-    } catch (err) {
-      console.warn('Could not refresh HRMS data:', err);
-    } finally {
-      isFetchingDataRef.current = false;
     }
-  }, [user?.id, user?.companyId, user?.companyCode, portalMode]);
+    const filtered = safe.filter(
+      (e) =>
+        !e.companyId ||
+        e.companyId === activeCompanyId ||
+        (e as any).companyCode === activeCompanyId ||
+        (activeCompanyCode && (e as any).companyCode === activeCompanyCode)
+    );
+    return filtered.length > 0 ? filtered : safe;
+  }, [activeCompanyId, activeCompanyCode]);
 
-  const loadDataRef = useRef(loadData);
-  loadDataRef.current = loadData;
+  const scopeLeaves = useCallback((rawLeaves: LeaveRequest[], scopedEmps: Employee[]): LeaveRequest[] => {
+    const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
+    return (Array.isArray(rawLeaves) ? rawLeaves : [])
+      .filter(
+        (l) =>
+          scopedEmpIds.has(l.employeeId) ||
+          scopedEmpIds.has((l as any).userId) ||
+          ((l as any).companyId && (l as any).companyId === activeCompanyId) ||
+          ((l as any).employee?.id && scopedEmpIds.has((l as any).employee.id))
+      )
+      .map((l) => {
+        const matchedEmp = scopedEmps.find(
+          (e) =>
+            e.id === l.employeeId ||
+            e.id === (l as any).userId ||
+            e.id === (l as any).employee?.id ||
+            `${e.firstName} ${e.lastName}`.trim().toLowerCase() === (l.employeeName || '').trim().toLowerCase()
+        );
+        return {
+          ...l,
+          departmentName:
+            l.departmentName && l.departmentName !== '--'
+              ? l.departmentName
+              : matchedEmp?.departmentName || (matchedEmp as any)?.department || (l as any).employee?.departmentName || 'General',
+          employeeName:
+            l.employeeName ||
+            (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : (l as any).employee?.fullName || 'Staff Member'),
+        };
+      });
+  }, [activeCompanyId]);
 
+  const scopeAttendance = useCallback((rawAtt: AttendanceRecord[], scopedEmps: Employee[], workStatusData?: any): AttendanceRecord[] => {
+    const scopedEmpIds = new Set<string>();
+    scopedEmps.forEach((e) => {
+      if (e.id) {
+        scopedEmpIds.add(e.id);
+        scopedEmpIds.add(e.id.replace(/^(emp-|user-)/, ''));
+      }
+      if (e.userId) {
+        scopedEmpIds.add(e.userId);
+        scopedEmpIds.add(e.userId.replace(/^(emp-|user-)/, ''));
+      }
+    });
+
+    const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmps);
+    const combined = [...(Array.isArray(rawAtt) ? rawAtt : []), ...workStatusRecords];
+    return combined.filter((a) => {
+      if (!a) return false;
+      const cleanEmpId = (a.employeeId || '').replace(/^(emp-|user-)/, '');
+      const cleanUserId = ((a as any).userId || '').replace(/^(emp-|user-)/, '');
+      if (scopedEmpIds.has(a.employeeId) || (cleanEmpId && scopedEmpIds.has(cleanEmpId))) return true;
+      if (cleanUserId && scopedEmpIds.has(cleanUserId)) return true;
+      if ((a as any).companyId && (a as any).companyId === activeCompanyId) return true;
+      if (workStatusRecords.some((wr) => wr.id === a.id)) return true;
+      return false;
+    });
+  }, [activeCompanyId]);
+
+  // Company Brand Data - fetched once on authentication
   useEffect(() => {
     if (!isAuthenticated) return;
-    loadDataRef.current();
+    let isMounted = true;
+    api.getMyCompany()
+      .then((c) => {
+        if (isMounted && c) setCurrentCompany(c);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
 
-    // Periodic background refresh every 45s for fresh operational state
+  // Page-Wise Data Loader: strictly calls ONLY the APIs needed by that module
+  const loadDataForModule = useCallback(async (targetModule: string) => {
+    if (isFetchingDataRef.current[targetModule]) return;
+    isFetchingDataRef.current[targetModule] = true;
+
+    try {
+      if (targetModule === 'dashboard') {
+        const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
+          api.getDashboardStats().catch(() => null),
+          api.getEmployees().catch(() => []),
+          api.getLeaves().catch(() => []),
+          api.getAttendance().catch(() => []),
+          portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+
+        const scopedLvs = scopeLeaves(leavesData, scopedEmps);
+        setLeaves(scopedLvs);
+        setLiveLeaves(scopedLvs);
+
+        const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
+        setAttendance(scopedAtt);
+        setLiveAttendanceRecords(scopedAtt);
+
+        const anyStats = statsData as any;
+        if (anyStats) {
+          setStats({
+            ...anyStats,
+            totalEmployees: scopedEmps.length,
+            activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
+            attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
+            totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
+          });
+        }
+      } else if (targetModule === 'employees') {
+        const [employeesData, departmentsData] = await Promise.all([
+          api.getEmployees().catch(() => []),
+          api.getDepartments().catch(() => []),
+        ]);
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+      } else if (targetModule === 'attendance') {
+        const needEmployees = portalMode === 'admin' && employeesRef.current.length === 0;
+        const [attendanceData, employeesData] = await Promise.all([
+          api.getAttendance().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
+        ]);
+        if (needEmployees && Array.isArray(employeesData) && employeesData.length > 0) {
+          const scopedEmps = scopeEmployees(employeesData);
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
+        const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
+        const scopedAtt = scopeAttendance(attendanceData, activeEmps);
+        setAttendance(scopedAtt);
+        setLiveAttendanceRecords(scopedAtt);
+      } else if (targetModule === 'leaves') {
+        const [leavesData, employeesData] = await Promise.all([
+          api.getLeaves().catch(() => []),
+          api.getEmployees().catch(() => []),
+        ]);
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+        const scopedLvs = scopeLeaves(leavesData, scopedEmps);
+        setLeaves(scopedLvs);
+        setLiveLeaves(scopedLvs);
+      } else if (targetModule === 'payroll' || targetModule === 'payslips') {
+        const [payrollData, employeesData] = await Promise.all([
+          api.getPayroll().catch(() => []),
+          api.getEmployees().catch(() => []),
+        ]);
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+        const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
+        const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
+        const scopedPayroll = rawPayroll.filter(
+          (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
+        );
+        setPayroll(scopedPayroll);
+      } else if (targetModule === 'recruitment') {
+        const [jobsData, candidatesData, departmentsData] = await Promise.all([
+          api.getJobs().catch(() => []),
+          api.getCandidates().catch(() => []),
+          api.getDepartments().catch(() => []),
+        ]);
+        setJobs(Array.isArray(jobsData) ? jobsData : []);
+        setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+      } else if (targetModule === 'organization') {
+        const [departmentsData, designationsData, employeesData] = await Promise.all([
+          api.getDepartments().catch(() => []),
+          api.getDesignations().catch(() => []),
+          api.getEmployees().catch(() => []),
+        ]);
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDesignations(Array.isArray(designationsData) ? designationsData : []);
+      } else if (targetModule === 'calendar') {
+        const [attendanceData, leavesData] = await Promise.all([
+          api.getAttendance().catch(() => []),
+          api.getLeaves().catch(() => []),
+        ]);
+        const scopedAtt = scopeAttendance(attendanceData, employeesRef.current);
+        setAttendance(scopedAtt);
+        const scopedLvs = scopeLeaves(leavesData, employeesRef.current);
+        setLeaves(scopedLvs);
+      } else if (targetModule === 'chat' || targetModule === 'announcements') {
+        const employeesData = await api.getEmployees().catch(() => []);
+        const scopedEmps = scopeEmployees(employeesData);
+        setEmployees(scopedEmps);
+        setLiveEmployees(scopedEmps);
+      }
+      // Note: training, performance, documents, assets, resignations, audit-logs, settings
+      // self-fetch their own module data on mount, so no redundant shell fetch is required.
+    } catch (err) {
+      console.warn(`Could not load data for module ${targetModule}:`, err);
+    } finally {
+      isFetchingDataRef.current[targetModule] = false;
+    }
+  }, [activeCompanyId, activeCompanyCode, portalMode, scopeEmployees, scopeLeaves, scopeAttendance]);
+
+  // Refresh handler passed down to modules
+  const loadData = useCallback(() => {
+    return loadDataForModule(activeModule);
+  }, [loadDataForModule, activeModule]);
+
+  const loadDataForModuleRef = useRef(loadDataForModule);
+  loadDataForModuleRef.current = loadDataForModule;
+
+  // Page-wise data loading: runs ONLY when activeModule changes or on user authentication
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadDataForModuleRef.current(activeModule);
+
+    // Lightweight 60s background refresh ONLY for the currently active module
     const pollTimer = setInterval(() => {
-      loadDataRef.current();
-    }, 45000);
+      loadDataForModuleRef.current(activeModule);
+    }, 60000);
 
-    const handleRefreshEvent = () => {
-      loadDataRef.current();
+    return () => clearInterval(pollTimer);
+  }, [isAuthenticated, activeModule]);
+
+  // Real-time leave synchronization: strictly refreshes leaves only
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleRefreshEvent = async (event?: any) => {
+      try {
+        const payload = event?.detail;
+        if (payload && payload.id) {
+          if (payload.status === 'Pending') {
+            setLeaves((prev) => {
+              if (prev.some((item) => item.id === payload.id)) return prev;
+              const newLeave: LeaveRequest = {
+                id: payload.id,
+                employeeId: payload.employeeId || payload.userId || '',
+                employeeName: payload.employeeName || 'Staff Member',
+                departmentName: payload.departmentName || '',
+                leaveType: payload.leaveType || 'Casual Leave',
+                startDate: payload.startDate || new Date().toISOString().split('T')[0],
+                endDate: payload.endDate || new Date().toISOString().split('T')[0],
+                daysCount: payload.daysCount || 1,
+                isHalfDay: Boolean(payload.isHalfDay),
+                reason: payload.reason || '',
+                status: 'Pending',
+                appliedDate: payload.appliedDate || payload.appliedOn || new Date().toISOString().split('T')[0],
+              };
+              return [newLeave, ...prev];
+            });
+          } else if (payload.status === 'Approved' || payload.status === 'Rejected') {
+            setLeaves((prev) =>
+              prev.map((item) => (item.id === payload.id ? { ...item, status: payload.status } : item))
+            );
+          }
+        }
+
+        const freshLeaves = await api.getLeaves();
+        if (Array.isArray(freshLeaves)) {
+          const scoped = scopeLeaves(freshLeaves, employeesRef.current);
+          setLeaves(scoped);
+          setLiveLeaves(scoped);
+        }
+      } catch (err) {
+        console.warn('Direct leaves fetch error:', err);
+      }
     };
 
     window.addEventListener('hrms_leaves_updated', handleRefreshEvent);
 
     return () => {
-      clearInterval(pollTimer);
       window.removeEventListener('hrms_leaves_updated', handleRefreshEvent);
     };
-  }, [isAuthenticated, user?.id, portalMode]);
+  }, [isAuthenticated, scopeLeaves]);
 
   // Clean Path-Based Navigation (no full-page reloads, clean history updates)
   const navigateToModule = (mod: string, tab?: string) => {
@@ -561,7 +712,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 records={attendance}
                 employees={employees}
                 initialTab={
-                  subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
+                  portalMode === 'admin'
+                    ? 'today'
+                    : subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
                     ? (subTab as any)
                     : 'today'
                 }
@@ -612,7 +765,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 departments={departments}
                 designations={designations}
                 locations={locations}
-                initialTab={(subTab as any) || 'about'}
+                initialTab={(subTab as any) === 'designations' ? 'designations' : 'departments'}
                 onRefresh={loadData}
                 portalMode={portalMode}
                 employees={employees}
@@ -675,47 +828,59 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         />
       </div>
 
-      <AttendanceModal
-        isOpen={clockModalOpen}
-        onClose={() => setClockModalOpen(false)}
-        onRefresh={loadData}
-      />
+      {clockModalOpen && (
+        <AttendanceModal
+          isOpen={clockModalOpen}
+          onClose={() => setClockModalOpen(false)}
+          onRefresh={loadData}
+        />
+      )}
 
-      <LeaveModal
-        isOpen={leaveModalOpen}
-        onClose={() => setLeaveModalOpen(false)}
-        onRefresh={loadData}
-      />
+      {leaveModalOpen && (
+        <LeaveModal
+          isOpen={leaveModalOpen}
+          onClose={() => setLeaveModalOpen(false)}
+          onRefresh={loadData}
+        />
+      )}
 
-      <EmployeeDrawer
-        isOpen={addEmployeeModalOpen}
-        onClose={() => setAddEmployeeModalOpen(false)}
-        onRefresh={loadData}
-        departments={departments}
-        designations={designations}
-        employees={employees}
-      />
+      {addEmployeeModalOpen && (
+        <EmployeeDrawer
+          isOpen={addEmployeeModalOpen}
+          onClose={() => setAddEmployeeModalOpen(false)}
+          onRefresh={loadData}
+          departments={departments}
+          designations={designations}
+          employees={employees}
+        />
+      )}
 
-      <EmployeeProfileModal
-        employee={selectedEmployee}
-        isOpen={Boolean(selectedEmployee)}
-        onClose={() => setSelectedEmployee(null)}
-        onRefresh={loadData}
-      />
+      {Boolean(selectedEmployee) && (
+        <EmployeeProfileModal
+          employee={selectedEmployee}
+          isOpen={Boolean(selectedEmployee)}
+          onClose={() => setSelectedEmployee(null)}
+          onRefresh={loadData}
+        />
+      )}
 
-      <GlobalSearchModal
-        isOpen={searchModalOpen}
-        onClose={() => setSearchModalOpen(false)}
-        employees={employees}
-        onSelectEmployee={setSelectedEmployee}
-        onNavigateModule={navigateToModule}
-        portalMode={portalMode}
-      />
+      {searchModalOpen && (
+        <GlobalSearchModal
+          isOpen={searchModalOpen}
+          onClose={() => setSearchModalOpen(false)}
+          employees={employees}
+          onSelectEmployee={setSelectedEmployee}
+          onNavigateModule={navigateToModule}
+          portalMode={portalMode}
+        />
+      )}
 
-      <MobileConnectModal
-        isOpen={mobileModalOpen}
-        onClose={() => setMobileModalOpen(false)}
-      />
+      {mobileModalOpen && (
+        <MobileConnectModal
+          isOpen={mobileModalOpen}
+          onClose={() => setMobileModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

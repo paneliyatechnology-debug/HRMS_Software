@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
 import { getCookie } from '../lib/cookies';
+import { useAuth } from './AuthContext';
 import {
   receiveIncomingSocketMessage,
   receiveIncomingSocketEdit,
@@ -30,6 +31,8 @@ interface SocketContextType {
   emitChatEdit: (payload: any) => void;
   emitChatDelete: (payload: any) => void;
   emitChatTyping: (payload: any) => void;
+  emitLeaveApplied: (leaveData: any) => void;
+  emitLeaveStatusUpdated: (payload: any) => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -42,9 +45,12 @@ const SocketContext = createContext<SocketContextType>({
   emitChatEdit: () => {},
   emitChatDelete: () => {},
   emitChatTyping: () => {},
+  emitLeaveApplied: () => {},
+  emitLeaveStatusUpdated: () => {},
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user, role } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -93,25 +99,156 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  const emitLeaveApplied = (leaveData: any) => {
+    // 1. Cross-tab instant local broadcast (0ms tab synchronization)
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const localBc = new BroadcastChannel('hrms_realtime_sync');
+        localBc.postMessage({ type: 'HRMS_LEAVE_APPLIED', payload: leaveData });
+        localBc.close();
+      } catch (_) {}
+    }
+
+    // 2. WebSocket gateway emit to backend
+    if (socket && isConnected) {
+      socket.emit('leave_applied', leaveData);
+      socket.emit('leave_request', leaveData);
+      socket.emit('new_leave_applied', leaveData);
+      socket.emit('new_leave_request', leaveData);
+      socket.emit('leave_request_submitted', leaveData);
+      socket.emit('create_leave', leaveData);
+      socket.emit('apply_leave', leaveData);
+      socket.emit('notification', {
+        module: 'leaves',
+        type: 'info',
+        title: `📋 New Leave Request: ${leaveData?.employeeName || 'Staff Member'}`,
+        message: `${leaveData?.leaveType || 'Leave'} applied (${leaveData?.startDate || ''} to ${leaveData?.endDate || ''}). Reason: ${leaveData?.reason || 'No reason provided'}`,
+        data: leaveData,
+      });
+    }
+  };
+
+  const emitLeaveStatusUpdated = (payload: any) => {
+    // 1. Cross-tab instant local broadcast (0ms tab synchronization)
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const localBc = new BroadcastChannel('hrms_realtime_sync');
+        localBc.postMessage({ type: 'HRMS_LEAVE_STATUS_UPDATED', payload });
+        localBc.close();
+      } catch (_) {}
+    }
+
+    // 2. WebSocket gateway emit to backend
+    if (socket && isConnected) {
+      socket.emit('leave_status_updated', payload);
+      socket.emit('leave_updated', payload);
+      if (payload.status === 'Approved') {
+        socket.emit('leave_approved', payload);
+      } else if (payload.status === 'Rejected') {
+        socket.emit('leave_rejected', payload);
+      }
+      socket.emit('notification', {
+        module: 'leaves',
+        type: payload.status === 'Approved' ? 'success' : 'warning',
+        title: `Leave ${payload.status || 'Updated'}: ${payload.employeeName || 'Staff'}`,
+        message: `Leave request for ${payload.leaveType || 'period'} has been ${payload.status?.toLowerCase() || 'updated'}.`,
+        data: payload,
+      });
+    }
+  };
+
   useEffect(() => {
-    // Only attempt socket connection if the user is logged in
-    const isAuth = typeof window !== 'undefined' && getCookie('hrms_is_authenticated') === 'true';
+    // Check if user is authenticated (from context state or cookie)
+    const isAuth =
+      isAuthenticated ||
+      (typeof window !== 'undefined' && getCookie('hrms_is_authenticated') === 'true');
+
     if (!isAuth) {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+      }
       return;
+    }
+
+    // BroadcastChannel for instant cross-tab / cross-window sync on same browser
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('hrms_realtime_sync');
+      } catch (_) {
+        bc = null;
+      }
     }
 
     // Dynamically connect to WebSocket Gateway using URL from .env
     const socketUrl = getSocketBaseUrl();
+    const token =
+      typeof window !== 'undefined'
+        ? getCookie('hrms_auth_token') || getCookie('token') || ''
+        : '';
+    const currentUserId =
+      user?.id ||
+      user?.employeeId ||
+      (typeof window !== 'undefined' ? getCookie('hrms_user_id') : '');
+    const currentRole = user?.role || role || '';
+
     const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      auth: {
+        token,
+        userId: currentUserId,
+        employeeId: user?.employeeId || currentUserId,
+        role: currentRole,
+        companyId: (user as any)?.companyId,
+      },
+      query: {
+        token,
+        userId: currentUserId,
+        employeeId: user?.employeeId || currentUserId,
+        role: currentRole,
+      },
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 3000,
-      timeout: 5000,
+      reconnectionDelay: 2000,
+      timeout: 10000,
     });
 
     s.on('connect', () => {
       setIsConnected(true);
       console.log('⚡ Connected to Paneliya Enterprise WebSocket Gateway');
+
+      // Join rooms for targeted updates
+      if (currentUserId) {
+        s.emit('join', currentUserId);
+        s.emit('join_user', currentUserId);
+        s.emit('join_room', currentUserId);
+      }
+      if ((user as any)?.companyId) {
+        s.emit('join', `company_${(user as any).companyId}`);
+        s.emit('join_room', `company_${(user as any).companyId}`);
+      }
+
+      const normRole = String(currentRole || '').toUpperCase();
+      if (
+        normRole === 'ADMIN' ||
+        normRole === 'HR_ADMIN' ||
+        normRole === 'HR' ||
+        normRole === 'COMPANY_ADMIN'
+      ) {
+        s.emit('join', 'admin_room');
+        s.emit('join', 'admins');
+        s.emit('join', 'hr');
+        s.emit('join_room', 'admin_room');
+        s.emit('join_room', 'admins');
+      }
+
+      s.emit('user_connected', {
+        userId: currentUserId,
+        employeeId: user?.employeeId || currentUserId,
+        name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+        role: currentRole,
+      });
     });
 
     s.on('disconnect', () => {
@@ -126,7 +263,131 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         type: payload.type || 'info',
         module: payload.module,
       });
+
+      const mod = String(payload.module || '').toLowerCase();
+      if (
+        mod === 'leave' ||
+        mod === 'leaves' ||
+        (payload.title && String(payload.title).toLowerCase().includes('leave'))
+      ) {
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
+      }
     });
+
+    // Real-Time Leave Socket Listeners (Instant Admin Sync)
+    const handleIncomingLeaveRequest = (payload: any) => {
+      console.log('⚡ [Socket] New leave request event received:', payload);
+      window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
+
+      try {
+        const rawUser = getCookie('hrms_auth_user');
+        const currentUser = rawUser ? JSON.parse(rawUser) : user;
+        const uRole = (currentUser?.role || currentRole || '').toUpperCase();
+        const isAdmin =
+          uRole === 'ADMIN' ||
+          uRole === 'HR_ADMIN' ||
+          uRole === 'HR' ||
+          uRole === 'COMPANY_ADMIN';
+
+        if (isAdmin) {
+          showToast({
+            title: `📋 New Leave Request: ${payload?.employeeName || payload?.name || 'Staff Member'}`,
+            message: `${payload?.leaveType || 'Leave'} applied (${payload?.startDate || ''} to ${payload?.endDate || ''}). Reason: ${payload?.reason || 'No reason provided'}`,
+            type: 'info',
+            module: 'leaves',
+          });
+        }
+      } catch (_) {}
+    };
+
+    s.on('leave_applied', handleIncomingLeaveRequest);
+    s.on('leave_request', handleIncomingLeaveRequest);
+    s.on('new_leave_applied', handleIncomingLeaveRequest);
+    s.on('new_leave_request', handleIncomingLeaveRequest);
+    s.on('leave_request_submitted', handleIncomingLeaveRequest);
+    s.on('new_leave', handleIncomingLeaveRequest);
+    s.on('leave_created', handleIncomingLeaveRequest);
+    s.on('apply_leave', handleIncomingLeaveRequest);
+
+    const handleIncomingLeaveStatus = (payload: any) => {
+      console.log('⚡ [Socket] Leave status update event received:', payload);
+      window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
+
+      try {
+        const rawUser = getCookie('hrms_auth_user');
+        const currentUser = rawUser ? JSON.parse(rawUser) : user;
+        const myEmpId = currentUser?.employeeId || currentUser?.id || currentUserId;
+        const targetEmpId = payload?.employeeId || payload?.userId;
+
+        if (!targetEmpId || !myEmpId || targetEmpId === myEmpId) {
+          const isApproved = payload?.status === 'Approved';
+          showToast({
+            title: `Leave ${payload?.status || 'Updated'}`,
+            message: `Your ${payload?.leaveType || 'leave'} request has been ${payload?.status?.toLowerCase() || 'updated'}.`,
+            type: isApproved ? 'success' : 'warning',
+            module: 'leaves',
+          });
+        }
+      } catch (_) {}
+    };
+
+    s.on('leave_status_updated', handleIncomingLeaveStatus);
+    s.on('leave_updated', handleIncomingLeaveStatus);
+    s.on('leave_approved', handleIncomingLeaveStatus);
+    s.on('leave_rejected', handleIncomingLeaveStatus);
+
+    // Explicitly handled events set to prevent duplicate invocations in wildcard
+    const explicitLeaveEvents = new Set([
+      'leave_applied',
+      'leave_request',
+      'new_leave_applied',
+      'new_leave_request',
+      'leave_request_submitted',
+      'new_leave',
+      'leave_created',
+      'apply_leave',
+      'leave_status_updated',
+      'leave_updated',
+      'leave_approved',
+      'leave_rejected',
+    ]);
+
+    // Wildcard event interceptor for unknown/alternate backend leave event names
+    s.onAny((event: string, ...args: any[]) => {
+      const ev = String(event || '').toLowerCase();
+      if (explicitLeaveEvents.has(ev)) return; // Already handled by specific s.on listener
+
+      const payload = args[0];
+      if (
+        ev.includes('leave') ||
+        (payload && typeof payload === 'object' && (payload.module === 'leaves' || payload.module === 'leave'))
+      ) {
+        console.log(`⚡ [Socket onAny] Caught alternate leave event: "${event}"`, payload);
+        if (
+          ev.includes('status') ||
+          ev.includes('approved') ||
+          ev.includes('rejected') ||
+          (payload && payload.status && payload.status !== 'Pending')
+        ) {
+          handleIncomingLeaveStatus(payload);
+        } else {
+          handleIncomingLeaveRequest(payload);
+        }
+      }
+    });
+
+    // Listen on BroadcastChannel for multi-tab sync
+    if (bc) {
+      bc.onmessage = (event) => {
+        if (!event?.data) return;
+        const { type, payload } = event.data;
+        if (type === 'HRMS_LEAVE_APPLIED') {
+          handleIncomingLeaveRequest(payload);
+        } else if (type === 'HRMS_LEAVE_STATUS_UPDATED') {
+          handleIncomingLeaveStatus(payload);
+        }
+      };
+    }
 
     // Real-Time Socket Chat Listeners
     s.on('chat_message_received', (incomingMessage: any) => {
@@ -172,9 +433,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setSocket(s);
 
     return () => {
+      if (bc) {
+        bc.close();
+      }
       s.disconnect();
     };
-  }, []);
+  }, [isAuthenticated, user?.id, user?.employeeId, user?.role, (user as any)?.companyId]);
 
   return (
     <SocketContext.Provider
@@ -188,6 +452,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitChatEdit,
         emitChatDelete,
         emitChatTyping,
+        emitLeaveApplied,
+        emitLeaveStatusUpdated,
       }}
     >
       {children}

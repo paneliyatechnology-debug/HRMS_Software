@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Sparkles,
   Check,
+  Lock,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -290,6 +291,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Direct Check Out (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckOut = async () => {
+    if (punchState.status === 'on_break') {
+      alert('Cannot check out while on break. Please click "Resume Work" first.');
+      return;
+    }
     setLoading(true);
     try {
       const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
@@ -1003,23 +1008,29 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {punchState.status === 'on_break' && (
-                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
-                  <button
-                    onClick={handleResumeWork}
-                    disabled={loading}
-                    className="py-3 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
-                  >
-                    <Play className="w-4 h-4 fill-current shrink-0" />
-                    <span className="truncate">{loading ? 'Resuming...' : 'Resume Work'}</span>
-                  </button>
-                  <button
-                    onClick={handleInitiateCheckOut}
-                    disabled={loading}
-                    className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                    <span className="truncate">{loading ? 'Checking Out...' : 'Check Out'}</span>
-                  </button>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
+                    <button
+                      onClick={handleResumeWork}
+                      disabled={loading}
+                      className="py-3 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
+                    >
+                      <Play className="w-4 h-4 fill-current shrink-0" />
+                      <span className="truncate">{loading ? 'Resuming...' : 'Resume Work'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={true}
+                      title="Check out is blocked while on break. Please click 'Resume Work' first."
+                      className="py-3 px-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">Check Out (Blocked)</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-medium text-center bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-200">
+                    ⚠️ Check-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.
+                  </p>
                 </div>
               )}
 

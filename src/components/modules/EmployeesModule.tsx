@@ -87,8 +87,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   useEffect(() => {
-    loadLiveEmployees();
-  }, []);
+    if (!employees || employees.length === 0) {
+      loadLiveEmployees();
+    }
+  }, [employees]);
 
   // Focus search on '/' key press
   useEffect(() => {

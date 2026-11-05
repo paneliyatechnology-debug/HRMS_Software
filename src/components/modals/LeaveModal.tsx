@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { LeaveType } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 
@@ -23,6 +24,7 @@ const getTodayDate = () => {
 
 export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user } = useAuth();
+  const { emitLeaveApplied, showToast } = useSocket();
   const [leaveType, setLeaveType] = useState<LeaveType>('Casual Leave');
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
@@ -113,7 +115,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         '';
 
       const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
-      await api.applyLeave({
+      const leavePayload = {
         userId: targetUserId,
         employeeId: user.employeeId || targetUserId,
         employeeName: empName || 'Employee',
@@ -123,10 +125,30 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         endDate,
         isHalfDay: Boolean(isHalfDay),
         reason: reason.trim(),
+      };
+
+      const result = await api.applyLeave(leavePayload);
+
+      const createdLeave = {
+        ...leavePayload,
+        id: (result as any)?.id || (result as any)?._id || (result as any)?.data?.id || `leave-${Date.now()}`,
+        status: 'Pending' as const,
+        appliedOn: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
+      };
+
+      // Instantly broadcast via WebSocket to Admin side
+      emitLeaveApplied(createdLeave);
+
+      showToast({
+        title: 'Leave Request Submitted',
+        message: 'Your leave application has been submitted and sent to HR in real-time.',
+        type: 'success',
       });
+
       onRefresh();
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: createdLeave }));
       }
       onClose();
     } catch (err: any) {

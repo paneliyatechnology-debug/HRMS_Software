@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2,
   Users,
@@ -28,17 +28,27 @@ import {
   Clock,
   Edit2,
   RotateCcw,
+  UserPlus,
+  UserMinus,
+  Check,
+  ArrowRight,
+  User,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from 'lucide-react';
-import { Department, Designation, Location } from '../../types/hrms';
+import { Department, Designation, Location, Role, Employee, DesignationMember } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
 
 interface OrganizationModuleProps {
   departments: Department[];
   designations: Designation[];
   locations: Location[];
-  initialTab?: 'about' | 'departments' | 'designations' | 'hierarchy';
+  initialTab?: 'departments' | 'designations' | 'about' | 'hierarchy';
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
   employees?: any[];
@@ -58,7 +68,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   departments,
   designations,
   locations,
-  initialTab = 'about',
+  initialTab = 'departments',
   onRefresh,
   portalMode = 'admin',
   employees = [],
@@ -67,7 +77,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const { user } = useAuth();
   const { showToast } = useSocket();
   const isAdmin = isUserAdminRole(user?.role);
-  const [activeTab, setActiveTab] = useState<'about' | 'departments' | 'designations' | 'hierarchy'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'departments' | 'designations' | 'about' | 'hierarchy'>(() => {
+    return initialTab === 'designations' ? 'designations' : 'departments';
+  });
 
   // Dynamic Company State
   const [currentCompany, setCurrentCompany] = useState<any>(propCompany || null);
@@ -166,9 +178,46 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   // Modals state
   const [addDeptModalOpen, setAddDeptModalOpen] = useState(false);
   const [addDesModalOpen, setAddDesModalOpen] = useState(false);
+  const [isAssignEmpModalOpen, setIsAssignEmpModalOpen] = useState(false);
+
+  // Designation Member Management state (Real data from GET /organization/designations/:id/members)
+  const [designationMembersMap, setDesignationMembersMap] = useState<
+    Record<string, { totalMembers: number; members: DesignationMember[] }>
+  >({});
+  const [loadingDesMembers, setLoadingDesMembers] = useState(false);
+  const [expandedDesMembers, setExpandedDesMembers] = useState<Record<string, boolean>>({});
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [addMemberDesId, setAddMemberDesId] = useState<string>('');
+  const [addMemberUserIds, setAddMemberUserIds] = useState<string[]>([]);
+  const [addMemberSubmitting, setAddMemberSubmitting] = useState(false);
+
+  // Edit Member Status & Designation state
+  const [editingMember, setEditingMember] = useState<{ member: any; currentDesId: string } | null>(null);
+  const [editTargetDesignationId, setEditTargetDesignationId] = useState<string>('');
+  const [editTargetDepartmentId, setEditTargetDepartmentId] = useState<string>('');
+  const [editTargetStatus, setEditTargetStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [editMemberSubmitting, setEditMemberSubmitting] = useState(false);
+
+  // Remove Member state
+  const [removingMember, setRemovingMember] = useState<{ member: any; currentDesId: string } | null>(null);
+  const [removeMemberSubmitting, setRemoveMemberSubmitting] = useState(false);
+
+  // Assign Employee to Department state
+  const [assignDeptId, setAssignDeptId] = useState<string>('');
+  const [assignEmployeeId, setAssignEmployeeId] = useState<string>('');
+  const [assignRole, setAssignRole] = useState<Role>('EMPLOYEE');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
   useEffect(() => {
-    const isAnyOpen = addDeptModalOpen || addDesModalOpen || isEditCompanyOpen;
+    const isAnyOpen =
+      addDeptModalOpen ||
+      addDesModalOpen ||
+      isEditCompanyOpen ||
+      isAssignEmpModalOpen ||
+      isAddMemberModalOpen ||
+      !!editingMember ||
+      !!removingMember;
+
     if (!isAnyOpen) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -177,6 +226,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         if (addDeptModalOpen) setAddDeptModalOpen(false);
         if (addDesModalOpen) setAddDesModalOpen(false);
         if (isEditCompanyOpen) setIsEditCompanyOpen(false);
+        if (isAssignEmpModalOpen) setIsAssignEmpModalOpen(false);
+        if (isAddMemberModalOpen) setIsAddMemberModalOpen(false);
+        if (editingMember) setEditingMember(null);
+        if (removingMember) setRemovingMember(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -184,7 +237,15 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [addDeptModalOpen, addDesModalOpen, isEditCompanyOpen]);
+  }, [
+    addDeptModalOpen,
+    addDesModalOpen,
+    isEditCompanyOpen,
+    isAssignEmpModalOpen,
+    isAddMemberModalOpen,
+    editingMember,
+    removingMember,
+  ]);
 
   // Department form state
   const [deptName, setDeptName] = useState('');
@@ -203,7 +264,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [desErrors, setDesErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
+    if (initialTab === 'designations') setActiveTab('designations');
+    else if (initialTab === 'departments') setActiveTab('departments');
   }, [initialTab]);
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
@@ -270,6 +332,306 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     finally { setDesSubmitting(false); }
   };
 
+  const handleOpenAssignEmpModal = (targetDeptId?: string) => {
+    const chosenDeptId = targetDeptId || departments[0]?.id || '';
+    setAssignDeptId(chosenDeptId);
+
+    // Default to first employee if none selected
+    const initialEmp = employees.length > 0 ? (assignEmployeeId ? employees.find((e) => e.id === assignEmployeeId) : employees[0]) : null;
+    if (initialEmp) {
+      setAssignEmployeeId(initialEmp.id);
+      if (initialEmp.role) {
+        setAssignRole(initialEmp.role as Role);
+      }
+    }
+
+    setIsAssignEmpModalOpen(true);
+  };
+
+  const handleAssignDeptChange = (newDeptId: string) => {
+    setAssignDeptId(newDeptId);
+  };
+
+  const handleAssignEmployeeChange = (empId: string) => {
+    setAssignEmployeeId(empId);
+    const emp = employees.find((e) => e.id === empId);
+    if (emp && emp.role) {
+      setAssignRole(emp.role as Role);
+    }
+  };
+
+  const handleConfirmAssignEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignEmployeeId || !assignDeptId) {
+      showToast?.({
+        type: 'error',
+        title: 'Missing Selection',
+        message: 'Please select both an employee and a department.',
+      });
+      return;
+    }
+
+    const selectedEmp = employees.find((e) => e.id === assignEmployeeId);
+    const selectedDept = departments.find((d) => d.id === assignDeptId);
+
+    if (!selectedEmp || !selectedDept) return;
+
+    setAssignSubmitting(true);
+    try {
+      const roleDef = getRoleDefinition(assignRole);
+      const targetUserId = (selectedEmp as any).userId || selectedEmp.id;
+
+      // Find target designation for the selected department or use default
+      const matchingDes =
+        designations.find((d) => d.departmentId === selectedDept.id) ||
+        designations.find((d) => d.id === 'des-1793877127945') ||
+        designations[0];
+      const targetDesId = matchingDes?.id || 'des-1793877127945';
+
+      // 1. Call POST /organization/designations/:id/members with { userIds: [targetUserId] }
+      let apiMessage = '';
+      try {
+        const desRes = await api.addDesignationMembers(targetDesId, [targetUserId]);
+        if (desRes?.message) {
+          apiMessage = desRes.message;
+        }
+      } catch (desErr) {
+        console.warn('addDesignationMembers API call response:', desErr);
+      }
+
+      // 2. Update employee's department and role
+      const updatePayload: any = {
+        departmentId: selectedDept.id,
+        departmentName: selectedDept.name,
+        role: assignRole,
+      };
+
+      if (matchingDes) {
+        updatePayload.designationId = matchingDes.id;
+        updatePayload.designationTitle = matchingDes.title;
+      }
+
+      await api.updateEmployee(selectedEmp.id, updatePayload);
+
+      showToast?.({
+        type: 'success',
+        title: 'Employee Added Successfully',
+        message:
+          apiMessage ||
+          `${selectedEmp.firstName} ${selectedEmp.lastName} added to ${selectedDept.name} with role "${roleDef.label}".`,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('hrms_employee_updated', {
+            detail: {
+              id: selectedEmp.id,
+              departmentId: selectedDept.id,
+              departmentName: selectedDept.name,
+              role: assignRole,
+            },
+          })
+        );
+      }
+
+      setIsAssignEmpModalOpen(false);
+      await fetchDesignationMembersFromApi();
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to assign employee to department:', err);
+      showToast?.({
+        type: 'error',
+        title: 'Assignment Failed',
+        message: err.message || 'Could not assign employee to department.',
+      });
+    } finally {
+      setAssignSubmitting(false);
+    }
+  };
+
+  /**
+   * Fetch real designation members directly from API:
+   * GET /api/organization/designations/:designationId/members
+   * Displays strictly what the API returns. No frontend-filtered fallback.
+   */
+  const fetchDesignationMembersFromApi = useCallback(async () => {
+    if (!designations || designations.length === 0) return;
+    setLoadingDesMembers(true);
+    try {
+      const results = await Promise.all(
+        designations.map(async (des) => {
+          try {
+            const res = await api.getDesignationMembers(des.id);
+            if (res && Array.isArray(res.members)) {
+              return {
+                id: des.id,
+                totalMembers: typeof res.totalMembers === 'number' ? res.totalMembers : res.members.length,
+                members: res.members,
+              };
+            } else if (Array.isArray(res)) {
+              return {
+                id: des.id,
+                totalMembers: res.length,
+                members: res,
+              };
+            }
+            return { id: des.id, totalMembers: 0, members: [] };
+          } catch (err) {
+            console.error(`Failed to fetch members for designation ${des.id}:`, err);
+            return { id: des.id, totalMembers: 0, members: [] };
+          }
+        })
+      );
+
+      const newMap: Record<string, { totalMembers: number; members: DesignationMember[] }> = {};
+      results.forEach((item) => {
+        newMap[item.id] = {
+          totalMembers: item.totalMembers,
+          members: item.members,
+        };
+      });
+      setDesignationMembersMap(newMap);
+    } catch (err) {
+      console.error('Failed to fetch designation members from API:', err);
+    } finally {
+      setLoadingDesMembers(false);
+    }
+  }, [designations]);
+
+  useEffect(() => {
+    if (activeTab === 'designations') {
+      fetchDesignationMembersFromApi();
+    }
+  }, [activeTab, fetchDesignationMembersFromApi]);
+
+  const handleOpenAddMemberModal = (desId?: string) => {
+    const targetId = desId || designations[0]?.id || '';
+    setAddMemberDesId(targetId);
+    setAddMemberUserIds([]);
+    setIsAddMemberModalOpen(true);
+  };
+
+  const handleToggleAddMemberUserId = (userId: string) => {
+    setAddMemberUserIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleAddMembersToDesignation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addMemberDesId || addMemberUserIds.length === 0) {
+      showToast?.({
+        type: 'error',
+        title: 'Selection Required',
+        message: 'Please select a designation and at least one member to assign.',
+      });
+      return;
+    }
+
+    setAddMemberSubmitting(true);
+    try {
+      const res = await api.addDesignationMembers(addMemberDesId, addMemberUserIds);
+      showToast?.({
+        type: 'success',
+        title: 'Members Assigned',
+        message: res.message || `Successfully assigned ${addMemberUserIds.length} member(s).`,
+      });
+      setIsAddMemberModalOpen(false);
+      setAddMemberUserIds([]);
+      await fetchDesignationMembersFromApi();
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to add members to designation:', err);
+      showToast?.({
+        type: 'error',
+        title: 'Assignment Failed',
+        message: err.message || 'Could not assign members to designation.',
+      });
+    } finally {
+      setAddMemberSubmitting(false);
+    }
+  };
+
+  const handleOpenEditMemberModal = (member: any, currentDesId: string) => {
+    setEditingMember({ member, currentDesId });
+    setEditTargetDesignationId(member.designationId || currentDesId);
+    const matchedDept = departments.find(
+      (d) => d.name?.toLowerCase() === member.departmentName?.toLowerCase() || d.id === member.departmentId
+    );
+    setEditTargetDepartmentId(matchedDept ? matchedDept.id : departments[0]?.id || '');
+    setEditTargetStatus((member.status as any) || 'Active');
+  };
+
+  const handleConfirmEditMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    const { member, currentDesId } = editingMember;
+    const targetUserId = member.userId || member.id;
+
+    if (!editTargetDesignationId || !editTargetDepartmentId) {
+      showToast?.({
+        type: 'error',
+        title: 'Missing Fields',
+        message: 'Please select both designation and department.',
+      });
+      return;
+    }
+
+    setEditMemberSubmitting(true);
+    try {
+      const res = await api.updateDesignationMember(currentDesId, targetUserId, {
+        designationId: editTargetDesignationId,
+        departmentId: editTargetDepartmentId,
+        status: editTargetStatus,
+      });
+      showToast?.({
+        type: 'success',
+        title: 'Member Updated',
+        message: res.message || `${member.fullName || 'Member'} status and designation updated successfully.`,
+      });
+      setEditingMember(null);
+      await fetchDesignationMembersFromApi();
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to update member status and designation:', err);
+      showToast?.({
+        type: 'error',
+        title: 'Update Failed',
+        message: err.message || 'Could not update member status and designation.',
+      });
+    } finally {
+      setEditMemberSubmitting(false);
+    }
+  };
+
+  const handleConfirmRemoveMember = async () => {
+    if (!removingMember) return;
+    const { member, currentDesId } = removingMember;
+    const targetUserId = member.userId || member.id;
+
+    setRemoveMemberSubmitting(true);
+    try {
+      const res = await api.removeDesignationMember(currentDesId, targetUserId);
+      showToast?.({
+        type: 'success',
+        title: 'Member Removed',
+        message: res.message || `${member.fullName || 'Member'} removed from designation.`,
+      });
+      setRemovingMember(null);
+      await fetchDesignationMembersFromApi();
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to remove member from designation:', err);
+      showToast?.({
+        type: 'error',
+        title: 'Removal Failed',
+        message: err.message || 'Could not remove member from designation.',
+      });
+    } finally {
+      setRemoveMemberSubmitting(false);
+    }
+  };
+
   const totalEmployees = employees?.length || 0;
   const totalDepts = departments.length;
   const totalDesignations = designations.length;
@@ -290,10 +652,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
         <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
           {[
-            { key: 'about', label: 'Overview', icon: Sparkles },
             { key: 'departments', label: `Departments (${departments.length})`, icon: Layers },
-            ...(portalMode === 'admin' ? [{ key: 'designations', label: `Designations (${designations.length})`, icon: Briefcase }] : []),
-            { key: 'hierarchy', label: 'Hierarchy', icon: Network },
+            { key: 'designations', label: `Designations (${designations.length})`, icon: Briefcase },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -629,18 +989,29 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       ═══════════════════════════════════════════════════════ */}
       {activeTab === 'departments' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-slate-500 font-medium">{departments.length} departments registered</p>
             {portalMode === 'admin' && (
-              <button
-                id="btn-add-dept-modal"
-                onClick={() => setAddDeptModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
-                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                Add Department
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="btn-assign-emp-dept"
+                  onClick={() => handleOpenAssignEmpModal()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                  <span>Add Employee to Dept</span>
+                </button>
+                <button
+                  id="btn-add-dept-modal"
+                  onClick={() => setAddDeptModalOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Add Department</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -654,8 +1025,13 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {departments.map((dept, idx) => {
                 const c = DEPT_COLORS[idx % DEPT_COLORS.length];
+                const deptMembers = employees.filter(
+                  (e) =>
+                    e.departmentId === dept.id ||
+                    (e.departmentName && e.departmentName.toLowerCase() === dept.name.toLowerCase())
+                );
                 return (
-                  <div key={dept.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                  <div key={dept.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
                     <div className={`h-1.5 bg-gradient-to-r ${c.bg}`} />
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-3">
@@ -663,22 +1039,64 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                           {dept.code}
                         </span>
                         <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
-                          <Users className="w-3.5 h-3.5" /> {dept.employeeCount || 0} members
+                          <Users className="w-3.5 h-3.5" /> {deptMembers.length} {deptMembers.length === 1 ? 'member' : 'members'}
                         </span>
                       </div>
                       <h3 className="text-base font-bold text-slate-900 mb-1">{dept.name}</h3>
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 flex-1">
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
                         {dept.description || 'Core business division of the organisation.'}
                       </p>
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">Dept. Head</p>
-                          <p className="text-xs font-bold text-slate-800">{dept.headName || 'Unassigned'}</p>
+
+                      {/* Team Members Chips */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-2 flex-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                          <span>Team Members ({deptMembers.length})</span>
+                          <span className="font-semibold text-slate-600">Head: {dept.headName || 'Unassigned'}</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                          Active
-                        </span>
+                        {deptMembers.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {deptMembers.slice(0, 3).map((m) => {
+                              const mRole = getRoleDefinition(m.role);
+                              return (
+                                <span
+                                  key={m.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200/80 text-[10px] font-semibold text-slate-700"
+                                  title={`${m.firstName} ${m.lastName} • ${mRole.label}`}
+                                >
+                                  <span className="w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-700 text-[8px] font-bold flex items-center justify-center">
+                                    {m.firstName?.[0] || 'E'}
+                                  </span>
+                                  <span className="truncate max-w-[75px]">{m.firstName}</span>
+                                  <span className="text-[9px] text-slate-400">({mRole.shortLabel})</span>
+                                </span>
+                              );
+                            })}
+                            {deptMembers.length > 3 && (
+                              <span className="text-[10px] font-bold text-slate-500 px-1.5 py-0.5 rounded-full bg-slate-100">
+                                +{deptMembers.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 italic pt-0.5">
+                            No employees assigned to this department yet.
+                          </p>
+                        )}
                       </div>
+
+                      {/* Action Button: Add Employee to this Department */}
+                      {portalMode === 'admin' && (
+                        <div className="mt-4 pt-3 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAssignEmpModal(dept.id)}
+                            className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-2xs"
+                          >
+                            <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                            <span>Add Employee</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -689,62 +1107,255 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       )}
 
       {/* ═══════════════════════════════════════════════════════
-          TAB: DESIGNATIONS
+          TAB: DESIGNATIONS & MEMBER ASSIGNMENT
       ═══════════════════════════════════════════════════════ */}
       {activeTab === 'designations' && (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Job Titles & Compensation Bands</h3>
+                <h3 className="text-sm font-black text-slate-900">Designations & Members</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">{designations.length} designations registered</p>
               </div>
               {portalMode === 'admin' && (
-                <button
-                  id="btn-add-des-modal"
-                  onClick={() => setAddDesModalOpen(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> Add Designation
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fetchDesignationMembersFromApi()}
+                    disabled={loadingDesMembers}
+                    className="p-2 rounded-xl bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    title="Refresh Designation Members from API"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${loadingDesMembers ? 'animate-spin text-emerald-600' : ''}`} />
+                  </button>
+                  <button
+                    id="btn-add-member-des-header"
+                    type="button"
+                    onClick={() => handleOpenAddMemberModal()}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                    <span>Add Member</span>
+                  </button>
+                  <button
+                    id="btn-add-des-modal"
+                    onClick={() => setAddDesModalOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Add Designation</span>
+                  </button>
+                </div>
               )}
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
                   <tr>
                     <th className="py-3 px-5">Title</th>
                     <th className="py-3 px-5">Department</th>
+                    <th className="py-3 px-5">Assigned Members</th>
                     <th className="py-3 px-5">Salary Range (Annual)</th>
                     <th className="py-3 px-5">Status</th>
+                    {portalMode === 'admin' && (
+                      <th className="py-3 px-5 text-right">Actions</th>
+                    )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {designations.map((des, idx) => (
-                    <tr key={des.id} className="hover:bg-emerald-50/30 transition-colors">
-                      <td className="py-3.5 px-5 font-bold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                            style={{ background: `hsl(${(idx * 47) % 360}, 70%, 95%)` }}>
-                            <Briefcase className="w-3.5 h-3.5" style={{ color: `hsl(${(idx * 47) % 360}, 60%, 45%)` }} />
-                          </div>
-                          {des.title}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-5 text-slate-600 font-medium">{des.departmentName || '—'}</td>
-                      <td className="py-3.5 px-5 font-mono font-bold text-slate-900">
-                        {des.minSalary > 0
-                          ? `₹${des.minSalary.toLocaleString()} – ₹${des.maxSalary.toLocaleString()}`
-                          : <span className="text-slate-400 font-sans font-normal">Standard Band</span>}
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">
-                          Active
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-slate-100">
+                  {designations.map((des, idx) => {
+                    const desData = designationMembersMap[des.id];
+                    const members = desData?.members || [];
+                    const memberCount = desData?.totalMembers ?? members.length;
+                    const isExpanded = !!expandedDesMembers[des.id];
+
+                    return (
+                      <React.Fragment key={des.id}>
+                        <tr className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                                style={{ background: `hsl(${(idx * 47) % 360}, 70%, 95%)` }}
+                              >
+                                <Briefcase
+                                  className="w-3.5 h-3.5"
+                                  style={{ color: `hsl(${(idx * 47) % 360}, 60%, 45%)` }}
+                                />
+                              </div>
+                              <span className="font-bold">{des.title}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-5 text-slate-600 font-medium">
+                            {des.departmentName || '—'}
+                          </td>
+                          <td className="py-3.5 px-5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedDesMembers((prev) => ({
+                                  ...prev,
+                                  [des.id]: !prev[des.id],
+                                }))
+                              }
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                                memberCount > 0
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-100 text-slate-500 border border-slate-200'
+                              }`}
+                            >
+                              <Users className="w-3 h-3" />
+                              <span>{memberCount} {memberCount === 1 ? 'Member' : 'Members'}</span>
+                              {isExpanded ? (
+                                <ChevronUp className="w-3 h-3 text-slate-500" />
+                              ) : (
+                                <ChevronDown className="w-3 h-3 text-slate-500" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="py-3.5 px-5 font-mono font-bold text-slate-900">
+                            {des.minSalary > 0 ? (
+                              `₹${des.minSalary.toLocaleString()} – ₹${des.maxSalary.toLocaleString()}`
+                            ) : (
+                              <span className="text-slate-400 font-sans font-normal">Standard Band</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-5">
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">
+                              Active
+                            </span>
+                          </td>
+                          {portalMode === 'admin' && (
+                            <td className="py-3.5 px-5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAddMemberModal(des.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add Member to this Designation"
+                                >
+                                  <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Add</span>
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+
+                        {/* Expanded Members Row */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/80">
+                            <td colSpan={portalMode === 'admin' ? 6 : 5} className="p-0 border-b border-slate-200/80">
+                              <div className="p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-900">
+                                      Members Assigned to &ldquo;{des.title}&rdquo; ({memberCount})
+                                    </span>
+                                    {loadingDesMembers && (
+                                      <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                                    )}
+                                  </div>
+                                  {portalMode === 'admin' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenAddMemberModal(des.id)}
+                                      className="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    >
+                                      <UserPlus className="w-3 h-3 stroke-[2.5]" />
+                                      <span>Add Member</span>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {members.length === 0 ? (
+                                  <div className="p-4 bg-white rounded-xl border border-slate-200 text-center text-xs text-slate-400 italic">
+                                    {loadingDesMembers
+                                      ? 'Loading members from API...'
+                                      : 'No members assigned to this designation yet. Click "Add Member" to assign employees.'}
+                                  </div>
+                                ) : (
+                                  <div className="overflow-x-auto bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+                                    <table className="w-full text-left text-xs">
+                                      <thead className="bg-slate-50 text-slate-400 uppercase text-[9px] font-black tracking-wider border-b border-slate-100">
+                                        <tr>
+                                          <th className="py-2.5 px-4 font-bold">Full Name</th>
+                                          <th className="py-2.5 px-4 font-bold">Employee Code</th>
+                                          <th className="py-2.5 px-4 font-bold">Email</th>
+                                          <th className="py-2.5 px-4 font-bold">Department</th>
+                                          <th className="py-2.5 px-4 font-bold">Designation</th>
+                                          <th className="py-2.5 px-4 font-bold">Status</th>
+                                          {portalMode === 'admin' && (
+                                            <th className="py-2.5 px-4 font-bold text-right">Actions</th>
+                                          )}
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {members.map((m) => (
+                                          <tr key={m.userId || m.id} className="hover:bg-slate-50/70 transition-colors">
+                                            <td className="py-2.5 px-4 font-bold text-slate-900">
+                                              {m.fullName || `${(m as any).firstName || ''} ${(m as any).lastName || ''}`.trim() || 'Employee'}
+                                            </td>
+                                            <td className="py-2.5 px-4 font-mono text-[11px] text-slate-600 font-semibold">
+                                              {m.employeeCode || '—'}
+                                            </td>
+                                            <td className="py-2.5 px-4 text-slate-600">
+                                              {m.email || '—'}
+                                            </td>
+                                            <td className="py-2.5 px-4 text-slate-700 font-medium">
+                                              {m.departmentName || des.departmentName || '—'}
+                                            </td>
+                                            <td className="py-2.5 px-4 text-slate-700 font-medium">
+                                              {m.designationTitle || des.title}
+                                            </td>
+                                            <td className="py-2.5 px-4">
+                                              <span
+                                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                                                  m.status === 'Active'
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                                }`}
+                                              >
+                                                {m.status || 'Active'}
+                                              </span>
+                                            </td>
+                                            {portalMode === 'admin' && (
+                                              <td className="py-2.5 px-4 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleOpenEditMemberModal(m, des.id)}
+                                                    className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition cursor-pointer"
+                                                    title="Edit Status & Designation"
+                                                  >
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setRemovingMember({ member: m, currentDesId: des.id })}
+                                                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition cursor-pointer"
+                                                    title="Remove Member from Designation"
+                                                  >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
+                                              </td>
+                                            )}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
               {designations.length === 0 && (
@@ -1007,6 +1618,495 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          MODAL: Assign Employee to Department & Auto-Update Role
+      ═══════════════════════════════════════════════════════ */}
+      {isAssignEmpModalOpen && (
+        <div
+          id="assign-employee-dept-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !assignSubmitting) setIsAssignEmpModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 max-h-[92vh] flex flex-col"
+          >
+            {/* Modal Header */}
+            <div
+              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
+              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    Add Employee
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Select department, employee and role
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAssignEmpModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleConfirmAssignEmployee} className="p-6 space-y-4 text-xs overflow-y-auto [scrollbar-width:thin] flex-1">
+              {/* Department Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Department <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={assignDeptId}
+                  onChange={(e) => handleAssignDeptChange(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  <option value="" disabled>
+                    -- Select Department --
+                  </option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Employee Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Employee <span className="text-rose-500">*</span>
+                </label>
+                {employees.length === 0 ? (
+                  <p className="text-xs text-amber-600 font-medium bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    No registered employees found.
+                  </p>
+                ) : (
+                  <select
+                    required
+                    value={assignEmployeeId}
+                    onChange={(e) => handleAssignEmployeeChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      -- Select Employee --
+                    </option>
+                    {employees.map((emp) => {
+                      const currentDeptName = emp.departmentName || 'No Dept';
+                      const currentRoleDef = getRoleDefinition(emp.role);
+                      return (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName} ({emp.employeeCode || 'EMP'}) • {currentDeptName} • {currentRoleDef.shortLabel}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+
+              {/* Role Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Role <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={assignRole}
+                  onChange={(e) => setAssignRole(e.target.value as Role)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  {ROLE_DEFINITIONS.map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.label} ({r.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assignment Preview Card */}
+              {(() => {
+                const targetEmp = employees.find((e) => e.id === assignEmployeeId);
+                const targetDept = departments.find((d) => d.id === assignDeptId);
+                const roleDef = getRoleDefinition(assignRole);
+
+                if (!targetEmp || !targetDept) return null;
+
+                const prevDept = targetEmp.departmentName || 'Unassigned';
+                const prevRoleDef = getRoleDefinition(targetEmp.role);
+
+                return (
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                      Assignment Preview
+                    </span>
+                    <div className="flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-slate-900">{targetEmp.firstName} {targetEmp.lastName}</p>
+                        <p className="text-[11px] text-slate-500">{targetEmp.employeeCode || 'EMP'}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${roleDef.borderClass} ${roleDef.bgLight} ${roleDef.textColor}`}>
+                          {roleDef.label}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-600">
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold">From</span>
+                        <span className="font-medium text-slate-700">{prevDept} ({prevRoleDef.shortLabel})</span>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div className="text-right">
+                        <span className="text-emerald-600 block text-[9px] uppercase font-bold">To</span>
+                        <span className="font-bold text-emerald-800">{targetDept.name} ({roleDef.shortLabel})</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignEmpModalOpen(false)}
+                  disabled={assignSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignSubmitting || !assignEmployeeId || !assignDeptId}
+                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{assignSubmitting ? 'Adding...' : 'Add Employee'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Add Member to Designation (POST /organization/designations/:id/members) ── */}
+      {isAddMemberModalOpen && (
+        <div
+          id="add-member-designation-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !addMemberSubmitting) setIsAddMemberModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col"
+          >
+            <div
+              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
+              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Member to Designation</h3>
+                  <p className="text-[11px] text-slate-500">Assign employees to a specific designation title</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddMemberModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMembersToDesignation} className="p-6 space-y-4 text-xs overflow-y-auto [scrollbar-width:thin] flex-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Target Designation <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={addMemberDesId}
+                  onChange={(e) => setAddMemberDesId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  {designations.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} {d.departmentName ? `(${d.departmentName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-800">
+                    Select Employees to Assign <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    {addMemberUserIds.length} selected
+                  </span>
+                </div>
+                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-slate-50/50 [scrollbar-width:thin]">
+                  {employees.length === 0 ? (
+                    <p className="p-4 text-center text-slate-400 italic">No employees found.</p>
+                  ) : (
+                    employees.map((emp) => {
+                      const empUserId = (emp as any).userId || emp.id;
+                      const isSelected = addMemberUserIds.includes(empUserId);
+                      const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || (emp as any).fullName || 'Employee';
+                      return (
+                        <label
+                          key={emp.id}
+                          className={`flex items-center justify-between p-2.5 hover:bg-emerald-50/50 transition cursor-pointer ${
+                            isSelected ? 'bg-emerald-50/70' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleAddMemberUserId(empUserId)}
+                              className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 truncate">{empName}</p>
+                              <p className="text-[11px] text-slate-500 font-mono">
+                                {emp.employeeCode || 'EMP'} • {emp.email}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-semibold truncate ml-2">
+                            {emp.designationTitle || 'No Designation'}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMemberModalOpen(false)}
+                  disabled={addMemberSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addMemberSubmitting || addMemberUserIds.length === 0}
+                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{addMemberSubmitting ? 'Assigning...' : `Assign Member (${addMemberUserIds.length})`}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Edit Member Status & Designation (PUT /organization/designations/:id/members/:userId) ── */}
+      {editingMember && (
+        <div
+          id="edit-member-status-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !editMemberSubmitting) setEditingMember(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95"
+          >
+            <div
+              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
+              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit Member Designation</h3>
+                  <p className="text-[11px] text-slate-500">Update designation, department and status</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingMember(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmEditMember} className="p-6 space-y-4 text-xs">
+              {/* Member Summary Header */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                <p className="font-bold text-slate-900 text-sm">{editingMember.member.fullName}</p>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  {editingMember.member.employeeCode} • {editingMember.member.email}
+                </p>
+              </div>
+
+              {/* Target Designation */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Target Designation <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={editTargetDesignationId}
+                  onChange={(e) => setEditTargetDesignationId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  {designations.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} {d.departmentName ? `(${d.departmentName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Department <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={editTargetDepartmentId}
+                  onChange={(e) => setEditTargetDepartmentId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Status <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={editTargetStatus}
+                  onChange={(e) => setEditTargetStatus(e.target.value as 'Active' | 'Inactive')}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingMember(null)}
+                  disabled={editMemberSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editMemberSubmitting}
+                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{editMemberSubmitting ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Remove Member Confirmation (DELETE /organization/designations/:id/members/:userId) ── */}
+      {removingMember && (
+        <div
+          id="remove-member-confirm-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !removeMemberSubmitting) setRemovingMember(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <UserMinus className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Remove Member</h3>
+                <p className="text-[11px] text-slate-500">Remove from designation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove <strong className="text-slate-900">{removingMember.member.fullName}</strong> ({removingMember.member.employeeCode}) from this designation?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRemovingMember(null)}
+                disabled={removeMemberSubmitting}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveMember}
+                disabled={removeMemberSubmitting}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {removeMemberSubmitting ? 'Removing...' : 'Confirm Remove'}
+              </button>
+            </div>
           </div>
         </div>
       )}

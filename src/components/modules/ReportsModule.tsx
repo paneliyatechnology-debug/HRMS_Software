@@ -57,32 +57,78 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     if (propStats) setLocalStats(propStats);
   }, [propEmployees, propDepartments, propAttendance, propPayroll, propLeaves, propStats]);
 
-  // If props weren't passed, load from API
+  // Lazy-load data ONLY for the currently active report tab
   useEffect(() => {
-    if (!propEmployees || !propDepartments || !propAttendance) {
-      const fetchMissingData = async () => {
-        try {
-          const [emps, depts, atts, pays, lvs, st] = await Promise.all([
-            !propEmployees ? api.getEmployees() : Promise.resolve(propEmployees),
-            !propDepartments ? api.getDepartments() : Promise.resolve(propDepartments),
-            !propAttendance ? api.getAttendance() : Promise.resolve(propAttendance),
-            !propPayroll ? api.getPayroll() : Promise.resolve(propPayroll),
-            !propLeaves ? api.getLeaves() : Promise.resolve(propLeaves),
-            !propStats ? api.getDashboardStats() : Promise.resolve(propStats),
-          ]);
-          if (!propEmployees && Array.isArray(emps)) setLocalEmployees(emps);
-          if (!propDepartments && Array.isArray(depts)) setLocalDepartments(depts);
-          if (!propAttendance && Array.isArray(atts)) setLocalAttendance(atts);
-          if (!propPayroll && Array.isArray(pays)) setLocalPayroll(pays);
-          if (!propLeaves && Array.isArray(lvs)) setLocalLeaves(lvs);
-          if (!propStats && st) setLocalStats(st);
-        } catch (err) {
-          console.error('Failed to load reports data:', err);
+    let isMounted = true;
+    const fetchTabReportData = async () => {
+      try {
+        setLoading(true);
+        if (reportType === 'attendance') {
+          const promises: Promise<any>[] = [];
+          if (!propAttendance && localAttendance.length === 0) promises.push(api.getAttendance());
+          else promises.push(Promise.resolve(null));
+
+          if (!propEmployees && localEmployees.length === 0) promises.push(api.getEmployees());
+          else promises.push(Promise.resolve(null));
+
+          const [atts, emps] = await Promise.all(promises);
+          if (isMounted) {
+            if (atts && Array.isArray(atts)) setLocalAttendance(atts);
+            if (emps && Array.isArray(emps)) setLocalEmployees(emps);
+          }
+        } else if (reportType === 'employees') {
+          const promises: Promise<any>[] = [];
+          if (!propEmployees && localEmployees.length === 0) promises.push(api.getEmployees());
+          else promises.push(Promise.resolve(null));
+
+          if (!propDepartments && localDepartments.length === 0) promises.push(api.getDepartments());
+          else promises.push(Promise.resolve(null));
+
+          const [emps, depts] = await Promise.all(promises);
+          if (isMounted) {
+            if (emps && Array.isArray(emps)) setLocalEmployees(emps);
+            if (depts && Array.isArray(depts)) setLocalDepartments(depts);
+          }
+        } else if (reportType === 'leaves') {
+          const promises: Promise<any>[] = [];
+          if (!propLeaves && localLeaves.length === 0) promises.push(api.getLeaves());
+          else promises.push(Promise.resolve(null));
+
+          if (!propEmployees && localEmployees.length === 0) promises.push(api.getEmployees());
+          else promises.push(Promise.resolve(null));
+
+          const [lvs, emps] = await Promise.all(promises);
+          if (isMounted) {
+            if (lvs && Array.isArray(lvs)) setLocalLeaves(lvs);
+            if (emps && Array.isArray(emps)) setLocalEmployees(emps);
+          }
+        } else if (reportType === 'payroll') {
+          const promises: Promise<any>[] = [];
+          if (!propPayroll && localPayroll.length === 0) promises.push(api.getPayroll());
+          else promises.push(Promise.resolve(null));
+
+          if (!propEmployees && localEmployees.length === 0) promises.push(api.getEmployees());
+          else promises.push(Promise.resolve(null));
+
+          const [pays, emps] = await Promise.all(promises);
+          if (isMounted) {
+            if (pays && Array.isArray(pays)) setLocalPayroll(pays);
+            if (emps && Array.isArray(emps)) setLocalEmployees(emps);
+          }
         }
-      };
-      fetchMissingData();
-    }
-  }, [propEmployees, propDepartments, propAttendance, propPayroll, propLeaves, propStats]);
+      } catch (err) {
+        console.error('Failed to load reports data for tab:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchTabReportData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reportType, propEmployees, propDepartments, propAttendance, propPayroll, propLeaves]);
 
   const activeEmployees = localEmployees.filter((e) => e.status === 'Active');
   const totalHeadcount = activeEmployees.length;

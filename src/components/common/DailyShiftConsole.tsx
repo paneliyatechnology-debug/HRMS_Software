@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { ModernDigitClock } from './ModernDigitClock';
@@ -276,16 +277,20 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   </button>
                   <button
                     id="btn-shift-check-out-from-break"
-                    onClick={() => checkOut()}
-                    disabled={actionLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm min-w-0 cursor-pointer disabled:opacity-50"
+                    type="button"
+                    disabled={true}
+                    title="Checkout is blocked during break. Please resume work first."
+                    className="w-full py-3 px-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 shadow-none min-w-0 cursor-not-allowed select-none"
                   >
-                    <Square className="w-4 h-4 fill-current shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">
-                      {actionLoading ? 'Checking out...' : 'Check Out for Today'}
+                      Check Out (Resume Work First)
                     </span>
                   </button>
                 </div>
+                <p className="text-[11px] text-amber-800/85 font-semibold bg-amber-100/70 py-1.5 px-3 rounded-xl border border-amber-200/80 max-w-md mx-auto">
+                  ⚠️ Check-out is blocked while break is active. Please click &ldquo;Resume Work&rdquo; first.
+                </p>
               </div>
             )}
 
@@ -343,45 +348,6 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
             )}
           </div>
         </div>
-
-        {/* Bottom Feature Badges */}
-        {showFooterBadges && (
-          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  Exact Timestamps
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  In & Out times recorded securely.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  Break Protection
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  Pause for tea/lunch anytime.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  Payroll Linked
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  Synced with salary computation.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

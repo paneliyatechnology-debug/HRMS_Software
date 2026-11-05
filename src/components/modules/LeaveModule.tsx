@@ -11,6 +11,8 @@ import {
   List,
   Search,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
   X,
   Clock,
@@ -41,12 +43,27 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   portalMode = 'admin',
 }) => {
   const { user } = useAuth();
-  const { showToast } = useSocket();
+  const { showToast, emitLeaveStatusUpdated } = useSocket();
+
+  // Real-time socket sync: refresh immediately on leave events
+  useEffect(() => {
+    const handleUpdate = () => {
+      onRefresh();
+    };
+    window.addEventListener('hrms_leaves_updated', handleUpdate);
+    return () => window.removeEventListener('hrms_leaves_updated', handleUpdate);
+  }, [onRefresh]);
   const [duration, setDuration] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
 
   // Rejection modal / prompt state
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
@@ -146,7 +163,13 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const handleApprove = async (id: string, empName: string, leaveType: string) => {
+  const totalPages = Math.max(1, Math.ceil(displayedLeaves.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, displayedLeaves.length);
+  const paginatedLeaves = displayedLeaves.slice(startIndex, endIndex);
+
+  const handleApprove = async (id: string, empName: string, leaveType: string, empId?: string) => {
     setProcessingId(id);
     try {
       await api.approveLeave(
@@ -160,9 +183,16 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         title: 'Leave Approved Successfully',
         message: `${empName}'s ${leaveType} has been approved and leave balance deducted.`,
       });
+      emitLeaveStatusUpdated({
+        id,
+        employeeId: empId,
+        employeeName: empName,
+        leaveType,
+        status: 'Approved',
+      });
       onRefresh();
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Approved' } }));
       }
     } catch (err: any) {
       showToast({
@@ -184,6 +214,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     if (!rejectingLeave) return;
     const leaveId = rejectingLeave.id;
     const empName = rejectingLeave.employeeName;
+    const empId = rejectingLeave.employeeId;
     setProcessingId(leaveId);
     try {
       await api.rejectLeave(
@@ -196,11 +227,18 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         title: 'Leave Request Rejected',
         message: `${empName}'s leave application was rejected with note: "${rejectionReason}"`,
       });
+      emitLeaveStatusUpdated({
+        id: leaveId,
+        employeeId: empId,
+        employeeName: empName,
+        status: 'Rejected',
+        reason: rejectionReason,
+      });
       setRejectingLeave(null);
       setRejectionReason('');
       onRefresh();
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
+        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id: leaveId, employeeId: empId, status: 'Rejected' } }));
       }
     } catch (err: any) {
       showToast({
@@ -336,7 +374,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     {/* Action Buttons: 1-click Approve and Reject */}
                     <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                       <button
-                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType)}
+                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
                         disabled={isProcessing}
                         className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95 disabled:opacity-50"
                         title="Approve employee leave request"
@@ -670,7 +708,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               No leave applications matching your search or filter.
             </div>
           ) : (
-            displayedLeaves.map((leave) => {
+            paginatedLeaves.map((leave) => {
               const isProcessing = processingId === leave.id;
               return (
                 <div key={leave.id} className="p-3.5 space-y-2.5">
@@ -725,7 +763,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   {portalMode === 'admin' && leave.status === 'Pending' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
-                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType)}
+                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
                         disabled={isProcessing}
                         className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
@@ -776,7 +814,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                displayedLeaves.map((leave) => {
+                paginatedLeaves.map((leave) => {
                   const isProcessing = processingId === leave.id;
                   return (
                     <tr key={leave.id} className="hover:bg-slate-50/70 transition-colors">
@@ -828,7 +866,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() =>
-                                  handleApprove(leave.id, leave.employeeName, leave.leaveType)
+                                  handleApprove(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)
                                 }
                                 disabled={isProcessing}
                                 className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50"
@@ -861,6 +899,76 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar (10 records per page) */}
+        {displayedLeaves.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-slate-500 font-medium">
+              Showing <span className="font-bold text-slate-800">{displayedLeaves.length === 0 ? 0 : startIndex + 1}</span> to{' '}
+              <span className="font-bold text-slate-800">{endIndex}</span> of{' '}
+              <span className="font-bold text-slate-800">{displayedLeaves.length}</span> records
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Previous</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    if (
+                      totalPages > 7 &&
+                      pageNum !== 1 &&
+                      pageNum !== totalPages &&
+                      Math.abs(pageNum - safeCurrentPage) > 1
+                    ) {
+                      if (pageNum === 2 || pageNum === totalPages - 1) {
+                        return (
+                          <span key={pageNum} className="px-1 text-slate-400 select-none">
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    }
+
+                    const isActive = pageNum === safeCurrentPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                          isActive
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                  title="Next Page"
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Rejection Modal Dialog */}

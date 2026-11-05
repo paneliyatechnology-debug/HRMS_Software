@@ -83,6 +83,13 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
+    // Admins viewing in admin portal mode do not have personal shift tracking console
+    const rawRole = (user?.role || '').trim().toUpperCase();
+    const isStrictAdmin = (rawRole === 'ADMIN' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
+    if (isStrictAdmin) {
+      setInitialLoading(false);
+      return;
+    }
     isFetchingRef.current = true;
     try {
       const data: any = await api.getWorkStatus();
@@ -174,10 +181,20 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       // Synchronize into local attendance memory for tables & history consistency
       if (data.activeSession) {
-        const rec = parseWorkSessionToRecord(data.activeSession);
+        const rec = parseWorkSessionToRecord({
+          ...data.activeSession,
+          todaySummary: data.todaySummary,
+          formattedTotalBreak: data.formattedTotalBreak || data.todaySummary?.totalBreakFormatted,
+          totalBreakSeconds: data.totalBreakSeconds ?? data.todaySummary?.totalBreakSecondsToday,
+        });
         if (rec) updateLocalRecordFromBackend(rec);
       } else if (data.lastCompletedSession) {
-        const rec = parseWorkSessionToRecord(data.lastCompletedSession);
+        const rec = parseWorkSessionToRecord({
+          ...data.lastCompletedSession,
+          todaySummary: data.todaySummary,
+          formattedTotalBreak: data.todaySummary?.totalBreakFormatted || data.formattedTotalBreak,
+          totalBreakSeconds: data.todaySummary?.totalBreakSecondsToday ?? data.totalBreakSeconds,
+        });
         if (rec) updateLocalRecordFromBackend(rec);
       }
     } catch (err) {
@@ -186,7 +203,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isFetchingRef.current = false;
       setInitialLoading(false);
     }
-  }, []);
+  }, [portalMode]);
 
   // Initial fetch on mount & listen to cross-component punch events
   useEffect(() => {
@@ -382,6 +399,14 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * Action 4: Check Out (End Day)
    */
   const checkOut = useCallback(async (): Promise<boolean> => {
+    if (statusRef.current === 'on_break') {
+      showToast({
+        title: 'Check-Out Blocked',
+        message: 'Cannot check out while break is active. Please click "Resume Work" first.',
+        type: 'warning',
+      });
+      return false;
+    }
     setActionLoading(true);
     try {
       const res = await api.stopWork({});

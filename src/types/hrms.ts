@@ -98,6 +98,19 @@ export interface Designation {
   createdAt: string;
 }
 
+export interface DesignationMember {
+  id: string;
+  userId: string;
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  email: string;
+  designationId: string;
+  designationTitle: string;
+  departmentName: string;
+  status?: string;
+}
+
 export interface Location {
   id: string;
   name: string;
@@ -210,6 +223,8 @@ export interface AttendanceRecord {
   createdAt: string;
   activeSeconds?: number;
   breakSeconds?: number;
+  totalBreakSeconds?: number;
+  formattedTotalBreak?: string;
   isOnBreak?: boolean;
   isCompleted?: boolean;
   lastActiveTimestamp?: number;

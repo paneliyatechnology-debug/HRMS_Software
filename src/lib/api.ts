@@ -26,71 +26,145 @@ import { getCookie, setCookie, purgeAuthLocalStorage } from './cookies';
 
 const getApiBase = () => getApiBaseUrl();
 
+// In-flight GET request deduplication to prevent simultaneous identical requests
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
+// Lightweight short-term response cache (TTL: 1500ms) to avoid duplicate API calls from rapid React re-renders
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
+}
+const responseCache = new Map<string, CacheEntry<any>>();
+
+export function clearApiCache(endpointPrefix?: string) {
+  if (!endpointPrefix) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.includes(endpointPrefix)) {
+      responseCache.delete(key);
+    }
+  }
+}
+
 /**
  * Universal API fetcher that forwards JWT Bearer token and gracefully falls back to local data.
- * Includes a 4-second fail-fast timeout so slow/unreachable network endpoints don't freeze mobile devices.
+ * Includes in-flight deduplication, short-lived GET caching, and a fail-fast timeout.
  */
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback?: T): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const method = (options?.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
 
-  try {
-    const storedToken =
-      typeof window !== 'undefined'
-        ? getCookie('hrms_auth_token') ||
-          getCookie('bearerToken') ||
-          getCookie('accessToken') ||
-          getCookie('token') ||
-          (window.localStorage
-            ? window.localStorage.getItem('hrms_auth_token') ||
-              window.localStorage.getItem('bearerToken') ||
-              window.localStorage.getItem('accessToken') ||
-              window.localStorage.getItem('token')
-            : null)
-        : null;
-
-    const token = storedToken;
-
-    const res = await fetch(`${getApiBase()}${url}`, {
-      cache: 'no-store',
-      credentials: 'include',
-      signal: controller.signal,
-      ...options,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options?.headers || {}),
-      },
-    });
-
-    if (!res.ok) {
-      let errorMsg = `HTTP error ${res.status}`;
-      try {
-        const errJson = await res.json();
-        if (errJson?.error?.message) errorMsg = errJson.error.message;
-        else if (errJson?.message) errorMsg = errJson.message;
-      } catch (_) {}
-      throw new Error(errorMsg);
+  // If a mutation occurs, invalidate cached GET endpoints
+  if (!isGet) {
+    const baseEndpoint = url.split('?')[0].split('/')[1] || '';
+    if (baseEndpoint) {
+      clearApiCache(baseEndpoint);
+    } else {
+      clearApiCache();
     }
-
-    const text = await res.text();
-    if (!text || !text.trim()) {
-      return { success: true } as unknown as T;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch (_) {
-      return { success: true, message: text } as unknown as T;
-    }
-  } catch (err) {
-    if (fallback !== undefined) {
-      return fallback;
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  // Check short-term cache for GET requests
+  const cacheKey = `${method}:${url}`;
+  if (isGet) {
+    const cached = responseCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiry) {
+      return cached.data as T;
+    }
+
+    // Check if an identical request is already in-flight
+    if (inFlightGetRequests.has(cacheKey)) {
+      return inFlightGetRequests.get(cacheKey) as Promise<T>;
+    }
+  }
+
+  const executeFetch = async (): Promise<T> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    try {
+      const storedToken =
+        typeof window !== 'undefined'
+          ? getCookie('hrms_auth_token') ||
+            getCookie('bearerToken') ||
+            getCookie('accessToken') ||
+            getCookie('token') ||
+            (window.localStorage
+              ? window.localStorage.getItem('hrms_auth_token') ||
+                window.localStorage.getItem('bearerToken') ||
+                window.localStorage.getItem('accessToken') ||
+                window.localStorage.getItem('token')
+              : null)
+          : null;
+
+      const token = storedToken;
+
+      const res = await fetch(`${getApiBase()}${url}`, {
+        cache: 'no-store',
+        credentials: 'include',
+        signal: controller.signal,
+        ...options,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options?.headers || {}),
+        },
+      });
+
+      if (!res.ok) {
+        let errorMsg = `HTTP error ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson?.error?.message) errorMsg = errJson.error.message;
+          else if (errJson?.message) errorMsg = errJson.message;
+        } catch (_) {}
+        throw new Error(errorMsg);
+      }
+
+      const text = await res.text();
+      if (!text || !text.trim()) {
+        return { success: true } as unknown as T;
+      }
+      let resultData: T;
+      try {
+        resultData = JSON.parse(text) as T;
+      } catch (_) {
+        resultData = { success: true, message: text } as unknown as T;
+      }
+
+      // Store in response cache for GET requests (15s TTL for stable data like companies/employees, 3s for fast-changing)
+      if (isGet) {
+        const isStableEndpoint = url.includes('/companies') || url.includes('/employees') || url.includes('/attendance');
+        const ttl = isStableEndpoint ? 15000 : 3000;
+        responseCache.set(cacheKey, {
+          data: resultData,
+          expiry: Date.now() + ttl,
+        });
+      }
+
+      return resultData;
+    } catch (err) {
+      if (fallback !== undefined) {
+        return fallback;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  if (isGet) {
+    const promise = executeFetch().finally(() => {
+      inFlightGetRequests.delete(cacheKey);
+    });
+    inFlightGetRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return executeFetch();
 }
 
 export const api = {
@@ -533,6 +607,63 @@ export const api = {
     );
   },
 
+  async addDesignationMembers(designationId: string, userIds: string[]) {
+    return fetchWithFallback<{
+      success: boolean;
+      message: string;
+      designation?: { id: string; title: string };
+      assignedCount?: number;
+      assignedMembers?: Array<{
+        id: string;
+        userId: string;
+        employeeId: string;
+        employeeCode: string;
+        fullName: string;
+        email: string;
+        designationId: string;
+        designationTitle: string;
+        departmentName: string;
+      }>;
+    }>(
+      `/organization/designations/${encodeURIComponent(designationId)}/members`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ userIds }),
+      }
+    );
+  },
+
+  async updateDesignationMember(
+    designationId: string,
+    userId: string,
+    data: { designationId: string; departmentId: string; status?: string }
+  ) {
+    return fetchWithFallback<{ success: boolean; message?: string }>(
+      `/organization/designations/${encodeURIComponent(designationId)}/members/${encodeURIComponent(userId)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  async removeDesignationMember(designationId: string, userId: string) {
+    return fetchWithFallback<{ success: boolean; message?: string }>(
+      `/organization/designations/${encodeURIComponent(designationId)}/members/${encodeURIComponent(userId)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  },
+
+  async getDesignationMembers(designationId: string) {
+    return fetchWithFallback<any>(
+      `/organization/designations/${encodeURIComponent(designationId)}/members`,
+      undefined,
+      null
+    );
+  },
+
   async getLocations() {
     return fetchWithFallback<Location[]>('/organization/locations', undefined, []);
   },
@@ -747,7 +878,13 @@ export const api = {
     assignedOffice?: any;
     serverTime?: string;
   }> {
-    return fetchWithFallback<any>('/api/attendance/work/status', undefined, {
+    try {
+      const res = await fetchWithFallback<any>('/api/attendance/work/status');
+      if (res && (res.todaySummary || res.lastCompletedSession || res.activeSession || res.serverTime || res.assignedOffice)) {
+        return res;
+      }
+    } catch (_) {}
+    return fetchWithFallback<any>('/attendance/work/status', undefined, {
       active: false,
       hasActiveSession: false,
       serverTime: new Date().toISOString(),
@@ -1326,12 +1463,22 @@ export const api = {
   // =========================================================================
   // 20. COMPANIES (TENANT-LEVEL SCOPED ACCESS)
   // =========================================================================
+  companyCache: null as any,
+
   async getMyCompany() {
-    return fetchWithFallback<any>('/companies/my-company', undefined, null);
+    if (this.companyCache) return this.companyCache;
+    const res = await fetchWithFallback<any>('/companies/my-company', undefined, null);
+    if (res) this.companyCache = res;
+    return res;
   },
 
   async getCompanyById(id: string) {
-    return fetchWithFallback<any>(`/companies/${encodeURIComponent(id)}`, undefined, null);
+    if (this.companyCache && (this.companyCache.id === id || this.companyCache._id === id)) {
+      return this.companyCache;
+    }
+    const res = await fetchWithFallback<any>(`/companies/${encodeURIComponent(id)}`, undefined, null);
+    if (res) this.companyCache = res;
+    return res;
   },
 
   async updateCompany(id: string, data: Record<string, any>) {
