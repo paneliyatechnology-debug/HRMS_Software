@@ -227,6 +227,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, []);
 
   const isFetchingDataRef = useRef<Record<string, boolean>>({});
+  const pendingReloadRef = useRef<Record<string, boolean>>({});
   const employeesRef = useRef<Employee[]>([]);
 
   useEffect(() => {
@@ -337,7 +338,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Page-Wise Data Loader: strictly calls ONLY the APIs needed by that module
   const loadDataForModule = useCallback(async (targetModule: string) => {
-    if (isFetchingDataRef.current[targetModule]) return;
+    if (isFetchingDataRef.current[targetModule]) {
+      pendingReloadRef.current[targetModule] = true;
+      return;
+    }
     isFetchingDataRef.current[targetModule] = true;
 
     try {
@@ -462,6 +466,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       console.warn(`Could not load data for module ${targetModule}:`, err);
     } finally {
       isFetchingDataRef.current[targetModule] = false;
+      if (pendingReloadRef.current[targetModule]) {
+        pendingReloadRef.current[targetModule] = false;
+        void loadDataForModule(targetModule);
+      }
     }
   }, [activeCompanyId, activeCompanyCode, portalMode, scopeEmployees, scopeLeaves, scopeAttendance]);
 
@@ -472,6 +480,27 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   const loadDataForModuleRef = useRef(loadDataForModule);
   loadDataForModuleRef.current = loadDataForModule;
+  const activeModuleRef = useRef(activeModule);
+  activeModuleRef.current = activeModule;
+
+  useEffect(() => {
+    const reloadLiveAttendance = () => {
+      const moduleName = activeModuleRef.current;
+      if (moduleName === 'dashboard' || moduleName === 'attendance') {
+        void loadDataForModuleRef.current(moduleName);
+      }
+    };
+    window.addEventListener('hrms_attendance_live', reloadLiveAttendance);
+    return () => window.removeEventListener('hrms_attendance_live', reloadLiveAttendance);
+  }, []);
+
+  useEffect(() => {
+    const refreshEmployees = () => {
+      loadDataForModuleRef.current(activeModule);
+    };
+    window.addEventListener('hrms_employees_updated', refreshEmployees);
+    return () => window.removeEventListener('hrms_employees_updated', refreshEmployees);
+  }, [activeModule]);
 
   // Page-wise data loading: runs ONLY when activeModule changes or on user authentication
   useEffect(() => {

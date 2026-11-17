@@ -174,7 +174,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     try {
       await api.approveLeave(
         id,
-        'HR_ADMIN',
+        user?.role || 'HR',
         user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
         'Approved by HR Administration'
       );

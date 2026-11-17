@@ -684,7 +684,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             const compInitial = (compName[0] || 'C').toUpperCase();
             const compIndustry = currentCompany?.industry || 'Corporate Workspace';
             const compDesc = currentCompany?.description || 'Corporate workspace structure and workforce management identity.';
-            const compEmail = currentCompany?.email || currentCompany?.contactEmail || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? user?.email : 'Not provided');
+            const compEmail = currentCompany?.email || currentCompany?.contactEmail || (isUserAdminRole(user?.role) ? user?.email : 'Not provided');
             const compPhone = currentCompany?.phone || currentCompany?.contactPhone || 'Not provided';
             const compAddress = currentCompany?.address || 'Not provided';
             const compCityState = currentCompany?.city && currentCompany?.state
@@ -693,8 +693,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             const compGst = currentCompany?.gstNumber || currentCompany?.panNumber || currentCompany?.taxId || currentCompany?.companyCode || 'Not provided';
             const compWebsite = currentCompany?.website || 'Not provided';
             const estYear = currentCompany?.createdAt ? new Date(currentCompany.createdAt).getFullYear() : 'Established';
-            const ownerDisplayName = currentCompany?.adminUser?.fullName || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Company Leadership') || 'Company Leadership';
-            const ownerDisplayRole = currentCompany?.adminUser?.role || (((user?.role as any) === 'ADMIN' || user?.role === 'HR_ADMIN') ? 'Company Owner & Administrator' : 'Executive Management');
+            const ownerDisplayName = currentCompany?.adminUser?.fullName || (isUserAdminRole(user?.role) ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Company Leadership') || 'Company Leadership';
+            const ownerDisplayRole = currentCompany?.adminUser?.role
+              ? getRoleDefinition(currentCompany.adminUser.role).label
+              : (isUserAdminRole(user?.role) ? getRoleDefinition(user?.role).label : 'Executive Management');
 
             return (
               <>
