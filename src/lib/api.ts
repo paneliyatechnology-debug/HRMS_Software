@@ -35,15 +35,24 @@ interface CacheEntry<T> {
   expiry: number;
 }
 const responseCache = new Map<string, CacheEntry<any>>();
+let cacheGeneration = 0;
 
 export function clearApiCache(endpointPrefix?: string) {
+  cacheGeneration += 1;
   if (!endpointPrefix) {
     responseCache.clear();
+    inFlightGetRequests.clear();
     return;
   }
   for (const key of responseCache.keys()) {
     if (key.includes(endpointPrefix)) {
       responseCache.delete(key);
+    }
+  }
+  // Drop in-flight GETs too, so a refresh after create does not reuse a request that started before the employee existed.
+  for (const key of inFlightGetRequests.keys()) {
+    if (key.includes(endpointPrefix)) {
+      inFlightGetRequests.delete(key);
     }
   }
 }
@@ -56,13 +65,14 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
   const method = (options?.method || 'GET').toUpperCase();
   const isGet = method === 'GET';
 
-  // If a mutation occurs, invalidate cached GET endpoints
+  // If a mutation occurs, invalidate cached GET endpoints.
+  // POST /admin/employees must also drop GET /employees (the first path segment is only "admin").
   if (!isGet) {
-    const baseEndpoint = url.split('?')[0].split('/')[1] || '';
-    if (baseEndpoint) {
-      clearApiCache(baseEndpoint);
-    } else {
+    const parts = url.split('?')[0].split('/').filter(Boolean);
+    if (parts.length === 0) {
       clearApiCache();
+    } else {
+      for (const part of parts) clearApiCache(part);
     }
   }
 
@@ -83,6 +93,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
   const executeFetch = async (): Promise<T> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const generationAtStart = cacheGeneration;
 
     try {
       const storedToken =
@@ -135,8 +146,8 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
         resultData = { success: true, message: text } as unknown as T;
       }
 
-      // Store in response cache for GET requests (15s TTL for stable data like companies/employees, 3s for fast-changing)
-      if (isGet) {
+      // Store successful GET responses only. A fallback empty list must not stick for 15s after a failed fetch.
+      if (isGet && resultData !== fallback && generationAtStart === cacheGeneration) {
         const isStableEndpoint = url.includes('/companies') || url.includes('/employees') || url.includes('/attendance');
         const ttl = isStableEndpoint ? 15000 : 3000;
         responseCache.set(cacheKey, {
@@ -246,8 +257,8 @@ export const api = {
     try {
       const rawRole = (data.role || 'EMPLOYEE').toUpperCase().trim();
       const normalizedRole =
-        rawRole === 'HR_ADMIN' || rawRole === 'ADMIN'
-          ? 'ADMIN'
+        rawRole === 'ADMIN' || rawRole === 'HR' || rawRole === 'EMPLOYEE'
+          ? rawRole
           : 'EMPLOYEE';
 
       const payload = {
@@ -1008,7 +1019,7 @@ export const api = {
     );
   },
 
-  async approveLeave(id: string, role = 'HR_ADMIN', approverName = 'HR Administration', comments?: string) {
+  async approveLeave(id: string, role = 'HR', approverName = 'HR', comments?: string) {
     return fetchWithFallback<LeaveRequest>(
       `/leaves/${id}/approve`,
       { method: 'PUT', body: JSON.stringify({ role, approverName, comments }) }
@@ -1461,7 +1472,28 @@ export const api = {
   },
 
   // =========================================================================
-  // 20. COMPANIES (TENANT-LEVEL SCOPED ACCESS)
+  // 20. TEAM CHAT
+  // =========================================================================
+  async getChatMessages() {
+    return fetchWithFallback<any[]>('/chat/messages', undefined, []);
+  },
+
+  async saveChatMessage(message: any) {
+    return fetchWithFallback<any>('/chat/messages', {
+      method: 'POST',
+      body: JSON.stringify(message),
+    });
+  },
+
+  async markChatRead(conversationId: string) {
+    return fetchWithFallback<any>('/chat/messages/read', {
+      method: 'POST',
+      body: JSON.stringify({ conversationId }),
+    });
+  },
+
+  // =========================================================================
+  // 21. COMPANIES (TENANT-LEVEL SCOPED ACCESS)
   // =========================================================================
   companyCache: null as any,
 

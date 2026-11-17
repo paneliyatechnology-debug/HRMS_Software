@@ -14,6 +14,8 @@ import { api } from '../lib/api';
 import {
   formatSecondsToHMS,
   formatSecondsToWords,
+  computeShiftClock,
+  syncServerClock,
   updateLocalRecordFromBackend,
   parseWorkSessionToRecord,
   performCheckIn,
@@ -71,7 +73,21 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const baseWorkedRef = useRef<number>(0);
   const baseBreakRef = useRef<number>(0);
   const anchorTimeRef = useRef<number>(Date.now());
+  const clockRef = useRef<any>(null);
   const isFetchingRef = useRef<boolean>(false);
+
+  const publishClock = (clock: any, nowMs: number = Date.now()) => {
+    const live = computeShiftClock(clock, nowMs);
+    if (!live) return false;
+    baseWorkedRef.current = live.worked;
+    baseBreakRef.current = live.breakSeconds;
+    setElapsedSeconds(live.worked);
+    setBreakSeconds(live.breakSeconds);
+    setLiveWorkedHMS(formatSecondsToHMS(live.worked));
+    setLiveBreakWords(formatSecondsToWords(live.breakSeconds));
+    setLiveBreakHMS(formatSecondsToHMS(live.breakSeconds));
+    return true;
+  };
 
   // Sync ref with state
   useEffect(() => {
@@ -85,7 +101,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (isFetchingRef.current) return;
     // Admins viewing in admin portal mode do not have personal shift tracking console
     const rawRole = (user?.role || '').trim().toUpperCase();
-    const isStrictAdmin = (rawRole === 'ADMIN' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
+    const isStrictAdmin = (rawRole === 'SUPER_ADMIN' || rawRole === 'ADMIN' || rawRole === 'HR' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
     if (isStrictAdmin) {
       setInitialLoading(false);
       return;
@@ -96,6 +112,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (!data) return;
 
       setServerTime(data.serverTime || null);
+      syncServerClock(data.serverTime);
       setActiveSession(data.activeSession || null);
       setCurrentBreak(data.currentBreak || null);
       setLastCompletedSession(data.lastCompletedSession || null);
@@ -129,8 +146,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setStatus(resolved);
       statusRef.current = resolved;
       anchorTimeRef.current = Date.now();
-
-      if (resolved === 'working') {
+      clockRef.current = data.clock || null;
+      if (data.clock && publishClock(data.clock)) {
+        // Employee clock uses the same break-start timestamps as the admin list.
+      } else if (resolved === 'working') {
         baseWorkedRef.current = data.activeSession?.elapsedSeconds ?? 0;
         baseBreakRef.current =
           data.totalBreakSeconds ??
@@ -187,7 +206,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           formattedTotalBreak: data.formattedTotalBreak || data.todaySummary?.totalBreakFormatted,
           totalBreakSeconds: data.totalBreakSeconds ?? data.todaySummary?.totalBreakSecondsToday,
         });
-        if (rec) updateLocalRecordFromBackend(rec);
+        if (rec) updateLocalRecordFromBackend({ ...rec, ...(data.clock || {}) });
       } else if (data.lastCompletedSession) {
         const rec = parseWorkSessionToRecord({
           ...data.lastCompletedSession,
@@ -225,6 +244,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const interval = setInterval(() => {
       const now = Date.now();
       const diff = Math.max(0, Math.floor((now - anchorTimeRef.current) / 1000));
+
+      if (clockRef.current && publishClock(clockRef.current)) {
+        return;
+      }
 
       if (statusRef.current === 'working') {
         const currentWorked = baseWorkedRef.current + diff;
@@ -310,20 +333,18 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const res = await api.startBreak({});
 
-      // Freeze work timer at current elapsed seconds
-      const now = Date.now();
-      const currentElapsed =
-        baseWorkedRef.current +
-        Math.max(0, Math.floor((now - anchorTimeRef.current) / 1000));
-      baseWorkedRef.current = currentElapsed;
-      baseBreakRef.current = 0;
-      anchorTimeRef.current = now;
-
+      const nowIso = new Date().toISOString();
+      if (clockRef.current) {
+        clockRef.current = {
+          ...clockRef.current,
+          isLive: true,
+          isOnBreak: true,
+          openBreakStartTime: nowIso,
+        };
+        publishClock(clockRef.current);
+      }
       setStatus('on_break');
       statusRef.current = 'on_break';
-      setElapsedSeconds(currentElapsed);
-      setLiveWorkedHMS(formatSecondsToHMS(currentElapsed));
-      setLiveBreakWords('0s');
 
       await refresh();
 
@@ -362,6 +383,20 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const res = await api.resumeBreak({});
 
+      if (clockRef.current?.openBreakStartTime) {
+        const extra = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(clockRef.current.openBreakStartTime).getTime()) / 1000),
+        );
+        clockRef.current = {
+          ...clockRef.current,
+          isOnBreak: false,
+          openBreakStartTime: null,
+          completedBreakSeconds: (Number(clockRef.current.completedBreakSeconds) || 0) + extra,
+          sessionClosedBreakSeconds: (Number(clockRef.current.sessionClosedBreakSeconds) || 0) + extra,
+        };
+        publishClock(clockRef.current);
+      }
       anchorTimeRef.current = Date.now();
       setStatus('working');
       statusRef.current = 'working';

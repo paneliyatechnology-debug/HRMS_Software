@@ -595,6 +595,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         workingHours: Number(((summary?.totalSecondsWorked || session?.durationSeconds || 0) / 3600).toFixed(2)),
         overtimeHours: 0,
         createdAt: session?.startTime || existingToday?.createdAt || new Date().toISOString(),
+        sessionStartTime: statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
+        openBreakStartTime: statusDataToUse.clock?.openBreakStartTime || null,
+        completedBreakSeconds: statusDataToUse.clock?.completedBreakSeconds,
+        sessionClosedBreakSeconds: statusDataToUse.clock?.sessionClosedBreakSeconds,
+        completedWorkSeconds: statusDataToUse.clock?.completedWorkSeconds,
+        isLive: statusDataToUse.clock?.isLive,
       } as any;
 
       map.set(todayKey, authoritativeTodayRec);
@@ -609,6 +615,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   // Helper to reliably extract and format break time for any attendance record
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
     const anyRec = rec as any;
+    if (anyRec.sessionStartTime && anyRec.isLive) {
+      return formatSecondsToWords(getLiveBreakSeconds(rec));
+    }
     if (anyRec.formattedTotalBreak && anyRec.formattedTotalBreak !== '0s') {
       return anyRec.formattedTotalBreak;
     }
@@ -652,6 +661,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   // Helper to reliably extract and format active worked duration
   const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
     const anyRec = rec as any;
+    if (anyRec.sessionStartTime && anyRec.isLive) {
+      return formatSecondsToHMS(getLiveActiveSeconds(rec));
+    }
     const isToday = rec.date === getTodayDateString();
     const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
 

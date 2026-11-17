@@ -26,7 +26,9 @@ import { useSocket } from '../../context/SocketContext';
 import { Employee, ChatConversation, ChatMessage, ChatAttachment } from '../../types/hrms';
 import {
   getAllConversations,
+  getAllMessagesMap,
   getMessagesForConversation,
+  incomingUnreadCount,
   sendChatMessage,
   editChatMessage,
   deleteChatMessage,
@@ -34,9 +36,13 @@ import {
   clearAllChats,
   markConversationAsRead,
   syncConversationsWithEmployees,
+  hydrateMessages,
+  setActiveChatConversation,
+  markOpenConversationRead,
   ADMIN_USER_ID,
   ADMIN_NAME,
 } from '../../lib/chatService';
+import { api } from '../../lib/api';
 
 interface ChatModuleProps {
   employees?: Employee[];
@@ -53,18 +59,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 }) => {
   const { user, portalMode: authPortalMode } = useAuth();
   const portalMode = propPortalMode || authPortalMode || 'admin';
-  const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping } = useSocket();
+  const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead } = useSocket();
 
   // Determine current user chat identity
-  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || '';
+  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
   const currentUserName =
     portalMode === 'admin'
-      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || ADMIN_NAME
-      : `${user.firstName || 'Staff'} ${user.lastName || 'Member'}`.trim();
+      ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || ADMIN_NAME
+      : `${user?.firstName || 'Staff'} ${user?.lastName || 'Member'}`.trim();
   const currentUserRole = portalMode === 'admin' ? ('admin' as const) : ('employee' as const);
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string>('conv-general');
+  const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +116,25 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   // Load and sync conversations
   const loadConversations = () => {
     const list = syncConversationsWithEmployees(employees);
-    setConversations([...list]);
+    const map = getAllMessagesMap();
+    const withPreview = list.map((conv) => {
+      const thread = map[conv.id];
+      if (!thread?.length) {
+        return conv.lastMessage ? { ...conv, lastMessage: '' } : conv;
+      }
+      const last = thread[thread.length - 1];
+      return {
+        ...conv,
+        lastMessage: last.content || (last.attachments?.length ? 'Sent an attachment' : ''),
+        lastMessageTimestamp: last.timestamp,
+        lastSenderId: last.senderId,
+      };
+    });
+    withPreview.sort((a, b) => {
+      if (a.type === b.type) return 0;
+      return a.type === 'direct' ? -1 : 1;
+    });
+    setConversations(withPreview);
   };
 
   useEffect(() => {
@@ -124,10 +148,24 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     };
   }, [employees]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.getChatMessages()
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        hydrateMessages(rows);
+        markOpenConversationRead(currentUserId);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Handle initial targeted employee chat from directory or dashboard
   useEffect(() => {
     if (initialEmployeeId) {
-      const targetConvId = `conv-user-1-${initialEmployeeId}`;
+      const targetConvId = `conv-${ADMIN_USER_ID}-${initialEmployeeId}`;
       const found = conversations.find((c) => c.id === targetConvId);
       if (found) {
         setActiveConversationId(targetConvId);
@@ -147,18 +185,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     }
   }, [initialEmployeeId, conversations, employees]);
 
-  // If active conversation not in list or not set, pick the first sensible conversation
+  // Open the direct HR/staff thread first. General broadcast stays available, but it is not the default inbox.
   useEffect(() => {
-    if (conversations.length > 0 && !conversations.some((c) => c.id === activeConversationId)) {
-      if (portalMode === 'employee') {
-        // Employees usually want to talk to Admin first
-        const adminConv = conversations.find((c) => c.id === `conv-user-1-${currentUserId}`);
-        setActiveConversationId(adminConv ? adminConv.id : conversations[0].id);
-      } else {
-        setActiveConversationId(conversations[0].id);
-      }
-    }
+    if (conversations.length === 0) return;
+    if (activeConversationId && conversations.some((c) => c.id === activeConversationId)) return;
+    const directId =
+      portalMode === 'employee'
+        ? `conv-${ADMIN_USER_ID}-${currentUserId}`
+        : conversations.find((c) => c.type === 'direct')?.id;
+    const preferred =
+      conversations.find((c) => c.id === directId) ||
+      conversations.find((c) => c.type === 'direct') ||
+      conversations[0];
+    setActiveConversationId(preferred.id);
   }, [conversations, activeConversationId, portalMode, currentUserId]);
+
+  const notifyMessagesRead = (conversationId: string) => {
+    const conv = getAllConversations().find((item) => item.id === conversationId);
+    const otherId =
+      conv?.type === 'broadcast'
+        ? 'all'
+        : conv?.participantIds?.find((id) => id !== currentUserId) || 'all';
+    emitChatRead({
+      conversationId,
+      readerId: currentUserId,
+      recipientId: otherId,
+    });
+    api.markChatRead(conversationId).catch(() => {});
+  };
+
+  useEffect(() => {
+    setActiveChatConversation(activeConversationId);
+  }, [activeConversationId]);
+
+  useEffect(() => () => setActiveChatConversation(''), []);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -166,21 +226,24 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     const msgs = getMessagesForConversation(activeConversationId);
     setMessages(msgs);
     markConversationAsRead(activeConversationId, currentUserId);
-  }, [activeConversationId, currentUserId]);
+    if (msgs.some((msg) => msg.senderId !== currentUserId)) {
+      notifyMessagesRead(activeConversationId);
+    }
+  }, [activeConversationId, currentUserId, isConnected]);
 
   // Listen to message updates
   useEffect(() => {
     const handleMessageUpdate = () => {
-      if (activeConversationId) {
-        const msgs = getMessagesForConversation(activeConversationId);
-        setMessages(msgs);
-      }
+      if (!activeConversationId) return;
+      const hadUnread = markConversationAsRead(activeConversationId, currentUserId);
+      setMessages(getMessagesForConversation(activeConversationId));
+      if (hadUnread) notifyMessagesRead(activeConversationId);
     };
     window.addEventListener('hrms_chat_updated', handleMessageUpdate);
     return () => {
       window.removeEventListener('hrms_chat_updated', handleMessageUpdate);
     };
-  }, [activeConversationId]);
+  }, [activeConversationId, currentUserId, isConnected]);
 
   // Auto-scroll to bottom of thread
   useEffect(() => {
@@ -236,7 +299,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     // If current user is an employee chatting directly with admin
     const isDirectWithAdmin =
       portalMode === 'employee' &&
-      (conv.id === `conv-user-1-${currentUserId}` ||
+      (conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}` ||
         (conv.participantIds?.includes(currentUserId) && conv.participantIds?.includes(ADMIN_USER_ID)));
 
     if (isDirectWithAdmin) {
@@ -323,7 +386,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       attachments: pendingAttachment ? [pendingAttachment] : undefined,
     });
 
-    // Real-time broadcast through WebSocket
+    // Persist on the server, then broadcast to the other person.
+    api.saveChatMessage(sent).catch(() => {});
     emitChatMessage(sent);
     emitChatTyping({
       conversationId: activeConversation.id,
@@ -351,7 +415,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       content: text,
     });
 
-    // Real-time broadcast through WebSocket
+    api.saveChatMessage(sent).catch(() => {});
     emitChatMessage(sent);
   };
 
@@ -454,6 +518,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       return false;
     }
 
+    if (portalMode === 'employee') {
+      const mine =
+        conv.type === 'broadcast' ||
+        conv.participantIds?.includes(currentUserId) ||
+        conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}`;
+      if (!mine) return false;
+    }
+
     if (filterTab === 'direct' && conv.type !== 'direct') return false;
     if (filterTab === 'broadcast' && conv.type !== 'broadcast') return false;
 
@@ -493,54 +565,50 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           'Understood, thank you sir! 👍',
         ];
 
+  const avatarClass = (kind: 'broadcast' | 'admin' | 'staff') =>
+    kind === 'broadcast'
+      ? 'bg-[#efe6d6] text-[#8a6a2f]'
+      : kind === 'admin'
+        ? 'bg-[#064e3b] text-white'
+        : 'bg-[#d7f5e8] text-[#065f46]';
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden select-none">
+    <div className="bg-[#f0f2f5] rounded-2xl border border-[#d8e3dc] shadow-sm flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-slate-50/50 shrink-0 ${
+        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#e4ebe7] flex flex-col bg-white shrink-0 ${
           mobileShowThread ? 'hidden md:flex' : 'flex'
         }`}
       >
-        {/* Header & Search */}
-        <div className="p-4 border-b border-slate-200 bg-white space-y-3">
+        <div className="px-4 py-3 bg-[#064e3b] text-white space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Team Chat</h2>
-                <p className="text-[11px] text-slate-500">
-                  {portalMode === 'admin' ? 'Admin Staff Communication' : 'Direct HR & Peer Messages'}
-                </p>
-              </div>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight">Chats</h2>
+              <p className="text-[11px] text-emerald-100/80">
+                {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                {conversations.length} chats
-              </span>
-              <button
-                type="button"
-                id="btn-clear-all-chats"
-                onClick={handleClearAllChats}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Clear all chat history"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              id="btn-clear-all-chats"
+              onClick={handleClearAllChats}
+              className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors"
+              title="Clear all chat history"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-emerald-100 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="input-search-conversations"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search staff, code, or messages..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
+              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border-0 bg-white/15 text-white placeholder:text-emerald-100/70 focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400 focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -553,42 +621,27 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 pt-1">
-            <button
-              onClick={() => setFilterTab('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'all'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilterTab('direct')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'direct'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              1-on-1 Staff
-            </button>
-            <button
-              onClick={() => setFilterTab('broadcast')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'broadcast'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              General Channel
-            </button>
+          <div className="flex items-center gap-1.5">
+            {([
+              ['all', 'All'],
+              ['direct', 'Direct'],
+              ['broadcast', 'General'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setFilterTab(id)}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                  filterTab === id ? 'bg-white text-[#064e3b]' : 'bg-white/10 text-emerald-50 hover:bg-white/20'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 [scrollbar-width:thin]">
+        <div className="flex-1 overflow-y-auto bg-white [scrollbar-width:thin]">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <Users className="w-8 h-8 mx-auto stroke-1" />
@@ -598,7 +651,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             filteredConversations.map((conv) => {
               const other = getOtherParticipantInfo(conv);
               const isActive = conv.id === activeConversationId;
-              const unread = conv.unreadCount?.[currentUserId] || 0;
+              const unread = incomingUnreadCount(conv.id, currentUserId);
 
               return (
                 <button
@@ -607,62 +660,43 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   onClick={() => {
                     setActiveConversationId(conv.id);
                     setMobileShowThread(true);
+                    markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 relative ${
-                    isActive
-                      ? 'bg-white border-l-4 border-slate-900 shadow-xs'
-                      : 'hover:bg-white/80'
+                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 border-b border-[#f1f5f3] ${
+                    isActive ? 'bg-[#e7f6ef]' : 'hover:bg-[#f7fbf8]'
                   }`}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
-                        conv.type === 'broadcast'
-                          ? 'bg-amber-100 text-amber-800'
-                          : other.role === 'Admin'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
+                        conv.type === 'broadcast' ? 'broadcast' : other.role === 'Admin' ? 'admin' : 'staff',
+                      )}`}
                     >
-                      {conv.type === 'broadcast' ? '📢' : other.initials}
+                      {conv.type === 'broadcast' ? 'All' : other.initials}
                     </div>
-                    {/* Online indicator */}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                      <span className="text-[14px] font-medium text-[#111b21] truncate">
                         {other.name}
-                        {other.role === 'Admin' && (
-                          <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white text-[9px] font-semibold">
-                            Admin
-                          </span>
-                        )}
                       </span>
-                      <span className="text-[10px] text-slate-400 shrink-0 ml-1">
-                        {formatTime(conv.lastMessageTimestamp)}
-                      </span>
+                      {conv.lastMessage ? (
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-1">
+                          {formatTime(conv.lastMessageTimestamp)}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <p className="text-[11px] text-slate-500 truncate mb-1">
-                      {other.code} • {other.designation}
-                    </p>
-
-                    <p
-                      className={`text-xs truncate ${
-                        unread > 0 ? 'font-bold text-slate-900' : 'text-slate-500 font-normal'
-                      }`}
-                    >
+                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#111b21] font-medium' : 'text-[#667781]'}`}>
                       {conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>
 
-                  {/* Unread badge */}
                   {unread > 0 && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-bold">
+                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center">
                       {unread}
                     </span>
                   )}
@@ -675,20 +709,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
       {/* RIGHT COLUMN: Active Chat Thread */}
       <div
-        className={`flex-1 flex flex-col bg-slate-50/30 overflow-hidden ${
+        className={`flex-1 flex flex-col overflow-hidden ${
           mobileShowThread ? 'flex' : 'hidden md:flex'
         }`}
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            {/* Thread Header */}
-            <div className="h-16 px-4 sm:px-6 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 shadow-xs">
+            <div className="h-[60px] px-3 sm:px-4 bg-[#064e3b] text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden"
+                  className="p-1.5 -ml-1 rounded-full text-white hover:bg-white/10 md:hidden"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -697,67 +730,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
-                      activeConversation.type === 'broadcast'
-                        ? 'bg-amber-100 text-amber-800'
-                        : activeOtherInfo.role === 'Admin'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
+                      activeConversation.type === 'broadcast' ? 'broadcast' : activeOtherInfo.role === 'Admin' ? 'admin' : 'staff',
+                    )}`}
                   >
-                    {activeConversation.type === 'broadcast' ? '📢' : activeOtherInfo.initials}
+                    {activeConversation.type === 'broadcast' ? 'All' : activeOtherInfo.initials}
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                 </div>
 
-                {/* Recipient Details */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 truncate">
-                      {activeOtherInfo.name}
-                    </h3>
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                      title={isConnected ? 'Connected to WebSocket Gateway' : 'Live real-time messaging'}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'
-                        }`}
-                      />
-                      <span>{isConnected ? 'Real-Time Socket Live' : 'Live Active'}</span>
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {activeOtherInfo.code} • {activeOtherInfo.designation}
-                    {activeOtherInfo.email && ` (${activeOtherInfo.email})`}
+                  <h3 className="text-[15px] font-medium truncate">{activeOtherInfo.name}</h3>
+                  <p className="text-[11px] text-emerald-100/80 truncate">
+                    {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
                   </p>
                 </div>
               </div>
 
-              {/* Status / Channel pill & Clear Chat */}
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200/60">
-                  {activeConversation.type === 'broadcast' ? 'All Staff Group' : 'Direct Encrypted Chat'}
-                </span>
-                <button
-                  type="button"
-                  id="btn-clear-conversation-chat"
-                  onClick={handleClearActiveConversation}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 rounded-lg transition-colors cursor-pointer"
-                  title="Clear all messages in this conversation"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Clear Chat</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                id="btn-clear-conversation-chat"
+                onClick={handleClearActiveConversation}
+                className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors"
+                title="Clear this chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 [scrollbar-width:thin]">
-              {/* Day divider */}
-              <div className="flex items-center justify-center">
-                <span className="px-3 py-1 rounded-full bg-slate-200/70 text-slate-600 text-[11px] font-medium">
+            <div
+              className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 space-y-1.5 [scrollbar-width:thin]"
+              style={{ backgroundColor: '#efeae2', backgroundImage: 'radial-gradient(rgba(7,94,84,0.05) 0.6px, transparent 0.6px)', backgroundSize: '14px 14px' }}
+            >
+              <div className="flex items-center justify-center py-2">
+                <span className="px-3 py-1 rounded-lg bg-white/80 text-[#54656f] text-[11px] shadow-sm">
                   Today
                 </span>
               </div>
@@ -770,25 +776,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               ) : (
                 messages.map((msg) => {
-                  const isMe = msg.senderId === currentUserId;
+                  const isMe =
+                    msg.senderId === currentUserId ||
+                    msg.senderId === user?.id ||
+                    msg.senderId === user?.employeeId ||
+                    (portalMode === 'admin' && msg.senderId === ADMIN_USER_ID);
                   const canManage = isMe || currentUserRole === 'admin';
                   const isEditingThis = editingMessageId === msg.id;
 
                   return (
                     <div
                       key={msg.id}
-                      className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 relative`}
+                      className={`group flex ${isMe ? 'justify-end' : 'justify-start'}`}
                     >
-                      {/* Sender label for incoming */}
-                      {!isMe && (
-                        <div className="flex items-center gap-1.5 ml-1">
-                          <span className="text-[11px] font-bold text-slate-700">
-                            {msg.senderName}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            ({msg.senderRole === 'admin' ? 'Administrator' : 'Staff'})
-                          </span>
-                        </div>
+                      {!isMe && activeConversation.type === 'broadcast' && (
+                        <span className="sr-only">{msg.senderName}</span>
                       )}
 
                       {/* Bubble Container with Action Buttons */}
@@ -823,12 +825,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                         {/* Message Bubble */}
                         <div
-                          className={`p-3.5 rounded-2xl shadow-xs transition-all ${
+                          className={`px-2.5 py-1.5 shadow-sm ${
                             isMe
-                              ? 'bg-slate-900 text-white rounded-tr-xs'
-                              : 'bg-white text-slate-900 border border-slate-200/80 rounded-tl-xs'
+                              ? 'bg-[#d9fdd3] text-[#111b21] rounded-lg rounded-tr-none'
+                              : 'bg-white text-[#111b21] rounded-lg rounded-tl-none'
                           }`}
                         >
+                          {!isMe && (
+                            <p className="text-[12px] font-semibold text-[#064e3b] leading-tight mb-0.5">
+                              {msg.senderName}
+                            </p>
+                          )}
                           {/* Attachments */}
                           {msg.attachments && msg.attachments.length > 0 && (
                             <div className="mb-2 space-y-1.5">
@@ -894,29 +901,22 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">
+                            <p className="text-[14.5px] leading-snug whitespace-pre-wrap break-words pr-1">
                               {msg.content}
                             </p>
                           )}
 
-                          {/* Timestamp & Status */}
-                          <div
-                            className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                              isMe ? 'text-slate-300' : 'text-slate-400'
-                            }`}
-                          >
-                            {msg.isEdited && (
-                              <span className="italic text-[9px] opacity-75 mr-0.5">
-                                (edited)
-                              </span>
-                            )}
+                          <div className="flex items-center justify-end gap-1 -mb-0.5 mt-0.5 text-[11px] text-[#667781]">
+                            {msg.isEdited && <span className="italic text-[10px]">edited</span>}
                             <span>{formatTime(msg.timestamp)}</span>
                             {isMe && (
-                              <span>
+                              <span title={msg.status === 'read' ? 'Read' : msg.status === 'delivered' ? 'Delivered' : 'Sent'}>
                                 {msg.status === 'read' ? (
-                                  <CheckCheck className="w-3.5 h-3.5 text-blue-400 inline" />
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] inline" />
+                                ) : msg.status === 'delivered' ? (
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#667781] inline" />
                                 ) : (
-                                  <Check className="w-3.5 h-3.5 text-slate-400 inline" />
+                                  <Check className="w-[15px] h-[15px] text-[#667781] inline" />
                                 )}
                               </span>
                             )}
@@ -931,15 +931,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             </div>
 
             {/* Quick Reply Suggestions */}
-            <div className="px-4 py-2 bg-slate-100/60 border-t border-slate-200 flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
-              <span className="text-[10px] font-semibold text-slate-400 shrink-0 uppercase tracking-wider">
-                Quick:
-              </span>
+            <div className="px-3 py-1.5 bg-[#efeae2] flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
               {quickReplies.map((reply, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleQuickReply(reply)}
-                  className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs whitespace-nowrap transition-colors shrink-0 shadow-2xs"
+                  className="px-3 py-1 rounded-full bg-white text-[#064e3b] hover:bg-[#e7f6ef] text-[12px] whitespace-nowrap transition-colors shrink-0 shadow-sm"
                 >
                   {reply}
                 </button>
@@ -975,7 +972,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 sm:p-4 bg-white border-t border-slate-200 flex items-center gap-2"
+              className="px-2 py-2 bg-[#f0f2f5] flex items-end gap-2"
             >
               {/* Hidden File Input for Real Attachments */}
               <input
@@ -991,7 +988,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenAttachFile('.pdf,.doc,.docx,.txt')}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors"
                   title="Attach Document"
                 >
                   <Paperclip className="w-4 h-4" />
@@ -999,7 +996,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenAttachFile('image/*')}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors hidden sm:block"
+                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors hidden sm:block"
                   title="Attach Image"
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -1024,19 +1021,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     });
                   }
                 }}
-                placeholder={`Message ${activeOtherInfo.name}... (Press Enter to send)`}
-                className="flex-1 py-2.5 px-3.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
+                placeholder="Type a message"
+                className="flex-1 py-2.5 px-4 text-[14px] rounded-full border-0 bg-white text-[#111b21] placeholder:text-[#667781] focus:outline-none"
               />
 
-              {/* Send Button */}
               <button
                 id="btn-send-chat-message"
                 type="submit"
                 disabled={!inputText.trim() && !pendingAttachment}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                className="w-11 h-11 rounded-full bg-[#064e3b] hover:bg-[#05392c] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                title="Send"
               >
-                <span>Send</span>
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </>

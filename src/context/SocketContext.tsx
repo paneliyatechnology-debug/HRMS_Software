@@ -4,12 +4,14 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
+import { clearApiCache } from '../lib/api';
 import { getCookie } from '../lib/cookies';
 import { useAuth } from './AuthContext';
 import {
   receiveIncomingSocketMessage,
   receiveIncomingSocketEdit,
   receiveIncomingSocketDelete,
+  applyReadReceipt,
 } from '../lib/chatService';
 
 export interface ToastItem {
@@ -31,6 +33,7 @@ interface SocketContextType {
   emitChatEdit: (payload: any) => void;
   emitChatDelete: (payload: any) => void;
   emitChatTyping: (payload: any) => void;
+  emitChatRead: (payload: any) => void;
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
 }
@@ -45,6 +48,7 @@ const SocketContext = createContext<SocketContextType>({
   emitChatEdit: () => {},
   emitChatDelete: () => {},
   emitChatTyping: () => {},
+  emitChatRead: () => {},
   emitLeaveApplied: () => {},
   emitLeaveStatusUpdated: () => {},
 });
@@ -96,6 +100,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const emitChatTyping = (payload: any) => {
     if (socket && isConnected) {
       socket.emit('chat_typing', payload);
+    }
+  };
+
+  const emitChatRead = (payload: any) => {
+    if (socket && isConnected) {
+      socket.emit('chat_read', payload);
     }
   };
 
@@ -214,9 +224,23 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timeout: 10000,
     });
 
+    const registerPayload = {
+      userId: currentUserId,
+      id: currentUserId,
+      employeeId: user?.employeeId || currentUserId,
+      companyId: (user as any)?.companyId || null,
+      companyCode: (user as any)?.companyCode || null,
+      role: currentRole,
+      isSuperAdmin: String(currentRole || '').toUpperCase() === 'SUPER_ADMIN',
+    };
+
     s.on('connect', () => {
       setIsConnected(true);
       console.log('⚡ Connected to Paneliya Enterprise WebSocket Gateway');
+
+      // Gateway drops direct messages until this identity is stored on the socket.
+      s.emit('register', registerPayload);
+      s.emit('authenticate', registerPayload);
 
       // Join rooms for targeted updates
       if (currentUserId) {
@@ -231,6 +255,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const normRole = String(currentRole || '').toUpperCase();
       if (
+        normRole === 'SUPER_ADMIN' ||
         normRole === 'ADMIN' ||
         normRole === 'HR_ADMIN' ||
         normRole === 'HR' ||
@@ -284,6 +309,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const currentUser = rawUser ? JSON.parse(rawUser) : user;
         const uRole = (currentUser?.role || currentRole || '').toUpperCase();
         const isAdmin =
+          uRole === 'SUPER_ADMIN' ||
           uRole === 'ADMIN' ||
           uRole === 'HR_ADMIN' ||
           uRole === 'HR' ||
@@ -332,6 +358,15 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     s.on('leave_status_updated', handleIncomingLeaveStatus);
+
+    const handleAttendanceLive = () => {
+      clearApiCache('attendance');
+      clearApiCache('work');
+      window.dispatchEvent(new CustomEvent('hrms_attendance_live'));
+      window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));
+    };
+    s.on('attendance_updated', handleAttendanceLive);
+    s.on('attendance_punched', handleAttendanceLive);
     s.on('leave_updated', handleIncomingLeaveStatus);
     s.on('leave_approved', handleIncomingLeaveStatus);
     s.on('leave_rejected', handleIncomingLeaveStatus);
@@ -390,8 +425,14 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     // Real-Time Socket Chat Listeners
+    const viewerId = ['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN'].includes(
+      String(currentRole || '').toUpperCase(),
+    )
+      ? 'company-admin'
+      : user?.employeeId || currentUserId;
+
     s.on('chat_message_received', (incomingMessage: any) => {
-      receiveIncomingSocketMessage(incomingMessage);
+      receiveIncomingSocketMessage(incomingMessage, viewerId);
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
       window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
     });
@@ -412,12 +453,25 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_typing', { detail: payload }));
     });
 
+    s.on('chat_messages_read', (payload: any) => {
+      applyReadReceipt(payload);
+      window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
+    });
+
     s.on('chat_notification', (payload: any) => {
       try {
         const rawUser = getCookie('hrms_auth_user');
         const currentUser = rawUser ? JSON.parse(rawUser) : null;
         const currentUserId = currentUser?.employeeId || currentUser?.id;
-        if (currentUserId && (payload.recipientId === currentUserId || payload.recipientId === 'all')) {
+        const role = String(currentUser?.role || '').toUpperCase();
+        const isAdminViewer = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR' || role === 'HR_ADMIN' || role === 'COMPANY_ADMIN';
+        const addressedToMe =
+          payload.recipientId === 'all' ||
+          payload.recipientId === currentUserId ||
+          payload.recipientId === currentUser?.id ||
+          payload.recipientId === currentUser?.employeeId ||
+          (isAdminViewer && payload.recipientId === 'company-admin');
+        if (currentUserId && addressedToMe) {
           showToast({
             title: `💬 New Message: ${payload.senderName || 'Staff Member'}`,
             message: payload.content || 'Sent an attachment',
@@ -452,6 +506,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitChatEdit,
         emitChatDelete,
         emitChatTyping,
+        emitChatRead,
         emitLeaveApplied,
         emitLeaveStatusUpdated,
       }}

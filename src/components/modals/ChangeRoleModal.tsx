@@ -5,12 +5,8 @@ import {
   X,
   Shield,
   Crown,
-  Award,
-  Briefcase,
   Users,
   User,
-  Target,
-  CreditCard,
   Check,
   AlertCircle,
   Loader2,
@@ -60,16 +56,8 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
         return <Crown className={className} />;
       case 'Shield':
         return <Shield className={className} />;
-      case 'Award':
-        return <Award className={className} />;
-      case 'Briefcase':
-        return <Briefcase className={className} />;
       case 'Users':
         return <Users className={className} />;
-      case 'Target':
-        return <Target className={className} />;
-      case 'CreditCard':
-        return <CreditCard className={className} />;
       default:
         return <User className={className} />;
     }

@@ -33,6 +33,11 @@ function getDefaultMessages(): Record<string, ChatMessage[]> {
 
 let liveConversations: ChatConversation[] = getDefaultConversations();
 let liveMessagesMap: Record<string, ChatMessage[]> = getDefaultMessages();
+let activeOpenConversationId = '';
+
+export function setActiveChatConversation(conversationId: string): void {
+  activeOpenConversationId = conversationId || '';
+}
 
 export function getAllConversations(): ChatConversation[] {
   return liveConversations;
@@ -65,6 +70,42 @@ export function saveMessagesMap(messagesMap: Record<string, ChatMessage[]>): voi
 export function getMessagesForConversation(conversationId: string): ChatMessage[] {
   const map = getAllMessagesMap();
   return map[conversationId] || [];
+}
+
+/** Merge server history into the live thread so a refresh does not wipe the chat. */
+export function hydrateMessages(incoming: ChatMessage[]): void {
+  if (!Array.isArray(incoming) || incoming.length === 0) return;
+  const map = getAllMessagesMap();
+  for (const msg of incoming) {
+    if (!msg?.conversationId || !msg.id || msg.isDeleted) continue;
+    const list = map[msg.conversationId] ? [...map[msg.conversationId]] : [];
+    const idx = list.findIndex((item) => item.id === msg.id);
+    if (idx === -1) list.push(msg);
+    else {
+      const prev = list[idx];
+      const status = prev.status === 'read' || msg.status === 'read' ? 'read' : msg.status || prev.status;
+      list[idx] = { ...prev, ...msg, status };
+    }
+    list.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
+    map[msg.conversationId] = list;
+  }
+  saveMessagesMap(map);
+
+  const conversations = getAllConversations();
+  let changed = false;
+  for (const conv of conversations) {
+    const thread = map[conv.id];
+    if (!thread?.length) continue;
+    const last = thread[thread.length - 1];
+    const preview = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+    if (conv.lastMessage !== preview || conv.lastMessageTimestamp !== last.timestamp) {
+      conv.lastMessage = preview;
+      conv.lastMessageTimestamp = last.timestamp;
+      conv.lastSenderId = last.senderId;
+      changed = true;
+    }
+  }
+  if (changed) saveConversations(conversations);
 }
 
 /**
@@ -123,8 +164,8 @@ export function getOrCreateDirectConversation(employee: Employee): ChatConversat
       [employee.id]: employee.designationTitle || 'Staff Member',
     },
     lastMessage: '',
-    lastMessageTimestamp: new Date().toISOString(),
-    lastSenderId: ADMIN_USER_ID,
+    lastMessageTimestamp: '',
+    lastSenderId: '',
     unreadCount: { [ADMIN_USER_ID]: 0, [employee.id]: 0 },
     updatedAt: new Date().toISOString(),
   };
@@ -182,8 +223,8 @@ export function syncConversationsWithEmployees(employees?: Employee[]): ChatConv
           [emp.id]: emp.designationTitle || 'Staff Member',
         },
         lastMessage: '',
-        lastMessageTimestamp: new Date().toISOString(),
-        lastSenderId: ADMIN_USER_ID,
+        lastMessageTimestamp: '',
+        lastSenderId: '',
         unreadCount: { [ADMIN_USER_ID]: 0, [emp.id]: 0 },
         updatedAt: new Date().toISOString(),
       });
@@ -306,28 +347,62 @@ export function sendChatMessage(params: {
 /**
  * Marks conversation as read for a given user.
  */
-export function markConversationAsRead(conversationId: string, currentUserId: string): void {
-  const conversations = getAllConversations();
-  const convIndex = conversations.findIndex((c) => c.id === conversationId);
+export function incomingUnreadCount(conversationId: string, viewerId: string): number {
+  if (!viewerId || !conversationId || conversationId === activeOpenConversationId) return 0;
+  const messages = getMessagesForConversation(conversationId);
+  return messages.filter((message) => message.senderId !== viewerId && message.status !== 'read').length;
+}
 
+export function markOpenConversationRead(viewerId: string): boolean {
+  if (!activeOpenConversationId || !viewerId) return false;
+  return markConversationAsRead(activeOpenConversationId, viewerId);
+}
+
+export function markConversationAsRead(conversationId: string, currentUserId: string): boolean {
+  if (!conversationId || !currentUserId) return false;
+  setActiveChatConversation(conversationId);
+
+  const messagesMap = getAllMessagesMap();
+  const messages = messagesMap[conversationId] || [];
+  let changed = false;
+  const readMessages = messages.map((message) => {
+    if (message.senderId !== currentUserId && message.status !== 'read') {
+      changed = true;
+      return { ...message, status: 'read' as const };
+    }
+    return message;
+  });
+  if (changed) {
+    messagesMap[conversationId] = readMessages;
+    liveMessagesMap = { ...messagesMap };
+  }
+
+  const conversations = getAllConversations();
+  const convIndex = conversations.findIndex((item) => item.id === conversationId);
   if (convIndex !== -1) {
-    const conv = { ...conversations[convIndex] };
-    if (conv.unreadCount && conv.unreadCount[currentUserId]) {
-      conv.unreadCount = {
-        ...conv.unreadCount,
-        [currentUserId]: 0,
-      };
-      conversations[convIndex] = conv;
-      saveConversations(conversations);
+    const previous = conversations[convIndex].unreadCount || {};
+    const hadBadge = Object.values(previous).some((count) => Number(count) > 0);
+    if (hadBadge) {
+      conversations[convIndex] = { ...conversations[convIndex], unreadCount: {} };
+      liveConversations = [...conversations];
+      changed = true;
     }
   }
 
-  // Also update status of messages to 'read'
+  if (changed && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
+  }
+  return changed;
+}
+
+/** Turn the other person's messages into WhatsApp blue double-ticks after this chat is opened. */
+export function applyReadReceipt(payload: { conversationId?: string; readerId?: string }): boolean {
+  if (!payload?.conversationId || !payload.readerId) return false;
   const messagesMap = getAllMessagesMap();
-  const messages = messagesMap[conversationId] || [];
+  const messages = messagesMap[payload.conversationId] || [];
   let updated = false;
   const updatedMessages = messages.map((m) => {
-    if (m.senderId !== currentUserId && m.status !== 'read') {
+    if (m.senderId !== payload.readerId && m.status !== 'read') {
       updated = true;
       return { ...m, status: 'read' as const };
     }
@@ -335,20 +410,21 @@ export function markConversationAsRead(conversationId: string, currentUserId: st
   });
 
   if (updated) {
-    messagesMap[conversationId] = updatedMessages;
+    messagesMap[payload.conversationId] = updatedMessages;
     saveMessagesMap(messagesMap);
   }
+  return updated;
 }
 
 /**
  * Returns total unread messages count for a user.
  */
 export function getTotalUnreadChatCount(currentUserId: string): number {
-  const conversations = getAllConversations();
-  return conversations.reduce((total, conv) => {
-    const count = conv.unreadCount?.[currentUserId] || 0;
-    return total + count;
-  }, 0);
+  if (!currentUserId) return 0;
+  return getAllConversations().reduce(
+    (total, conv) => total + incomingUnreadCount(conv.id, currentUserId),
+    0,
+  );
 }
 
 /**
@@ -455,7 +531,9 @@ export function receiveIncomingSocketMessage(newMessage: ChatMessage, currentUse
   const exists = currentMessages.some((m) => m.id === newMessage.id);
   if (exists) return;
 
-  messagesMap[newMessage.conversationId] = [...currentMessages, newMessage];
+  const seenNow = newMessage.conversationId === activeOpenConversationId && !!currentUserId && newMessage.senderId !== currentUserId;
+  const storedMessage = seenNow ? { ...newMessage, status: 'read' as const } : newMessage;
+  messagesMap[newMessage.conversationId] = [...currentMessages, storedMessage];
   saveMessagesMap(messagesMap);
 
   // Update conversation meta
@@ -470,8 +548,7 @@ export function receiveIncomingSocketMessage(newMessage: ChatMessage, currentUse
     conv.lastSenderId = newMessage.senderId;
     conv.updatedAt = now;
 
-    // Increment unread count if current user is not the sender
-    if (currentUserId && newMessage.senderId !== currentUserId) {
+    if (currentUserId && newMessage.senderId !== currentUserId && !seenNow) {
       const unread = { ...(conv.unreadCount || {}) };
       unread[currentUserId] = (unread[currentUserId] || 0) + 1;
       conv.unreadCount = unread;
