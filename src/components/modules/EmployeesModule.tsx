@@ -5,9 +5,6 @@ import { createPortal } from 'react-dom';
 import {
   Search,
   Plus,
-  Mail,
-  Network,
-  MoreHorizontal,
   ChevronDown,
   Columns,
   Table as TableIcon,
@@ -341,28 +338,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => alert('Sending bulk email...')}
-            className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
-            title="Email"
-          >
-            <Mail className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => alert('Viewing organisation chart...')}
-            className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
-            title="Organisation Chart"
-          >
-            <Network className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => alert('More employee options')}
-            className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
-            title="More actions"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-
           <button
             onClick={onOpenAddModal}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"

@@ -151,7 +151,15 @@ export function validateName(
 /**
  * Validates Password
  */
-export function validatePassword(password: string, minLength = 6): ValidationResult {
+export function validatePassword(
+  password: string,
+  minLength = 6,
+  options?: {
+    requireUppercase?: boolean;
+    requireSpecial?: boolean;
+    requireNumber?: boolean;
+  }
+): ValidationResult {
   if (!password) {
     return { isValid: false, error: 'Password is required.' };
   }
@@ -160,6 +168,24 @@ export function validatePassword(password: string, minLength = 6): ValidationRes
     return {
       isValid: false,
       error: `Password must be at least ${minLength} characters long.`,
+    };
+  }
+
+  const missing: string[] = [];
+  if (options?.requireUppercase && !/[A-Z]/.test(password)) {
+    missing.push('1 uppercase letter (A-Z)');
+  }
+  if (options?.requireNumber && !/[0-9]/.test(password)) {
+    missing.push('1 number (0-9)');
+  }
+  if (options?.requireSpecial && !/[^A-Za-z0-9]/.test(password)) {
+    missing.push('1 special character (!@#$%^&*)');
+  }
+
+  if (missing.length > 0) {
+    return {
+      isValid: false,
+      error: `Password must contain at least ${missing.join(', ')}.`,
     };
   }
 

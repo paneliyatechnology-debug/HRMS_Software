@@ -853,7 +853,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               <ModernDigitClock
                 time={punchState.status === 'not_started' ? time : undefined}
                 timeString={punchState.status !== 'not_started' ? liveWorkedHMS : undefined}
-                size="lg"
+                size="sm"
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
                 showSweepRing={punchState.status === 'working'}
                 label={

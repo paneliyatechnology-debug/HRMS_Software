@@ -20,11 +20,13 @@ import { verifyShiftTimeWindow } from '../../lib/shiftScheduleService';
 interface DailyShiftConsoleProps {
   className?: string;
   showFooterBadges?: boolean;
+  clockSize?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   className = '',
   showFooterBadges = true,
+  clockSize,
 }) => {
   const {
     status,
@@ -138,7 +140,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <div className="flex justify-center">
                   <ModernDigitClock
                     timeString={currentSystemTime}
-                    size="md"
+                    size={clockSize || "md"}
                     variant="light"
                     showSweepRing={true}
                     label="Current Live Time"
@@ -204,7 +206,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <div className="py-2 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size="xl"
+                    size={clockSize || "xl"}
                     variant="light"
                     showSweepRing={true}
                     label="ACTIVE WORKED TIMER"
@@ -252,7 +254,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <div className="py-2 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size="xl"
+                    size={clockSize || "xl"}
                     variant="amber"
                     showSweepRing={true}
                     label="TIMER PAUSED (ON BREAK)"
@@ -321,7 +323,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <div className="py-2 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size="xl"
+                    size={clockSize || "xl"}
                     variant="light"
                     showSweepRing={false}
                     label="SHIFT FINALIZED"
