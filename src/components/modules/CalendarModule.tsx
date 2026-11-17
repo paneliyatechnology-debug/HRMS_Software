@@ -54,14 +54,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   const myEmpId = user?.employeeId || user?.id || '';
   const myEmpCode = (user as any)?.employeeCode || '';
-  const myEmail = user?.email?.toLowerCase() || '';
+  const isAdminCalendar = portalMode !== 'employee';
 
-  const userAttendance = portalMode === 'employee'
-    ? attendance.filter((a) =>
-        (myEmpId && (a.employeeId === myEmpId || (a as any)._id === myEmpId)) ||
-        (myEmpCode && (a as any).employeeCode === myEmpCode)
-      )
-    : attendance;
+  const isOwnPunch = (record: AttendanceRecord) => {
+    const recordId = record.employeeId || (record as any)._id || '';
+    const recordCode = (record as any).employeeCode || '';
+    return (
+      (!!myEmpId && (recordId === myEmpId || recordId === user?.id)) ||
+      (!!myEmpCode && recordCode === myEmpCode)
+    );
+  };
+
+  const userAttendance = isAdminCalendar
+    ? attendance.filter((record) => !isOwnPunch(record))
+    : attendance.filter((record) => isOwnPunch(record));
 
   // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster)
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays'>('grid');
@@ -265,7 +271,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       const dayOfWeek = new Date(year, month, d).getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-      const attRec = userAttendance.find((a) => a.date === dateStr);
+      const dayRecords = userAttendance.filter((a) => a.date === dateStr);
       const holObj = holidayDateMap[dateStr];
 
       list.push({
@@ -274,7 +280,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         dateStr,
         isWeekend,
         dayOfWeek,
-        attendance: attRec,
+        attendance: isAdminCalendar ? undefined : dayRecords[0],
+        staffCount: isAdminCalendar ? dayRecords.length : 0,
         holiday: holObj?.name,
         holidayObj: holObj,
       });
@@ -303,11 +310,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const currentMonthDays = days.filter((d) => d.isCurrentMonth);
     const totalDays = currentMonthDays.length;
     const workingDays = currentMonthDays.filter((d) => !d.isWeekend && !d.holiday).length;
-    const presentCount = currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Present').length;
-    const lateCount = currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Late').length;
+    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const monthStaff = userAttendance.filter((record) => String(record.date || '').startsWith(monthKey));
+    const presentCount = isAdminCalendar
+      ? new Set(monthStaff.filter((record) => record.status === 'Present' || record.status === 'Late').map((record) => record.employeeId)).size
+      : currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Present').length;
+    const lateCount = isAdminCalendar
+      ? 0
+      : currentMonthDays.filter((d) => d.attendance && d.attendance.status === 'Late').length;
     const holidaysCount = currentMonthDays.filter((d) => d.holiday).length;
     const weekendsCount = currentMonthDays.filter((d) => d.isWeekend).length;
-    const totalHoursWorked = currentMonthDays.reduce((acc, d) => acc + (d.attendance?.workingHours || 0), 0);
+    const totalHoursWorked = isAdminCalendar
+      ? monthStaff.reduce((acc, record) => acc + (record.workingHours || 0), 0)
+      : currentMonthDays.reduce((acc, d) => acc + (d.attendance?.workingHours || 0), 0);
     const completionPercent = workingDays > 0 ? Math.min(100, Math.round(((presentCount + lateCount) / workingDays) * 100)) : 0;
 
     return {
@@ -320,7 +335,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       totalHoursWorked: Math.round(totalHoursWorked * 10) / 10,
       completionPercent,
     };
-  }, [days]);
+  }, [days, isAdminCalendar, userAttendance, year, month]);
 
   const selectedDayInfo = days.find((d) => d.isCurrentMonth && d.day === selectedDay);
 
@@ -387,7 +402,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 3: Days Logged / Present */}
         <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Logged In</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
             <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
@@ -397,7 +412,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{stats.completionPercent}% Attendance</span>
+            <span>{isAdminCalendar ? 'Employees this month' : `${stats.completionPercent}% Attendance`}</span>
           </div>
         </div>
 
@@ -420,7 +435,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 5: Hours Worked */}
         <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tracked Hours</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
             <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600">
               <Clock className="w-3.5 h-3.5" />
             </span>
@@ -561,15 +576,24 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                 <span className="w-2 h-2 rounded-full bg-slate-400" /> Weekend
               </span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Present
-              </span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
-                <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
-              </span>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
-                <span className="w-2 h-2 rounded-full bg-cyan-500" /> Remote WFH
-              </span>
+              {!isAdminCalendar && (
+                <>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Present
+                  </span>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
+                  </span>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
+                    <span className="w-2 h-2 rounded-full bg-cyan-500" /> Remote WFH
+                  </span>
+                </>
+              )}
+              {isAdminCalendar && (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Staff present
+                </span>
+              )}
             </div>
           </div>
 
@@ -666,8 +690,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       </div>
                     )}
 
+                    {isAdminCalendar && item.staffCount > 0 && !item.holiday && !item.isWeekend && (
+                      <div className="truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-200">
+                        <Users className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate">{item.staffCount} staff</span>
+                      </div>
+                    )}
+
                     {/* Attendance Record Status (Regular Working Days Only) */}
-                    {item.attendance && !item.holiday && !item.isWeekend && (
+                    {!isAdminCalendar && item.attendance && !item.holiday && !item.isWeekend && (
                       <div
                         className={`truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 ${
                           item.attendance.status === 'Present'

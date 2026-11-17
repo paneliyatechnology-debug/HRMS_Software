@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation } from '../../types/hrms';
@@ -106,7 +107,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     }
   }, [isOpen, adminCompanyId]);
 
-  useModalOverlay({ isOpen, onClose: handleClose });
+  useModalOverlay({ isOpen, onClose: handleClose, closeOnEscape: false });
 
   if (!isOpen) return null;
 
@@ -196,7 +197,10 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       };
 
       console.log('[EmployeeDrawer] Submitting exact personal info payload to POST /api/admin/employees:', employeePayload);
-      const created = await api.createEmployee(employeePayload);
+      const created = await api.createEmployee({
+        ...employeePayload,
+        companyId: adminCompanyId,
+      });
       console.log('[EmployeeDrawer] Successfully created employee in backend:', created);
 
       showToast({
@@ -206,6 +210,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       });
 
       resetFormState();
+      window.dispatchEvent(new CustomEvent('hrms_employees_updated', { detail: created }));
       onRefresh();
       onClose();
     } catch (err: any) {
@@ -238,14 +243,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     }
   };
 
-  return (
+  const drawer = (
     <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex justify-end cursor-pointer"
+      className="fixed inset-0 z-[200] overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex justify-end"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       <div
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-100 cursor-default"
       >
@@ -600,4 +605,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return drawer;
+  return createPortal(drawer, document.body);
 };

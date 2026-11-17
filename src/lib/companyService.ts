@@ -8,7 +8,7 @@ export interface CompanyAdminUser {
   phone: string;
   avatarUrl?: string;
   designation: string;
-  role: 'HR_ADMIN';
+  role: Role;
   lastLogin?: string;
   password?: string;
 }
@@ -119,7 +119,7 @@ export function createCompany(data: {
       email: data.adminEmail,
       phone: data.adminPhone,
       designation: data.adminDesignation || 'Managing Director / Owner',
-      role: 'HR_ADMIN',
+      role: 'ADMIN',
       lastLogin: 'Never logged in',
       password: data.temporaryPassword || 'Admin@123',
     },
@@ -331,7 +331,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         companyId: comp.id,
         companyName: comp.name,
         adminUser: comp.adminUser,
-        role: comp.adminUser?.role || 'HR_ADMIN',
+        role: comp.adminUser?.role || 'ADMIN',
         isCompanyAdmin: true,
         matchedVia: 'company_admin',
         password: comp.adminUser?.password,
@@ -357,7 +357,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         companyName: emp.companyName,
         employee: emp,
         role: emp.role || 'EMPLOYEE',
-        isCompanyAdmin: emp.role === 'HR_ADMIN',
+        isCompanyAdmin: emp.role === 'ADMIN' || emp.role === 'SUPER_ADMIN' || emp.role === 'HR',
         matchedVia: 'employee',
         password: emp.password,
       };
@@ -383,7 +383,7 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
           companyName: comp.name,
           employee: emp,
           role: emp.role || 'EMPLOYEE',
-          isCompanyAdmin: emp.role === 'HR_ADMIN',
+          isCompanyAdmin: emp.role === 'ADMIN' || emp.role === 'SUPER_ADMIN' || emp.role === 'HR',
           matchedVia: 'employee',
           password: emp.password,
         };

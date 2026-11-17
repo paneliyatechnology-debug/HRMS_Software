@@ -11,11 +11,12 @@ export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
   const normalized = role.trim().toUpperCase();
   return (
+    normalized === 'SUPER_ADMIN' ||
+    normalized === 'ADMIN' ||
+    normalized === 'HR' ||
     normalized === 'HR_ADMIN' ||
     normalized === 'COMPANY_ADMIN' ||
-    normalized === 'ORG_ADMIN' ||
-    normalized === 'FINANCE_ADMIN' ||
-    normalized === 'ADMIN'
+    normalized === 'ORG_ADMIN'
   );
 };
 
@@ -343,7 +344,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(emailOrPhone.trim(), password);
       if (res && res.user) {
-        const userRole = res.user.role || org.role || 'HR_ADMIN';
+        const userRole = res.user.role || org.role || 'ADMIN';
         if (!isUserAdminRole(userRole)) {
           return { success: false, message: 'Access denied: You are registered as an Employee. Please use the Staff Employee Login tab.' };
         }
@@ -556,23 +557,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = (action: string): boolean => {
     if (!user || !user.role) return false;
-    if (user.role === 'HR_ADMIN' || (user.role as string) === 'COMPANY_ADMIN') return true;
+    const role = String(user.role).trim().toUpperCase();
+    if (['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN'].includes(role)) return true;
 
     switch (action) {
       case 'MANAGE_EMPLOYEES':
-        return ['HR_ADMIN', 'HR_EXECUTIVE'].includes(user.role);
       case 'PROCESS_PAYROLL':
-        return ['HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
       case 'APPROVE_LEAVES':
-        return ['HR_ADMIN', 'MANAGER'].includes(user.role);
       case 'MANAGE_RECRUITMENT':
-        return ['HR_ADMIN', 'RECRUITER'].includes(user.role);
       case 'MANAGE_ASSETS':
-        return ['HR_ADMIN'].includes(user.role);
       case 'VIEW_AUDIT_LOGS':
-        return ['HR_ADMIN'].includes(user.role);
       case 'VIEW_ALL_REPORTS':
-        return ['HR_ADMIN', 'FINANCE_ADMIN'].includes(user.role);
+        return false;
       default:
         return true;
     }

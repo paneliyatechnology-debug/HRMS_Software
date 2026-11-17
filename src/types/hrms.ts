@@ -1,11 +1,4 @@
-export type Role =
-  | 'HR_ADMIN'
-  | 'HR_EXECUTIVE'
-  | 'MANAGER'
-  | 'TEAM_LEADER'
-  | 'EMPLOYEE'
-  | 'RECRUITER'
-  | 'FINANCE_ADMIN';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
 
 export type EmployeeStatus =
   | 'Active'
@@ -224,6 +217,13 @@ export interface AttendanceRecord {
   activeSeconds?: number;
   breakSeconds?: number;
   totalBreakSeconds?: number;
+  isLive?: boolean;
+  sessionStartTime?: string | null;
+  openBreakStartTime?: string | null;
+  completedBreakSeconds?: number;
+  sessionClosedBreakSeconds?: number;
+  completedWorkSeconds?: number;
+  serverTime?: string;
   formattedTotalBreak?: string;
   isOnBreak?: boolean;
   isCompleted?: boolean;

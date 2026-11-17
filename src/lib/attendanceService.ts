@@ -10,6 +10,19 @@ const STORAGE_KEY = 'hrms_daily_attendance_records';
  * NO attendance data is cached or stored in browser LocalStorage.
  */
 let liveAttendanceRecords: AttendanceRecord[] = [];
+let serverOffsetMs = 0;
+
+/** Keep both screens on the server second, even if the two browsers' clocks differ. */
+export function syncServerClock(serverTime?: string | null) {
+  if (!serverTime) return;
+  const parsed = Date.parse(serverTime);
+  if (Number.isNaN(parsed)) return;
+  serverOffsetMs = Date.now() - parsed;
+}
+
+function serverNow(): number {
+  return Date.now() - serverOffsetMs;
+}
 
 /**
  * Safely parse a time string (e.g. "09:30 AM", "14:15") or createdAt timestamp to epoch ms
@@ -47,6 +60,9 @@ export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
   const currentActiveToday = liveAttendanceRecords.find(
     (r) => r && r.date === today && !r.isCompleted && (r.checkIn || !r.checkOut)
   );
+
+  const stamped = Array.isArray(records) ? records.find((record) => record?.serverTime) : null;
+  if (stamped?.serverTime) syncServerClock(stamped.serverTime);
 
   liveAttendanceRecords = Array.isArray(records)
     ? records.map((r) => {
@@ -167,6 +183,45 @@ export function parseBreakTimeToSeconds(val: any): number {
 }
 
 /**
+ * Same second math the admin list and the employee clock both use.
+ * On break, worked time stays frozen at the break-start second.
+ * When the break ends, worked time continues from that second.
+ */
+export function computeShiftClock(
+  source: any,
+  nowMs: number = serverNow(),
+): { worked: number; breakSeconds: number } | null {
+  if (!source) return null;
+  const clock = source.clock && typeof source.clock === 'object' ? source.clock : source;
+  const sessionStartTime = clock.sessionStartTime as string | undefined;
+  const openBreakStartTime = clock.openBreakStartTime as string | undefined;
+  const isLive = Boolean(clock.isLive && sessionStartTime);
+  if (!isLive) return null;
+
+  const startMs = new Date(sessionStartTime as string).getTime();
+  if (!startMs || Number.isNaN(startMs)) return null;
+
+  const completedWork = Number(clock.completedWorkSeconds) || 0;
+  const completedBreak = Number(clock.completedBreakSeconds) || 0;
+  const sessionClosedBreak = Number(clock.sessionClosedBreakSeconds) || 0;
+  const onBreak = Boolean(clock.isOnBreak && openBreakStartTime);
+  const breakStartMs = openBreakStartTime ? new Date(openBreakStartTime).getTime() : 0;
+
+  if (onBreak && breakStartMs && !Number.isNaN(breakStartMs)) {
+    const frozenSegment = Math.max(0, Math.floor((breakStartMs - startMs) / 1000) - sessionClosedBreak);
+    return {
+      worked: completedWork + frozenSegment,
+      breakSeconds: completedBreak + Math.max(0, Math.floor((nowMs - breakStartMs) / 1000)),
+    };
+  }
+
+  return {
+    worked: completedWork + Math.max(0, Math.floor((nowMs - startMs) / 1000) - sessionClosedBreak),
+    breakSeconds: completedBreak,
+  };
+}
+
+/**
  * Computes live active worked seconds for a record across all sessions today:
  * 1. If Checked In & working: timer calculates live and ticks every second.
  * 2. If On Break: timer stops / pauses work time calculation.
@@ -174,6 +229,8 @@ export function parseBreakTimeToSeconds(val: any): number {
  */
 export function getLiveActiveSeconds(record: AttendanceRecord): number {
   if (!record) return 0;
+  const sharedClock = computeShiftClock(record);
+  if (sharedClock) return sharedClock.worked;
 
   const isCheckedOut = Boolean(record.isCompleted || (record.checkOut && record.checkOut.trim() !== ''));
   const isOnBreak = Boolean(record.isOnBreak);
@@ -228,6 +285,8 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
  */
 export function getLiveBreakSeconds(record: AttendanceRecord): number {
   if (!record) return 0;
+  const sharedClock = computeShiftClock(record);
+  if (sharedClock) return sharedClock.breakSeconds;
   const anyRec = record as any;
   let brk =
     record.breakSeconds ||
@@ -822,6 +881,12 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
       remarks: backendRec.remarks || existing.remarks,
       isCompleted,
       isOnBreak: isCompleted ? false : (backendRec.isOnBreak ?? existing.isOnBreak),
+      isLive: backendRec.isLive ?? (existing as any).isLive,
+      sessionStartTime: backendRec.sessionStartTime ?? (existing as any).sessionStartTime,
+      openBreakStartTime: backendRec.openBreakStartTime ?? (existing as any).openBreakStartTime,
+      completedBreakSeconds: backendRec.completedBreakSeconds ?? (existing as any).completedBreakSeconds,
+      sessionClosedBreakSeconds: backendRec.sessionClosedBreakSeconds ?? (existing as any).sessionClosedBreakSeconds,
+      completedWorkSeconds: backendRec.completedWorkSeconds ?? (existing as any).completedWorkSeconds,
       activeSeconds: isReCheckIn ? 0 : activeSec,
       breakDurationMinutes: bMins,
       breakSeconds: bSecs,

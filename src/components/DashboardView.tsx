@@ -305,7 +305,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string, empId?: string) => {
     setProcessingLeaveId(id);
     try {
-      await api.approveLeave(id, 'HR_ADMIN', 'HR Administration', 'Approved from Dashboard');
+      await api.approveLeave(id, user?.role || 'HR', 'HR', 'Approved from Dashboard');
       showToast({
         type: 'success',
         title: 'Approved',
