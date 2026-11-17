@@ -1211,7 +1211,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <div className="space-y-4">
             {/* DAILY SHIFT CONSOLE (Unified across Dashboard and Attendance) */}
             {isEmployeeView && (
-              <div className="mb-4">
+              <div className="mb-4 max-w-2xl mx-auto">
                 <DailyShiftConsole />
               </div>
             )}

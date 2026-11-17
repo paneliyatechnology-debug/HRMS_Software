@@ -249,11 +249,10 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 min={startDate}
                 value={endDate}
                 onChange={(e) => handleEndDateChange(e.target.value)}
-                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 transition-all ${
-                  fieldErrors.endDate
+                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 transition-all ${fieldErrors.endDate
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                     : 'border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                }`}
+                  }`}
                 required
               />
             </div>
@@ -293,11 +292,10 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 clearFieldError('reason');
               }}
               placeholder="Please provide details for the team coverage and emergency contact..."
-              className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all ${
-                fieldErrors.reason
+              className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all ${fieldErrors.reason
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                   : 'border-slate-200'
-              }`}
+                }`}
               required
             />
           </div>

@@ -547,60 +547,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* ============================================================== */
         <div className="space-y-5">
           {/* Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div
               onClick={() => onNavigateModule('employees')}
-              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
+              className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3 group"
             >
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Users className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Users className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Employees</span>
-                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{employees.length}</span>
-                <span className="text-[11px] text-slate-400 font-medium">Active workforce</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Employees</span>
+                <span className="text-lg font-bold text-slate-900 block leading-tight">{employees.length}</span>
+                <span className="text-[10px] text-slate-400 font-medium">Active workforce</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('attendance')}
-              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
+              className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3 group"
             >
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Clock className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Clock className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Present Today</span>
-                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{todayRecords.length}</span>
-                <span className="text-[11px] text-slate-400 font-medium">{activeWorkingCount} working, {onBreakCount} break</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Present Today</span>
+                <span className="text-lg font-bold text-slate-900 block leading-tight">{todayRecords.length}</span>
+                <span className="text-[10px] text-slate-400 font-medium">{activeWorkingCount} working, {onBreakCount} break</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('leaves')}
-              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
+              className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3 group"
             >
-              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Shield className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Shield className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pending Leaves</span>
-                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{pendingLeaves.length}</span>
-                <span className="text-[11px] text-slate-400 font-medium">Need review</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Pending Leaves</span>
+                <span className="text-lg font-bold text-slate-900 block leading-tight">{pendingLeaves.length}</span>
+                <span className="text-[10px] text-slate-400 font-medium">Need review</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('chat')}
-              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
+              className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-3.5 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3 group"
             >
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <MessageSquare className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <MessageSquare className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Team Hub</span>
-                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{employees.length > 0 ? 'Active' : '—'}</span>
-                <span className="text-[11px] text-slate-400 font-medium">Real-time collaboration</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Team Hub</span>
+                <span className="text-lg font-bold text-slate-900 block leading-tight">{employees.length > 0 ? 'Active' : '—'}</span>
+                <span className="text-[10px] text-slate-400 font-medium">Real-time collaboration</span>
               </div>
             </div>
           </div>
@@ -976,17 +976,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-5">
 
           {/* ═══ 1. HERO BANNER ═══ */}
-          <div className="relative rounded-3xl overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}>
+          <div className="relative rounded-2xl overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}>
             {/* Animated glow blobs */}
-            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.25), transparent 70%)' }} />
-            <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.2), transparent 70%)' }} />
-            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(5,150,105,0.15), transparent 70%)' }} />
+            <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.2), transparent 70%)' }} />
+            <div className="absolute -bottom-12 -left-12 w-44 h-44 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.15), transparent 70%)' }} />
 
-            <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="relative z-10 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Employee info */}
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-3.5">
                 <div className="relative shrink-0">
-                  <div className="w-18 h-18 w-[72px] h-[72px] rounded-2xl flex items-center justify-center font-black text-2xl text-white shadow-xl border border-white/20 overflow-hidden"
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg text-white shadow-md border border-white/20 overflow-hidden"
                     style={{ background: 'linear-gradient(135deg, #10b981, #059669, #047857)' }}>
                     {currentEmp?.avatarUrl ? (
                       <img src={currentEmp.avatarUrl} alt={currentEmp.firstName} className="w-full h-full object-cover" />
@@ -994,53 +993,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <span>{currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}</span>
                     )}
                   </div>
-                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
+                  <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
                     style={{ background: currentStatus === 'working' ? '#10b981' : currentStatus === 'on_break' ? '#f59e0b' : currentStatus === 'completed' ? '#059669' : '#4e6a5d' }}>
-                    <span className="w-2 h-2 rounded-full bg-white"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
                   </span>
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/10 text-emerald-200 border border-white/15 font-mono uppercase tracking-wide">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/10 text-emerald-200 border border-white/15 font-mono uppercase tracking-wide">
                       {currentEmp?.employeeCode || 'EMP-1'}
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${empRoleDef.badgeClass}`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${empRoleDef.badgeClass}`}>
                       <Shield className="w-2.5 h-2.5" />
                       {empRoleDef.label}
                     </span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
                     {formatDisplayName(currentEmp?.firstName || user.firstName, currentEmp?.lastName || user.lastName)}
                   </h2>
-                  <p className="text-xs text-emerald-300 mt-1 flex flex-wrap items-center gap-1.5">
-                    <span className="font-bold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
+                  <p className="text-[11px] sm:text-xs text-emerald-300 mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
                     <span className="text-emerald-500">•</span>
                     <span>{currentEmp?.departmentName || 'Engineering'}</span>
                     <span className="text-emerald-500">•</span>
-                    <span className="text-emerald-400 font-semibold">{currentEmp?.shift || 'General Shift'}</span>
+                    <span className="text-emerald-300 font-medium">{currentEmp?.shift || 'General Shift'}</span>
                   </p>
                 </div>
               </div>
 
               {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button id="btn-emp-apply-leave" onClick={onOpenLeaveModal}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 active:scale-95 text-[#065f46] font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-50 active:scale-95 text-[#065f46] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
                   <Calendar className="w-3.5 h-3.5 text-[#059669]" />
                   Apply Leave
                 </button>
                 <button id="btn-emp-payslips" onClick={() => onNavigateModule('payslips')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white font-semibold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
                   <Receipt className="w-3.5 h-3.5 text-emerald-300" />
                   My Payslips
                 </button>
                 <button id="btn-emp-chat" onClick={() => onNavigateModule('chat')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white font-semibold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
                   <MessageSquare className="w-3.5 h-3.5" />
                   Team Chat
                 </button>
                 <button id="btn-emp-profile" onClick={() => onSelectEmployee(currentEmp)}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white font-semibold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
                   <User className="w-3.5 h-3.5" />
                   My Profile
                 </button>
@@ -1066,63 +1065,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const empLeftDays = Math.max(0, empTotalQuota - empTakenDays);
 
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Stat 1: Attendance status */}
-                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <Clock className="w-5 h-5" />
+                <div className="relative bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 overflow-hidden hover:border-emerald-300 hover:shadow-xs transition-all">
+                  <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-xl" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
+                  <div className="flex items-center gap-2.5 mt-1">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                      <Clock className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Today's Status</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat 2: Leave Balance */}
-                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                      <Shield className="w-5 h-5" />
+                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 overflow-hidden hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer">
+                  <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
+                  <div className="flex items-center gap-2.5 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                      <p className="text-sm font-black text-slate-900">{empLeftDays} Days Left</p>
-                      <p className="text-[11px] text-emerald-600 font-semibold">{empTakenDays} Taken • {empLeftDays} Left</p>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Leave Balance</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">{empLeftDays} Days Left</p>
+                      <p className="text-[10px] sm:text-[11px] text-emerald-600 font-medium">{empTakenDays} Taken • {empLeftDays} Left</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat 3: Salary & Payslips */}
-                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <Receipt className="w-5 h-5" />
+                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 overflow-hidden hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer">
+                  <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
+                  <div className="flex items-center gap-2.5 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Receipt className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
-                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
+                      <p className="text-[10px] sm:text-[11px] text-emerald-700 font-medium">View Payslips &rarr;</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat 4: Manager */}
-                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-5 h-5" />
+                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 overflow-hidden hover:border-amber-200 hover:shadow-xs transition-all cursor-pointer">
+                  <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
+                  <div className="flex items-center gap-2.5 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                      <Briefcase className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                      <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
+                      <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Reports To</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
+                      <p className="text-[10px] sm:text-[11px] text-amber-700 font-medium">Tap to Chat</p>
                     </div>
                   </div>
                 </div>
@@ -1141,70 +1140,70 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="lg:col-span-5 space-y-4">
 
               {/* Profile Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669,#047857)' }} />
-                <div className="p-5">
-                  <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-md shrink-0"
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                <div className="h-1" style={{ background: 'linear-gradient(90deg,#10b981,#059669,#047857)' }} />
+                <div className="p-3.5 sm:p-4">
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-base text-white shadow-xs shrink-0"
                       style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
                       {currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">{formatDisplayName(currentEmp?.firstName, currentEmp?.lastName)}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 mt-1">Active</span>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">{formatDisplayName(currentEmp?.firstName, currentEmp?.lastName)}</h4>
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
+                      <span className="inline-block px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold border border-emerald-200 mt-0.5">Active</span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Employee ID</p>
-                      <p className="font-bold text-slate-900 font-mono mt-0.5">{currentEmp?.employeeCode}</p>
+                  <div className="grid grid-cols-2 gap-2 mt-2.5 text-xs">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Employee ID</p>
+                      <p className="font-bold text-slate-900 font-mono text-[11px] mt-0.5">{currentEmp?.employeeCode}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Work Shift</p>
-                      <p className="font-bold text-slate-900 mt-0.5 truncate">09:30 – 18:30</p>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Work Shift</p>
+                      <p className="font-bold text-slate-900 text-[11px] mt-0.5 truncate">09:30 – 18:30</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3">
+                  <div className="grid grid-cols-2 gap-2 mt-2.5">
                     <button onClick={() => onSelectEmployee(currentEmp)}
-                      className="py-2.5 px-3 rounded-xl text-xs font-bold text-center transition-colors hover:opacity-90 cursor-pointer"
+                      className="py-1.5 px-2.5 rounded-lg text-xs font-semibold text-center transition-colors hover:opacity-90 cursor-pointer"
                       style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>My Profile</button>
                     <button onClick={() => onNavigateModule('documents')}
-                      className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-800 font-bold text-xs text-center transition-colors cursor-pointer">Documents</button>
+                      className="py-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 font-semibold text-xs text-center transition-colors cursor-pointer">Documents</button>
                   </div>
                 </div>
               </div>
 
               {/* Employment Details Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                <div className="h-1" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
+                <div className="p-3.5 sm:p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                         <Building2 className="w-4 h-4 text-emerald-600" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-black text-slate-900">Workplace Info</h4>
-                        <p className="text-[10px] text-slate-400">Employment details</p>
+                        <h4 className="text-xs font-bold text-slate-900">Workplace Info</h4>
+                        <p className="text-[9px] text-slate-400">Employment details</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">Active</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold border border-emerald-200">Active</span>
                   </div>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     {[
                       { label: 'Work Location', value: currentEmp?.workLocationName || 'Corporate HQ' },
                       { label: 'Employment Type', value: currentEmp?.employmentType || 'Full-time' },
                       { label: 'Joined On', value: currentEmp?.joiningDate ? new Date(currentEmp.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Active' },
                     ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-emerald-50/40 hover:border-emerald-100 transition-colors">
-                        <span className="text-slate-500 font-medium">{label}</span>
-                        <span className="font-bold text-slate-900 text-right max-w-[120px] truncate">{value}</span>
+                      <div key={label} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-emerald-50/40 hover:border-emerald-100 transition-colors">
+                        <span className="text-slate-500 text-[11px] font-medium">{label}</span>
+                        <span className="font-semibold text-slate-900 text-[11px] text-right max-w-[120px] truncate">{value}</span>
                       </div>
                     ))}
                   </div>
                   <button onClick={() => onNavigateModule('organization')}
-                    className="w-full mt-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 cursor-pointer"
+                    className="w-full mt-2.5 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 cursor-pointer"
                     style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>
                     <Building2 className="w-3.5 h-3.5" />
                     About Organisation

@@ -366,84 +366,84 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       {/* =========================================================================
           TOP EXECUTIVE METRICS CARDS
           ========================================================================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
         {/* Card 1: Month Overview */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Month</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Month</span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CalendarIcon className="w-3.5 h-3.5" />
             </span>
           </div>
-          <p className="text-lg font-black text-slate-900 mt-1">
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
             {monthNames[month].slice(0, 3)} {year}
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-slate-500 font-medium">
             <span>{stats.totalDays} Total Days</span>
           </div>
         </div>
 
         {/* Card 2: Working Days */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Working Days</span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Working Days</span>
+            <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <Briefcase className="w-3.5 h-3.5" />
             </span>
           </div>
-          <p className="text-lg font-black text-slate-900 mt-1">
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
             {stats.workingDays} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-blue-600 font-bold">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-blue-600 font-semibold">
             <span>Excludes weekends</span>
           </div>
         </div>
 
         {/* Card 3: Days Logged / Present */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
           </div>
-          <p className="text-lg font-black text-emerald-700 mt-1">
+          <p className="text-base sm:text-lg font-bold text-emerald-700 mt-0.5">
             {stats.presentCount + stats.lateCount} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 font-semibold">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-emerald-700 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>{isAdminCalendar ? 'Employees this month' : `${stats.completionPercent}% Attendance`}</span>
           </div>
         </div>
 
         {/* Card 4: Official Holidays */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Holidays</span>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Holidays</span>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
             </span>
           </div>
-          <p className="text-lg font-black text-slate-900 mt-1">
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
             {stats.holidaysCount} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-amber-700 font-medium">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-amber-700 font-medium">
             <span>Official gazetted</span>
           </div>
         </div>
 
         {/* Card 5: Hours Worked */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
-            <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
+            <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <Clock className="w-3.5 h-3.5" />
             </span>
           </div>
-          <p className="text-lg font-black text-slate-900 mt-1">
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
             {stats.totalHoursWorked} <span className="text-xs font-semibold text-slate-400">Hrs</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-purple-700 font-medium">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-purple-700 font-medium">
             <span>{stats.weekendsCount} weekend days • {stats.holidaysCount} holidays</span>
           </div>
         </div>

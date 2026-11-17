@@ -116,10 +116,10 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
   return (
     <div className={`flex flex-col items-center select-none w-full ${className}`}>
       {/* Main Row: Circular Progress Ring on Left + Dark Emerald Container on Right */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 py-1">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 py-0.5">
         {/* Left: Circular Green Progress Ring with Center Clock Icon */}
         {showSweepRing && (
-          <div className="relative w-18 h-18 sm:w-22 sm:h-22 flex items-center justify-center shrink-0">
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center shrink-0">
             <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 100 100">
               {/* Background Track */}
               <circle
@@ -145,7 +145,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
               />
             </svg>
             <Clock
-              className={`w-6 h-6 sm:w-7 sm:h-7 absolute ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 absolute ${
                 isAmber ? 'text-amber-800' : 'text-[#0a4232]'
               }`}
               strokeWidth={2.3}
@@ -155,7 +155,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
 
         {/* Right: Dark Emerald-Green Rounded Container */}
         <div
-          className={`rounded-[22px] sm:rounded-[28px] px-3.5 sm:px-6 py-3 sm:py-3.5 shadow-lg flex items-center gap-1.5 sm:gap-2.5 ${
+          className={`rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-md flex items-center gap-1.5 sm:gap-2 ${
             isAmber
               ? 'bg-[#3d1a04] shadow-amber-950/20'
               : 'bg-[#0a4232] shadow-[#0a4232]/25'
@@ -164,17 +164,17 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
           {/* 1. HOURS CARD */}
           <div className="flex flex-col items-center">
             <div
-              className={`w-13 sm:w-18 h-12 sm:h-16 rounded-[14px] sm:rounded-[18px] shadow-[0_4px_10px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
+              className={`w-10 sm:w-12 h-9 sm:h-11 rounded-lg sm:rounded-xl shadow-[0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
                 isAmber ? 'bg-[#78350f]' : 'bg-[#145743]'
               }`}
             >
-              <span className="text-2xl sm:text-4xl font-extrabold text-white font-mono tabular-nums leading-none tracking-tight">
+              <span className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums leading-none tracking-tight">
                 {hours}
               </span>
             </div>
             {showLabels && (
               <span
-                className={`text-[9px] sm:text-[10px] font-black tracking-widest uppercase mt-1.5 ${
+                className={`text-[8px] sm:text-[9px] font-bold tracking-widest uppercase mt-1 ${
                   isAmber ? 'text-amber-300' : 'text-[#7dd8b2]'
                 }`}
               >
@@ -184,24 +184,24 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
           </div>
 
           {/* COLON */}
-          <span className="text-xl sm:text-2xl font-black text-white/90 self-start mt-2.5 sm:mt-3.5 px-0.5">
+          <span className="text-base sm:text-lg font-bold text-white/80 self-start mt-1.5 sm:mt-2.5 px-0.5">
             :
           </span>
 
           {/* 2. MINS CARD */}
           <div className="flex flex-col items-center">
             <div
-              className={`w-13 sm:w-18 h-12 sm:h-16 rounded-[14px] sm:rounded-[18px] shadow-[0_4px_10px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
+              className={`w-10 sm:w-12 h-9 sm:h-11 rounded-lg sm:rounded-xl shadow-[0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
                 isAmber ? 'bg-[#78350f]' : 'bg-[#145743]'
               }`}
             >
-              <span className="text-2xl sm:text-4xl font-extrabold text-white font-mono tabular-nums leading-none tracking-tight">
+              <span className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums leading-none tracking-tight">
                 {minutes}
               </span>
             </div>
             {showLabels && (
               <span
-                className={`text-[9px] sm:text-[10px] font-black tracking-widest uppercase mt-1.5 ${
+                className={`text-[8px] sm:text-[9px] font-bold tracking-widest uppercase mt-1 ${
                   isAmber ? 'text-amber-300' : 'text-[#7dd8b2]'
                 }`}
               >
@@ -211,7 +211,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
           </div>
 
           {/* COLON */}
-          <span className="text-xl sm:text-2xl font-black text-white/90 self-start mt-2.5 sm:mt-3.5 px-0.5">
+          <span className="text-base sm:text-lg font-bold text-white/80 self-start mt-1.5 sm:mt-2.5 px-0.5">
             :
           </span>
 
@@ -219,17 +219,17 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
           <div className="flex flex-col items-center">
             <div
               key={seconds}
-              className={`w-13 sm:w-18 h-12 sm:h-16 rounded-[14px] sm:rounded-[18px] shadow-[0_4px_10px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
+              className={`w-10 sm:w-12 h-9 sm:h-11 rounded-lg sm:rounded-xl shadow-[0_2px_6px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center justify-center ${
                 isAmber ? 'bg-[#78350f]' : 'bg-[#145743]'
               }`}
             >
-              <span className="text-2xl sm:text-4xl font-extrabold text-white font-mono tabular-nums leading-none tracking-tight">
+              <span className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums leading-none tracking-tight">
                 {seconds}
               </span>
             </div>
             {showLabels && (
               <span
-                className={`text-[9px] sm:text-[10px] font-black tracking-widest uppercase mt-1.5 ${
+                className={`text-[8px] sm:text-[9px] font-bold tracking-widest uppercase mt-1 ${
                   isAmber ? 'text-amber-300' : 'text-[#7dd8b2]'
                 }`}
               >

@@ -426,46 +426,46 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </div>
 
           {/* Dynamic 4 Leave Balance & Consumption Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Card 1: Total Overall Leaves */}
-            <div className="p-4 rounded-2xl bg-white border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-600" />
                     <span>Total Leaves</span>
                   </span>
-                  <span className="text-[10px] font-black bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="text-[9px] font-bold bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded-full border border-emerald-200">
                     ANNUAL
                   </span>
                 </div>
 
                 {/* Prominent Taken/Total (3/12 format) */}
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-black text-slate-900 tracking-tight">{totalTaken}</span>
-                  <span className="text-2xl font-black text-slate-400">/{TOTAL_QUOTA}</span>
-                  <span className="text-xs font-bold text-emerald-700 ml-1.5">Used</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 tracking-tight">{totalTaken}</span>
+                  <span className="text-lg font-semibold text-slate-400">/{TOTAL_QUOTA}</span>
+                  <span className="text-[11px] font-semibold text-emerald-700 ml-1">Used</span>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-600">{totalTaken} Used</span>
-                  <span className="font-bold text-emerald-600">{totalLeft} Available</span>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-rose-600">{totalTaken} Used</span>
+                  <span className="font-semibold text-emerald-600">{totalLeft} Available</span>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+              <div className="mt-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-1">
                   <span>{totalTaken}/{TOTAL_QUOTA} Days Used</span>
-                  <span className="text-emerald-700 font-extrabold">{totalLeft} Remaining</span>
+                  <span className="text-emerald-700 font-bold">{totalLeft} Remaining</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
                   <div
-                    className="bg-emerald-600 h-2 rounded-full transition-all duration-500"
+                    className="bg-emerald-600 h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((totalTaken / TOTAL_QUOTA) * 100))}%` }}
                   />
                 </div>
                 {totalPending > 0 && (
-                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                  <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     <span>{totalPending} {totalPending === 1 ? 'day' : 'days'} pending review</span>
                   </p>
@@ -474,44 +474,44 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </div>
 
             {/* Card 2: Casual Leave (CL) */}
-            <div className="p-4 rounded-2xl bg-white border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span>Casual Leave (CL)</span>
                   </span>
-                  <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full border border-emerald-200">
                     CASUAL
                   </span>
                 </div>
 
                 {/* Prominent Taken/Total (e.g. 3/12 format) */}
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-black text-slate-900 tracking-tight">{casualTaken}</span>
-                  <span className="text-2xl font-black text-slate-400">/{CASUAL_QUOTA}</span>
-                  <span className="text-xs font-bold text-emerald-700 ml-1.5">Used</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 tracking-tight">{casualTaken}</span>
+                  <span className="text-lg font-semibold text-slate-400">/{CASUAL_QUOTA}</span>
+                  <span className="text-[11px] font-semibold text-emerald-700 ml-1">Used</span>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-600">{casualTaken} Used</span>
-                  <span className="font-bold text-emerald-600">{casualLeft} Available</span>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-rose-600">{casualTaken} Used</span>
+                  <span className="font-semibold text-emerald-600">{casualLeft} Available</span>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+              <div className="mt-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-1">
                   <span>{casualTaken}/{CASUAL_QUOTA} Days Used</span>
-                  <span className="text-emerald-700 font-extrabold">{casualLeft} Remaining</span>
+                  <span className="text-emerald-700 font-bold">{casualLeft} Remaining</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
                   <div
-                    className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((casualTaken / CASUAL_QUOTA) * 100))}%` }}
                   />
                 </div>
                 {casualPending > 0 && (
-                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                  <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     <span>{casualPending} {casualPending === 1 ? 'day' : 'days'} pending review</span>
                   </p>
@@ -520,44 +520,44 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </div>
 
             {/* Card 3: Sick Leave (SL) */}
-            <div className="p-4 rounded-2xl bg-white border-2 border-amber-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[11px] font-black uppercase text-amber-800 tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase text-amber-800 tracking-wider flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
                     <span>Sick Leave (SL)</span>
                   </span>
-                  <span className="text-[10px] font-black bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                  <span className="text-[9px] font-bold bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded-full border border-amber-200">
                     MEDICAL
                   </span>
                 </div>
 
                 {/* Prominent Taken/Total (e.g. 0/12 format) */}
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-black text-slate-900 tracking-tight">{sickTaken}</span>
-                  <span className="text-2xl font-black text-slate-400">/{SICK_QUOTA}</span>
-                  <span className="text-xs font-bold text-amber-700 ml-1.5">Used</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 tracking-tight">{sickTaken}</span>
+                  <span className="text-lg font-semibold text-slate-400">/{SICK_QUOTA}</span>
+                  <span className="text-[11px] font-semibold text-amber-700 ml-1">Used</span>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-600">{sickTaken} Used</span>
-                  <span className="font-bold text-emerald-600">{sickLeft} Available</span>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-rose-600">{sickTaken} Used</span>
+                  <span className="font-semibold text-emerald-600">{sickLeft} Available</span>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+              <div className="mt-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-1">
                   <span>{sickTaken}/{SICK_QUOTA} Days Used</span>
-                  <span className="text-emerald-700 font-extrabold">{sickLeft} Remaining</span>
+                  <span className="text-emerald-700 font-bold">{sickLeft} Remaining</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
                   <div
-                    className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                    className="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((sickTaken / SICK_QUOTA) * 100))}%` }}
                   />
                 </div>
                 {sickPending > 0 && (
-                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                  <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     <span>{sickPending} {sickPending === 1 ? 'day' : 'days'} pending review</span>
                   </p>
@@ -566,44 +566,44 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </div>
 
             {/* Card 4: Paid / Annual Leave (PL) */}
-            <div className="p-4 rounded-2xl bg-white border-2 border-violet-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[11px] font-black uppercase text-violet-800 tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase text-violet-800 tracking-wider flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-violet-600" />
                     <span>Paid Leave (PL)</span>
                   </span>
-                  <span className="text-[10px] font-black bg-violet-50 text-violet-800 px-2 py-0.5 rounded-full border border-violet-200">
+                  <span className="text-[9px] font-bold bg-violet-50 text-violet-800 px-1.5 py-0.5 rounded-full border border-violet-200">
                     EARNED
                   </span>
                 </div>
 
                 {/* Prominent Taken/Total (e.g. 0/12 format) */}
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-black text-slate-900 tracking-tight">{paidTaken}</span>
-                  <span className="text-2xl font-black text-slate-400">/{PAID_QUOTA}</span>
-                  <span className="text-xs font-bold text-violet-700 ml-1.5">Used</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-bold text-slate-900 tracking-tight">{paidTaken}</span>
+                  <span className="text-lg font-semibold text-slate-400">/{PAID_QUOTA}</span>
+                  <span className="text-[11px] font-semibold text-violet-700 ml-1">Used</span>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-rose-600">{paidTaken} Used</span>
-                  <span className="font-bold text-emerald-600">{paidLeft} Available</span>
+                <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-rose-600">{paidTaken} Used</span>
+                  <span className="font-semibold text-emerald-600">{paidLeft} Available</span>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+              <div className="mt-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 mb-1">
                   <span>{paidTaken}/{PAID_QUOTA} Days Used</span>
-                  <span className="text-emerald-700 font-extrabold">{paidLeft} Remaining</span>
+                  <span className="text-emerald-700 font-bold">{paidLeft} Remaining</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
                   <div
-                    className="bg-violet-600 h-2 rounded-full transition-all duration-500"
+                    className="bg-violet-600 h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, Math.round((paidTaken / PAID_QUOTA) * 100))}%` }}
                   />
                 </div>
                 {paidPending > 0 && (
-                  <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                  <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3 shrink-0" />
                     <span>{paidPending} {paidPending === 1 ? 'day' : 'days'} pending review</span>
                   </p>
