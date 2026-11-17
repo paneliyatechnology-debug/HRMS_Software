@@ -30,9 +30,9 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
     mobileUrl: string;
     backendUrl: string;
   }>({
-    ip: '192.168.1.106',
-    mobileUrl: 'http://192.168.1.106:3000',
-    backendUrl: 'http://192.168.1.103:4000',
+    ip: '',
+    mobileUrl: '',
+    backendUrl: 'http://192.168.1.104:4000',
   });
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
