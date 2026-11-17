@@ -208,7 +208,54 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Actions, Notifications, Profile */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Shortcut Action Buttons (Transferred from Employee Dashboard Banner) */}
+        {portalMode !== 'admin' && (
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button
+              id="btn-header-apply-leave"
+              onClick={onOpenLeaveModal}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
+              title="Apply Leave"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+              <span className="hidden md:inline">Apply Leave</span>
+            </button>
+
+            <button
+              id="btn-header-payslips"
+              onClick={() => onNavigateModule?.('payslips')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
+              title="My Payslips"
+            >
+              <Receipt className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+              <span className="hidden md:inline">My Payslips</span>
+            </button>
+
+            <button
+              id="btn-header-chat"
+              onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
+              title="Team Chat"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+              <span className="hidden md:inline">Team Chat</span>
+            </button>
+
+            {onOpenProfile && (
+              <button
+                id="btn-header-profile"
+                onClick={onOpenProfile}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
+                title="My Profile"
+              >
+                <User className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <span className="hidden md:inline">My Profile</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Quick Dynamic Check In / Check Out Button (Employees only - commented out for admin) */}
         {portalMode !== 'admin' && (
           <button

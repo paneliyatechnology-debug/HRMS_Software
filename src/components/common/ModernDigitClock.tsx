@@ -73,11 +73,11 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
   // Size styling maps
   const sizeMap = {
     sm: {
-      card: 'px-2 py-1 text-sm rounded-lg min-w-[28px]',
-      colon: 'text-sm',
+      card: 'px-2 py-0.5 text-xs sm:text-sm rounded-lg min-w-[26px]',
+      colon: 'text-xs sm:text-sm',
       label: 'text-[8px]',
-      period: 'text-[9px] px-1.5 py-0.5',
-      ringSize: 28,
+      period: 'text-[8px] px-1.5 py-0.5',
+      ringSize: 24,
     },
     md: {
       card: 'px-2.5 py-1.5 text-lg sm:text-xl rounded-xl min-w-[36px]',

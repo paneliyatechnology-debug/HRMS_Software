@@ -26,7 +26,7 @@ interface DailyShiftConsoleProps {
 export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   className = '',
   showFooterBadges = true,
-  clockSize,
+  clockSize = 'sm',
 }) => {
   const {
     status,
@@ -136,11 +136,11 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
           <div className="my-5">
             {/* 1. STATE: NOT STARTED */}
             {status === 'not_started' && (
-              <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-4">
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-3">
                 <div className="flex justify-center">
                   <ModernDigitClock
                     timeString={currentSystemTime}
-                    size={clockSize || "md"}
+                    size={clockSize || "sm"}
                     variant="light"
                     showSweepRing={true}
                     label="Current Live Time"
@@ -195,7 +195,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
             {/* 2. STATE: WORKING */}
             {status === 'working' && (
-              <div className="p-4 sm:p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-2.5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold max-w-full truncate shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   <span className="truncate">
@@ -203,10 +203,10 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   </span>
                 </div>
 
-                <div className="py-2 flex justify-center">
+                <div className="py-1 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size={clockSize || "xl"}
+                    size={clockSize || "sm"}
                     variant="light"
                     showSweepRing={true}
                     label="ACTIVE WORKED TIMER"
@@ -245,16 +245,16 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
             {/* 3. STATE: ON BREAK */}
             {status === 'on_break' && (
-              <div className="p-4 sm:p-6 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center space-y-3">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center space-y-2.5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold max-w-full truncate shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
                   <span className="truncate">Break in Progress • Work Timer Paused</span>
                 </div>
 
-                <div className="py-2 flex justify-center">
+                <div className="py-1 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size={clockSize || "xl"}
+                    size={clockSize || "sm"}
                     variant="amber"
                     showSweepRing={true}
                     label="TIMER PAUSED (ON BREAK)"
@@ -298,11 +298,11 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
             {/* 4. STATE: COMPLETED */}
             {status === 'completed' && (
-              <div className="p-6 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
-                  <Check className="w-6 h-6 stroke-[3]" />
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-2.5">
+                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
+                  <Check className="w-5 h-5 stroke-[3]" />
                 </div>
-                <h4 className="text-lg font-black text-slate-900">
+                <h4 className="text-base font-black text-slate-900">
                   ✓ Session Checked Out
                 </h4>
                 <p className="text-xs text-slate-600 max-w-md mx-auto">
@@ -320,10 +320,10 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   </strong>
                 </p>
 
-                <div className="py-2 flex justify-center">
+                <div className="py-1 flex justify-center">
                   <ModernDigitClock
                     timeString={liveWorkedHMS}
-                    size={clockSize || "xl"}
+                    size={clockSize || "sm"}
                     variant="light"
                     showSweepRing={false}
                     label="SHIFT FINALIZED"

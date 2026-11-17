@@ -1062,47 +1062,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left 7 Cols: Unified Daily Shift Console */}
             <div className="lg:col-span-7">
-              <DailyShiftConsole />
+              <DailyShiftConsole clockSize="sm" />
             </div>
 
-            {/* Right 5 Cols: Profile + Workplace Cards */}
+            {/* Right 5 Cols: Workplace Cards */}
             <div className="lg:col-span-5 space-y-4">
-
-              {/* Profile Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669,#047857)' }} />
-                <div className="p-5">
-                  <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-md shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-                      {currentEmp?.firstName?.[0] || 'E'}{currentEmp?.lastName?.[0] || ''}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">{formatDisplayName(currentEmp?.firstName, currentEmp?.lastName)}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 mt-1">Active</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Employee ID</p>
-                      <p className="font-bold text-slate-900 font-mono mt-0.5">{currentEmp?.employeeCode}</p>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Work Shift</p>
-                      <p className="font-bold text-slate-900 mt-0.5 truncate">09:30 – 18:30</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <button onClick={() => onSelectEmployee(currentEmp)}
-                      className="py-2.5 px-3 rounded-xl text-xs font-bold text-center transition-colors hover:opacity-90 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>My Profile</button>
-                    <button onClick={() => onNavigateModule('documents')}
-                      className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-800 font-bold text-xs text-center transition-colors cursor-pointer">Documents</button>
-                  </div>
-                </div>
-              </div>
-
               {/* Employment Details Card */}
               <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
