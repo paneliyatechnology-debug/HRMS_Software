@@ -15,8 +15,8 @@ import {
   Building2,
   MessageSquare,
   AlertTriangle,
-  Search,
   Smartphone,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkSession } from '../context/WorkSessionContext';
@@ -173,8 +173,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
-      {/* Left: Mobile Toggle & Brand Logo */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+      {/* Left: Mobile Toggle, Brand Logo & Live Clock Widget */}
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
         <button
           onClick={onOpenSidebar}
           className="p-1.5 sm:p-2 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden transition-colors cursor-pointer shrink-0"
@@ -200,32 +200,15 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Live Digital Clock Widget (Placed on Top Left) */}
+        <div className="hidden sm:flex items-center shrink-0">
+          <LiveClock showIndicator={false} onClick={portalMode !== 'admin' ? onOpenClockModal : undefined} />
+        </div>
       </div>
 
-      {/* Center: Live Digital Clock Widget */}
-      <div className="hidden md:flex items-center justify-center px-2 min-w-0">
-        <LiveClock onClick={portalMode !== 'admin' ? onOpenClockModal : undefined} />
-      </div>
-
-      {/* Right: Actions, Role Pill, Notifications, Profile */}
+      {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* Sleek Global Search Button (Opens Search Modal on click or Ctrl+K) */}
-        {onOpenSearchModal && (
-          <button
-            id="btn-header-search"
-            onClick={onOpenSearchModal}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] border border-[#d8ebd9] transition-all shadow-2xs group cursor-pointer shrink-0"
-            title="Search HRMS modules, staff & records (Ctrl+K)"
-          >
-            <Search className="w-4 h-4 text-[#059669] group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden sm:inline text-xs font-semibold text-[#4e6a5d] group-hover:text-[#0d271d]">Search...</span>
-            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-emerald-100 rounded shadow-2xs">
-              ⌘K
-            </kbd>
-          </button>
-        )}
-
-
         {/* Quick Dynamic Check In / Check Out Button (Employees only - commented out for admin) */}
         {portalMode !== 'admin' && (
           <button
@@ -262,22 +245,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
         )}
-
-
-
-        {/* Work Status Pill */}
-        <div
-          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[10px] bg-[#f2f9f5] border border-[#a7f3d0] text-[#065f46] text-xs font-semibold shadow-2xs shrink-0"
-          title="Current Work Availability Status (Configured in Settings > Work & Display)"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="truncate max-w-[130px]">{workStatus}</span>
-        </div>
-
-        {/* Role Pill */}
-        <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-[10px] bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-xs font-bold shrink-0">
-          {portalMode === 'admin' ? 'Admin' : 'Employee'}
-        </div>
 
         {/* User Profile Dropdown */}
         <div ref={profileMenuRef} className="relative shrink-0">

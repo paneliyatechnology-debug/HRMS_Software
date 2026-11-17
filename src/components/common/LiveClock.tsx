@@ -184,28 +184,25 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     <div
       id="live-clock-pill"
       onClick={handleClick}
-      className={`group inline-flex items-center gap-2 sm:gap-2.5 px-2.5 py-1.5 rounded-[11px] bg-transparent hover:bg-slate-100/60 transition-all duration-200 cursor-pointer select-none shrink-0 ${className}`}
+      className={`group inline-flex flex-col items-start justify-center px-1.5 py-1 rounded-[11px] bg-transparent hover:bg-slate-100/60 transition-all duration-200 cursor-pointer select-none shrink-0 ${className}`}
       title="Live System Time (Auto-synced) • Click to toggle 12h/24h"
     >
       {/* Live Indicator Dot & Badge */}
       {showIndicator && (
-        <div className="flex items-center gap-1.5">
-          <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="relative flex h-2 w-2 items-center justify-center">
             <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-[#10b981]"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
           </span>
-          <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider text-[#065f46] bg-[#dcfce7] px-1.5 py-0.5 rounded-full leading-tight">
+          <span className="text-[9px] font-black uppercase tracking-wider text-[#065f46] bg-[#dcfce7] px-1.5 py-0.5 rounded-full leading-tight">
             LIVE
           </span>
         </div>
       )}
 
-      {/* Divider */}
-      {showIndicator && <div className="hidden sm:block h-3.5 w-px bg-[#d8ebd9]" />}
-
-      {/* Digital Time with Monospace Figures and Pulsing Colons */}
-      <div className="flex items-center gap-0.5 font-mono text-[#0d271d]">
-        <Clock className="w-3.5 h-3.5 text-[#059669] group-hover:rotate-12 transition-transform duration-300 mr-1" />
+      {/* Top: Digital Time with Monospace Figures and Timezone */}
+      <div className="flex items-center gap-0.5 font-mono text-[#0d271d] leading-none">
+        <Clock className="w-3.5 h-3.5 text-[#059669] group-hover:rotate-12 transition-transform duration-300 mr-1 shrink-0" />
         <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
           {hours}
         </span>
@@ -233,24 +230,21 @@ export const LiveClock: React.FC<LiveClockProps> = ({
             {dayPeriod}
           </span>
         )}
+
+        {/* Timezone Badge */}
+        {showTimezone && (
+          <span className="text-[9px] font-bold text-[#065f46] bg-[#dcfce7] border border-[#a7f3d0] px-1.5 py-0.5 rounded leading-none ml-1.5 inline-block">
+            {timeZoneName}
+          </span>
+        )}
       </div>
 
-      {/* Timezone Badge */}
-      {showTimezone && (
-        <span className="text-[10px] font-bold text-[#065f46] bg-[#dcfce7] border border-[#a7f3d0] px-1.5 py-0.5 rounded leading-none hidden md:inline-block">
-          {timeZoneName}
-        </span>
-      )}
-
-      {/* Date */}
+      {/* Bottom: Date */}
       {showDate && (
-        <>
-          <div className="hidden md:block h-3.5 w-px bg-[#d8ebd9] shrink-0" />
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4e6a5d] font-medium whitespace-nowrap shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-            <span>{formattedDate}</span>
-          </div>
-        </>
+        <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-[#4e6a5d] font-medium whitespace-nowrap leading-tight mt-1">
+          <Calendar className="w-3 h-3 text-[#059669] shrink-0" />
+          <span>{formattedDate}</span>
+        </div>
       )}
     </div>
   );
