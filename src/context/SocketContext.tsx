@@ -429,7 +429,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       String(currentRole || '').toUpperCase(),
     )
       ? 'company-admin'
-      : user?.employeeId || currentUserId;
+      : (user?.employeeId || currentUserId || undefined);
 
     s.on('chat_message_received', (incomingMessage: any) => {
       receiveIncomingSocketMessage(incomingMessage, viewerId);

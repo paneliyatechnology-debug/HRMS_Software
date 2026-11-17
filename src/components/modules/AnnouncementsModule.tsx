@@ -181,8 +181,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-indigo-600" />
-            <span>Notice Board & Circulars</span>
+            <Megaphone className="w-6 h-6 text-emerald-600" />
+            <span>Notice Board &amp; Circulars</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Official staff broadcasts, policy notifications, and personal employee circulars
@@ -193,7 +193,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           <button
             id="btn-new-notice-modal"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-colors self-start sm:self-auto"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Send New Notice</span>
@@ -255,7 +255,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
               <div
                 key={anc.id}
                 className={`p-5 rounded-2xl bg-white border shadow-xs space-y-3 transition-colors ${isPersonalToMe
-                    ? 'border-indigo-300 ring-2 ring-indigo-50 bg-indigo-50/20'
+                    ? 'border-emerald-300 ring-2 ring-emerald-50 bg-emerald-50/20'
                     : 'border-slate-200'
                   }`}
               >
@@ -275,7 +275,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                     </span>
 
                     {anc.targetAudience === 'Individual' ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                         <User className="w-3 h-3" />
                         <span>
                           {isPersonalToMe
@@ -346,7 +346,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
                   <Megaphone className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
@@ -354,7 +354,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                     <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
                       Send New Notice
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
                       Official
                     </span>
                   </div>
@@ -382,7 +382,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                     type="button"
                     onClick={() => setAudienceType('All')}
                     className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'All'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                   >
@@ -393,7 +393,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                     type="button"
                     onClick={() => setAudienceType('Individual')}
                     className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Individual'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                   >
@@ -413,7 +413,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                     id="select-notice-employee"
                     value={targetEmployeeId}
                     onChange={(e) => setTargetEmployeeId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
                   >
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
@@ -436,7 +436,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Mandatory System Maintenance / Holiday Policy Update..."
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400"
                 />
               </div>
 
@@ -449,7 +449,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   id="select-bulletin-priority"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
                 >
                   <option value="Low">🟢 Low Priority (General Notice)</option>
                   <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
@@ -470,7 +470,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Write the full notice announcement instructions here..."
-                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
+                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
                 />
               </div>
 

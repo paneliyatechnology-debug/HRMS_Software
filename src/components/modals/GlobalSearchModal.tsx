@@ -83,7 +83,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       >
         {/* Search Input Bar */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-          <Search className="w-5 h-5 text-[#4f5fe8] shrink-0" />
+          <Search className="w-5 h-5 text-emerald-600 shrink-0" />
           <input
             type="text"
             autoFocus
@@ -95,7 +95,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition cursor-pointer"
               title="Clear search"
             >
               <X className="w-3.5 h-3.5" />
@@ -132,15 +132,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         onNavigateModule(m.id);
                         onClose();
                       }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#eef2ff] text-left transition-colors text-xs font-semibold text-slate-800 hover:text-[#3446bd] group"
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50 text-left transition-colors text-xs font-semibold text-slate-800 hover:text-emerald-900 group cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-[#4f5fe8] group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-emerald-600 group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
                           <Icon className="w-4 h-4" />
                         </div>
                         <span>{m.name}</span>
                       </div>
-                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-[#4f5fe8]">Jump to module &rarr;</span>
+                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-emerald-600">Jump to module &rarr;</span>
                     </button>
                   );
                 })}
@@ -162,7 +162,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       onSelectEmployee(emp);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8fafc] text-left transition-colors text-xs group border border-transparent hover:border-slate-100"
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 text-left transition-colors text-xs group border border-transparent hover:border-slate-100 cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       {emp.avatarUrl ? (
@@ -172,12 +172,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           className="w-8 h-8 rounded-full object-cover border border-slate-200"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3446bd] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dce4f7]">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">
                           {emp.firstName?.[0] || 'E'}{emp.lastName?.[0] || ''}
                         </div>
                       )}
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-[#4f5fe8] transition-colors">
+                        <p className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
                           {emp.firstName} {emp.lastName}
                         </p>
                         <p className="text-[11px] text-slate-400">

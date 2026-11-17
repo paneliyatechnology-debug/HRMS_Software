@@ -1164,7 +1164,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 value={attendanceSearch}
                 onChange={(e) => setAttendanceSearch(e.target.value)}
                 placeholder="Filter staff by name/ID..."
-                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
               />
               {attendanceSearch && (
                 <button
@@ -1779,7 +1779,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                 <div className="flex items-center gap-2 text-slate-500 text-[11px] font-semibold">
-                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                  <Users className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Total Employees</span>
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1">
@@ -2144,7 +2144,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                  <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                     <CalendarIcon className="w-4 h-4" />
                   </div>
                   <div>
@@ -2355,9 +2355,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Total Break Taken</div>
                           <div className="text-lg font-black text-amber-800 mt-0.5">{totalBreakStr}</div>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
-                          <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
-                          <div className="text-lg font-black text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
+                        <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/80">
+                          <div className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Total Work Hours</div>
+                          <div className="text-lg font-black text-teal-900 mt-0.5">{totalWorkHrsStr}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
@@ -2500,7 +2500,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                         : st === 'late'
                                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                           : st === 'half day'
-                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                             : st === 'absent'
                                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -2585,7 +2585,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
                               } else if (st === 'half day') {
                                 statusLabel = 'Half Day';
-                                statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                                statusClass = 'bg-sky-50 text-sky-700 border border-sky-200';
                               } else if (st === 'absent') {
                                 statusLabel = 'Absent';
                                 statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
@@ -2760,7 +2760,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
                 >
                   Save Regularization
                 </button>

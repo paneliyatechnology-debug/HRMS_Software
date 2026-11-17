@@ -567,23 +567,23 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   const avatarClass = (kind: 'broadcast' | 'admin' | 'staff') =>
     kind === 'broadcast'
-      ? 'bg-[#efe6d6] text-[#8a6a2f]'
+      ? 'bg-amber-100 text-amber-900'
       : kind === 'admin'
-        ? 'bg-[#064e3b] text-white'
-        : 'bg-[#d7f5e8] text-[#065f46]';
+        ? 'bg-emerald-800 text-white'
+        : 'bg-emerald-100 text-emerald-800';
 
   return (
-    <div className="bg-[#f0f2f5] rounded-2xl border border-[#d8e3dc] shadow-sm flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden">
+    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#e4ebe7] flex flex-col bg-white shrink-0 ${
+        className={`w-full md:w-[340px] lg:w-[380px] border-r border-slate-200 flex flex-col bg-white shrink-0 ${
           mobileShowThread ? 'hidden md:flex' : 'flex'
         }`}
       >
-        <div className="px-4 py-3 bg-[#064e3b] text-white space-y-3">
+        <div className="px-4 py-3.5 bg-gradient-to-r from-emerald-800 to-emerald-950 text-white space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[15px] font-semibold tracking-tight">Chats</h2>
+              <h2 className="text-[15px] font-bold tracking-tight">Chats</h2>
               <p className="text-[11px] text-emerald-100/80">
                 {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
               </p>
@@ -601,14 +601,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-emerald-100 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-emerald-200 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="input-search-conversations"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search staff, code, or messages..."
-              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border-0 bg-white/15 text-white placeholder:text-emerald-100/70 focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400 focus:outline-none transition-all"
+              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-xl border-0 bg-white/15 text-white placeholder:text-emerald-100/70 focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400 focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -630,8 +630,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               <button
                 key={id}
                 onClick={() => setFilterTab(id)}
-                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                  filterTab === id ? 'bg-white text-[#064e3b]' : 'bg-white/10 text-emerald-50 hover:bg-white/20'
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                  filterTab === id ? 'bg-white text-emerald-950 font-bold shadow-2xs' : 'bg-white/10 text-emerald-100 hover:bg-white/20'
                 }`}
               >
                 {label}
@@ -662,8 +662,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     setMobileShowThread(true);
                     markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 border-b border-[#f1f5f3] ${
-                    isActive ? 'bg-[#e7f6ef]' : 'hover:bg-[#f7fbf8]'
+                  className={`w-full text-left px-3.5 py-3 transition-colors flex items-center gap-3 border-b border-slate-100 ${
+                    isActive ? 'bg-emerald-50/70 border-l-[3px] border-emerald-600' : 'hover:bg-slate-50'
                   }`}
                 >
                   {/* Avatar */}
@@ -680,7 +680,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[14px] font-medium text-[#111b21] truncate">
+                      <span className="text-[14px] font-bold text-slate-900 truncate">
                         {other.name}
                       </span>
                       {conv.lastMessage ? (
@@ -690,13 +690,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       ) : null}
                     </div>
 
-                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#111b21] font-medium' : 'text-[#667781]'}`}>
+                    <p className={`text-[12px] truncate ${unread > 0 ? 'text-slate-900 font-semibold' : 'text-slate-500'}`}>
                       {conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>
 
                   {unread > 0 && (
-                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center">
+                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center shadow-2xs">
                       {unread}
                     </span>
                   )}
@@ -715,13 +715,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            <div className="h-[60px] px-3 sm:px-4 bg-[#064e3b] text-white flex items-center justify-between shrink-0">
+            <div className="h-[60px] px-3 sm:px-4 bg-gradient-to-r from-emerald-800 to-emerald-950 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-full text-white hover:bg-white/10 md:hidden"
+                  className="p-1.5 -ml-1 rounded-full text-white hover:bg-white/10 md:hidden cursor-pointer"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -739,7 +739,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-medium truncate">{activeOtherInfo.name}</h3>
+                  <h3 className="text-[15px] font-bold truncate">{activeOtherInfo.name}</h3>
                   <p className="text-[11px] text-emerald-100/80 truncate">
                     {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
                   </p>
@@ -750,7 +750,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 type="button"
                 id="btn-clear-conversation-chat"
                 onClick={handleClearActiveConversation}
-                className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors"
+                className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors cursor-pointer"
                 title="Clear this chat"
               >
                 <Trash2 className="w-4 h-4" />
@@ -759,11 +759,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
             {/* Messages Scroll Area */}
             <div
-              className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 space-y-1.5 [scrollbar-width:thin]"
-              style={{ backgroundColor: '#efeae2', backgroundImage: 'radial-gradient(rgba(7,94,84,0.05) 0.6px, transparent 0.6px)', backgroundSize: '14px 14px' }}
+              className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 space-y-2.5 [scrollbar-width:thin] bg-slate-50"
+              style={{ backgroundImage: 'radial-gradient(rgba(5,150,105,0.05) 0.8px, transparent 0.8px)', backgroundSize: '16px 16px' }}
             >
               <div className="flex items-center justify-center py-2">
-                <span className="px-3 py-1 rounded-lg bg-white/80 text-[#54656f] text-[11px] shadow-sm">
+                <span className="px-3.5 py-1 rounded-full bg-white border border-slate-200/80 text-slate-500 text-[11px] font-semibold shadow-2xs">
                   Today
                 </span>
               </div>
@@ -825,14 +825,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                         {/* Message Bubble */}
                         <div
-                          className={`px-2.5 py-1.5 shadow-sm ${
+                          className={`px-3.5 py-2 shadow-xs ${
                             isMe
-                              ? 'bg-[#d9fdd3] text-[#111b21] rounded-lg rounded-tr-none'
-                              : 'bg-white text-[#111b21] rounded-lg rounded-tl-none'
+                              ? 'bg-emerald-600 text-white rounded-2xl rounded-tr-xs'
+                              : 'bg-white text-slate-900 border border-slate-200/90 rounded-2xl rounded-tl-xs'
                           }`}
                         >
                           {!isMe && (
-                            <p className="text-[12px] font-semibold text-[#064e3b] leading-tight mb-0.5">
+                            <p className="text-[11px] font-bold text-emerald-800 leading-tight mb-1">
                               {msg.senderName}
                             </p>
                           )}
@@ -849,9 +849,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                   }`}
                                 >
                                   {att.type === 'image' ? (
-                                    <ImageIcon className="w-4 h-4 text-blue-400 shrink-0" />
+                                    <ImageIcon className="w-4 h-4 text-emerald-200 shrink-0" />
                                   ) : (
-                                    <FileText className="w-4 h-4 text-rose-400 shrink-0" />
+                                    <FileText className="w-4 h-4 text-emerald-200 shrink-0" />
                                   )}
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-xs font-semibold">{att.name}</p>
@@ -878,7 +878,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                   }
                                 }}
                                 rows={2}
-                                className="w-full p-2 text-xs rounded-xl border border-slate-300 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                                className="w-full p-2 text-xs rounded-xl border border-slate-300 text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                                 autoFocus
                               />
                               <div className="flex items-center justify-end gap-1.5">
@@ -886,7 +886,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                   id="btn-cancel-edit-msg"
                                   type="button"
                                   onClick={() => setEditingMessageId(null)}
-                                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-200/80 hover:bg-slate-300 text-slate-700 transition-colors"
+                                  className="px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-200/80 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer"
                                 >
                                   Cancel
                                 </button>
@@ -894,29 +894,29 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                   id="btn-save-edit-msg"
                                   type="button"
                                   onClick={() => handleSaveEdit(msg.id)}
-                                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-2xs transition-colors"
+                                  className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-2xs transition-colors cursor-pointer"
                                 >
                                   Save Changes
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-[14.5px] leading-snug whitespace-pre-wrap break-words pr-1">
+                            <p className="text-[14px] leading-snug whitespace-pre-wrap break-words pr-1">
                               {msg.content}
                             </p>
                           )}
 
-                          <div className="flex items-center justify-end gap-1 -mb-0.5 mt-0.5 text-[11px] text-[#667781]">
+                          <div className={`flex items-center justify-end gap-1 -mb-0.5 mt-1 text-[10px] font-medium ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
                             {msg.isEdited && <span className="italic text-[10px]">edited</span>}
                             <span>{formatTime(msg.timestamp)}</span>
                             {isMe && (
                               <span title={msg.status === 'read' ? 'Read' : msg.status === 'delivered' ? 'Delivered' : 'Sent'}>
                                 {msg.status === 'read' ? (
-                                  <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] inline" />
+                                  <CheckCheck className="w-[15px] h-[15px] text-emerald-200 inline" />
                                 ) : msg.status === 'delivered' ? (
-                                  <CheckCheck className="w-[16px] h-[16px] text-[#667781] inline" />
+                                  <CheckCheck className="w-[15px] h-[15px] text-emerald-200/80 inline" />
                                 ) : (
-                                  <Check className="w-[15px] h-[15px] text-[#667781] inline" />
+                                  <Check className="w-[14px] h-[14px] text-emerald-200/70 inline" />
                                 )}
                               </span>
                             )}
@@ -931,12 +931,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             </div>
 
             {/* Quick Reply Suggestions */}
-            <div className="px-3 py-1.5 bg-[#efeae2] flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
+            <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
               {quickReplies.map((reply, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleQuickReply(reply)}
-                  className="px-3 py-1 rounded-full bg-white text-[#064e3b] hover:bg-[#e7f6ef] text-[12px] whitespace-nowrap transition-colors shrink-0 shadow-sm"
+                  className="px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-emerald-700 hover:border-emerald-300 text-[12px] font-medium whitespace-nowrap transition-colors shrink-0 shadow-2xs cursor-pointer"
                 >
                   {reply}
                 </button>
@@ -954,7 +954,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
                 <button
                   onClick={() => setPendingAttachment(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -963,8 +963,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
             {/* Real-time Remote Typing Indicator */}
             {typingUser && (
-              <div className="px-4 py-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50/80 border-t border-indigo-100 flex items-center gap-2 animate-in fade-in duration-150">
-                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+              <div className="px-4 py-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50/80 border-t border-emerald-100 flex items-center gap-2 animate-in fade-in duration-150">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
                 <span>✍️ {typingUser} is typing...</span>
               </div>
             )}
@@ -972,7 +972,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="px-2 py-2 bg-[#f0f2f5] flex items-end gap-2"
+              className="px-3 py-2.5 bg-white border-t border-slate-200 flex items-center gap-2"
             >
               {/* Hidden File Input for Real Attachments */}
               <input
@@ -988,7 +988,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenAttachFile('.pdf,.doc,.docx,.txt')}
-                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors"
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                   title="Attach Document"
                 >
                   <Paperclip className="w-4 h-4" />
@@ -996,7 +996,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenAttachFile('image/*')}
-                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors hidden sm:block"
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors hidden sm:block cursor-pointer"
                   title="Attach Image"
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -1021,15 +1021,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     });
                   }
                 }}
-                placeholder="Type a message"
-                className="flex-1 py-2.5 px-4 text-[14px] rounded-full border-0 bg-white text-[#111b21] placeholder:text-[#667781] focus:outline-none"
+                placeholder="Type a message..."
+                className="flex-1 py-2 px-4 text-xs rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
               />
 
               <button
                 id="btn-send-chat-message"
                 type="submit"
                 disabled={!inputText.trim() && !pendingAttachment}
-                className="w-11 h-11 rounded-full bg-[#064e3b] hover:bg-[#05392c] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                className="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
                 title="Send"
               >
                 <Send className="w-4 h-4" />

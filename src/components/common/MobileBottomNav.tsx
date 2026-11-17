@@ -38,7 +38,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       id="mobile-bottom-nav"
       aria-label="Mobile Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t-2 border-[#064e3b] px-2 py-1 flex items-center justify-around lg:hidden shadow-[0_-4px_24px_rgba(6,45,31,0.08)] pb-[calc(0.4rem+env(safe-area-inset-bottom))] select-none"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 flex items-center justify-around lg:hidden shadow-lg pb-[calc(0.4rem+env(safe-area-inset-bottom))] select-none"
     >
       {/* 1. Dashboard Tab */}
       <button
@@ -47,12 +47,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setActiveModule('dashboard')}
         className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
           activeModule === 'dashboard'
-            ? 'text-[#059669] font-bold'
-            : 'text-[#4e6a5d] hover:text-[#0d271d]'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
         }`}
       >
-        <div className={`p-1 rounded-lg ${activeModule === 'dashboard' ? 'bg-[#ecfdf5]' : ''}`}>
-          <Home className="w-5 h-5 stroke-[2.2]" />
+        <div className={`p-1 rounded-lg ${activeModule === 'dashboard' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <Home className="w-5 h-5 stroke-[2]" />
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Home</span>
       </button>
@@ -64,12 +64,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setActiveModule('attendance')}
         className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
           activeModule === 'attendance'
-            ? 'text-[#059669] font-bold'
-            : 'text-[#4e6a5d] hover:text-[#0d271d]'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
         }`}
       >
-        <div className={`p-1 rounded-lg ${activeModule === 'attendance' ? 'bg-[#ecfdf5]' : ''}`}>
-          <Clock className="w-5 h-5 stroke-[2.2]" />
+        <div className={`p-1 rounded-lg ${activeModule === 'attendance' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <Clock className="w-5 h-5 stroke-[2]" />
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Tracker</span>
       </button>
@@ -81,7 +81,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             id="btn-mobile-nav-center-staff"
             type="button"
             onClick={() => setActiveModule('employees')}
-            className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#047857] via-[#059669] to-[#10b981] text-white flex flex-col items-center justify-center shadow-lg shadow-emerald-700/35 active:scale-90 transition-transform cursor-pointer border-4 border-white"
+            className="w-12 h-12 rounded-full bg-emerald-600 text-white flex flex-col items-center justify-center shadow-md shadow-emerald-700/30 active:scale-90 transition-transform cursor-pointer border-[3px] border-white"
             title="Manage Employees"
           >
             <Users className="w-5 h-5" />
@@ -91,7 +91,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             id="btn-mobile-nav-center-punch"
             type="button"
             onClick={onOpenClockModal}
-            className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#047857] via-[#059669] to-[#10b981] text-white flex flex-col items-center justify-center shadow-lg shadow-emerald-700/35 active:scale-90 transition-transform cursor-pointer border-4 border-white"
+            className="w-12 h-12 rounded-full bg-emerald-600 text-white flex flex-col items-center justify-center shadow-md shadow-emerald-700/30 active:scale-90 transition-transform cursor-pointer border-[3px] border-white"
             title="Attendance Punch Clock"
           >
             {punchStatus === 'working' ? (
@@ -106,7 +106,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             )}
           </button>
         )}
-        <span className="text-[10px] font-extrabold text-[#065f46] tracking-tight mt-0.5">
+        <span className="text-[10px] font-bold text-slate-700 tracking-tight mt-0.5">
           {portalMode === 'admin'
             ? 'Staff'
             : punchStatus === 'working'
@@ -124,14 +124,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => setActiveModule('leaves')}
         className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
           activeModule === 'leaves'
-            ? 'text-[#059669] font-bold'
-            : 'text-[#4e6a5d] hover:text-[#0d271d]'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
         }`}
       >
-        <div className={`p-1 rounded-lg relative ${activeModule === 'leaves' ? 'bg-[#ecfdf5]' : ''}`}>
-          <CalendarOff className="w-5 h-5 stroke-[2.2]" />
+        <div className={`p-1 rounded-lg relative ${activeModule === 'leaves' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <CalendarOff className="w-5 h-5 stroke-[2]" />
           {portalMode === 'admin' && pendingLeavesCount > 0 && (
-            <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-[#f59e0b] text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+            <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
               {pendingLeavesCount}
             </span>
           )}
@@ -144,12 +144,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         id="btn-mobile-nav-more"
         type="button"
         onClick={onOpenSidebar}
-        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] text-[#4e6a5d] hover:text-[#0d271d] active:scale-95 cursor-pointer"
+        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] text-slate-500 hover:text-slate-900 active:scale-95 cursor-pointer"
       >
         <div className="p-1 rounded-lg relative">
-          <Menu className="w-5 h-5 stroke-[2.2]" />
+          <Menu className="w-5 h-5 stroke-[2]" />
           {unreadChatCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#10b981] ring-2 ring-white" />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
           )}
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">More</span>

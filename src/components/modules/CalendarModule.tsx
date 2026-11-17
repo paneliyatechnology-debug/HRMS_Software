@@ -368,10 +368,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           ========================================================================= */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Card 1: Month Overview */}
-        <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Month</span>
-            <span className="p-1.5 rounded-lg bg-[#ecfdf5] text-[#059669]">
+            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
               <CalendarIcon className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -384,7 +384,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>
 
         {/* Card 2: Working Days */}
-        <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Working Days</span>
             <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
@@ -400,7 +400,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>
 
         {/* Card 3: Days Logged / Present */}
-        <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
             <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
@@ -417,7 +417,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>
 
         {/* Card 4: Official Holidays */}
-        <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Holidays</span>
             <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
@@ -433,7 +433,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>
 
         {/* Card 5: Hours Worked */}
-        <div className="p-4 rounded-2xl bg-white border border-[#d8ebd9] shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
             <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600">
@@ -452,20 +452,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       {/* =========================================================================
           CONTROLS BAR: Navigation, View Switcher & Filters
           ========================================================================= */}
-      <div className="bg-white border border-[#d8ebd9] rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Left: Month Navigation */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center rounded-xl border border-[#d8ebd9] bg-[#f2f9f5] p-1 shadow-2xs">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
             <button
               onClick={handlePrevMonth}
               className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
               title="Previous Month"
             >
-              <ChevronLeft className="w-4 h-4 text-[#065f46]" />
+              <ChevronLeft className="w-4 h-4 text-emerald-800" />
             </button>
             <button
               onClick={handleJumpToToday}
-              className="px-3 py-1 text-xs font-extrabold text-[#065f46] hover:bg-white rounded-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1 text-xs font-extrabold text-emerald-800 hover:bg-white rounded-lg transition cursor-pointer flex items-center gap-1.5"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Today</span>
@@ -475,15 +475,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
               title="Next Month"
             >
-              <ChevronRight className="w-4 h-4 text-[#065f46]" />
+              <ChevronRight className="w-4 h-4 text-emerald-800" />
             </button>
           </div>
 
           <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-extrabold text-[#0d271d] tracking-tight">
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
               {monthNames[month]} {year}
             </h2>
-            <span className="hidden md:inline-block px-2 py-0.5 rounded-full bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-[10px] font-bold">
+            <span className="hidden md:inline-block px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold">
               Q{Math.floor(month / 3) + 1}
             </span>
           </div>
@@ -537,7 +537,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 onClick={() => setIsAddHolidayOpen(true)}
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5 text-[#059669]" />
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Add Holiday</span>
               </button>
             )}
@@ -546,9 +546,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             {portalMode !== 'admin' && onOpenClockModal && (
               <button
                 onClick={onOpenClockModal}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Clock className="w-3.5 h-3.5 text-[#059669]" />
+                <Clock className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Log Punch</span>
               </button>
             )}
@@ -561,11 +561,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 1: LUXURY MONTH GRID
           ========================================================================= */}
       {viewMode === 'grid' && (
-        <div className="bg-white border border-[#d8ebd9] rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
           {/* Legend Badges Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#edf6f0] text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 text-xs">
             <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-semibold">
-              <Filter className="w-3.5 h-3.5 text-[#059669]" />
+              <Filter className="w-3.5 h-3.5 text-emerald-600" />
               <span>Status Legend:</span>
             </div>
 
@@ -605,7 +605,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <div
                   key={d}
                   className={`text-xs font-black uppercase tracking-wider py-1 rounded-lg ${
-                    isWeekend ? 'text-slate-400 bg-slate-50/60' : 'text-[#065f46] bg-[#ecfdf5]/40'
+                    isWeekend ? 'text-slate-400 bg-slate-50/60' : 'text-emerald-800 bg-emerald-50/60'
                   }`}
                 >
                   {d}
@@ -624,15 +624,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 year === todayYear;
               const isSelected = item.isCurrentMonth && item.day === selectedDay;
 
-              let cellStyle = 'bg-white border-slate-200/80 hover:border-emerald-300 hover:bg-[#ecfdf5]/20';
+              let cellStyle = 'bg-white border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/20';
               if (!item.isCurrentMonth) {
                 cellStyle = 'bg-slate-50/40 text-slate-300 border-slate-100 pointer-events-none opacity-60';
               } else if (isSelected) {
-                cellStyle = 'border-[#059669] ring-2 ring-[#059669]/25 bg-[#ecfdf5]/70 shadow-xs';
+                cellStyle = 'border-emerald-600 ring-2 ring-emerald-600/25 bg-emerald-50/70 shadow-xs';
               } else if (isToday) {
                 cellStyle = 'border-emerald-400 bg-emerald-50/30';
               } else if (item.isWeekend) {
-                cellStyle = 'bg-[#fafdfa] border-slate-200/70 text-slate-500';
+                cellStyle = 'bg-slate-50/80 border-slate-200/70 text-slate-500';
               }
 
               return (
@@ -648,9 +648,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     <span
                       className={`text-xs font-black w-6 h-6 flex items-center justify-center rounded-full transition-all ${
                         isToday
-                          ? 'bg-gradient-to-tr from-[#10b981] to-[#059669] text-white shadow-xs'
+                          ? 'bg-gradient-to-tr from-emerald-500 to-emerald-700 text-white shadow-xs'
                           : isSelected
-                          ? 'bg-[#062d1f] text-white'
+                          ? 'bg-emerald-900 text-white'
                           : item.isCurrentMonth
                           ? 'text-slate-800 group-hover:text-emerald-700'
                           : 'text-slate-300'
@@ -690,7 +690,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       </div>
                     )}
 
-                    {isAdminCalendar && item.staffCount > 0 && !item.holiday && !item.isWeekend && (
+                    {isAdminCalendar && (item.staffCount ?? 0) > 0 && !item.holiday && !item.isWeekend && (
                       <div className="truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-200">
                         <Users className="w-2.5 h-2.5 shrink-0" />
                         <span className="truncate">{item.staffCount} staff</span>
@@ -733,10 +733,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           SELECTED DAY INSPECTOR / DETAILS CARD
           ========================================================================= */}
       {viewMode === 'grid' && selectedDayInfo && (
-        <div className="bg-white border border-[#a7f3d0] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#edf6f0]">
+        <div className="bg-white border border-emerald-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#062d1f] to-[#083b28] text-white flex items-center justify-center font-black text-sm shadow-xs">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-800 to-emerald-950 text-white flex items-center justify-center font-black text-sm shadow-xs">
                 {selectedDayInfo.day}
               </div>
               <div>
@@ -784,8 +784,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* 4 Detail Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 text-xs">
             {/* Shift Timing */}
-            <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Shift Schedule</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Shift Schedule</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.holiday || selectedDayInfo.isWeekend ? 'Off Duty' : '09:00 AM – 06:00 PM'}
               </span>
@@ -795,8 +795,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
 
             {/* Punch In & Punch Out */}
-            <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Attendance Punch</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Attendance Punch</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.attendance?.checkIn || '--'} → {selectedDayInfo.attendance?.checkOut || '--'}
               </span>
@@ -808,8 +808,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
 
             {/* Day Classification */}
-            <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Classification</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Classification</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.holiday ? selectedDayInfo.holiday : selectedDayInfo.isWeekend ? 'Weekend Off' : 'Regular Work Day'}
               </span>
@@ -819,13 +819,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
 
             {/* Work Mode */}
-            <div className="p-3.5 rounded-2xl bg-[#f2f9f5] border border-[#d8ebd9]">
-              <span className="text-[10px] uppercase font-bold text-[#065f46] block tracking-wider">Location / Presence</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Location / Presence</span>
               <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.attendance?.isWFH ? 'Remote Work (WFH)' : 'Corporate Office Desk'}
               </span>
               <span className="text-[11px] text-slate-500 mt-0.5 block">
-                Attendance & presence verified
+                Attendance &amp; presence verified
               </span>
             </div>
           </div>
@@ -836,11 +836,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 2: AGENDA / SCHEDULE CHRONOLOGICAL LIST
           ========================================================================= */}
       {viewMode === 'agenda' && (
-        <div className="bg-white border border-[#d8ebd9] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#edf6f0]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-extrabold text-slate-900">
-                Monthly Schedule & Event Timeline ({agendaEvents.length})
+                Monthly Schedule &amp; Event Timeline ({agendaEvents.length})
               </h3>
               <p className="text-xs text-slate-500">
                 Chronological list of official corporate holidays and weekend schedule for {monthNames[month]} {year}.
@@ -859,10 +859,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <div
                   key={evt.dateStr}
                   onClick={() => setSelectedDay(evt.day)}
-                  className="p-4 rounded-2xl border border-[#d8ebd9] bg-[#fafdfa] hover:bg-[#ecfdf5]/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                  className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-emerald-50/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#062d1f] text-white flex flex-col items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-950 text-white flex flex-col items-center justify-center shrink-0">
                       <span className="text-xs font-bold leading-none">{monthNames[month].slice(0, 3)}</span>
                       <span className="text-base font-black leading-none mt-0.5">{evt.day}</span>
                     </div>
@@ -893,7 +893,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                       </span>
                     )}
                     {evt.attendance && !evt.holiday && !evt.isWeekend && (
-                      <div className="text-xs text-slate-600 bg-white border border-[#d8ebd9] px-3 py-1.5 rounded-xl font-medium">
+                      <div className="text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-medium">
                         Punch: <span className="font-bold text-slate-900">{evt.attendance.checkIn} → {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
                       </div>
                     )}
@@ -909,8 +909,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 3: CORPORATE HOLIDAYS DIRECTORY
           ========================================================================= */}
       {viewMode === 'holidays' && (
-        <div className="bg-white border border-[#d8ebd9] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#edf6f0]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
@@ -963,7 +963,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               return (
                 <div
                   key={holidayId || `${h.name}-${h.date}`}
-                  className="p-4 rounded-2xl bg-gradient-to-br from-white to-[#fafdfa] border border-[#d8ebd9] hover:border-emerald-300 hover:shadow-xs transition-all flex items-start justify-between gap-3"
+                  className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-emerald-300 hover:shadow-xs transition-all flex items-start justify-between gap-3"
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-300 text-amber-900 flex flex-col items-center justify-center shrink-0">

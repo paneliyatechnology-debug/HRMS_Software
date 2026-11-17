@@ -191,45 +191,45 @@ export const LiveClock: React.FC<LiveClockProps> = ({
       {showIndicator && (
         <div className="flex items-center gap-1.5">
           <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-            <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-[#10b981]"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+            <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider text-[#065f46] bg-[#dcfce7] px-1.5 py-0.5 rounded-full leading-tight">
+          <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-full leading-tight">
             LIVE
           </span>
         </div>
       )}
 
       {/* Divider */}
-      {showIndicator && <div className="hidden sm:block h-3.5 w-px bg-[#d8ebd9]" />}
+      {showIndicator && <div className="hidden sm:block h-3.5 w-px bg-slate-200" />}
 
       {/* Digital Time with Monospace Figures and Pulsing Colons */}
-      <div className="flex items-center gap-0.5 font-mono text-[#0d271d]">
-        <Clock className="w-3.5 h-3.5 text-[#059669] group-hover:rotate-12 transition-transform duration-300 mr-1" />
-        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
+      <div className="flex items-center gap-0.5 font-mono text-slate-800">
+        <Clock className="w-3.5 h-3.5 text-emerald-600 group-hover:rotate-12 transition-transform duration-300 mr-1" />
+        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-slate-800">
           {hours}
         </span>
-        <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+        <span className="text-emerald-600 font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
           :
         </span>
-        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
+        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-slate-800">
           {minutes}
         </span>
         {showSeconds && (
           <>
-            <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+            <span className="text-emerald-600 font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
               :
             </span>
             <span
               key={seconds}
-              className="font-bold text-xs sm:text-[13px] tracking-tight text-[#059669] animate-digit-tick inline-block min-w-[16px] text-center"
+              className="font-bold text-xs sm:text-[13px] tracking-tight text-emerald-600 animate-digit-tick inline-block min-w-[16px] text-center"
             >
               {seconds}
             </span>
           </>
         )}
         {dayPeriod && (
-          <span className="text-[10px] font-bold text-[#4e6a5d] ml-1 uppercase">
+          <span className="text-[10px] font-bold text-slate-500 ml-1 uppercase">
             {dayPeriod}
           </span>
         )}
@@ -237,7 +237,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
 
       {/* Timezone Badge */}
       {showTimezone && (
-        <span className="text-[10px] font-bold text-[#065f46] bg-[#dcfce7] border border-[#a7f3d0] px-1.5 py-0.5 rounded leading-none hidden md:inline-block">
+        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded leading-none hidden md:inline-block">
           {timeZoneName}
         </span>
       )}
@@ -245,9 +245,9 @@ export const LiveClock: React.FC<LiveClockProps> = ({
       {/* Date */}
       {showDate && (
         <>
-          <div className="hidden md:block h-3.5 w-px bg-[#d8ebd9] shrink-0" />
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4e6a5d] font-medium whitespace-nowrap shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+          <div className="hidden md:block h-3.5 w-px bg-slate-200 shrink-0" />
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 font-medium whitespace-nowrap shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>{formattedDate}</span>
           </div>
         </>

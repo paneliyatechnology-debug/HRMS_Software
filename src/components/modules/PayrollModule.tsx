@@ -178,13 +178,13 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden"
+            className="px-3 py-1.5 rounded-xl border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
           />
 
           <button
             onClick={handleGenerateBatch}
             disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>{loading ? 'Calculating...' : 'Run Payroll'}</span>
@@ -218,7 +218,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
           <span className="text-xs font-semibold text-slate-400">Net Take-Home Disbursed</span>
-          <p className="text-2xl font-bold text-blue-600 mt-2">
+          <p className="text-2xl font-bold text-emerald-700 mt-2">
             ${totalNet.toLocaleString()}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
@@ -293,7 +293,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                     <td className="py-3 px-3 text-slate-500">+₹{rec.allowances.toLocaleString()}</td>
                     <td className="py-3 px-3 text-slate-900 font-semibold">₹{rec.gross.toLocaleString()}</td>
                     <td className="py-3 px-3 text-amber-600 font-medium">-₹{rec.deductions.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-blue-600 font-bold">₹{rec.net.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-emerald-700 font-bold">₹{rec.net.toLocaleString()}</td>
                     <td className="py-3 px-3">
                       <select
                         value={rec.status}
@@ -302,7 +302,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                           rec.status === 'Paid'
                             ? 'bg-emerald-50 text-emerald-600'
                             : rec.status === 'Processed'
-                            ? 'bg-blue-50 text-blue-600'
+                            ? 'bg-slate-100 text-slate-700'
                             : 'bg-amber-50 text-amber-600'
                         }`}
                       >
@@ -339,19 +339,19 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
+                <FileText className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-slate-900 text-base">Official Salary Slip</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" /> Print
                 </button>
                 <button
                   onClick={() => setSelectedPayslip(null)}
-                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -365,7 +365,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                   <p className="text-slate-500">{selectedPayslip.employee.designation}</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-semibold text-blue-600">Period: {selectedPayslip.payPeriod}</span>
+                  <span className="font-semibold text-emerald-700">Period: {selectedPayslip.payPeriod}</span>
                   <p className="text-slate-400 text-[10px]">Method: {selectedPayslip.paymentMethod}</p>
                 </div>
               </div>
@@ -393,7 +393,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
               <div className="pt-3 border-t border-slate-200/60 flex justify-between items-center">
                 <span className="font-bold text-slate-900">Net Take-Home Salary:</span>
-                <span className="text-lg font-black text-blue-600">
+                <span className="text-lg font-black text-emerald-700">
                   ${selectedPayslip.summary.netSalary.toLocaleString()} USD
                 </span>
               </div>

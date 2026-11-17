@@ -365,7 +365,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
           <button
             onClick={onOpenAddModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add Employee</span>
@@ -384,7 +384,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             placeholder="Search name, email, department, role, or ID (Press /)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+            className="w-full pl-9 pr-9 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
           />
           {search ? (
             <button
@@ -487,7 +487,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <div
                   key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
                   className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'
+                    isSelected ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
                   }`}
                   onClick={() => onSelectEmployee(emp)}
                 >
@@ -597,7 +597,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1"
                           title="Chat"
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Chat</span>
                         </button>
                       )}
@@ -636,7 +636,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     type="checkbox"
                     checked={selectedRows.length === filtered.length && filtered.length > 0}
                     onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                   />
                 </th>
                 <th className="py-3 px-4 font-bold">EMPLOYEE ID</th>
@@ -663,7 +663,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
                     className={`transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-indigo-50/30 hover:bg-slate-50/70'
+                        ? 'bg-emerald-50/30 hover:bg-slate-50/70'
                         : 'hover:bg-slate-50/70'
                     }`}
                     onClick={() => onSelectEmployee(emp)}
@@ -679,7 +679,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => {}}
-                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
                     </td>
                     <td className="py-3 px-4">
@@ -730,7 +730,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                                 roleDef.badgeClass
                               } ${
                                 portalMode === 'admin'
-                                  ? 'hover:ring-2 hover:ring-indigo-400/50 hover:shadow-xs cursor-pointer'
+                                  ? 'hover:ring-2 hover:ring-emerald-400/50 hover:shadow-xs cursor-pointer'
                                   : 'cursor-default'
                               }`}
                               title={
@@ -832,7 +832,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           <button
                             id={`btn-notice-${emp.id}`}
                             onClick={() => handleOpenNoticeModal(emp)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
                             title="Send notice to employee"
                           >
                             <Bell className="w-3.5 h-3.5" />
@@ -960,7 +960,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
                   <Bell className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
@@ -968,7 +968,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
                       Send Notice
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
                       Direct Notice
                     </span>
                   </div>
@@ -996,7 +996,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   value={noticeTitle}
                   onChange={(e) => setNoticeTitle(e.target.value)}
                   placeholder="e.g. Schedule Update, Mandatory Training, Performance Note..."
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400"
                 />
               </div>
 
@@ -1008,7 +1008,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   id="select-notice-priority"
                   value={noticePriority}
                   onChange={(e) => setNoticePriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
                 >
                   <option value="Low">🟢 Low Priority (General Notice)</option>
                   <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
@@ -1027,7 +1027,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   value={noticeContent}
                   onChange={(e) => setNoticeContent(e.target.value)}
                   placeholder="Type the message or instructions for the employee..."
-                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
+                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
                 />
               </div>
             </div>

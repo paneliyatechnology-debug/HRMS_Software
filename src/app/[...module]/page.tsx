@@ -21,7 +21,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
   return (
     <Suspense
       fallback={
-        <div className="h-screen w-full bg-[#b7e4c7] flex flex-col items-center justify-center gap-3">
+        <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
           <span className="text-xs font-semibold text-slate-700">Loading Paneliya HRMS...</span>
         </div>

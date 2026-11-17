@@ -115,7 +115,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
         {/* Header */}
         <div className="p-6 bg-slate-900 text-white relative flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600/30 border border-emerald-400/40 flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0">
               {employee.avatarUrl ? (
                 <img
                   src={employee.avatarUrl}
@@ -131,7 +131,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
                   Role Permission Management
                 </span>
                 <span className="text-slate-400 text-xs">#{employee.employeeCode}</span>
@@ -190,7 +190,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
                     onClick={() => setSelectedRole(def.role)}
                     className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
+                        ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
                         : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50'
                     }`}
                   >
@@ -216,7 +216,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                           isSelected
-                            ? 'bg-indigo-600 border-indigo-600 text-white'
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
                             : 'border-slate-300 bg-white'
                         }`}
                       >
@@ -236,7 +236,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
           {/* Selected Summary Info */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
                 <span className="font-semibold text-slate-700">Selected Role: </span>
                 <span className="font-bold text-slate-900">{activeRoleDef.label}</span>
@@ -254,7 +254,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition disabled:opacity-50"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
@@ -262,7 +262,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || selectedRole === (employee.role || 'EMPLOYEE')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
           >
             {isLoading ? (
               <>

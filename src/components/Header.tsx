@@ -172,19 +172,19 @@ export const Header: React.FC<HeaderProps> = ({
   const companyLogo = companyInfo.logoUrl;
 
   return (
-    <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-xs">
       {/* Left: Mobile Toggle & Brand Logo */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
         <button
           onClick={onOpenSidebar}
-          className="p-1.5 sm:p-2 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden transition-colors cursor-pointer shrink-0"
+          className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 lg:hidden transition-colors cursor-pointer shrink-0"
           title="Toggle navigation drawer"
           aria-label="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 lg:hidden min-w-0 max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none">
-          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
             {companyLogo ? (
               <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-0.5" />
             ) : (
@@ -192,10 +192,10 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
           <div className="min-w-0 hidden min-[340px]:block">
-            <span className="font-extrabold text-xs text-[#0d271d] tracking-tight block truncate leading-tight">
+            <span className="font-bold text-xs text-slate-900 tracking-tight block truncate leading-tight">
               {displayCompanyName}
             </span>
-            <span className="text-[9px] text-[#059669] font-medium block leading-none opacity-90 truncate">
+            <span className="text-[9px] text-emerald-600 font-medium block leading-none opacity-90 truncate">
               by MyOwnHRMS
             </span>
           </div>
@@ -208,33 +208,32 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Actions, Role Pill, Notifications, Profile */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {/* Sleek Global Search Button (Opens Search Modal on click or Ctrl+K) */}
         {onOpenSearchModal && (
           <button
             id="btn-header-search"
             onClick={onOpenSearchModal}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] border border-[#d8ebd9] transition-all shadow-2xs group cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-100 border border-slate-200/60 transition-all shadow-2xs group cursor-pointer shrink-0"
             title="Search HRMS modules, staff & records (Ctrl+K)"
           >
-            <Search className="w-4 h-4 text-[#059669] group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden sm:inline text-xs font-semibold text-[#4e6a5d] group-hover:text-[#0d271d]">Search...</span>
-            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-emerald-100 rounded shadow-2xs">
+            <Search className="w-4 h-4 text-emerald-600 group-hover:scale-105 transition-transform shrink-0" />
+            <span className="hidden sm:inline text-xs font-medium text-slate-500 group-hover:text-slate-900">Search...</span>
+            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
               ⌘K
             </kbd>
           </button>
         )}
 
-
-        {/* Quick Dynamic Check In / Check Out Button (Employees only - commented out for admin) */}
+        {/* Quick Dynamic Check In / Check Out Button (Employees only) */}
         {portalMode !== 'admin' && (
           <button
             id="btn-header-punch-toggle"
             onClick={onOpenClockModal}
-            className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
               punchStatus === 'working' || punchStatus === 'on_break'
-                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-                : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
             }`}
             title={
               punchStatus === 'working' || punchStatus === 'on_break'
@@ -249,33 +248,26 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                 <span className="hidden min-[480px]:inline">Check Out</span>
               </>
-            ) : punchStatus === 'completed' ? (
-              <>
-                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                <span className="hidden min-[480px]:inline">Check In</span>
-              </>
             ) : (
               <>
-                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="hidden min-[480px]:inline">Check In</span>
               </>
             )}
           </button>
         )}
 
-
-
         {/* Work Status Pill */}
         <div
-          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[10px] bg-[#f2f9f5] border border-[#a7f3d0] text-[#065f46] text-xs font-semibold shadow-2xs shrink-0"
-          title="Current Work Availability Status (Configured in Settings > Work & Display)"
+          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium shadow-2xs shrink-0"
+          title="Current Work Availability Status"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="truncate max-w-[130px]">{workStatus}</span>
         </div>
 
         {/* Role Pill */}
-        <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-[10px] bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-xs font-bold shrink-0">
+        <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-semibold shrink-0">
           {portalMode === 'admin' ? 'Admin' : 'Employee'}
         </div>
 
@@ -283,9 +275,9 @@ export const Header: React.FC<HeaderProps> = ({
         <div ref={profileMenuRef} className="relative shrink-0">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#ecfdf5] transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2 py-1 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-slate-200"
           >
-            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#dcfce7] text-[#065f46] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#a7f3d0] overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200 overflow-hidden">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -297,20 +289,20 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
-              <span className="text-xs font-bold text-[#0d271d] leading-tight block truncate">
+              <span className="text-xs font-bold text-slate-900 leading-tight block truncate">
                 {user.firstName || 'User'} {user.lastName || ''}
               </span>
-              <span className="text-[10px] text-[#4e6a5d] leading-none block truncate">
+              <span className="text-[10px] text-slate-500 leading-none block truncate mt-0.5">
                 {portalMode === 'admin' ? 'Administrator' : 'Employee'}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#4e6a5d] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#d8ebd9] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3.5 py-2.5 border-b border-[#edf6f0] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#dcfce7] text-[#065f46] font-bold text-xs flex items-center justify-center shrink-0 border border-[#a7f3d0] overflow-hidden">
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200 overflow-hidden">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (

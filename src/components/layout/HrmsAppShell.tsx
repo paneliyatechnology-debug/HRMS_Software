@@ -642,7 +642,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-[#b7e4c7] flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <span className="text-xs font-semibold text-slate-700">
           {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
@@ -652,7 +652,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }
 
   return (
-    <div className="h-screen w-full bg-[#b7e4c7] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
+    <div className="h-screen w-full bg-slate-50 text-slate-900 flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar

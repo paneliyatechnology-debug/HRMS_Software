@@ -154,7 +154,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
               <Receipt className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
@@ -201,7 +201,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
         {/* Card 1: Latest Salary */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase text-indigo-600 tracking-wider">
+            <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
               Latest In-Hand Salary
             </span>
             {latestPayslip ? (
@@ -231,7 +231,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
               Total Earnings Received
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200">
+            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
               All Time
             </span>
           </div>
@@ -307,7 +307,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               placeholder="Search by month or status..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500"
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500"
             />
           </div>
         </div>
@@ -320,8 +320,8 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <th className="py-3 px-4">Pay Period</th>
                 <th className="py-3 px-4">Disbursement Date</th>
                 <th className="py-3 px-4">Gross Earnings</th>
-                <th className="py-3 px-4">Deductions (PF & Tax)</th>
-                <th className="py-3 px-4 font-black text-indigo-950">Net Take-Home</th>
+                <th className="py-3 px-4">Deductions (PF &amp; Tax)</th>
+                <th className="py-3 px-4 font-black text-slate-900">Net Take-Home</th>
                 <th className="py-3 px-4">Payment Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
@@ -339,7 +339,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     {/* Pay Period */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0 font-black text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 font-black text-xs">
                           {rec.payrollMonth ? rec.payrollMonth.split('-')[1] : 'M'}
                         </div>
                         <div>
@@ -606,18 +606,18 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               </div>
 
               {/* Net Take-Home Highlight Banner */}
-              <div className="p-4 sm:p-5 rounded-xl bg-indigo-50 border-2 border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 sm:p-5 rounded-xl bg-emerald-50 border-2 border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-black uppercase text-indigo-700 tracking-wider">
+                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider">
                     Net Take-Home Disbursed Amount
                   </span>
-                  <p className="text-xs text-indigo-900/80 font-medium mt-0.5 italic">
+                  <p className="text-xs text-emerald-950/80 font-medium mt-0.5 italic">
                     {numberToWords(selectedPayslip.netSalary)}
                   </p>
                 </div>
 
                 <div className="text-left sm:text-right">
-                  <p className="text-2xl sm:text-3xl font-black text-indigo-700">
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-800">
                     ₹{selectedPayslip.netSalary.toLocaleString('en-IN')}
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">

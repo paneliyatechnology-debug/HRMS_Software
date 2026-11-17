@@ -277,7 +277,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                 onClick={() => setBillingCycle('Annual')}
                 className={`px-4 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                   billingCycle === 'Annual'
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -309,7 +309,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                 key={plan.id}
                 className={`rounded-3xl p-6 border transition-all flex flex-col justify-between relative ${
                   plan.isPopular
-                    ? 'border-indigo-500/80 ring-2 ring-indigo-500/20 shadow-xl bg-gradient-to-b from-indigo-50/40 via-white to-white'
+                    ? 'border-emerald-500/80 ring-2 ring-emerald-500/20 shadow-xl bg-gradient-to-b from-emerald-50/40 via-white to-white'
                     : isCurrent
                     ? 'border-emerald-400/80 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/20'
                     : 'border-slate-200/90 hover:border-slate-300 shadow-xs bg-white'
@@ -317,7 +317,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
               >
                 {/* Top Badge */}
                 {plan.isPopular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs flex items-center gap-1">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs flex items-center gap-1">
                     <Zap className="w-3 h-3 fill-current" />
                     <span>Most Popular</span>
                   </div>
@@ -394,7 +394,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                       isCurrent
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                         : plan.isPopular
-                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/25'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/25'
                         : plan.id === 'Enterprise'
                         ? 'bg-purple-700 hover:bg-purple-800 text-white shadow-md shadow-purple-500/25'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'

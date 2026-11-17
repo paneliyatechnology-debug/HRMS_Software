@@ -128,7 +128,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
         {cycles.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-2xs">
-            <Calendar className="w-4 h-4 text-blue-600" />
+            <Calendar className="w-4 h-4 text-emerald-600" />
             <span className="font-semibold text-slate-800">Review Window:</span>
             <span>{cycles[0]?.startDate} → {cycles[0]?.endDate}</span>
           </div>
@@ -177,11 +177,11 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                       <div key={idx} className="space-y-1 text-xs">
                         <div className="flex items-center justify-between font-semibold">
                           <span className="text-slate-700">{g.title}</span>
-                          <span className="text-blue-600 font-bold">{g.progress}%</span>
+                          <span className="text-emerald-700 font-bold">{g.progress}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                           <div
-                            className="h-full bg-blue-600 rounded-full transition-all"
+                            className="h-full bg-emerald-600 rounded-full transition-all"
                             style={{ width: `${g.progress}%` }}
                           />
                         </div>
@@ -229,7 +229,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                     setManagerFeedback(rev.managerFeedback || '');
                     setAppraisalReco(rev.appraisalRecommended || '');
                   }}
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Star className="w-3.5 h-3.5" />
                   <span>Rate & Appraise</span>
@@ -256,7 +256,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               </h3>
               <button
                 onClick={() => setRatingModalReview(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -269,8 +269,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setRateRole('MANAGER')}
-                    className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
-                      rateRole === 'MANAGER' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'
+                    className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                      rateRole === 'MANAGER' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
                     }`}
                   >
                     Manager Feedback
@@ -278,8 +278,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setRateRole('EMPLOYEE')}
-                    className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
-                      rateRole === 'EMPLOYEE' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'
+                    className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                      rateRole === 'EMPLOYEE' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
                     }`}
                   >
                     Self Appraisal
@@ -332,7 +332,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   <div>
                     <div className="flex justify-between font-semibold mb-1 text-slate-700">
                       <span>Self-Assessment Score (1.0 - 5.0):</span>
-                      <span className="font-black text-blue-600 text-sm">{selfScore} / 5.0</span>
+                      <span className="font-black text-emerald-700 text-sm">{selfScore} / 5.0</span>
                     </div>
                     <input
                       type="range"
@@ -341,7 +341,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                       step={0.1}
                       value={selfScore}
                       onChange={(e) => setSelfScore(Number(e.target.value))}
-                      className="w-full accent-blue-600"
+                      className="w-full accent-emerald-600"
                     />
                   </div>
 
@@ -368,7 +368,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-600/20 cursor-pointer"
                 >
                   Submit Rating
                 </button>

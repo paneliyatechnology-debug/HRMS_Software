@@ -297,7 +297,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           <button
             onClick={handleExport}
             disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>{loading ? 'Exporting...' : `Export ${reportType.toUpperCase()} CSV`}</span>
@@ -317,7 +317,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Headcount</span>
-            <Users className="w-4 h-4 text-blue-600" />
+            <Users className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-2xl font-black text-slate-900 mt-2">
             {totalHeadcount} Active
@@ -380,7 +380,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             onClick={() => setReportType(t.id as any)}
             className={`px-4 py-2 rounded-xl whitespace-nowrap transition cursor-pointer ${
               reportType === t.id
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-white text-slate-600 border border-slate-100 hover:bg-slate-50'
             }`}
           >
@@ -393,7 +393,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
       <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <BarChart3 className="w-5 h-5 text-emerald-600" />
             {reportType.toUpperCase()} Statistical Breakdown
           </h3>
           <span className="text-xs text-slate-400">
@@ -438,7 +438,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                           <td className="py-3.5 px-4 font-bold text-slate-900">
                             {row.dept} <span className="text-[10px] text-slate-400 font-mono">({row.code})</span>
                           </td>
-                          <td className="py-3.5 px-4 font-semibold text-blue-600">{row.count} Staff</td>
+                          <td className="py-3.5 px-4 font-semibold text-emerald-700">{row.count} Staff</td>
                           <td className="py-3.5 px-4 font-semibold text-emerald-600">{row.ratio}</td>
                           <td className="py-3.5 px-4 font-bold text-slate-700">{row.cost}</td>
                           <td className="py-3.5 px-4 text-slate-400">{row.budget}</td>

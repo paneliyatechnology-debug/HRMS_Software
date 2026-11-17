@@ -517,15 +517,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-5 pb-12 w-full max-w-full overflow-hidden">
       {/* Welcome & Section Head (Admin Only) */}
       {portalMode === 'admin' && (
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#d8ebd9]">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-slate-200/80">
           <div>
-            <div className="text-xs text-[#4e6a5d] font-medium">
+            <div className="text-xs text-slate-500 font-medium">
               {currentDateString} &bull; Admin workspace
             </div>
-            <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
+            <h1 className="text-2xl sm:text-[27px] font-bold text-slate-900 tracking-tight mt-0.5">
               hello, {user.firstName || 'Admin'}! 👋
             </h1>
-            <div className="text-xs text-[#4e6a5d] mt-0.5">
+            <div className="text-xs text-slate-500 mt-0.5">
               Here&apos;s what&apos;s happening across your workspace today.
             </div>
           </div>
@@ -546,61 +546,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* Stats Row (Matching HTML .stats) */}
+          {/* Stats Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div
               onClick={() => onNavigateModule('employees')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
+              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
             >
-              <div className="stat-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Users className="w-5 h-5" />
               </div>
-              <div>
-                <small>Total Employees</small>
-                <strong>{employees.length}</strong>
-                <small>Active workforce</small>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Employees</span>
+                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{employees.length}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Active workforce</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('attendance')}
-              className="stat cursor-pointer hover:border-[#10b981]/40 transition-colors"
+              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
             >
-              <div className="stat-icon" style={{ background: '#dcfce7', color: '#166534' }}>
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Clock className="w-5 h-5" />
               </div>
-              <div>
-                <small>Present Today</small>
-                <strong>{todayRecords.length}</strong>
-                <small>{activeWorkingCount} working, {onBreakCount} break</small>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Present Today</span>
+                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{todayRecords.length}</span>
+                <span className="text-[11px] text-slate-400 font-medium">{activeWorkingCount} working, {onBreakCount} break</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('leaves')}
-              className="stat cursor-pointer hover:border-[#f59e0b]/40 transition-colors"
+              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
             >
-              <div className="stat-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
+              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Shield className="w-5 h-5" />
               </div>
-              <div>
-                <small>Pending Leaves</small>
-                <strong>{pendingLeaves.length}</strong>
-                <small>Need review</small>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pending Leaves</span>
+                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{pendingLeaves.length}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Need review</span>
               </div>
             </div>
 
             <div
               onClick={() => onNavigateModule('chat')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
+              className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
             >
-              <div className="stat-icon" style={{ background: '#f0fdf4', color: '#047857' }}>
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <MessageSquare className="w-5 h-5" />
               </div>
-              <div>
-                <small>Team Hub</small>
-                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                <small>Real-time collaboration</small>
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Team Hub</span>
+                <span className="text-xl font-extrabold text-slate-900 block leading-tight">{employees.length > 0 ? 'Active' : '—'}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Real-time collaboration</span>
               </div>
             </div>
           </div>
@@ -611,26 +611,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <section className="panel md:col-span-2">
               <h3>
                 <span className="flex items-center gap-2">
-                  <span className="text-base">📊</span> Attendance Rate & Turnout
+                  <span className="text-base">📊</span> Attendance Rate &amp; Turnout
                 </span>
                 <span className="tag">Last 7 Days</span>
               </h3>
-              <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
+              <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-slate-100">
                 {sevenDaysData.map((item: { day: string; date: string; val: number; count: string; isToday: boolean }, idx: number) => (
                   <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
-                    <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
+                    <div className="text-[10px] text-slate-800 font-mono font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shadow-2xs">
                       {item.val}%
                     </div>
                     <div
                       style={{ height: `${Math.max(4, item.val)}%` }}
                       className={`w-full max-w-[42px] rounded-t-lg transition-all shadow-xs ${item.isToday
-                          ? 'bg-gradient-to-t from-[#047857] to-[#10b981] ring-2 ring-[#10b981]/50'
-                          : 'bg-gradient-to-t from-[#059669] to-[#34d399] group-hover:brightness-110'
+                          ? 'bg-gradient-to-t from-emerald-700 to-emerald-500 ring-2 ring-emerald-500/50'
+                          : 'bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover:brightness-110'
                         }`}
                       title={item.count}
                     />
                     <small
-                      className={`text-[11px] font-bold mt-1 ${item.isToday ? 'text-[#059669]' : 'text-[#4e6a5d]'
+                      className={`text-[11px] font-bold mt-1 ${item.isToday ? 'text-emerald-700' : 'text-slate-500'
                         }`}
                     >
                       {item.day}
@@ -638,14 +638,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
+              <div className="flex items-center justify-between text-xs text-slate-500 mt-3">
                 <span className="font-medium">
-                  <strong className="text-[#0d271d]">{todayRecords.length}</strong> checked-in out of{' '}
-                  <strong className="text-[#0d271d]">{employees.length}</strong> team members today
+                  <strong className="text-slate-900">{todayRecords.length}</strong> checked-in out of{' '}
+                  <strong className="text-slate-900">{employees.length}</strong> team members today
                 </span>
                 <button
                   onClick={() => onNavigateModule('attendance')}
-                  className="text-[#059669] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-emerald-600 hover:text-emerald-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   Open Timesheets &rarr;
                 </button>
@@ -674,12 +674,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {announcements.slice(0, 3).map((item) => (
                     <div key={item.id} className="item">
                       <div className="flex items-center justify-between gap-2">
-                        <strong className="text-xs text-[#152345] truncate">{item.title}</strong>
+                        <strong className="text-xs text-slate-900 truncate">{item.title}</strong>
                         <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
                           {item.priority || 'Notice'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed line-clamp-2">
+                      <div className="text-[11px] text-slate-500 mt-1 leading-relaxed line-clamp-2">
                         {item.content}
                       </div>
                     </div>
@@ -696,35 +696,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </h3>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde
-                <button
-                  onClick={onOpenClockModal}
-                  className="btn-secondary justify-center py-2.5"
-                >
-                  <Clock className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Mark punch</span>
-                </button>
-                */}
                 <button
                   onClick={() => onNavigateModule('leaves')}
                   className="btn-secondary justify-center py-2.5"
                 >
-                  <CalendarCheck className="w-4 h-4 text-[#4f5fe8]" />
+                  <CalendarCheck className="w-4 h-4 text-emerald-600" />
                   <span>Leave requests</span>
                 </button>
                 <button
                   onClick={onOpenAddEmployeeModal}
                   className="btn-secondary justify-center py-2.5"
                 >
-                  <UserPlus className="w-4 h-4 text-[#4f5fe8]" />
+                  <UserPlus className="w-4 h-4 text-emerald-600" />
                   <span>Add staff</span>
                 </button>
                 <button
                   onClick={() => onNavigateModule('calendar')}
                   className="btn-secondary justify-center py-2.5"
                 >
-                  <Calendar className="w-4 h-4 text-[#4f5fe8]" />
+                  <Calendar className="w-4 h-4 text-emerald-600" />
                   <span>Holidays</span>
+                </button>
+                <button
+                  onClick={() => onNavigateModule('reports')}
+                  className="btn-secondary justify-center py-2.5"
+                >
+                  <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  <span>Analytics</span>
                 </button>
               </div>
             </section>
@@ -744,7 +742,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h3>
 
               {pendingLeaves.length === 0 ? (
-                <div className="p-6 text-center text-[#6e7b98] text-xs">
+                <div className="p-6 text-center text-slate-400 text-xs">
                   No leave requests currently pending review.
                 </div>
               ) : (
@@ -758,18 +756,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <strong className="text-xs text-[#152345]">
+                            <strong className="text-xs text-slate-900">
                               {leave.employeeName}
                             </strong>
                             <span className="tag orange">
                               {leave.leaveType}
                             </span>
-                            <span className="text-xs text-[#6e7b98] font-mono">
+                            <span className="text-xs text-slate-500 font-mono">
                               {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
                             </span>
                           </div>
-                          <p className="text-xs text-[#6e7b98]">
-                            Reason: <span className="text-[#152345] font-medium">&ldquo;{leave.reason}&rdquo;</span>
+                          <p className="text-xs text-slate-500">
+                            Reason: <span className="text-slate-900 font-medium">&ldquo;{leave.reason}&rdquo;</span>
                           </p>
                         </div>
 
@@ -777,7 +775,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <button
                             onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
                             disabled={isProcessing}
-                            className="btn-primary text-xs py-1.5 px-3 bg-[#16a779] hover:bg-[#13865f]"
+                            className="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700"
                           >
                             {isProcessing ? 'Saving...' : 'Approve'}
                           </button>
@@ -799,12 +797,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Live Staff Attendance & Real-Time Activity Directory */}
           <div className="panel space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#e4eaf5]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-bold text-[#152345] m-0">
+                <h3 className="text-sm font-bold text-slate-900 m-0">
                   Staff Directory &amp; Live Time Tracking
                 </h3>
-                <p className="text-xs text-[#6e7b98] mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Live status, recorded punches, and direct messaging
                 </p>
               </div>
@@ -814,7 +812,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   onClick={() => onNavigateModule('attendance')}
                   className="btn-ghost text-xs"
                 >
-                  <Clock className="w-3.5 h-3.5 text-[#4f5fe8]" />
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Timesheets</span>
                 </button>
                 <button
@@ -844,11 +842,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <tbody>
                   {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-xs text-[#6e7b98]">
+                      <td colSpan={8} className="py-10 text-center text-xs text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-1.5">
                           <Users className="w-8 h-8 text-emerald-500/50" />
-                          <p className="font-bold text-[#152345]">No employees in this company yet</p>
-                          <p className="text-[11px] text-[#6e7b98]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
+                          <p className="font-bold text-slate-900">No employees in this company yet</p>
+                          <p className="text-[11px] text-slate-500">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
                         </div>
                       </td>
                     </tr>
@@ -866,42 +864,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <tr
                         key={emp.id ? `${emp.id}-${index}` : index}
                         onClick={() => onSelectEmployee(emp)}
-                        className="hover:bg-[#f8faff] cursor-pointer transition-colors"
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                       >
-                        <td className="font-semibold text-[#152345]">
+                        <td className="font-semibold text-slate-900">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[#e8ecff] text-[#3548be] font-bold text-xs flex items-center justify-center shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center justify-center shrink-0">
                               {emp.firstName?.[0] || 'E'}
                             </div>
                             <span className="truncate">{emp.firstName} {emp.lastName}</span>
                           </div>
                         </td>
-                        <td className="text-[#6e7b98] font-mono text-xs">{emp.employeeCode}</td>
-                        <td className="text-[#152345] truncate">{emp.designationTitle || 'Staff'}</td>
-                        <td className="text-[#6e7b98] font-mono text-xs">
+                        <td className="text-slate-500 font-mono text-xs">{emp.employeeCode}</td>
+                        <td className="text-slate-900 truncate">{emp.designationTitle || 'Staff'}</td>
+                        <td className="text-slate-500 font-mono text-xs">
                           {todayRec?.checkIn ? (
                             <span>
                               {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
                             </span>
                           ) : (
-                            <span className="text-[#aab8df]">—</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="font-mono font-bold text-[#152345] text-xs">
+                        <td className="font-mono font-bold text-slate-900 text-xs">
                           {todayRec ? formatSecondsToWords(liveSecs) : '—'}
                         </td>
-                        <td className="text-[#6e7b98] font-mono text-xs">
+                        <td className="text-slate-500 font-mono text-xs">
                           {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
                         </td>
                         <td>
                           {isWorking ? (
                             <span className="tag green">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#16a779] animate-pulse" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                               Working
                             </span>
                           ) : isOnBreak ? (
                             <span className="tag orange">
-                              <Pause className="w-3 h-3 text-[#f39a3f]" />
+                              <Pause className="w-3 h-3 text-amber-500" />
                               On Break
                             </span>
                           ) : isDone ? (
@@ -910,7 +908,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               Completed
                             </span>
                           ) : (
-                            <span className="tag" style={{ background: '#f4f7fc', color: '#6e7b98' }}>
+                            <span className="tag">
                               Not Punched
                             </span>
                           )}
@@ -923,30 +921,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <button
                               id={`btn-dash-chat-${emp.id}`}
                               onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              className="btn-ghost text-xs py-1 px-2.5"
+                              className="btn-ghost text-xs py-1 px-2.5 text-emerald-600 hover:text-emerald-700"
                               title="Chat with employee"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#4f5fe8]" />
+                              <MessageSquare className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">Chat</span>
                             </button>
 
                             <button
                               id={`btn-dash-role-${emp.id}`}
                               onClick={() => setRoleTargetEmpDash(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5 text-purple-700 bg-purple-50 hover:bg-purple-100"
+                              className="btn-secondary text-xs py-1 px-2.5 text-slate-700 hover:bg-slate-100"
                               title="Change employee role"
                             >
-                              <Shield className="w-3.5 h-3.5" />
+                              <Shield className="w-3.5 h-3.5 text-slate-500" />
                               <span className="hidden sm:inline">Role</span>
                             </button>
 
                             <button
                               id={`btn-dash-notice-${emp.id}`}
                               onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5"
+                              className="btn-secondary text-xs py-1 px-2.5 text-amber-700 hover:bg-amber-50"
                               title="Send notice to employee"
                             >
-                              <Bell className="w-3.5 h-3.5 text-[#4f5fe8]" />
+                              <Bell className="w-3.5 h-3.5 text-amber-600" />
                               <span className="hidden sm:inline">Notice</span>
                             </button>
 
@@ -1239,7 +1237,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <button
                     onClick={() => onNavigateModule('attendance')}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
                   >
                     <span>Full Log</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -1310,7 +1308,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota & Balances</h4>
                     <button
                       onClick={onOpenLeaveModal}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700"
                     >
                       + Apply Leave
                     </button>
@@ -1355,7 +1353,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
                     <button
                       onClick={() => onNavigateModule('calendar')}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700"
                     >
                       View Calendar
                     </button>

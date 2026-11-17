@@ -188,7 +188,7 @@ export const AssetsModule: React.FC = () => {
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
               Enterprise Hardware & Asset Registry
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold">
               {assets.length} Tracked Items
             </span>
           </div>
@@ -202,7 +202,7 @@ export const AssetsModule: React.FC = () => {
             setAssetCode(`AST-${Math.floor(100 + Math.random() * 900)}`);
             setIsRegisterOpen(true);
           }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Register New Asset</span>
@@ -216,9 +216,9 @@ export const AssetsModule: React.FC = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl transition ${
+              className={`px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
                   : 'text-slate-600 bg-slate-50 hover:bg-slate-100'
               }`}
             >
@@ -252,7 +252,7 @@ export const AssetsModule: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {filtered.length === 0 ? (
           <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 border border-blue-200">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
               <HardDrive className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-slate-900 text-sm">No assets found</h3>
@@ -276,8 +276,8 @@ export const AssetsModule: React.FC = () => {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       asset.status === 'Assigned'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'bg-emerald-50 text-emerald-600'
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'bg-emerald-50 text-emerald-700'
                     }`}
                   >
                     {asset.status}
@@ -308,7 +308,7 @@ export const AssetsModule: React.FC = () => {
                       setReturnModalAsset(asset);
                       setReturnCondition(asset.condition || 'Good');
                     }}
-                    className="w-full mt-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                    className="w-full mt-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                     <span>Process Return</span>
@@ -319,7 +319,7 @@ export const AssetsModule: React.FC = () => {
                       setAssignModalAsset(asset);
                       if (employees.length > 0) setAssignEmployeeId(employees[0].id);
                     }}
-                    className="w-full mt-2 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                    className="w-full mt-2 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>Assign to Staff</span>
@@ -342,7 +342,7 @@ export const AssetsModule: React.FC = () => {
             className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <HardDrive className="w-5 h-5 text-blue-600" />
+                <HardDrive className="w-5 h-5 text-emerald-600" />
                 Register Company Asset
               </h3>
               <button
@@ -442,7 +442,7 @@ export const AssetsModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-600/20 cursor-pointer"
                 >
                   Register Asset
                 </button>
@@ -463,7 +463,7 @@ export const AssetsModule: React.FC = () => {
             className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-blue-600" />
+                <UserCheck className="w-5 h-5 text-emerald-600" />
                 Assign Asset to Employee
               </h3>
               <button
@@ -507,7 +507,7 @@ export const AssetsModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-600/20 cursor-pointer"
                 >
                   Confirm Allocation
                 </button>
@@ -528,7 +528,7 @@ export const AssetsModule: React.FC = () => {
             className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-blue-600" />
+                <RotateCcw className="w-5 h-5 text-emerald-600" />
                 Process Hardware Return
               </h3>
               <button
@@ -571,7 +571,7 @@ export const AssetsModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-600/20 cursor-pointer"
                 >
                   Confirm Return to IT
                 </button>

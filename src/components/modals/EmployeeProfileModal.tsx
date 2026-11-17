@@ -592,7 +592,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'employment' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
+                <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <span className="text-[10px] font-bold uppercase text-slate-400">System Access Role</span>
                     <div className="flex items-center gap-2 mt-1">
@@ -607,7 +607,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setRoleModalOpen(true)}
-                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-2xs transition cursor-pointer"
                     >
                       Change Role
                     </button>

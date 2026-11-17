@@ -242,7 +242,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Terminal className="w-3.5 h-3.5 text-indigo-500" />
+            <Terminal className="w-3.5 h-3.5 text-emerald-500" />
             <span>Local Agent Bridge</span>
           </button>
 
@@ -344,7 +344,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                         </div>
                         <div>
                           <span className="text-slate-400 block uppercase font-bold">Mode</span>
-                          <span className="font-bold text-indigo-700">
+                          <span className="font-bold text-emerald-700">
                             {dev.connectionType === 'cloud_push_adms' ? 'Cloud ADMS' : 'LAN Bridge'}
                           </span>
                         </div>
@@ -526,13 +526,13 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
           {/* TAB 3: CLOUD PUSH / ADMS WALKTHROUGH */}
           {activeTab === 'adms' && activeDevice && (
             <div className="space-y-4 max-w-3xl mx-auto">
-              <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-start gap-3">
-                <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-indigo-950 text-xs">
+                  <h4 className="font-bold text-emerald-950 text-xs">
                     Direct Cloud Push / ADMS Configuration for: {activeDevice.deviceName}
                   </h4>
-                  <p className="text-[11px] text-indigo-800 mt-0.5">
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
                     Modern devices push attendance directly to your HRMS over Wi-Fi/Ethernet. No computer needed to be kept ON in the office!
                   </p>
                 </div>
@@ -722,7 +722,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                       onClick={() => setSimMode('FACE')}
                       className={`py-2 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer ${
                         simMode === 'FACE'
-                          ? 'border-indigo-600 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-500/20'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >

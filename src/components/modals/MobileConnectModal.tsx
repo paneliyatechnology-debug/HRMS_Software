@@ -134,7 +134,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
               : 'text-slate-500 hover:text-slate-900'
               }`}
           >
-            <Globe className="w-3.5 h-3.5 text-blue-600" />
+            <Globe className="w-3.5 h-3.5 text-emerald-600" />
             Anywhere (4G / 5G / Remote)
           </button>
         </div>
@@ -232,23 +232,23 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
           ) : (
             <>
               {/* Cloud Tunnel Instructions */}
-              <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200 space-y-4">
+              <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
                     <Globe className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-blue-950">
+                    <h3 className="text-sm font-black text-emerald-950">
                       Instant HTTPS Cloud Link (No Wi-Fi Needed)
                     </h3>
-                    <p className="text-xs text-blue-800/80 mt-0.5">
+                    <p className="text-xs text-emerald-800/80 mt-0.5">
                       Works on mobile data (4G/5G) or when you are outside the
                       office without configuring any router or firewall!
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white p-3.5 rounded-xl border border-blue-200 space-y-2">
+                <div className="bg-white p-3.5 rounded-xl border border-emerald-200 space-y-2">
                   <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Terminal Command:
                   </div>
@@ -264,7 +264,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-500">
                     Ye command chalane par ek HTTPS link{' '}
-                    <span className="font-mono font-bold text-blue-700">
+                    <span className="font-mono font-bold text-emerald-700">
                       https://paneliya-hrms.loca.lt
                     </span>{' '}
                     generate ho jayegi jise kisi bhi device me open kiya ja sakta
