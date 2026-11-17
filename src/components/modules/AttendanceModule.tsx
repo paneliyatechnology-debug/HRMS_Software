@@ -222,7 +222,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     setDetailEmpLoading(true);
     try {
       // Hit attendance work status API per user requirement:
-      // curl --location 'http://192.168.1.109:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
+      // curl --location 'http://192.168.1.105:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
       const res = await api.getWorkStatus();
       if (!res) return;
       setDetailEmpStatusData(res);
@@ -558,12 +558,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
           ? summary.totalBreakFormatted
           : statusDataToUse.formattedTotalBreak && statusDataToUse.formattedTotalBreak !== '0s' && statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
-          ? statusDataToUse.formattedTotalBreak
-          : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
-          ? formatSecondsToWords(summary.totalBreakSecondsToday)
-          : session?.totalBreakSeconds && session.totalBreakSeconds > 0
-          ? formatSecondsToWords(session.totalBreakSeconds)
-          : '00h 00m 00s';
+            ? statusDataToUse.formattedTotalBreak
+            : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
+              ? formatSecondsToWords(summary.totalBreakSecondsToday)
+              : session?.totalBreakSeconds && session.totalBreakSeconds > 0
+                ? formatSecondsToWords(session.totalBreakSeconds)
+                : '00h 00m 00s';
 
       const activeWorkedStr =
         summary?.totalDurationFormatted ||
@@ -961,49 +961,49 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
 
       visibleEmployees.forEach((emp) => {
-          const rec = getEmpTodayRecord(emp);
-          const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-          const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+        const rec = getEmpTodayRecord(emp);
+        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
 
-          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
 
-          let rawEmpDate =
-            rec?.date ||
-            (rec as any)?.todayDate ||
-            (rec as any)?.attendanceDate ||
-            (rec as any)?.startTime ||
-            (rec as any)?.createdAt ||
-            todayDateStr;
-          if (typeof rawEmpDate === 'string' && rawEmpDate.includes('T')) {
-            rawEmpDate = rawEmpDate.split('T')[0];
-          }
-          const empDateIso = String(rawEmpDate || todayDateStr);
-          const empDateFormatted = formatDailyDate(empDateIso).formatted;
-          const dateStr = empDateFormatted && empDateFormatted !== '—' ? empDateFormatted : empDateIso;
+        let rawEmpDate =
+          rec?.date ||
+          (rec as any)?.todayDate ||
+          (rec as any)?.attendanceDate ||
+          (rec as any)?.startTime ||
+          (rec as any)?.createdAt ||
+          todayDateStr;
+        if (typeof rawEmpDate === 'string' && rawEmpDate.includes('T')) {
+          rawEmpDate = rawEmpDate.split('T')[0];
+        }
+        const empDateIso = String(rawEmpDate || todayDateStr);
+        const empDateFormatted = formatDailyDate(empDateIso).formatted;
+        const dateStr = empDateFormatted && empDateFormatted !== '—' ? empDateFormatted : empDateIso;
 
-          const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
-          const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
-          const dept = (emp.departmentName || 'General').replace(/"/g, '""');
-          const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
-          const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+        const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
 
-          const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-          const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
-          const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
+        const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+        const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
+        const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
 
-          const statusStr = rec
-            ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
-            : 'Not Punched';
+        const statusStr = rec
+          ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
+          : 'Not Punched';
 
-          const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
-          const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
-          const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
-          const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
+        const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
+        const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
+        const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
+        const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
 
-          csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
-        });
+        csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
+      });
     } else if (resolvedTab === 'summary') {
       fileName = `Attendance_Summary_${selectedMonth}_${selectedYear}.csv`;
       csvContent += 'Employee ID,Employee Name,Department,Month,Year,Present Days,Half Days,Absent Days,Total Work Hours,Daily Average (Hrs)\n';
@@ -1095,8 +1095,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <button
               onClick={onOpenPunchModal}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${myIsOnBreak
-                  ? 'bg-amber-600 hover:bg-amber-700'
-                  : myIsWorking
+                ? 'bg-amber-600 hover:bg-amber-700'
+                : myIsWorking
                   ? 'bg-rose-600 hover:bg-rose-700'
                   : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
@@ -1302,8 +1302,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <button
                       onClick={onOpenPunchModal}
                       className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${myIsOnBreak
-                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                          : myIsWorking
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : myIsWorking
                           ? 'bg-rose-600 hover:bg-rose-700 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                         }`}
@@ -1732,8 +1732,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     type="button"
                     onClick={() => setSummaryViewMode('cards')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${summaryViewMode === 'cards'
-                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     <List className="w-3.5 h-3.5" />
@@ -1743,8 +1743,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     type="button"
                     onClick={() => setSummaryViewMode('grid')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${summaryViewMode === 'grid'
-                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -1892,10 +1892,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                             {/* Attendance Score Badge */}
                             <span className={`px-2 py-0.5 rounded-full text-[11px] font-black shrink-0 ${metrics.score >= 90
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : metrics.score >= 75
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                  : 'bg-rose-50 text-rose-800 border border-rose-200'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : metrics.score >= 75
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                : 'bg-rose-50 text-rose-800 border border-rose-200'
                               }`}>
                               {metrics.score}% Score
                             </span>
@@ -1932,10 +1932,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all ${metrics.score >= 90
-                                    ? 'bg-emerald-500'
-                                    : metrics.score >= 75
-                                      ? 'bg-amber-500'
-                                      : 'bg-rose-500'
+                                  ? 'bg-emerald-500'
+                                  : metrics.score >= 75
+                                    ? 'bg-amber-500'
+                                    : 'bg-rose-500'
                                   }`}
                                 style={{ width: `${metrics.score}%` }}
                               />
@@ -2065,10 +2065,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                                     <div
                                       className={`h-full rounded-full transition-all ${metrics.score >= 90
-                                          ? 'bg-emerald-500'
-                                          : metrics.score >= 75
-                                            ? 'bg-amber-500'
-                                            : 'bg-rose-500'
+                                        ? 'bg-emerald-500'
+                                        : metrics.score >= 75
+                                          ? 'bg-amber-500'
+                                          : 'bg-rose-500'
                                         }`}
                                       style={{ width: `${metrics.score}%` }}
                                     />
@@ -2360,16 +2360,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
-                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
-                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                              : 'bg-slate-200/80 text-slate-700'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : 'bg-slate-200/80 text-slate-700'
                           }`}>
                           <span className={`w-2 h-2 rounded-full ${detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
-                              ? 'bg-amber-500 animate-pulse'
-                              : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
-                                ? 'bg-emerald-500 animate-pulse'
-                                : 'bg-slate-400'
+                            ? 'bg-amber-500 animate-pulse'
+                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-slate-400'
                             }`} />
                           {detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
                             ? '☕ Currently on Break'
@@ -2413,8 +2413,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       type="button"
                       onClick={() => setDetailModalTab('logs')}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${detailModalTab === 'logs'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                     >
                       <Clock className="w-3.5 h-3.5" />
@@ -2424,8 +2424,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       type="button"
                       onClick={() => setDetailModalTab('matrix')}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${detailModalTab === 'matrix'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                     >
                       <CalendarDays className="w-3.5 h-3.5" />
@@ -2484,14 +2484,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <td className="py-2.5 px-3">
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.isOnBreak || st === 'on_break'
-                                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                          : st === 'late'
-                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                            : st === 'half day'
-                                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                              : st === 'absent'
-                                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                        : st === 'late'
+                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                          : st === 'half day'
+                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                            : st === 'absent'
+                                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         }`}
                                     >
                                       {rec.isOnBreak || st === 'on_break' ? '☕ On Break' : (rec.status || 'Present')}
