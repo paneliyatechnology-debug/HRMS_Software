@@ -222,7 +222,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     setDetailEmpLoading(true);
     try {
       // Hit attendance work status API per user requirement:
-      // curl --location 'http://192.168.1.105:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
+      // curl --location 'http://192.168.1.108:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
       const res = await api.getWorkStatus();
       if (!res) return;
       setDetailEmpStatusData(res);
