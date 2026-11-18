@@ -196,14 +196,14 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   });
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-              Document Compliance & Vault
-            </h2>
+            <h1 className="hrms-page-title">
+              Document Compliance &amp; Vault
+            </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1 border border-emerald-100">
               <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted
             </span>
@@ -224,7 +224,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
       {/* EMPLOYEE VIEW: Official Company Details & Owner Information Card */}
       {portalMode === 'employee' && (
-        <div className="bg-gradient-to-br from-slate-900 via-[#111d3b] to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-slate-900 via-[#212529] to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
           <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
           <div className="absolute right-4 top-4 opacity-5 pointer-events-none">
             <Building2 className="w-32 h-32 text-white" />

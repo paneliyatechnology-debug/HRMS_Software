@@ -1,5 +1,6 @@
 import { ChatMessage, ChatConversation, ChatAttachment, User, Employee } from '../types/hrms';
 import { getAllEmployees } from './employeeService';
+import { getAttachmentPreviewText } from './chatMediaUtils';
 
 const CHAT_CONVERSATIONS_KEY = 'hrms_chat_conversations_records';
 const CHAT_MESSAGES_KEY = 'hrms_chat_messages_records';
@@ -16,7 +17,7 @@ function getDefaultConversations(): ChatConversation[] {
       type: 'broadcast',
       participantIds: ['all'],
       participantNames: { all: 'All Staff & Management' },
-      title: '📢 General Staff Helpdesk & Broadcast',
+      title: 'General Staff Helpdesk & Broadcast',
       lastMessage: '',
       lastMessageTimestamp: new Date().toISOString(),
       lastSenderId: ADMIN_USER_ID,
@@ -97,7 +98,7 @@ export function hydrateMessages(incoming: ChatMessage[]): void {
     const thread = map[conv.id];
     if (!thread?.length) continue;
     const last = thread[thread.length - 1];
-    const preview = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+    const preview = last.content || getAttachmentPreviewText(last.attachments);
     if (conv.lastMessage !== preview || conv.lastMessageTimestamp !== last.timestamp) {
       conv.lastMessage = preview;
       conv.lastMessageTimestamp = last.timestamp;
@@ -112,10 +113,7 @@ export function hydrateMessages(incoming: ChatMessage[]): void {
  * Returns or creates a direct conversation between Company Admin and a given Employee.
  */
 export function getOrCreateDirectConversation(employee: Employee): ChatConversation {
-  if (
-    employee.id === 'admin-keyur' ||
-    employee.email?.toLowerCase().includes('keyur')
-  ) {
+  if (!employee?.id || employee.id === ADMIN_USER_ID) {
     const all = getAllConversations();
     return all[0] || getDefaultConversations()[0];
   }
@@ -184,11 +182,7 @@ export function syncConversationsWithEmployees(employees?: Employee[]): ChatConv
   let modified = false;
 
   currentEmployees.forEach((emp) => {
-    if (
-      emp.id === 'emp-1' ||
-      emp.id === 'admin-keyur' ||
-      emp.email?.toLowerCase().includes('keyur')
-    ) {
+    if (!emp?.id || emp.id === ADMIN_USER_ID) {
       return;
     }
 
@@ -320,7 +314,7 @@ export function sendChatMessage(params: {
 
   if (convIndex !== -1) {
     const conv = { ...conversations[convIndex] };
-    conv.lastMessage = newMessage.content || (attachments?.length ? 'Sent an attachment' : '');
+    conv.lastMessage = newMessage.content || getAttachmentPreviewText(attachments);
     conv.lastMessageTimestamp = now;
     conv.lastSenderId = senderId;
     conv.updatedAt = now;
@@ -505,7 +499,7 @@ export function deleteChatMessage(
     const remaining = messages;
     if (remaining.length > 0) {
       const last = remaining[remaining.length - 1];
-      conversations[convIndex].lastMessage = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+      conversations[convIndex].lastMessage = last.content || getAttachmentPreviewText(last.attachments);
       conversations[convIndex].lastMessageTimestamp = last.timestamp;
       conversations[convIndex].lastSenderId = last.senderId;
     } else {
@@ -543,7 +537,7 @@ export function receiveIncomingSocketMessage(newMessage: ChatMessage, currentUse
 
   if (convIndex !== -1) {
     const conv = { ...conversations[convIndex] };
-    conv.lastMessage = newMessage.content || (newMessage.attachments?.length ? 'Sent an attachment' : '');
+    conv.lastMessage = newMessage.content || getAttachmentPreviewText(newMessage.attachments);
     conv.lastMessageTimestamp = now;
     conv.lastSenderId = newMessage.senderId;
     conv.updatedAt = now;
@@ -621,7 +615,7 @@ export function receiveIncomingSocketDelete(payload: {
     if (convIndex !== -1) {
       if (messages.length > 0) {
         const last = messages[messages.length - 1];
-        conversations[convIndex].lastMessage = last.content || (last.attachments?.length ? 'Sent an attachment' : '');
+        conversations[convIndex].lastMessage = last.content || getAttachmentPreviewText(last.attachments);
         conversations[convIndex].lastMessageTimestamp = last.timestamp;
       } else {
         conversations[convIndex].lastMessage = '';

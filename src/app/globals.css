@@ -1,41 +1,297 @@
 @import "tailwindcss";
 
+/* ════════════════════════════════════════════════════════════════════════ */
+/* ENTERPRISE DUAL PALETTE: NEUTRAL SLATE CANVAS + EVERGREEN BRAND ACCENTS  */
+/* ════════════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Brand Primary Greens -> User's 9-Shade Evergreen Palette */
+  --color-emerald-50: #d8f3dc;
+  --color-emerald-100: #b7e4c7;
+  --color-emerald-200: #95d5b2;
+  --color-emerald-300: #74c69d;
+  --color-emerald-400: #52b788;
+  --color-emerald-500: #40916c;
+  --color-emerald-600: #2d6a4f;
+  --color-emerald-700: #1b4332;
+  --color-emerald-800: #1b4332;
+  --color-emerald-900: #081c15;
+  --color-emerald-950: #081c15;
+
+  --color-green-50: #d8f3dc;
+  --color-green-100: #b7e4c7;
+  --color-green-200: #95d5b2;
+  --color-green-300: #74c69d;
+  --color-green-400: #52b788;
+  --color-green-500: #40916c;
+  --color-green-600: #2d6a4f;
+  --color-green-700: #1b4332;
+  --color-green-800: #1b4332;
+  --color-green-900: #081c15;
+  --color-green-950: #081c15;
+
+  --color-teal-50: #d8f3dc;
+  --color-teal-100: #b7e4c7;
+  --color-teal-200: #95d5b2;
+  --color-teal-300: #74c69d;
+  --color-teal-400: #52b788;
+  --color-teal-500: #40916c;
+  --color-teal-600: #2d6a4f;
+  --color-teal-700: #1b4332;
+  --color-teal-800: #1b4332;
+  --color-teal-900: #081c15;
+  --color-teal-950: #081c15;
+
+  /* Map interactive accent hues cleanly into the Evergreen Brand Scale */
+  --color-blue-50: #d8f3dc;
+  --color-blue-100: #b7e4c7;
+  --color-blue-200: #95d5b2;
+  --color-blue-300: #74c69d;
+  --color-blue-400: #52b788;
+  --color-blue-500: #40916c;
+  --color-blue-600: #2d6a4f;
+  --color-blue-700: #1b4332;
+  --color-blue-800: #1b4332;
+  --color-blue-900: #081c15;
+  --color-blue-950: #081c15;
+
+  --color-indigo-50: #d8f3dc;
+  --color-indigo-100: #b7e4c7;
+  --color-indigo-200: #95d5b2;
+  --color-indigo-300: #74c69d;
+  --color-indigo-400: #52b788;
+  --color-indigo-500: #40916c;
+  --color-indigo-600: #2d6a4f;
+  --color-indigo-700: #1b4332;
+  --color-indigo-800: #1b4332;
+  --color-indigo-900: #081c15;
+  --color-indigo-950: #081c15;
+
+  --color-purple-50: #d8f3dc;
+  --color-purple-100: #b7e4c7;
+  --color-purple-200: #95d5b2;
+  --color-purple-300: #74c69d;
+  --color-purple-400: #52b788;
+  --color-purple-500: #40916c;
+  --color-purple-600: #2d6a4f;
+  --color-purple-700: #1b4332;
+  --color-purple-800: #1b4332;
+  --color-purple-900: #081c15;
+  --color-purple-950: #081c15;
+
+  --color-violet-50: #d8f3dc;
+  --color-violet-100: #b7e4c7;
+  --color-violet-200: #95d5b2;
+  --color-violet-300: #74c69d;
+  --color-violet-400: #52b788;
+  --color-violet-500: #40916c;
+  --color-violet-600: #2d6a4f;
+  --color-violet-700: #1b4332;
+  --color-violet-800: #1b4332;
+  --color-violet-900: #081c15;
+  --color-violet-950: #081c15;
+
+  --color-sky-50: #d8f3dc;
+  --color-sky-100: #b7e4c7;
+  --color-sky-200: #95d5b2;
+  --color-sky-300: #74c69d;
+  --color-sky-400: #52b788;
+  --color-sky-500: #40916c;
+  --color-sky-600: #2d6a4f;
+  --color-sky-700: #1b4332;
+  --color-sky-800: #1b4332;
+  --color-sky-900: #081c15;
+  --color-sky-950: #081c15;
+
+  --color-cyan-50: #d8f3dc;
+  --color-cyan-100: #b7e4c7;
+  --color-cyan-200: #95d5b2;
+  --color-cyan-300: #74c69d;
+  --color-cyan-400: #52b788;
+  --color-cyan-500: #40916c;
+  --color-cyan-600: #2d6a4f;
+  --color-cyan-700: #1b4332;
+  --color-cyan-800: #1b4332;
+  --color-cyan-900: #081c15;
+  --color-cyan-950: #081c15;
+
+  --color-amber-50: #f8f9fa;
+  --color-amber-100: #e9ecef;
+  --color-amber-200: #ced4da;
+  --color-amber-300: #adb5bd;
+  --color-amber-400: #52b788;
+  --color-amber-500: #40916c;
+  --color-amber-600: #2d6a4f;
+  --color-amber-700: #1b4332;
+  --color-amber-800: #1b4332;
+  --color-amber-900: #081c15;
+  --color-amber-950: #081c15;
+
+  --color-yellow-50: #f8f9fa;
+  --color-yellow-100: #e9ecef;
+  --color-yellow-200: #ced4da;
+  --color-yellow-300: #adb5bd;
+  --color-yellow-400: #52b788;
+  --color-yellow-500: #40916c;
+  --color-yellow-600: #2d6a4f;
+  --color-yellow-700: #1b4332;
+  --color-yellow-800: #1b4332;
+  --color-yellow-900: #081c15;
+  --color-yellow-950: #081c15;
+
+  --color-orange-50: #f8f9fa;
+  --color-orange-100: #e9ecef;
+  --color-orange-200: #ced4da;
+  --color-orange-300: #adb5bd;
+  --color-orange-400: #52b788;
+  --color-orange-500: #40916c;
+  --color-orange-600: #2d6a4f;
+  --color-orange-700: #1b4332;
+  --color-orange-800: #1b4332;
+  --color-orange-900: #081c15;
+  --color-orange-950: #081c15;
+
+  --color-pink-50: #d8f3dc;
+  --color-pink-100: #b7e4c7;
+  --color-pink-200: #95d5b2;
+  --color-pink-300: #74c69d;
+  --color-pink-400: #52b788;
+  --color-pink-500: #40916c;
+  --color-pink-600: #2d6a4f;
+  --color-pink-700: #1b4332;
+  --color-pink-800: #1b4332;
+  --color-pink-900: #081c15;
+  --color-pink-950: #081c15;
+
+  --color-fuchsia-50: #d8f3dc;
+  --color-fuchsia-100: #b7e4c7;
+  --color-fuchsia-200: #95d5b2;
+  --color-fuchsia-300: #74c69d;
+  --color-fuchsia-400: #52b788;
+  --color-fuchsia-500: #40916c;
+  --color-fuchsia-600: #2d6a4f;
+  --color-fuchsia-700: #1b4332;
+  --color-fuchsia-800: #1b4332;
+  --color-fuchsia-900: #081c15;
+  --color-fuchsia-950: #081c15;
+
+  --color-lime-50: #d8f3dc;
+  --color-lime-100: #b7e4c7;
+  --color-lime-200: #95d5b2;
+  --color-lime-300: #74c69d;
+  --color-lime-400: #52b788;
+  --color-lime-500: #40916c;
+  --color-lime-600: #2d6a4f;
+  --color-lime-700: #1b4332;
+  --color-lime-800: #1b4332;
+  --color-lime-900: #081c15;
+  --color-lime-950: #081c15;
+
+  /* Neutral UI Surfaces, Borders & Text -> User's 9-Shade Gray Palette */
+  --color-slate-50: #f8f9fa;
+  --color-slate-100: #e9ecef;
+  --color-slate-200: #dee2e6;
+  --color-slate-300: #ced4da;
+  --color-slate-400: #adb5bd;
+  --color-slate-500: #6c757d;
+  --color-slate-600: #495057;
+  --color-slate-700: #343a40;
+  --color-slate-800: #343a40;
+  --color-slate-900: #212529;
+  --color-slate-950: #212529;
+
+  --color-gray-50: #f8f9fa;
+  --color-gray-100: #e9ecef;
+  --color-gray-200: #dee2e6;
+  --color-gray-300: #ced4da;
+  --color-gray-400: #adb5bd;
+  --color-gray-500: #6c757d;
+  --color-gray-600: #495057;
+  --color-gray-700: #343a40;
+  --color-gray-800: #343a40;
+  --color-gray-900: #212529;
+  --color-gray-950: #212529;
+
+  --color-zinc-50: #f8f9fa;
+  --color-zinc-100: #e9ecef;
+  --color-zinc-200: #dee2e6;
+  --color-zinc-300: #ced4da;
+  --color-zinc-400: #adb5bd;
+  --color-zinc-500: #6c757d;
+  --color-zinc-600: #495057;
+  --color-zinc-700: #343a40;
+  --color-zinc-800: #343a40;
+  --color-zinc-900: #212529;
+  --color-zinc-950: #212529;
+
+  --color-neutral-50: #f8f9fa;
+  --color-neutral-100: #e9ecef;
+  --color-neutral-200: #dee2e6;
+  --color-neutral-300: #ced4da;
+  --color-neutral-400: #adb5bd;
+  --color-neutral-500: #6c757d;
+  --color-neutral-600: #495057;
+  --color-neutral-700: #343a40;
+  --color-neutral-800: #343a40;
+  --color-neutral-900: #212529;
+  --color-neutral-950: #212529;
+
+  --color-stone-50: #f8f9fa;
+  --color-stone-100: #e9ecef;
+  --color-stone-200: #dee2e6;
+  --color-stone-300: #ced4da;
+  --color-stone-400: #adb5bd;
+  --color-stone-500: #6c757d;
+  --color-stone-600: #495057;
+  --color-stone-700: #343a40;
+  --color-stone-800: #343a40;
+  --color-stone-900: #212529;
+  --color-stone-950: #212529;
+}
+
 @layer base {
   :root {
-    /* ═══════════════════════════════════════════════════════════ */
-    /* LUXURY GREEN DESIGN SYSTEM (Dark Green, Light Green, White) */
-    /* ═══════════════════════════════════════════════════════════ */
-    --navy: #062d1f;
-    /* Deep Forest Dark Green (Sidebar & Headers) */
-    --navy2: #0b3b29;
-    /* Dark Pine Green (Hover & Secondary Panels) */
-    --blue: #059669;
-    /* Emerald Green Primary (Buttons & Active elements) */
-    --blue-hover: #047857;
-    /* Rich Dark Emerald */
-    --bg: #b7e4c7;
-    /* Plain Light Green Canvas */
-    --ink: #0d271d;
-    /* Deep Forest Slate Ink for Headings & Crisp Body */
-    --muted: #4e6a5d;
-    /* Sage Muted Secondary Text */
-    --line: #d8ebd9;
-    /* Subtle Light Green / Mint Border */
-    --white: #ffffff;
-    /* Crisp White Surface */
-    --green: #10b981;
-    /* Vibrant Mint / Emerald Accent */
-    --orange: #f59e0b;
-    /* Warm Amber */
-    --red: #ef4444;
-    /* Coral Rose */
-    --purple: #059669;
+    /* Evergreen Brand Palette (Accents, Actions, Highlights) */
+    --frosted-mint: #d8f3dcff;
+    --celadon: #b7e4c7ff;
+    --celadon-2: #95d5b2ff;
+    --mint-leaf: #74c69dff;
+    --mint-leaf-2: #52b788ff;
+    --sea-green: #40916cff;
+    --dark-emerald: #2d6a4fff;
+    --pine-teal: #1b4332ff;
+    --evergreen: #081c15ff;
 
-    --bg-page: #b7e4c7;
+    /* Neutral Slate Palette (Surfaces, Borders, Typography) */
+    --bright-snow: #f8f9faff;
+    --platinum: #e9ecefff;
+    --alabaster-grey: #dee2e6ff;
+    --pale-slate: #ced4daff;
+    --pale-slate-2: #adb5bdff;
+    --slate-grey: #6c757dff;
+    --iron-grey: #495057ff;
+    --gunmetal: #343a40ff;
+    --carbon-black: #212529ff;
+
+    /* Semantic Mappings (60% Gray Neutral + 30% White + 10% Evergreen Accent) */
+    --navy: var(--pine-teal);
+    --navy2: var(--dark-emerald);
+    --blue: var(--dark-emerald);
+    --blue-hover: var(--pine-teal);
+    --bg: var(--platinum);
+    --ink: var(--carbon-black);
+    --muted: var(--slate-grey);
+    --line: var(--alabaster-grey);
+    --white: #ffffff;
+    --green: var(--sea-green);
+    --orange: var(--mint-leaf-2);
+    --red: #dc2626;
+    --purple: var(--dark-emerald);
+
+    --bg-page: var(--platinum);
     --surface: #ffffff;
-    --border-color: #d8ebd9;
-    --text-primary: #0d271d;
-    --text-secondary: #4e6a5d;
+    --border-color: var(--pale-slate);
+    --text-primary: var(--carbon-black);
+    --text-secondary: var(--iron-grey);
   }
 
   html,
@@ -60,31 +316,31 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #a7f3d0;
+  background: var(--alabaster-grey);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6ee7b7;
+  background: var(--pale-slate);
 }
 
-/* Paneliya Luxury Green Design System */
+/* Paneliya Dual-Palette Enterprise Design System */
 .stat,
 .panel,
 .tile {
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  box-shadow: 0 2px 10px rgba(6, 45, 31, 0.04);
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(33, 37, 41, 0.04);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.22s ease;
 }
 
 .stat {
-  padding: 17px;
+  padding: 20px;
   display: flex;
-  gap: 13px;
+  gap: 14px;
   align-items: center;
 }
 
@@ -92,20 +348,38 @@
 .panel:hover,
 .tile:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(6, 45, 31, 0.09), 0 2px 6px -1px rgba(6, 45, 31, 0.04);
-  border-color: #a7f3d0;
+  box-shadow: 0 8px 24px -4px rgba(33, 37, 41, 0.08), 0 2px 6px -1px rgba(45, 106, 79, 0.06);
+  border-color: #95d5b2;
 }
 
 .stat-icon {
-  width: 43px;
-  height: 43px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   font-size: 20px;
-  background: #ecfdf5;
-  color: #059669;
+  background: #f8f9fa !important;
+  border: 1px solid #ced4da !important;
+  box-shadow: 0 1px 2px rgba(33, 37, 41, 0.04) !important;
+  color: #343a40 !important;
   flex-shrink: 0;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.stat-icon svg {
+  color: #343a40 !important;
+  transition: color 0.2s ease;
+}
+
+.stat:hover .stat-icon {
+  background: #d8f3dc !important;
+  border-color: #74c69d !important;
+  color: #1b4332 !important;
+}
+
+.stat:hover .stat-icon svg {
+  color: #1b4332 !important;
 }
 
 .stat strong {
@@ -113,7 +387,7 @@
   font-size: 25px;
   line-height: 1.3;
   color: var(--ink);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .stat small {
@@ -124,7 +398,7 @@
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr 0.9fr;
-  gap: 14px;
+  gap: 20px;
 }
 
 @media (max-width: 1100px) {
@@ -140,14 +414,14 @@
 }
 
 .panel {
-  padding: 17px;
+  padding: 20px;
   min-width: 0;
 }
 
 .panel h3 {
   margin: 0 0 14px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   display: flex;
   align-items: center;
@@ -156,7 +430,7 @@
 
 .item {
   padding: 11px 0;
-  border-bottom: 1px solid #edf6f0;
+  border-bottom: 1px solid var(--bright-snow);
 }
 
 .item:last-child {
@@ -167,26 +441,26 @@
   font-size: 11px;
   border-radius: 20px;
   padding: 4px 8px;
-  background: #ecfdf5;
-  color: #065f46;
+  background: var(--bright-snow);
+  color: var(--gunmetal);
   font-weight: 600;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid #d1fae5;
+  border: 1px solid var(--alabaster-grey);
 }
 
 .tag.green {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #bbf7d0;
+  background: var(--frosted-mint);
+  color: var(--pine-teal);
+  border-color: var(--celadon-2);
 }
 
 .tag.orange {
-  background: #fef3c7;
-  color: #b45309;
-  border-color: #fde68a;
+  background: var(--platinum);
+  color: var(--carbon-black);
+  border-color: var(--pale-slate);
 }
 
 .tag.red {
@@ -197,7 +471,7 @@
 
 .bar {
   height: 7px;
-  background: #e6f4ec;
+  background: var(--platinum);
   border-radius: 10px;
   overflow: hidden;
   min-width: 60px;
@@ -206,15 +480,15 @@
 .bar i {
   height: 100%;
   display: block;
-  background: linear-gradient(90deg, #10b981, #059669);
+  background: linear-gradient(90deg, var(--mint-leaf-2), var(--dark-emerald));
   border-radius: 10px;
 }
 
 .tablewrap {
   overflow: auto;
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border: 1px solid var(--alabaster-grey);
+  border-radius: 6px;
 }
 
 .data {
@@ -227,7 +501,7 @@
 .data td {
   text-align: left;
   padding: 13px 14px;
-  border-bottom: 1px solid #edf6f0;
+  border-bottom: 1px solid var(--bright-snow);
   font-size: 13px;
 }
 
@@ -235,9 +509,9 @@
   font-size: 11px;
   letter-spacing: .4px;
   text-transform: uppercase;
-  color: #3f5f4f;
-  background: #f4faf6;
-  font-weight: 700;
+  color: var(--iron-grey);
+  background: var(--bright-snow);
+  font-weight: 600;
 }
 
 .data tr:last-child td {
@@ -247,8 +521,8 @@
 /* Face Recognition Attendance Stage */
 .face-card {
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 13px;
+  border: 1px solid var(--alabaster-grey);
+  border-radius: 6px;
   padding: 20px;
   min-width: 0;
 }
@@ -256,30 +530,30 @@
 .face-stage {
   margin-top: 15px;
   padding: 24px 18px;
-  background: #f4faf6;
-  border: 1px dashed #a7f3d0;
-  border-radius: 13px;
+  background: var(--bright-snow);
+  border: 1px dashed var(--pale-slate);
+  border-radius: 6px;
   text-align: center;
 }
 
 .face-ring {
   width: 106px;
   height: 106px;
-  border: 3px solid #34d399;
+  border: 3px solid var(--pale-slate-2);
   border-radius: 50%;
   display: grid;
   place-items: center;
   margin: 0 auto 14px;
   background: #fff;
-  color: #059669;
+  color: var(--iron-grey);
   font-size: 40px;
-  box-shadow: 0 0 0 8px #ecfdf5;
+  box-shadow: 0 0 0 8px var(--bright-snow);
 }
 
 .face-ring.success {
-  border-color: #10b981;
-  color: #10b981;
-  box-shadow: 0 0 0 8px #d1fae5;
+  border-color: var(--slate-grey);
+  color: var(--slate-grey);
+  box-shadow: 0 0 0 8px var(--platinum);
 }
 
 .face-ring.failed {
@@ -290,9 +564,9 @@
 
 .face-kpi {
   padding: 13px;
-  border-radius: 10px;
-  background: #f4faf6;
-  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bright-snow);
+  border: 1px solid var(--alabaster-grey);
 }
 
 .face-kpi small {
@@ -310,7 +584,7 @@
 
 /* Button styles */
 .btn-primary {
-  background: #059669;
+  background: var(--dark-emerald);
   color: white;
   border-radius: 9px;
   padding: 10px 14px;
@@ -321,18 +595,18 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  box-shadow: 0 2px 6px rgba(45, 106, 79, 0.25);
   cursor: pointer;
 }
 
 .btn-primary:hover {
-  background: #047857;
+  background: var(--pine-teal);
 }
 
 .btn-secondary {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  background: var(--bright-snow);
+  color: var(--gunmetal);
+  border: 1px solid var(--alabaster-grey);
   border-radius: 9px;
   padding: 9px 13px;
   font-weight: 650;
@@ -345,13 +619,15 @@
 }
 
 .btn-secondary:hover {
-  background: #d1fae5;
+  background: var(--frosted-mint);
+  border-color: var(--celadon-2);
+  color: var(--pine-teal);
 }
 
 .btn-ghost {
   background: white;
-  color: #1e3a2b;
-  border: 1px solid var(--line);
+  color: var(--iron-grey);
+  border: 1px solid var(--alabaster-grey);
   border-radius: 9px;
   padding: 8px 12px;
   font-weight: 600;
@@ -364,8 +640,9 @@
 }
 
 .btn-ghost:hover {
-  background: #f0fdf4;
-  color: #042f1a;
+  background: var(--frosted-mint);
+  border-color: var(--celadon-2);
+  color: var(--pine-teal);
 }
 
 .btn-danger {
@@ -412,7 +689,7 @@
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #4e6a5d;
+  color: var(--iron-grey);
   font-weight: 650;
 }
 
@@ -600,7 +877,7 @@ table tbody tr {
 }
 
 table tbody tr:hover {
-  background-color: rgba(236, 253, 245, 0.65);
+  background-color: rgba(216, 243, 220, 0.55);
 }
 
 /* 4. Smooth Focus Ring for Inputs & Selects */
@@ -717,4 +994,607 @@ textarea {
   background-color: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* 9. Subtle Curved Card Shapes, Unified #6c757d Card Borders & Refined Header Font Weights across HRMS App */
+.hrms-app-shell div.rounded-3xl,
+.hrms-app-shell section.rounded-3xl,
+.hrms-app-shell article.rounded-3xl,
+.hrms-app-shell div.rounded-2xl,
+.hrms-app-shell section.rounded-2xl,
+.hrms-app-shell article.rounded-2xl,
+.hrms-app-shell main div.rounded-xl[class*="border"],
+.hrms-app-shell main div.rounded-xl[class*="bg-white"],
+.hrms-app-shell main div.rounded-xl[class*="shadow"],
+.hrms-app-shell main section.rounded-xl,
+.hrms-app-shell main article.rounded-xl {
+  border-radius: 6px !important;
+}
+
+/* Refined neutral #ced4da border on all cards across the app */
+.hrms-app-shell :is(.stat,
+  .panel,
+  .tile,
+  div.rounded-3xl[class*="border"],
+  section.rounded-3xl[class*="border"],
+  article.rounded-3xl[class*="border"],
+  div.rounded-2xl[class*="border"],
+  section.rounded-2xl[class*="border"],
+  article.rounded-2xl[class*="border"],
+  main div.rounded-xl[class*="border"],
+  main section.rounded-xl[class*="border"],
+  main article.rounded-xl[class*="border"],
+  main div.rounded-lg[class*="border"][class*="bg-white"]):not([class*="border-rose-"]):not([class*="border-red-"]):not([class*="border-[#95d5b2]"]) {
+  border-color: #ced4da !important;
+}
+
+/* Unified rounded-square bordered container for all card icons across the UI */
+.hrms-app-shell :is(.stat-icon,
+  main div:is(.w-7.h-7, .w-8.h-8, .w-9.h-9, .w-10.h-10, .w-11.h-11, .w-12.h-12):not(.absolute):not(.rounded-full):has(> svg:only-child),
+  main span:is(.p-1\.5, .p-2, .p-2\.5):not(.absolute):not(.rounded-full):has(> svg:only-child),
+  main div:is(.p-1\.5, .p-2, .p-2\.5):not(.absolute):not(.rounded-full):has(> svg:only-child)) {
+  background-color: #f8f9fa !important;
+  background-image: none !important;
+  border: 1px solid #ced4da !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 2px rgba(33, 37, 41, 0.04) !important;
+  color: #343a40 !important;
+  aspect-ratio: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.hrms-app-shell :is(.stat-icon,
+  main div:is(.w-7.h-7, .w-8.h-8, .w-9.h-9, .w-10.h-10, .w-11.h-11, .w-12.h-12):not(.absolute):not(.rounded-full):has(> svg:only-child),
+  main span:is(.p-1\.5, .p-2, .p-2\.5):not(.absolute):not(.rounded-full):has(> svg:only-child),
+  main div:is(.p-1\.5, .p-2, .p-2\.5):not(.absolute):not(.rounded-full):has(> svg:only-child))>svg {
+  color: #343a40 !important;
+}
+
+/* Keep icon readability & crisp subtle border when an icon box sits inside a dark container */
+.hrms-app-shell :is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-900,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600) :is(div:is(.w-7.h-7, .w-8.h-8, .w-9.h-9, .w-10.h-10, .w-11.h-11, .w-12.h-12),
+    span:is(.p-1\.5, .p-2, .p-2\.5),
+    div:is(.p-1\.5, .p-2, .p-2\.5)):not(.absolute):not(.rounded-full):has(> svg:only-child) {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+}
+
+.hrms-app-shell :is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-900,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600) :is(div:is(.w-7.h-7, .w-8.h-8, .w-9.h-9, .w-10.h-10, .w-11.h-11, .w-12.h-12),
+    span:is(.p-1\.5, .p-2, .p-2\.5),
+    div:is(.p-1\.5, .p-2, .p-2\.5)):not(.absolute):not(.rounded-full):has(> svg:only-child)>svg {
+  color: #ffffff !important;
+}
+
+.hrms-app-shell th.rounded-l-xl {
+  border-top-left-radius: 6px !important;
+  border-bottom-left-radius: 6px !important;
+}
+
+.hrms-app-shell th.rounded-r-xl {
+  border-top-right-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
+}
+
+/* Unified Display Page Heading (matches Dashboard "Hello, Ravi!" gradient Space Grotesk title) */
+.hrms-page-title {
+  font-family: var(--font-display), sans-serif !important;
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem) !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.03em !important;
+  font-weight: 700 !important;
+  display: inline-block;
+  background-image: linear-gradient(90deg, #081c15 0%, #1b4332 45%, #40916c 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+}
+
+.hrms-app-shell h1,
+.hrms-app-shell h2,
+.hrms-app-shell h3,
+.hrms-app-shell h4,
+.hrms-app-shell h5,
+.hrms-app-shell h6,
+.hrms-app-shell th,
+.hrms-app-shell header .font-black,
+.hrms-app-shell header .font-extrabold,
+.hrms-app-shell aside .font-black,
+.hrms-app-shell aside .font-extrabold {
+  font-weight: 600 !important;
+}
+
+/* 10. Unified Dual-Palette Brand Buttons across the UI */
+button[class*="bg-blue-50"]:not([class*="bg-blue-500"]),
+button[class*="bg-blue-100"],
+button[class*="bg-indigo-50"]:not([class*="bg-indigo-500"]),
+button[class*="bg-indigo-100"],
+button[class*="bg-sky-50"]:not([class*="bg-sky-500"]),
+button[class*="bg-sky-100"],
+a[class*="bg-blue-50"]:not([class*="bg-blue-500"]),
+a[class*="bg-indigo-50"]:not([class*="bg-indigo-500"]) {
+  background-color: var(--frosted-mint) !important;
+  color: var(--pine-teal) !important;
+  border-color: var(--celadon-2) !important;
+}
+
+button[class*="bg-blue-50"]:not([class*="bg-blue-500"]):hover:not(:disabled),
+button[class*="bg-blue-100"]:hover:not(:disabled),
+button[class*="bg-indigo-50"]:not([class*="bg-indigo-500"]):hover:not(:disabled),
+button[class*="bg-indigo-100"]:hover:not(:disabled),
+button[class*="bg-sky-50"]:not([class*="bg-sky-500"]):hover:not(:disabled),
+button[class*="bg-sky-100"]:hover:not(:disabled),
+a[class*="bg-blue-50"]:not([class*="bg-blue-500"]):hover,
+a[class*="bg-indigo-50"]:not([class*="bg-indigo-500"]):hover {
+  background-color: var(--celadon) !important;
+  color: var(--evergreen) !important;
+}
+
+button[class*="bg-blue-500"],
+button[class*="bg-blue-600"],
+button[class*="bg-blue-700"],
+button[class*="bg-indigo-500"],
+button[class*="bg-indigo-600"],
+button[class*="bg-indigo-700"],
+button[class*="bg-sky-500"],
+button[class*="bg-sky-600"],
+button[class*="bg-sky-700"],
+button[class*="from-blue-"],
+button[class*="from-indigo-"],
+a[class*="bg-blue-600"],
+a[class*="bg-indigo-600"],
+label[class*="bg-blue-600"],
+label[class*="bg-indigo-600"] {
+  background-color: var(--dark-emerald) !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  border-color: var(--dark-emerald) !important;
+  box-shadow: 0 2px 6px rgba(45, 106, 79, 0.22) !important;
+}
+
+button[class*="bg-blue-500"]:hover:not(:disabled),
+button[class*="bg-blue-600"]:hover:not(:disabled),
+button[class*="bg-blue-700"]:hover:not(:disabled),
+button[class*="bg-indigo-500"]:hover:not(:disabled),
+button[class*="bg-indigo-600"]:hover:not(:disabled),
+button[class*="bg-indigo-700"]:hover:not(:disabled),
+button[class*="bg-sky-500"]:hover:not(:disabled),
+button[class*="bg-sky-600"]:hover:not(:disabled),
+button[class*="bg-sky-700"]:hover:not(:disabled),
+button[class*="from-blue-"]:hover:not(:disabled),
+button[class*="from-indigo-"]:hover:not(:disabled),
+a[class*="bg-blue-600"]:hover,
+a[class*="bg-indigo-600"]:hover,
+label[class*="bg-blue-600"]:hover,
+label[class*="bg-indigo-600"]:hover {
+  background-color: var(--pine-teal) !important;
+  border-color: var(--pine-teal) !important;
+}
+
+button[class*="text-blue-"]:not([class*="bg-blue-"]):not([class*="bg-indigo-"]),
+button[class*="text-indigo-"]:not([class*="bg-blue-"]):not([class*="bg-indigo-"]),
+button[class*="text-sky-"]:not([class*="bg-sky-"]),
+a[class*="text-blue-"]:not([class*="bg-blue-"]),
+a[class*="text-indigo-"]:not([class*="bg-indigo-"]) {
+  color: var(--dark-emerald) !important;
+}
+
+button[class*="text-blue-"]:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):hover:not(:disabled),
+button[class*="text-indigo-"]:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):hover:not(:disabled),
+button[class*="text-sky-"]:not([class*="bg-sky-"]):hover:not(:disabled),
+a[class*="text-blue-"]:not([class*="bg-blue-"]):hover,
+a[class*="text-indigo-"]:not([class*="bg-indigo-"]):hover {
+  color: var(--pine-teal) !important;
+}
+
+button[class*="border-indigo-"],
+button[class*="border-blue-"] {
+  border-color: var(--celadon-2) !important;
+}
+
+button[class*="hover:bg-indigo-50"]:hover:not(:disabled),
+button[class*="hover:bg-blue-50"]:hover:not(:disabled) {
+  background-color: var(--frosted-mint) !important;
+}
+
+/* 11. Strict Contrast Pairing: Dark Text on Light Backgrounds & White/Light Text on Dark Backgrounds */
+
+/* 11A. Light Backgrounds -> Crisp Dark Evergreen Text (#212529 / #343a40) */
+:is(.bg-white,
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#e9ecef\],
+  .bg-\[\#dee2e6\],
+  .bg-\[\#ced4da\],
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-emerald-200,
+  .bg-emerald-300,
+  .bg-green-50,
+  .bg-green-100,
+  .bg-green-200,
+  .bg-green-300,
+  .bg-teal-50,
+  .bg-teal-100,
+  .bg-teal-200,
+  .bg-teal-300,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-slate-200,
+  .bg-slate-300,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-gray-200,
+  .bg-amber-50,
+  .bg-amber-100,
+  .bg-amber-200,
+  .bg-blue-50,
+  .bg-blue-100,
+  .bg-blue-200,
+  .bg-indigo-50,
+  .bg-indigo-100,
+  .bg-purple-50,
+  .bg-purple-100):not([class*="text-red-"]):not([class*="text-rose-"]):not([class*="text-\[\#ef4444\]"]):not([class*="text-\[\#dc2626\]"]) {
+  color: #212529;
+}
+
+/* Light-background pills, tags, and buttons with accidentally light/white text -> dark evergreen */
+:is(button,
+  a,
+  span):is(.bg-white,
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#e9ecef\],
+  .bg-\[\#dee2e6\],
+  .bg-\[\#ced4da\],
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-emerald-200,
+  .bg-emerald-300,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-slate-200,
+  .bg-slate-300):not([class*="text-red-"]):not([class*="text-rose-"]):not([class*="text-\[\#ef4444\]"]):not([class*="text-\[\#dc2626\]"]) {
+  color: #212529 !important;
+}
+
+/* Muted or washed-out light text sitting directly on light surfaces (without its own bg badge) -> readable dark pine-teal */
+:is(.bg-white,
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#e9ecef\],
+  .bg-\[\#dee2e6\],
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-slate-50,
+  .bg-slate-100)> :is(.text-slate-300,
+  .text-slate-400,
+  .text-gray-300,
+  .text-gray-400,
+  .text-emerald-100,
+  .text-emerald-200,
+  .text-emerald-300,
+  .text-white):not([class*="bg-"]) {
+  color: #343a40 !important;
+}
+
+/* Light cards & panels headings/body text (in base layer so explicit utility colors like text-white always win) */
+@layer base {
+  .hrms-app-shell :is(.bg-white,
+    .bg-\[\#f8f9fa\],
+    .bg-\[\#e9ecef\],
+    .panel,
+    .stat,
+    .tile) :is(h1, h2, h3, h4, h5, h6) {
+    color: #212529;
+  }
+
+  .hrms-app-shell :is(.bg-white,
+    .bg-\[\#f8f9fa\],
+    .bg-\[\#e9ecef\],
+    .panel,
+    .stat,
+    .tile) :is(p, td, th, label):not([class*="text-red-"]):not([class*="text-rose-"]):not([class*="text-[#ef4444]"]):not([class*="text-[#dc2626]"]) {
+    color: #343a40;
+  }
+}
+
+/* 11B. High-Contrast White / Light Text on All Dark Backgrounds (Neutral & Evergreen) */
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-slate-700,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  .bg-teal-900,
+  .bg-teal-800,
+  .bg-teal-700,
+  .bg-green-900,
+  .bg-green-800,
+  .bg-green-700,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [class*="from-slate-800"],
+  [class*="from-emerald-950"],
+  [class*="from-emerald-900"],
+  [class*="from-emerald-800"],
+  [class*="from-emerald-700"],
+  [class*="from-emerald-600"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#495057"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"],
+  [style*="linear-gradient"][style*="#2d6a4f"]):not(.fixed.inset-0) {
+  color: #ffffff !important;
+}
+
+/* Headings & bold text inside dark backgrounds -> crisp white */
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-slate-700,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [class*="from-emerald-900"],
+  [class*="from-emerald-800"],
+  [class*="from-emerald-700"],
+  [class*="from-emerald-600"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#495057"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"],
+  [style*="linear-gradient"][style*="#2d6a4f"]):not(.fixed.inset-0) :is(h1, h2, h3, h4, h5, h6, strong, b) {
+  color: #ffffff !important;
+}
+
+/* Secondary & muted text inside dark backgrounds -> crisp light (#f8f9fa / #d8f3dc) */
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-slate-700,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [class*="from-emerald-900"],
+  [class*="from-emerald-800"],
+  [class*="from-emerald-700"],
+  [class*="from-emerald-600"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#495057"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"],
+  [style*="linear-gradient"][style*="#2d6a4f"]):not(.fixed.inset-0) :is(p,
+  small,
+  label,
+  [class*="text-slate-"],
+  [class*="text-gray-"],
+  [class*="text-emerald-"],
+  [class*="text-teal-"],
+  [class*="text-green-"],
+  [class*="text-\[\#495057\]"],
+  [class*="text-\[\#6c757d\]"],
+  [class*="text-\[\#343a40\]"],
+  [class*="text-\[\#212529\]"]) {
+  color: #f8f9fa !important;
+}
+
+/* Explicit text-white stays pure white inside dark backgrounds */
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"]):not(.fixed.inset-0) .text-white {
+  color: #ffffff !important;
+}
+
+/* Preserve dark carbon ink ONLY inside light child pills/buttons/inputs nested INSIDE a dark container */
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"]):not(.fixed.inset-0) :is(.bg-white,
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#e9ecef\],
+  .bg-\[\#d8f3dc\],
+  .bg-\[\#b7e4c7\],
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-slate-50,
+  .bg-slate-100,
+  input:focus) {
+  color: #212529 !important;
+}
+
+:is(.bg-\[\#212529\],
+  .bg-\[\#343a40\],
+  .bg-\[\#495057\],
+  .bg-\[\#081c15\],
+  .bg-\[\#1b4332\],
+  .bg-\[\#2d6a4f\],
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800,
+  .bg-emerald-950,
+  .bg-emerald-900,
+  .bg-emerald-800,
+  .bg-emerald-700,
+  .bg-emerald-600,
+  [class*="from-\[\#212529\]"],
+  [class*="from-\[\#343a40\]"],
+  [class*="from-\[\#495057\]"],
+  [class*="from-\[\#081c15\]"],
+  [class*="from-\[\#1b4332\]"],
+  [class*="from-\[\#2d6a4f\]"],
+  [class*="from-slate-950"],
+  [class*="from-slate-900"],
+  [style*="linear-gradient"][style*="#343a40"],
+  [style*="linear-gradient"][style*="#212529"],
+  [style*="linear-gradient"][style*="#1b4332"],
+  [style*="linear-gradient"][style*="#081c15"]):not(.fixed.inset-0) :is(.bg-white,
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#e9ecef\],
+  .bg-\[\#d8f3dc\],
+  .bg-\[\#b7e4c7\],
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-slate-50,
+  .bg-slate-100) :is(h1, h2, h3, h4, h5, h6, strong, b, p, span, small) {
+  color: #212529 !important;
+}
+
+/* Dark buttons always keep pure white text & icons */
+:is(button.bg-\[\#212529\],
+  button.bg-\[\#343a40\],
+  button.bg-\[\#495057\],
+  button.bg-\[\#6c757d\],
+  button.bg-\[\#081c15\],
+  button.bg-\[\#1b4332\],
+  button.bg-\[\#2d6a4f\],
+  button.bg-\[\#40916c\],
+  button.bg-slate-900,
+  button.bg-slate-800,
+  button.bg-emerald-600,
+  button.bg-emerald-700,
+  button.bg-emerald-800,
+  button.bg-emerald-900,
+  button[class*="from-emerald-600"],
+  button[class*="from-emerald-700"],
+  button[style*="linear-gradient"][style*="#495057"],
+  button[style*="linear-gradient"][style*="#343a40"],
+  button[style*="linear-gradient"][style*="#2d6a4f"],
+  button[style*="linear-gradient"][style*="#1b4332"]),
+:is(button.bg-\[\#212529\],
+  button.bg-\[\#343a40\],
+  button.bg-\[\#495057\],
+  button.bg-\[\#6c757d\],
+  button.bg-\[\#081c15\],
+  button.bg-\[\#1b4332\],
+  button.bg-\[\#2d6a4f\],
+  button.bg-\[\#40916c\],
+  button.bg-slate-900,
+  button.bg-slate-800,
+  button.bg-emerald-600,
+  button.bg-emerald-700,
+  button.bg-emerald-800,
+  button.bg-emerald-900,
+  button[class*="from-emerald-600"],
+  button[class*="from-emerald-700"],
+  button[style*="linear-gradient"][style*="#495057"],
+  button[style*="linear-gradient"][style*="#343a40"],
+  button[style*="linear-gradient"][style*="#2d6a4f"],
+  button[style*="linear-gradient"][style*="#1b4332"]) * {
+  color: #ffffff !important;
 }

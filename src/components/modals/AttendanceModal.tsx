@@ -16,6 +16,7 @@ import {
   Sparkles,
   Check,
   Lock,
+  Home,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -258,7 +259,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
-      alert(currentShift.reason || `Check-in is locked before ${currentShift.allowedStart}.`);
+      alert(currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
       return;
     }
 
@@ -283,16 +284,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
-      alert(err.message || 'Check-in failed');
+      alert(err.message || 'Clock-in failed');
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 1: Direct Check Out (Selfie/Photo feature temporarily disabled per user request)
+  // Step 1: Direct Clock Out (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckOut = async () => {
     if (punchState.status === 'on_break') {
-      alert('Cannot check out while on break. Please click "Resume Work" first.');
+      alert('Cannot clock out while on break. Please click "Resume Work" first.');
       return;
     }
     setLoading(true);
@@ -311,7 +312,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
-      alert(err.message || 'Check-out failed');
+      alert(err.message || 'Clock-out failed');
     } finally {
       setLoading(false);
     }
@@ -324,7 +325,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
 
     // Accent emerald / purple line
-    ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
+    ctx.fillStyle = isWFH ? '#adb5bd' : '#adb5bd';
     ctx.fillRect(0, height - bannerHeight, width, 4);
 
     // Texts
@@ -333,7 +334,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       timeStyle: 'medium',
     });
     const officeName = isWFH
-      ? '🏡 Work From Home (Remote Punch)'
+      ? 'Work From Home (Remote Punch)'
       : 'Paneliya Technology Office';
     const coordsStr = `Identity & Presence Verified • ${officeName}`;
 
@@ -342,26 +343,26 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(`📍 ${officeName}`, 14, height - 78);
+    ctx.fillText(officeName, 14, height - 78);
 
-    ctx.fillStyle = isWFH ? '#c084fc' : '#6ee7b7';
+    ctx.fillStyle = isWFH ? '#dee2e6' : '#dee2e6';
     ctx.font = '11px monospace';
     ctx.fillText(coordsStr, 14, height - 58);
 
-    ctx.fillStyle = '#fde047';
+    ctx.fillStyle = '#f8f9fa';
     ctx.font = 'bold 11px monospace';
-    ctx.fillText(`💻 ${devStr}`, 14, height - 38);
+    ctx.fillText(devStr, 14, height - 38);
 
-    ctx.fillStyle = '#cbd5e1';
+    ctx.fillStyle = '#dee2e6';
     ctx.font = '10px sans-serif';
-    ctx.fillText(`🕒 ${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
+    ctx.fillText(`${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
   };
 
   // Capture video frame to canvas with burned-in geotag, black-frame prevention, & timestamp watermark
   const handleCaptureSelfie = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
-    
+
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
 
@@ -372,7 +373,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     if (!ctx) return;
 
     // Fill dark background to prevent transparent JPEG conversion artifacts
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let hasDrawnVideo = false;
@@ -419,9 +420,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     if (isPitchBlack) {
       const photoAreaHeight = canvas.height - bannerHeight;
       const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-      grad.addColorStop(0, '#1e1b4b');
-      grad.addColorStop(0.6, '#0f172a');
-      grad.addColorStop(1, '#1e293b');
+      grad.addColorStop(0, '#343a40');
+      grad.addColorStop(0.6, '#212529');
+      grad.addColorStop(1, '#343a40');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
 
@@ -438,12 +439,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
       ctx.beginPath();
       ctx.arc(avatarX, avatarY, avatarRadius + 4, 0, Math.PI * 2);
-      ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
+      ctx.fillStyle = isWFH ? '#adb5bd' : '#adb5bd';
       ctx.fill();
 
       ctx.beginPath();
       ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
-      ctx.fillStyle = '#312e81';
+      ctx.fillStyle = '#343a40';
       ctx.fill();
 
       // Employee initials
@@ -466,13 +467,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       // Employee Code & Role
       const empCode = (user as any).employeeCode || user.employeeId || currentEmpId;
       ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = isWFH ? '#d8b4fe' : '#6ee7b7';
+      ctx.fillStyle = isWFH ? '#e9ecef' : '#dee2e6';
       ctx.fillText(`EMP ID: ${empCode} • ${rawRole}`, avatarX, avatarY + avatarRadius + 54);
 
       // Status caption
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('🛡️ HRMS DIGITAL IDENTITY VERIFIED', avatarX, avatarY + avatarRadius + 75);
+      ctx.fillStyle = '#6c757d';
+      ctx.fillText('HRMS DIGITAL IDENTITY VERIFIED', avatarX, avatarY + avatarRadius + 75);
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
@@ -643,7 +644,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                 <Camera className="w-5 h-5" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {selfieMode === 'check_in' ? 'Check-In Verification Selfie' : 'Check-Out Verification Selfie'}
+                {selfieMode === 'check_in' ? 'Clock-In Verification Selfie' : 'Clock-Out Verification Selfie'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Take a selfie to prove your presence at office premises
@@ -674,7 +675,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     muted
                     onLoadedMetadata={() => {
                       if (videoRef.current) {
-                        videoRef.current.play().catch(() => {});
+                        videoRef.current.play().catch(() => { });
                       }
                     }}
                     onCanPlay={() => setCameraReady(true)}
@@ -702,7 +703,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Live Watermark Overlay (Visual feedback while taking selfie) */}
                   <div className="absolute bottom-0 inset-x-0 bg-slate-900/85 backdrop-blur-xs p-2.5 border-t border-emerald-500 text-left pointer-events-none">
                     <div className="flex items-center justify-between text-white text-[11px] font-bold">
-                      <span className="truncate">📍 {isWFH ? '🏡 Work From Home' : 'Corporate Office'}</span>
+                      <span className="truncate inline-flex items-center gap-1">
+                        {isWFH ? <Home className="w-3 h-3 shrink-0" /> : <MapPin className="w-3 h-3 shrink-0" />}
+                        {isWFH ? 'Work From Home' : 'Corporate Office'}
+                      </span>
                       <span className="text-emerald-400 font-mono text-[10px]">
                         {isWFH ? 'WFH Active' : 'Attendance Verified'}
                       </span>
@@ -745,9 +749,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                               const bannerHeight = 105;
                               const photoAreaHeight = canvas.height - bannerHeight;
                               const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-                              grad.addColorStop(0, '#1e1b4b');
-                              grad.addColorStop(0.6, '#0f172a');
-                              grad.addColorStop(1, '#1e293b');
+                              grad.addColorStop(0, '#343a40');
+                              grad.addColorStop(0.6, '#212529');
+                              grad.addColorStop(1, '#343a40');
                               ctx.fillStyle = grad;
                               ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
                               drawWatermarkBanner(ctx, canvas.width, canvas.height);
@@ -813,8 +817,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       {loading
                         ? 'Verifying...'
                         : selfieMode === 'check_in'
-                        ? 'Confirm Check-In'
-                        : 'Confirm Check-Out'}
+                          ? 'Confirm Clock-In'
+                          : 'Confirm Clock-Out'}
                     </span>
                   </button>
                 </div>
@@ -847,9 +851,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             </div>
 
             {/* Luxury Digital Clock & Timer Display */}
-            <div className="bg-gradient-to-br from-[#062d1f] via-[#083b28] to-[#041d14] rounded-2xl p-4 sm:p-5 text-center border border-[#0d4a34] shadow-md animate-clock-glow my-3 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#059669]" />
-              
+            <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
               <ModernDigitClock
                 time={punchState.status === 'not_started' ? time : undefined}
                 timeString={punchState.status !== 'not_started' ? liveWorkedHMS : undefined}
@@ -860,19 +862,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   punchState.status === 'working'
                     ? 'Active Shift Chronometer'
                     : punchState.status === 'on_break'
-                    ? 'Timer Paused (On Break)'
-                    : punchState.status === 'completed'
-                    ? 'Shift Completed (Timer Stopped)'
-                    : 'Live GPS Shift Chronometer'
+                      ? 'Timer Paused (On Break)'
+                      : punchState.status === 'completed'
+                        ? 'Shift Completed (Timer Stopped)'
+                        : 'Live GPS Shift Chronometer'
                 }
                 subText={
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
                     : punchState.status === 'completed'
-                    ? `Total worked: ${liveWorkedHMS} • Shift Finalized`
-                    : time
-                    ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                    : 'October 28, 2026'
+                      ? `Total worked: ${liveWorkedHMS} • Shift Finalized`
+                      : time
+                        ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                        : 'October 28, 2026'
                 }
               />
             </div>
@@ -881,7 +883,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             {isWFH && (
               <div className="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🏡</span>
+                  <Home className="w-4 h-4 text-purple-700 shrink-0" />
                   <div>
                     <span className="text-xs font-bold text-purple-950 block">Work From Home (WFH) Active</span>
                     <span className="text-[11px] text-purple-800">Remote attendance punch mode enabled</span>
@@ -946,7 +948,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Check In' : 'Check Out'}</span>
+                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Clock In' : 'Clock Out'}</span>
                         {p.remarks && <span className="text-slate-400 text-[10px] truncate max-w-[120px]">({p.remarks})</span>}
                       </div>
                       <span className="font-mono text-slate-600 font-semibold text-[11px] shrink-0">{p.time}</span>
@@ -980,7 +982,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>
-                      {loading ? 'Checking In...' : 'Check In Now'}
+                      {loading ? 'Clocking In...' : 'Clock In Now'}
                     </span>
                   </button>
                 </div>
@@ -1002,7 +1004,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                    <span className="truncate">{loading ? 'Checking Out...' : 'Check Out'}</span>
+                    <span className="truncate">{loading ? 'Clocking Out...' : 'Clock Out'}</span>
                   </button>
                 </div>
               )}
@@ -1021,15 +1023,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <button
                       type="button"
                       disabled={true}
-                      title="Check out is blocked while on break. Please click 'Resume Work' first."
+                      title="Clock out is blocked while on break. Please click 'Resume Work' first."
                       className="py-3 px-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">Check Out (Blocked)</span>
+                      <span className="truncate">Clock Out (Blocked)</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-amber-800 font-medium text-center bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-200">
-                    ⚠️ Check-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.
+                  <p className="text-[11px] text-amber-800 font-medium bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-200 flex items-center justify-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Clock-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.</span>
                   </p>
                 </div>
               )}
@@ -1038,10 +1041,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                 <div className="space-y-2.5 mb-2">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
                     <p className="text-xs font-semibold text-slate-800">
-                      Currently Checked Out
+                      Currently Clocked Out
                     </p>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      You can check in again anytime to start another work session.
+                      You can clock in again anytime to start another work session.
                     </p>
                   </div>
 
@@ -1053,7 +1056,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       type="text"
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
-                      placeholder="Post-break / afternoon session check-in"
+                      placeholder="Post-break / afternoon session clock-in"
                       className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
                     />
                   </div>
@@ -1064,7 +1067,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white transition-all cursor-pointer shadow-sm disabled:opacity-40"
                   >
                     <Play className="w-4 h-4 fill-current" />
-                    <span>{loading ? 'Checking In...' : 'Check In Again'}</span>
+                    <span>{loading ? 'Clocking In...' : 'Clock In Again'}</span>
                   </button>
                 </div>
               )}

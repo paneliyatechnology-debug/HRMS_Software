@@ -45,6 +45,7 @@ interface SidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
   company?: any;
+  onOpenProfile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed: propIsCollapsed,
   onToggleCollapse,
   company,
+  onOpenProfile,
 }) => {
   const { user, logout } = useAuth();
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -202,6 +204,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const renderProfileNavItem = () => {
+    return navItem('profile', 'My Profile', <User className="w-4 h-4" />);
+  };
+
   const navItem = (
     id: string,
     label: string,
@@ -226,17 +232,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => handleNav(id, subTab)}
           title={label}
           aria-label={label}
-          className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${
-            isActive
-              ? 'bg-[#064e3b] text-white shadow-xs'
-              : 'text-[#475569] hover:bg-[#ecfdf5] hover:text-[#064e3b] hover:scale-105'
-          }`}
+          className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${isActive
+            ? 'bg-[#1b4332] text-white shadow-xs'
+            : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
+            }`}
         >
-          <span className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#059669] group-hover:text-[#064e3b]'}`}>
+          <span className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
             {icon}
           </span>
           {badge && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#f59e0b] ring-2 ring-white animate-pulse" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#52b788] ring-2 ring-white animate-pulse" />
           )}
         </button>
       );
@@ -247,14 +252,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         key={id}
         id={`nav-item-${id}`}
         onClick={() => handleNav(id, subTab)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-all duration-200 cursor-pointer group active:scale-[0.98] ${
-          isActive
-            ? 'bg-[#064e3b] text-white font-bold shadow-xs translate-x-0.5'
-            : 'text-[#334155] hover:bg-[#ecfdf5] hover:text-[#064e3b] hover:translate-x-1 font-medium'
-        }`}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-all duration-200 cursor-pointer group active:scale-[0.98] ${isActive
+          ? 'bg-[#1b4332] text-white font-bold shadow-xs translate-x-0.5'
+          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:translate-x-1 font-medium'
+          }`}
       >
         <div className="flex items-center gap-2.5">
-          <span className={`w-5 flex justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#059669] group-hover:text-[#064e3b]'}`}>
+          <span className={`w-5 flex justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
             {icon}
           </span>
           <span className="truncate">{label}</span>
@@ -276,42 +280,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:static top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] max-w-[85vw] ${
-          isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
-        } bg-white text-[#0d271d] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r-2 border-[#064e3b] shadow-xs ${
-          isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
+          } bg-white text-[#212529] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#e9ecef] shadow-xs ${isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
+          }`}
       >
         {/* Brand Header */}
         <div
-          className={`h-[62px] sm:h-[66px] border-b-2 border-[#064e3b] shrink-0 bg-white ${
-            effectiveCollapsed
-              ? 'px-2 flex items-center justify-center'
-              : 'px-3 flex items-center justify-between'
-          }`}
+          className={`relative h-[62px] sm:h-[66px] border-b border-[#e9ecef] shrink-0 bg-white ${effectiveCollapsed
+            ? 'px-2 flex items-center justify-center'
+            : 'px-3 flex items-center justify-between'
+            }`}
         >
           {effectiveCollapsed ? (
             <div className="flex items-center justify-center w-full">
               <button
                 id="btn-sidebar-logo-expand"
                 onClick={toggleCollapse}
-                className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xl shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer relative group overflow-hidden"
-                title={`${displayCompanyName} (by MyOwnHRMS)`}
+                className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#52b788] to-[#2d6a4f] flex items-center justify-center font-black text-white text-xl shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer overflow-hidden"
+                title={`Expand sidebar — ${displayCompanyName}`}
               >
                 {companyLogo ? (
                   <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
                 ) : (
                   companyInitial
                 )}
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white border border-[#064e3b] flex items-center justify-center text-[10px] text-[#064e3b] shadow-xs">
-                  <PanelLeftOpen className="w-2.5 h-2.5" />
-                </span>
               </button>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2.5 min-w-0 pr-1">
-                <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xl shadow-md shrink-0 overflow-hidden">
+                <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#52b788] to-[#2d6a4f] flex items-center justify-center font-black text-white text-xl shadow-md shrink-0 overflow-hidden">
                   {companyLogo ? (
                     <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
                   ) : (
@@ -319,12 +317,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#0d271d] block leading-tight font-black truncate" title={displayCompanyName}>
+                  <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#212529] block leading-tight font-semibold truncate" title={displayCompanyName}>
                     {displayCompanyName}
                   </b>
-                  <small className="text-[10px] tracking-[0.4px] text-[#059669] block font-bold leading-none mt-0.5">
-                    by MyOwnHRMS
-                  </small>
                 </div>
               </div>
 
@@ -333,7 +328,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   id="btn-sidebar-toggle-collapse"
                   onClick={toggleCollapse}
-                  className="hidden lg:flex p-1.5 rounded-lg text-[#065f46] hover:text-[#0d271d] hover:bg-[#ecfdf5] transition-colors cursor-pointer"
+                  className="hidden lg:flex p-1.5 rounded-lg text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] transition-colors cursor-pointer"
                   title="Collapse sidebar (icons only)"
                 >
                   <PanelLeftClose className="w-4 h-4" />
@@ -341,7 +336,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Close button for mobile */}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg text-[#065f46] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden cursor-pointer"
+                  className="p-1.5 rounded-lg text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden cursor-pointer"
                   title="Close navigation"
                 >
                   <X className="w-5 h-5" />
@@ -353,14 +348,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation list */}
         <div
-          className={`flex-1 overflow-y-auto ${
-            effectiveCollapsed ? 'px-2' : 'px-2.5'
-          } py-3 space-y-4 text-sm [scrollbar-width:thin] pb-24 lg:pb-6`}
+          className={`flex-1 overflow-y-auto ${effectiveCollapsed ? 'px-2' : 'px-2.5'
+            } py-3 space-y-4 text-sm [scrollbar-width:thin] pb-24 lg:pb-6`}
         >
           {/* Main workspace section */}
           <div className="space-y-0.5">
             {!effectiveCollapsed && (
-              <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px]">
+              <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px]">
                 {portalMode === 'admin' ? 'Administration' : 'Self-Service'}
               </p>
             )}
@@ -372,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
               <CalendarOff className="w-4 h-4" />,
               portalMode === 'admin' && pendingLeavesCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#f59e0b] text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
                   {pendingLeavesCount}
                 </span>
               ) : undefined
@@ -388,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               'Team Chat',
               <MessageSquare className="w-4 h-4" />,
               unreadChatCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#10b981] text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
                   {unreadChatCount}
                 </span>
               ) : undefined
@@ -400,9 +394,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {portalMode === 'admin' && (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
+                <div className="my-2 border-t border-[#343a40]/20 mx-1" />
               ) : (
-                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
                   Workforce
                 </p>
               )}
@@ -416,40 +410,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div>
                   <button
                     onClick={() => toggleSection('people')}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#334155] hover:bg-[#ecfdf5] hover:text-[#064e3b] transition-colors cursor-pointer group"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-[#f8f9fa] hover:text-[#343a40] transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="w-5 flex justify-center text-[#059669] group-hover:text-[#064e3b]">
+                      <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#343a40]">
                         <Users className="w-4 h-4" />
                       </span>
                       <span>Employees</span>
                     </div>
                     <ChevronDown
-                      className={`w-3.5 h-3.5 text-[#059669] transition-transform ${
-                        openSections.people ? 'rotate-180' : ''
-                      }`}
+                      className={`w-3.5 h-3.5 text-[#6c757d] transition-transform ${openSections.people ? 'rotate-180' : ''
+                        }`}
                     />
                   </button>
 
                   {openSections.people && (
-                    <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#064e3b]/30 my-1">
+                    <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
                       <button
                         onClick={() => handleNav('employees')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${
-                          activeModule === 'employees'
-                            ? 'text-white font-bold bg-[#064e3b]'
-                            : 'text-[#475569] hover:text-[#064e3b] hover:bg-[#ecfdf5]'
-                        }`}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'employees'
+                          ? 'text-white font-bold bg-[#2d6a4f]'
+                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                          }`}
                       >
                         Directory
                       </button>
                       <button
                         onClick={() => handleNav('organization', 'departments')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${
-                          activeModule === 'organization' && activeSubTab === 'departments'
-                            ? 'text-white font-bold bg-[#064e3b]'
-                            : 'text-[#475569] hover:text-[#064e3b] hover:bg-[#ecfdf5]'
-                        }`}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
+                          ? 'text-white font-bold bg-[#2d6a4f]'
+                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                          }`}
                       >
                         Departments & Roles
                       </button>
@@ -469,110 +460,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {portalMode === 'admin' ? (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
+                <div className="my-2 border-t border-[#343a40]/20 mx-1" />
               ) : (
-                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
                   Company
                 </p>
               )}
               {navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')}
               {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
+              {renderProfileNavItem()}
               {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
           ) : (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#064e3b]/20 mx-1" />
+                <div className="my-2 border-t border-[#343a40]/20 mx-1" />
               ) : (
-                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#065f46] uppercase tracking-[1.2px] pt-2">
+                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
                   Company
                 </p>
               )}
               {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
+              {renderProfileNavItem()}
+              {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
           )}
         </div>
 
-        {/* Footer: User profile & Logout */}
+        {/* Compact Company Brand Footer */}
         <div
-          className={`border-t-2 border-[#064e3b] bg-[#f8faf9] ${
-            effectiveCollapsed ? 'p-2' : 'p-3'
-          }`}
+          className={`border-t border-[#e9ecef] bg-[#f8f9fa] shrink-0 ${effectiveCollapsed ? 'p-2 flex justify-center' : 'px-3.5 py-2.5'
+            }`}
         >
           {effectiveCollapsed ? (
-            <div className="flex flex-col items-center gap-2 py-1">
-              <div
-                className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer overflow-hidden border border-[#a7f3d0]"
-                title={`${
-                  user.firstName
-                    ? `${user.firstName} ${user.lastName || ''}`.trim()
-                    : user.email || 'User'
-                } (${
-                  portalMode === 'admin'
-                    ? 'Administrator'
-                    : (user as any).designationTitle || 'Staff Employee'
-                })`}
-              >
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <>
-                    {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                    {user.lastName?.[0] || ''}
-                  </>
-                )}
-              </div>
-              <button
-                onClick={logout}
-                className="p-2 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+            <div
+              className="w-7 h-7 rounded-[6px] bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[10px] font-bold flex items-center justify-center select-none"
+              title={`${displayCompanyName} • by MyOwnHRMS`}
+            >
+              {companyInitial}
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between p-1.5 rounded-[8px] hover:bg-[#ecfdf5] transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs overflow-hidden border border-[#a7f3d0]">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                        {user.lastName?.[0] || ''}
-                      </>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#0d271d] truncate">
-                      {user.firstName
-                        ? `${user.firstName} ${user.lastName || ''}`.trim()
-                        : user.email || 'User'}
-                    </p>
-                    <p className="text-[10px] text-[#475569] truncate flex items-center gap-1">
-                      <span>{portalMode === 'admin' ? 'Administrator' : (user as any).designationTitle || 'Staff Employee'}</span>
-                      <span className="opacity-60">•</span>
-                      <span className="text-[#059669] font-bold">{workStatus}</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={logout}
-                  className="p-1.5 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="mt-2 pt-2 border-t border-[#064e3b]/20 px-1 text-[10px] text-[#475569] flex justify-between items-center">
-                <span className="truncate max-w-[125px] font-medium" title={displayCompanyName}>{displayCompanyName}</span>
-                <span className="text-[#059669] font-bold">by MyOwnHRMS</span>
-              </div>
-            </>
+            <div className="flex items-center justify-between gap-2 text-[10px] leading-tight">
+              <span
+                className="truncate font-semibold text-[#343a40]"
+                title={displayCompanyName}
+              >
+                {displayCompanyName}
+              </span>
+              <span className="text-[#2d6a4f] font-bold whitespace-nowrap shrink-0">
+                by MyOwnHRMS
+              </span>
+            </div>
           )}
         </div>
       </aside>

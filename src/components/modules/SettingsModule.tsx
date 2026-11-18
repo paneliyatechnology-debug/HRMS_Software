@@ -74,10 +74,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac' | 'billing' | 'preferences'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves'>('company');
 
   // Employee tabs state
-  const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'preferences' | 'security' | 'notifications'>('profile');
+  const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
 
   const adminCompanyId = user.companyId || (user as any).companyId || '';
 
@@ -125,19 +125,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           address: comp.address || '',
         });
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => {
       isMounted = false;
     };
   }, [user]);
 
   const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
+  const [settingsLoading, setSettingsLoading] = useState(!isEmployee);
 
   const [leavePolicyData, setLeavePolicyData] = useState({
-    casualLeaveAnnual: 12,
-    sickLeaveAnnual: 10,
-    paidLeaveAnnual: 15,
-    carryForwardLimit: 5,
+    casualLeaveAnnual: 0,
+    sickLeaveAnnual: 0,
+    paidLeaveAnnual: 0,
+    carryForwardLimit: 0,
   });
 
   // --- Employee Settings State ---
@@ -176,9 +177,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
   useEffect(() => {
     if (!isEmployee) {
+      let active = true;
       const loadSettings = async () => {
+        setSettingsLoading(true);
         try {
-          const data = await api.getSettings();
+          const raw = await api.getSettings();
+          const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+          if (!active) return;
           if (data) {
             if (data.company) setCompanyData((prev) => ({ ...prev, ...data.company }));
             if (data.workSchedule) {
@@ -186,16 +191,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             } else {
               setScheduleData(getWorkScheduleConfig(adminCompanyId));
             }
-            if (data.leavePolicy) setLeavePolicyData((prev) => ({ ...prev, ...data.leavePolicy }));
+            if (data.leavePolicy) {
+              setLeavePolicyData({
+                casualLeaveAnnual: Math.max(0, Number(data.leavePolicy.casualLeaveAnnual) || 0),
+                sickLeaveAnnual: Math.max(0, Number(data.leavePolicy.sickLeaveAnnual) || 0),
+                paidLeaveAnnual: Math.max(0, Number(data.leavePolicy.paidLeaveAnnual) || 0),
+                carryForwardLimit: Math.max(0, Number(data.leavePolicy.carryForwardLimit) || 0),
+              });
+            }
           } else {
             setScheduleData(getWorkScheduleConfig(adminCompanyId));
           }
         } catch (err) {
           console.error('Failed to load settings:', err);
-          setScheduleData(getWorkScheduleConfig(adminCompanyId));
+          if (active) setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        } finally {
+          if (active) setSettingsLoading(false);
         }
       };
       loadSettings();
+      return () => {
+        active = false;
+      };
     }
   }, [isEmployee, user]);
 
@@ -203,16 +220,31 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     setLoading(true);
     try {
       saveWorkScheduleConfig(scheduleData, adminCompanyId);
+      const sanitizedLeavePolicy = {
+        casualLeaveAnnual: Math.max(0, Number(leavePolicyData.casualLeaveAnnual) || 0),
+        sickLeaveAnnual: Math.max(0, Number(leavePolicyData.sickLeaveAnnual) || 0),
+        paidLeaveAnnual: Math.max(0, Number(leavePolicyData.paidLeaveAnnual) || 0),
+        carryForwardLimit: Math.max(0, Number(leavePolicyData.carryForwardLimit) || 0),
+      };
+      setLeavePolicyData(sanitizedLeavePolicy);
       await api.updateSettings({
         company: companyData,
         workSchedule: scheduleData,
-        leavePolicy: leavePolicyData,
+        leavePolicy: sanitizedLeavePolicy,
         payrollPolicy: {
           payCycle: 'Monthly',
           disbursementDate: 28,
           pfContributionPercent: 12,
         },
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('hrms_settings_updated', {
+            detail: { leavePolicy: sanitizedLeavePolicy },
+          })
+        );
+      }
 
       setSavedMessage(true);
       showToast({
@@ -389,7 +421,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     const workStatusOptions = [
       {
         id: 'Working in Office',
-        icon: '🏢',
+        icon: 'Office',
         title: 'Working in Office',
         desc: 'Present at your workstation. Ready for face-to-face team discussions.',
         badge: 'In Office',
@@ -397,7 +429,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       },
       {
         id: 'Working Remotely',
-        icon: '🏠',
+        icon: 'Remote',
         title: 'Working Remotely',
         desc: 'Operating from home or remote base. Reachable via chat & video.',
         badge: 'Remote',
@@ -405,7 +437,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       },
       {
         id: 'In Client Meeting',
-        icon: '🤝',
+        icon: 'Meeting',
         title: 'In Client Meeting',
         desc: 'Consulting with customers or attending external visits.',
         badge: 'Meeting',
@@ -413,7 +445,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       },
       {
         id: 'Focus / Deep Work',
-        icon: '🎯',
+        icon: 'Focus',
         title: 'Focus / Deep Work',
         desc: 'Heads-down on high-priority development. Urgent queries only.',
         badge: 'DND',
@@ -464,11 +496,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <div
                     key={opt.id}
                     onClick={() => setEmpPreferences({ ...empPreferences, workStatus: opt.id })}
-                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                      isSelected
+                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${isSelected
                         ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/20`
                         : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
@@ -485,11 +516,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                         </div>
                       </div>
                       <div
-                        className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${
-                          isSelected
+                        className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${isSelected
                             ? 'border-emerald-600 bg-emerald-600 text-white'
                             : 'border-slate-300 bg-white'
-                        }`}
+                          }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
                       </div>
@@ -511,22 +541,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div
                 onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '12h' })}
-                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                  empPreferences.timeFormat === '12h'
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '12h'
                     ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">12-Hour Format (AM / PM)</h4>
                   <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">02:30:45 PM</p>
                 </div>
                 <div
-                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${
-                    empPreferences.timeFormat === '12h'
+                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '12h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
-                  }`}
+                    }`}
                 >
                   {empPreferences.timeFormat === '12h' && <Check className="w-3 h-3" />}
                 </div>
@@ -534,22 +562,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
               <div
                 onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '24h' })}
-                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                  empPreferences.timeFormat === '24h'
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '24h'
                     ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">24-Hour Military Format</h4>
                   <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">14:30:45</p>
                 </div>
                 <div
-                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${
-                    empPreferences.timeFormat === '24h'
+                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '24h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
-                  }`}
+                    }`}
                 >
                   {empPreferences.timeFormat === '24h' && <Check className="w-3 h-3" />}
                 </div>
@@ -593,7 +619,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           </div>
 
           {/* Real-time Preview Banner */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] flex flex-wrap items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#343a40] to-[#343a40] text-white border border-[#343a40] flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -641,24 +667,23 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   if (isEmployee) {
     const employeeNavItems = [
       { id: 'profile', label: 'Personal Profile', desc: 'Avatar, phone & emergency contact', icon: User },
-      { id: 'preferences', label: 'Presence & Display', desc: 'Status, 12h/24h time & language', icon: Sliders },
       { id: 'security', label: 'Security & Password', desc: 'Password reset & active session', icon: Lock },
       { id: 'notifications', label: 'Notification Alerts', desc: 'Shift & message reminders', icon: Bell },
     ];
 
     return (
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+      <div className="space-y-5 w-full animate-in fade-in select-none">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h1 className="flex items-center gap-2.5">
               <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-xs">
                 <Settings className="w-4 h-4" />
               </span>
-              Settings & Preferences
+              <span className="hrms-page-title">Settings &amp; Preferences</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Personalize your employee account, workspace presence, and notifications.
+              Personalize your employee account, security, and notifications.
             </p>
           </div>
 
@@ -683,16 +708,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <button
                   key={item.id}
                   onClick={() => setEmpActiveTab(item.id as any)}
-                  className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${
-                    isActive
+                  className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
                       ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                      isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                    }`}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
@@ -830,9 +853,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 </div>
               </div>
             )}
-
-            {/* Tab: Preferences */}
-            {empActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
 
             {/* Tab: Security */}
             {empActiveTab === 'security' && (
@@ -1005,15 +1025,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   // ═══════════════════════════════════════════════════════════════════════════
   const adminNavItems = [
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
-    { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & check-in window', icon: Clock },
+    { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
     { id: 'leaves', label: 'Leave Quotas', desc: 'Annual quota allowances & carry forward', icon: CalendarOff },
-    { id: 'rbac', label: 'Access Control (RBAC)', desc: 'User roles & feature permissions', icon: Shield },
-    { id: 'billing', label: 'Plan & Subscription', desc: 'Current tier, invoices & upgrades', icon: Crown },
-    { id: 'preferences', label: 'Preferences & Display', desc: 'Presence status, clock & date format', icon: Sliders },
   ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
@@ -1021,15 +1038,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-xs">
               <Settings className="w-4 h-4" />
             </span>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Settings & Policies
+            <h1 className="hrms-page-title">
+              Settings &amp; Policies
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
               {companyData.name || 'Admin Workspace'}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1 ml-10">
-            Configure company identity, working hours, leave quotas, and enterprise access rules.
+            Configure company identity, working hours, and leave quotas.
           </p>
         </div>
 
@@ -1065,16 +1082,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <button
                 key={item.id}
                 onClick={() => setAdminActiveTab(item.id as any)}
-                className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${
-                  isActive
+                className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
                     ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                  }`}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
@@ -1245,7 +1260,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     onChange={(e) => setScheduleData({ ...scheduleData, earlyBufferMinutes: Number(e.target.value) })}
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Minutes before shift start when check-in opens.</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Minutes before shift start when clock-in opens.</p>
                 </div>
 
                 <div>
@@ -1311,7 +1326,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 const allowedStart = formatMinutesToTimeString(startMins - Number(scheduleData.earlyBufferMinutes || 30));
                 const allowedEnd = formatMinutesToTimeString(startMins + Number(scheduleData.gracePeriodMinutes || 15));
                 return (
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] flex flex-wrap items-center justify-between gap-3">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#343a40] to-[#343a40] text-white border border-[#343a40] flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -1321,11 +1336,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                         {allowedStart} — {allowedEnd}
                       </p>
                       <p className="text-[11px] text-emerald-100/70 mt-0.5">
-                        Allowed check-in starts at {allowedStart} with a {scheduleData.gracePeriodMinutes || 15}-minute grace window.
+                        Allowed clock-in starts at {allowedStart} with a {scheduleData.gracePeriodMinutes || 15}-minute grace window.
                       </p>
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold">
-                      {scheduleData.enforceShiftWindow !== false ? '🔒 Strict Mode Active' : 'Flexible Check-In'}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold">
+                      {scheduleData.enforceShiftWindow !== false ? (
+                        <><Lock className="w-3 h-3 shrink-0" /> Strict Mode Active</>
+                      ) : (
+                        'Flexible Clock-In'
+                      )}
                     </span>
                   </div>
                 );
@@ -1347,86 +1366,108 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           {/* ── Tab 3: Leave Quotas ── */}
           {adminActiveTab === 'leaves' && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <CalendarOff className="w-4 h-4 text-emerald-600" />
-                  Annual Leave Quotas & Carry-Forward
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Set annual leave quotas allotted to every active employee upon onboarding.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.casualLeaveAnnual}
-                    onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Number(e.target.value) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <CalendarOff className="w-4 h-4 text-emerald-600" />
+                    Annual Leave Quotas & Carry-Forward
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
+                  </p>
                 </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.sickLeaveAnnual}
-                    onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Number(e.target.value) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.paidLeaveAnnual}
-                    onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Number(e.target.value) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    value={leavePolicyData.carryForwardLimit}
-                    onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Number(e.target.value) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 shrink-0">
+                  Total Annual Leaves:{' '}
+                  <span className="font-black text-emerald-700">
+                    {settingsLoading
+                      ? 'Loading...'
+                      : `${(Number(leavePolicyData.casualLeaveAnnual) || 0) + (Number(leavePolicyData.sickLeaveAnnual) || 0) + (Number(leavePolicyData.paidLeaveAnnual) || 0)} Days`}
+                  </span>
                 </div>
               </div>
+
+              {settingsLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 animate-pulse">
+                      <div className="h-4 w-32 bg-slate-200 rounded" />
+                      <div className="h-11 w-full bg-slate-200/70 rounded-xl" />
+                      <div className="h-3 w-48 bg-slate-200/60 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.casualLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.sickLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.paidLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="30"
+                      value={leavePolicyData.carryForwardLimit}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={handleAdminSave}
-                  disabled={loading}
+                  disabled={loading || settingsLoading}
                   className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Check className="w-4 h-4" />
@@ -1435,227 +1476,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               </div>
             </div>
           )}
-
-          {/* ── Tab 4: RBAC Permissions Matrix ── */}
-          {adminActiveTab === 'rbac' && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-600" />
-                  Role-Based Access Control (RBAC)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Review permission tiers and module accessibility across company user roles.
-                </p>
-              </div>
-
-              <div className="overflow-x-auto border border-slate-200/80 rounded-2xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Feature / Module</th>
-                      <th className="py-3 px-3 text-center">Company Admin</th>
-                      <th className="py-3 px-3 text-center">HR Admin</th>
-                      <th className="py-3 px-3 text-center">Manager</th>
-                      <th className="py-3 px-3 text-center">Employee</th>
-                      <th className="py-3 px-3 text-center">Recruiter</th>
-                      <th className="py-3 px-3 text-center">Finance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {rbacMatrix.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50/70 transition">
-                        <td className="py-3 px-4 font-bold text-slate-800">{row.module}</td>
-                        <td className="py-3 px-3 text-center">
-                          <Check className="w-4 h-4 text-emerald-600 mx-auto" />
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {row.hrAdmin ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {row.manager ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {row.employee ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {row.recruiter ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {row.finance ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ── Tab 5: Subscription & Billing ── */}
-          {adminActiveTab === 'billing' && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Active Plan Hero Card */}
-              <div
-                className="relative rounded-3xl p-6 sm:p-8 overflow-hidden shadow-xl text-white"
-                style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}
-              >
-                <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }} />
-
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        Active Subscription
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold">
-                        {subData.billingCycle} Billing
-                      </span>
-                    </div>
-
-                    <h3 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
-                      <span>{subData.plan.name} Plan</span>
-                      <Crown className="w-6 h-6 text-amber-300" />
-                    </h3>
-                    <p className="text-xs sm:text-sm text-emerald-100/80 max-w-xl">
-                      {subData.plan.tagline}
-                    </p>
-
-                    <div className="pt-2 flex flex-wrap items-center gap-6 text-xs">
-                      <div>
-                        <span className="text-emerald-200/60 block text-[10px] uppercase font-bold tracking-wider">Renewal Date</span>
-                        <span className="font-bold text-white text-sm">{subData.nextRenewalDate}</span>
-                      </div>
-                      <div>
-                        <span className="text-emerald-200/60 block text-[10px] uppercase font-bold tracking-wider">Rate</span>
-                        <span className="font-bold text-emerald-300 text-sm">
-                          ₹{subData.billingCycle === 'Annual' ? subData.plan.priceAnnualINR.toLocaleString('en-IN') : subData.plan.priceMonthlyINR.toLocaleString('en-IN')} / {subData.billingCycle === 'Annual' ? 'year' : 'month'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-emerald-200/60 block text-[10px] uppercase font-bold tracking-wider">Tenant Code</span>
-                        <span className="font-mono font-bold text-white text-sm">{subData.company?.code || (user as any)?.companyCode || 'HQ'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
-                    <button
-                      onClick={() => setIsUpgradeModalOpen(true)}
-                      className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                    >
-                      <Sparkles className="w-4 h-4 text-slate-950" />
-                      <span>Upgrade Plan</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        showToast({
-                          type: 'info',
-                          title: 'Support Desk',
-                          message: 'Priority billing support ticket opened (#PAN-8910).',
-                        });
-                      }}
-                      className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Billing Support</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quota Bar */}
-                <div className="relative z-10 mt-6 pt-5 border-t border-white/10">
-                  <div className="flex items-center justify-between text-xs font-bold mb-2">
-                    <span className="text-emerald-200/80 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-emerald-400" />
-                      Workforce Quota Capacity
-                    </span>
-                    <span className="text-white">
-                      {subData.currentEmployeesCount} / {subData.maxEmployees >= 1000 ? 'Unlimited' : `${subData.maxEmployees}`} Employees ({subData.quotaPercent}% used)
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 rounded-full bg-black/40 overflow-hidden border border-white/10">
-                    <div
-                      className="h-full rounded-full bg-emerald-400 transition-all duration-500"
-                      style={{ width: `${Math.max(5, subData.quotaPercent)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Invoices List */}
-              <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Invoices & Receipts</h4>
-                    <p className="text-xs text-slate-500">Official GST-compliant receipts for tax and accounting</p>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
-                    GST Ready
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto border border-slate-200/80 rounded-2xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px]">
-                      <tr>
-                        <th className="py-2.5 px-3">Invoice #</th>
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Tier</th>
-                        <th className="py-2.5 px-3">Amount</th>
-                        <th className="py-2.5 px-3 text-center">Status</th>
-                        <th className="py-2.5 px-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {invoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-slate-50/60 transition">
-                          <td className="py-3 px-3 font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
-                          <td className="py-3 px-3 text-slate-600">{inv.date}</td>
-                          <td className="py-3 px-3 font-semibold text-slate-800">{inv.planName}</td>
-                          <td className="py-3 px-3 font-bold text-slate-900">₹{inv.amountINR.toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <button
-                              onClick={() => {
-                                showToast({
-                                  type: 'success',
-                                  title: 'Receipt Downloaded',
-                                  message: `Invoice ${inv.invoiceNumber} receipt downloaded.`,
-                                });
-                              }}
-                              className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition"
-                            >
-                              <Download className="w-3 h-3" />
-                              <span>Receipt</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Tab 6: Preferences & Display ── */}
-          {adminActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
         </div>
       </div>
-
-      {/* Upgrade Plan Modal */}
-      <UpgradePlanModal
-        isOpen={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
-        companyId={adminCompanyId || 'comp-paneliya'}
-        onPlanUpdated={refreshSubscriptionData}
-      />
     </div>
   );
 };

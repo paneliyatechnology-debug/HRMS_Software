@@ -17,7 +17,7 @@ export default function RegisterCompanyPage() {
 
   if (isLoading || isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-[#b7e4c7] flex items-center justify-center">
+      <div className="h-screen w-full bg-[#e9ecef] flex items-center justify-center">
         <div className="w-8 h-8 border-[3px] border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
       </div>
     );

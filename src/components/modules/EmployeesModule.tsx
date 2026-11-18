@@ -327,11 +327,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto select-none">
+    <div className="space-y-5 w-full select-none">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Employees</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="hrms-page-title">Employees</h1>
           <span className="text-xs text-slate-500 font-medium">
             {filtered.length} {filtered.length === 1 ? 'employee' : 'employees'}
           </span>
@@ -985,10 +985,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   onChange={(e) => setNoticePriority(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
                 >
-                  <option value="Low">🟢 Low Priority (General Notice)</option>
-                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
-                  <option value="High">🟠 High Priority (Action Required)</option>
-                  <option value="Urgent">🔴 Urgent Notice (Immediate Attention)</option>
+                  <option value="Low">Low Priority (General Notice)</option>
+                  <option value="Medium">Medium Priority (Standard Notice)</option>
+                  <option value="High">High Priority (Action Required)</option>
+                  <option value="Urgent">Urgent Notice (Immediate Attention)</option>
                 </select>
               </div>
 

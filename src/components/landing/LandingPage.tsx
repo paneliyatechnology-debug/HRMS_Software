@@ -213,7 +213,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f0fdf4] via-[#f8fafc] to-[#f0fdf4] text-slate-800 font-sans selection:bg-emerald-600 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[#f8f9fa] via-[#f8f9fa] to-[#f8f9fa] text-slate-800 font-sans selection:bg-emerald-600 selection:text-white relative overflow-x-hidden">
 
       {/* Ambient background dot grid and soft radial glow */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#0596690a_1px,transparent_1px),linear-gradient(to_bottom,#0596690a_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none -z-10" />
@@ -234,14 +234,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               <Building2 className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-slate-900 tracking-tight leading-tight">
-                  Paneliya HRMS
-                </span>
-                <span className="hidden sm:inline-block text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80 uppercase tracking-wider">
-                  Enterprise Cloud Suite
-                </span>
-              </div>
+             
               <p className="text-[11px] font-semibold text-slate-500 hidden sm:block">
                 Workforce Operating System
               </p>
@@ -302,13 +295,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-white/90 border border-slate-200/90 shadow-2xs whitespace-nowrap"
             >
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  backendHealth.status === 'online'
+                className={`w-2 h-2 rounded-full shrink-0 ${backendHealth.status === 'online'
                     ? 'bg-emerald-500 animate-pulse'
                     : backendHealth.status === 'checking'
                       ? 'bg-amber-400 animate-pulse'
                       : 'bg-rose-500'
-                }`}
+                  }`}
               />
               <span className="text-slate-700">
                 {backendHealth.status === 'online'
@@ -382,7 +374,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
               {/* Clear description - Zero fabricated data */}
               <p className="text-sm sm:text-base text-slate-600 font-medium mt-5 leading-relaxed max-w-xl">
-                Consolidate biometric attendance, automated statutory payroll, departmental hierarchies, 
+                Consolidate biometric attendance, automated statutory payroll, departmental hierarchies,
                 leave approvals, and recruitment pipelines into a high-performance multi-tenant cloud architecture.
               </p>
 
@@ -451,11 +443,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <button
                     type="button"
                     onClick={() => setActiveConsoleTab('biometric')}
-                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      activeConsoleTab === 'biometric'
+                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${activeConsoleTab === 'biometric'
                         ? 'bg-white text-emerald-800 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span className="text-[11px] sm:text-xs truncate">Punch Engine</span>
@@ -463,11 +454,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <button
                     type="button"
                     onClick={() => setActiveConsoleTab('hierarchy')}
-                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      activeConsoleTab === 'hierarchy'
+                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${activeConsoleTab === 'hierarchy'
                         ? 'bg-white text-emerald-800 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <Users className="w-3.5 h-3.5 shrink-0" />
                     <span className="text-[11px] sm:text-xs truncate">Multi-Tenant</span>
@@ -475,11 +465,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <button
                     type="button"
                     onClick={() => setActiveConsoleTab('payroll')}
-                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      activeConsoleTab === 'payroll'
+                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${activeConsoleTab === 'payroll'
                         ? 'bg-white text-emerald-800 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <DollarSign className="w-3.5 h-3.5 shrink-0" />
                     <span className="text-[11px] sm:text-xs truncate">Payroll Engine</span>
@@ -487,11 +476,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <button
                     type="button"
                     onClick={() => setActiveConsoleTab('recruitment')}
-                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      activeConsoleTab === 'recruitment'
+                    className={`h-9 py-1 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${activeConsoleTab === 'recruitment'
                         ? 'bg-white text-emerald-800 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <Briefcase className="w-3.5 h-3.5 shrink-0" />
                     <span className="text-[11px] sm:text-xs truncate">ATS Pipeline</span>
@@ -671,7 +659,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Workforce Directory &amp; KYC</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Centralized employee repository, personal KYC documents, bank details, emergency contacts, 
+                  Centralized employee repository, personal KYC documents, bank details, emergency contacts,
                   and employment timeline with complete audit logs.
                 </p>
               </div>
@@ -695,7 +683,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Biometric &amp; Shift Punch Engine</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Real-time clock in/out tracking with hardware biometric sync, webcam selfie captures, 
+                  Real-time clock in/out tracking with hardware biometric sync, webcam selfie captures,
                   geofence radius verification, and active break duration timers.
                 </p>
               </div>
@@ -719,7 +707,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Statutory 1-Click Payroll</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Automated monthly salary disbursement engine with statutory compliance calculations (PF, ESI, TDS, PT), 
+                  Automated monthly salary disbursement engine with statutory compliance calculations (PF, ESI, TDS, PT),
                   customizable allowances, and encrypted downloadable PDF payslips.
                 </p>
               </div>
@@ -743,7 +731,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Leave Workflows &amp; Holidays</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Configurable leave categories (Casual, Sick, Earned, Maternity), balance tracking with 
+                  Configurable leave categories (Casual, Sick, Earned, Maternity), balance tracking with
                   auto-accruals, manager approval chains, and interactive company holiday calendars.
                 </p>
               </div>
@@ -767,7 +755,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Talent Acquisition ATS</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Job requisition management, applicant tracking across Kanban stages (Screening, Interview, Offer), 
+                  Job requisition management, applicant tracking across Kanban stages (Screening, Interview, Offer),
                   interview scheduling, and 1-click candidate-to-employee onboarding.
                 </p>
               </div>
@@ -791,7 +779,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">Hardware &amp; Asset Management</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Track laptops, monitors, mobile devices, and office equipment. Maintain serial numbers, 
+                  Track laptops, monitors, mobile devices, and office equipment. Maintain serial numbers,
                   digital assignment receipts, warranty records, and offboarding recovery lists.
                 </p>
               </div>
@@ -814,7 +802,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ===================================================================== */}
       {/* 4. ENTERPRISE SECURITY & ARCHITECTURE BLUEPRINT                       */}
       {/* ===================================================================== */}
-      <section id="security" className="py-20 bg-gradient-to-br from-slate-950 via-[#062d1f] to-slate-950 text-white relative overflow-hidden">
+      <section id="security" className="py-20 bg-gradient-to-br from-slate-950 via-[#343a40] to-slate-950 text-white relative overflow-hidden">
         {/* Glow Effects */}
         <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
@@ -963,16 +951,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                   <button
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    className={`w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${
-                      isOpen ? 'bg-emerald-50/70 text-emerald-950' : 'bg-white hover:bg-slate-50 text-slate-800'
-                    }`}
+                    className={`w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 transition-colors cursor-pointer ${isOpen ? 'bg-emerald-50/70 text-emerald-950' : 'bg-white hover:bg-slate-50 text-slate-800'
+                      }`}
                   >
                     <span className="text-xs sm:text-sm font-bold">{item.q}</span>
                     <div className="w-7 h-7 rounded-xl bg-emerald-100/80 text-emerald-800 flex items-center justify-center shrink-0">
                       <ChevronDown
-                        className={`w-4 h-4 stroke-[2.5] transition-transform ${
-                          isOpen ? 'rotate-180 text-emerald-700' : 'text-slate-600'
-                        }`}
+                        className={`w-4 h-4 stroke-[2.5] transition-transform ${isOpen ? 'rotate-180 text-emerald-700' : 'text-slate-600'
+                          }`}
                       />
                     </div>
                   </button>
@@ -991,7 +977,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ===================================================================== */}
       {/* 7. PRE-FOOTER CALL TO ACTION                                          */}
       {/* ===================================================================== */}
-      <section className="py-16 bg-gradient-to-br from-slate-950 via-[#062d1f] to-slate-950 text-white relative overflow-hidden">
+      <section className="py-16 bg-gradient-to-br from-slate-950 via-[#343a40] to-slate-950 text-white relative overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
             Ready to Modernize Your Workforce Management?
@@ -1085,7 +1071,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 </div>
                 <h3 className="text-base font-bold text-slate-900">Walkthrough Request Received</h3>
                 <p className="text-xs text-slate-600 mt-2 max-w-xs mx-auto leading-relaxed">
-                  Thank you, <strong className="text-slate-900">{demoData.name}</strong>. An enterprise solution 
+                  Thank you, <strong className="text-slate-900">{demoData.name}</strong>. An enterprise solution
                   specialist will reach out with customized credentials and documentation.
                 </p>
                 <button

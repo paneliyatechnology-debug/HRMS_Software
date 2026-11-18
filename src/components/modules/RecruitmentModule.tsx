@@ -228,12 +228,12 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto select-none animate-in fade-in">
+    <div className="space-y-5 w-full select-none animate-in fade-in">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Recruitment & Talent Pipeline (ATS)
+          <h1 className="hrms-page-title">
+            Recruitment &amp; Talent Pipeline (ATS)
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Published job requisitions, candidate pipeline tracking, interview scheduling, and 1-click onboarding
@@ -258,16 +258,16 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           <button
             id="btn-add-candidate-modal"
             onClick={() => setAddCandidateModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border border-[#dee2e6] hover:border-[#95d5b2] text-xs font-bold transition shadow-2xs cursor-pointer"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="w-3.5 h-3.5 text-[#2d6a4f]" />
             <span>Add Candidate</span>
           </button>
 
           <button
             id="btn-create-job-modal"
             onClick={() => setCreateJobModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-bold transition shadow-xs cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create Job Opening</span>
@@ -308,9 +308,9 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
               <span className="font-semibold text-slate-700">{job.applicantCount || 0} Applicants</span>
               <button
                 onClick={() => setSelectedJob(job.id)}
-                className="text-xs font-bold text-slate-900 hover:underline"
+                className="text-xs font-bold text-[#2d6a4f] hover:text-[#1b4332] hover:underline cursor-pointer"
               >
-                View Pipeline â†’
+                View Pipeline &rarr;
               </button>
             </div>
           </div>
@@ -574,7 +574,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-submit-create-job"
                   type="submit"
                   disabled={jobSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {jobSubmitting ? 'Publishing...' : 'Publish Opening'}
                 </button>
@@ -718,7 +718,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-submit-add-candidate"
                   type="submit"
                   disabled={candSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {candSubmitting ? 'Adding...' : 'Add to Pipeline'}
                 </button>
@@ -806,7 +806,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-confirm-schedule-interview"
                   type="submit"
                   disabled={interviewSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {interviewSubmitting ? 'Booking...' : 'Confirm Schedule'}
                 </button>

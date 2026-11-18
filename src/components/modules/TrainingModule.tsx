@@ -178,14 +178,14 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Learning & Professional Upskilling
-            </h2>
+            <h1 className="hrms-page-title">
+              Learning &amp; Professional Upskilling
+            </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
               {programs.length} Curricula
             </span>

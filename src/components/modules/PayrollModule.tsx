@@ -161,13 +161,13 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-            Payroll & Compensation
-          </h2>
+          <h1 className="hrms-page-title">
+            Payroll &amp; Compensation
+          </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Automated salary calculations, statutory deductions, tax slabs, and payslips
           </p>

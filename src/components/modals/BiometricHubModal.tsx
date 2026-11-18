@@ -793,7 +793,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                       )}
                       <div>
                         <span className="font-extrabold text-xs block">
-                          {simResult.success ? `✅ Punch Recorded (${simResult.punchType})` : '❌ Punch Failed'}
+                          {simResult.success ? `Punch Recorded (${simResult.punchType})` : 'Punch Failed'}
                         </span>
                         <p className="text-[11px] mt-0.5">{simResult.message}</p>
                       </div>

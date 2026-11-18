@@ -92,7 +92,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
         className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-emerald-900/10 overflow-hidden flex flex-col max-h-[90vh] cursor-default"
       >
         {/* Header */}
-        <div className="relative px-6 py-5 bg-gradient-to-r from-[#064e3b] via-[#059669] to-[#047857] text-white flex items-center justify-between shadow-sm">
+        <div className="relative px-6 py-5 bg-gradient-to-r from-[#343a40] via-[#6c757d] to-[#343a40] text-white flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-white border border-white/20">
               <Smartphone className="w-5 h-5 text-emerald-100" />
@@ -300,7 +300,7 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#064e3b] text-white text-xs font-bold hover:bg-[#047857] transition-all shadow-sm"
+            className="px-4 py-2 rounded-xl bg-[#343a40] text-white text-xs font-bold hover:bg-[#343a40] transition-all shadow-sm"
           >
             Done
           </button>

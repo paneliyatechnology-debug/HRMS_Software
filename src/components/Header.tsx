@@ -11,12 +11,14 @@ import {
   LogOut,
   Clock,
   Calendar,
+  CalendarCheck,
   UserPlus,
   Building2,
   MessageSquare,
   AlertTriangle,
   Smartphone,
   Receipt,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkSession } from '../context/WorkSessionContext';
@@ -39,6 +41,9 @@ interface HeaderProps {
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
   portalMode?: 'employee' | 'admin';
+  activeModule?: string;
+  isAddEmployeeModalOpen?: boolean;
+  isLeaveModalOpen?: boolean;
   pendingLeavesCount?: number;
   unreadChatCount?: number;
   company?: any;
@@ -58,6 +63,9 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectEmployee,
   employees = [],
   portalMode = 'admin',
+  activeModule = '',
+  isAddEmployeeModalOpen = false,
+  isLeaveModalOpen = false,
   pendingLeavesCount = 0,
   unreadChatCount = 0,
   company,
@@ -164,27 +172,36 @@ export const Header: React.FC<HeaderProps> = ({
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
-  // Dynamic Check In / Check Out Status from unified Work Session Context
-  const { status: punchStatus } = useWorkSession();
+  // Dynamic Clock In / Clock Out Status & Actions from unified Work Session Context
+  const { status: punchStatus, checkIn, checkOut, actionLoading } = useWorkSession();
+
+  const handleHeaderPunchClick = () => {
+    if (actionLoading || punchStatus === 'on_break') return;
+    if (punchStatus === 'working') {
+      checkOut();
+    } else {
+      checkIn();
+    }
+  };
 
   const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
   const companyLogo = companyInfo.logoUrl;
 
   return (
-    <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+    <header className="h-[58px] sm:h-[66px] bg-white border-b border-[#e9ecef] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
       {/* Left: Mobile Toggle, Brand Logo & Live Clock Widget */}
       <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
         <button
           onClick={onOpenSidebar}
-          className="p-1.5 sm:p-2 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden transition-colors cursor-pointer shrink-0"
+          className="p-1.5 sm:p-2 rounded-[9px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0"
           title="Toggle navigation drawer"
           aria-label="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 lg:hidden min-w-0 max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none">
-          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
+          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
             {companyLogo ? (
               <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-0.5" />
             ) : (
@@ -192,102 +209,165 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
           <div className="min-w-0 hidden min-[340px]:block">
-            <span className="font-extrabold text-xs text-[#0d271d] tracking-tight block truncate leading-tight">
+            <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
               {displayCompanyName}
-            </span>
-            <span className="text-[9px] text-[#059669] font-medium block leading-none opacity-90 truncate">
-              by MyOwnHRMS
             </span>
           </div>
         </div>
 
         {/* Live Digital Clock Widget (Placed on Top Left) */}
         <div className="hidden sm:flex items-center shrink-0">
-          <LiveClock showIndicator={false} onClick={portalMode !== 'admin' ? onOpenClockModal : undefined} />
+          <LiveClock showIndicator={false} showTimezone={false} />
         </div>
       </div>
 
       {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Shortcut Action Buttons (Transferred from Employee Dashboard Banner) */}
-        {portalMode !== 'admin' && (
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            <button
-              id="btn-header-apply-leave"
-              onClick={onOpenLeaveModal}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
-              title="Apply Leave"
-            >
-              <Calendar className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-              <span className="hidden md:inline">Apply Leave</span>
-            </button>
-
-            <button
-              id="btn-header-payslips"
-              onClick={() => onNavigateModule?.('payslips')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
-              title="My Payslips"
-            >
-              <Receipt className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-              <span className="hidden md:inline">My Payslips</span>
-            </button>
-
-            <button
-              id="btn-header-chat"
-              onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
-              title="Team Chat"
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-              <span className="hidden md:inline">Team Chat</span>
-            </button>
-
-            {onOpenProfile && (
+        {/* Admin Quick Action Buttons in Top Header */}
+        {portalMode === 'admin' && (() => {
+          const isLeavesActive = activeModule === 'leaves' && !isAddEmployeeModalOpen;
+          const isAddStaffActive = isAddEmployeeModalOpen;
+          const isHolidaysActive = activeModule === 'calendar' && !isAddEmployeeModalOpen;
+          const getBtnCls = (active: boolean) =>
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
+              active
+                ? 'bg-[#1b4332] text-white border-[#1b4332]'
+                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            }`;
+          return (
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <button
-                id="btn-header-profile"
-                onClick={onOpenProfile}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] bg-white hover:bg-[#ecfdf5] active:scale-95 text-[#065f46] font-semibold text-xs border border-[#a7f3d0] shadow-2xs transition-all cursor-pointer shrink-0"
-                title="My Profile"
+                id="btn-header-admin-leaves"
+                type="button"
+                onClick={() => onNavigateModule?.('leaves')}
+                className={getBtnCls(isLeavesActive)}
+                title="Leave Requests"
               >
-                <User className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                <span className="hidden md:inline">My Profile</span>
+                <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">Leave Requests</span>
+                {pendingLeavesCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${
+                      isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
+                    }`}
+                  >
+                    {pendingLeavesCount}
+                  </span>
+                )}
               </button>
-            )}
-          </div>
-        )}
 
-        {/* Quick Dynamic Check In / Check Out Button (Employees only - commented out for admin) */}
+              <button
+                id="btn-header-admin-add-staff"
+                type="button"
+                onClick={onOpenAddEmployeeModal}
+                className={getBtnCls(isAddStaffActive)}
+                title="Add Staff"
+              >
+                <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">Add Staff</span>
+              </button>
+
+              <button
+                id="btn-header-admin-holidays"
+                type="button"
+                onClick={() => onNavigateModule?.('calendar')}
+                className={getBtnCls(isHolidaysActive)}
+                title="Holidays"
+              >
+                <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">Holidays</span>
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Shortcut Action Buttons (Transferred from Employee Dashboard Banner) */}
+        {portalMode !== 'admin' && (() => {
+          const isApplyLeaveActive = isLeaveModalOpen;
+          const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
+          const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
+          const getBtnCls = (active: boolean) =>
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
+              active
+                ? 'bg-[#1b4332] text-white border-[#1b4332]'
+                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            }`;
+          return (
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <button
+                id="btn-header-apply-leave"
+                onClick={onOpenLeaveModal}
+                className={getBtnCls(isApplyLeaveActive)}
+                title="Apply Leave"
+              >
+                <Calendar className={`w-3.5 h-3.5 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">Apply Leave</span>
+              </button>
+
+              <button
+                id="btn-header-payslips"
+                onClick={() => onNavigateModule?.('payslips')}
+                className={getBtnCls(isPayslipsActive)}
+                title="My Payslips"
+              >
+                <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">My Payslips</span>
+              </button>
+
+              <button
+                id="btn-header-chat"
+                onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
+                className={getBtnCls(isChatActive)}
+                title="Team Chat"
+              >
+                <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                <span className="hidden md:inline">Team Chat</span>
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
         {portalMode !== 'admin' && (
           <button
             id="btn-header-punch-toggle"
-            onClick={onOpenClockModal}
-            className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
-              punchStatus === 'working' || punchStatus === 'on_break'
-                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
-                : 'bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border-[#a7f3d0]'
-            }`}
+            type="button"
+            onClick={handleHeaderPunchClick}
+            disabled={actionLoading || punchStatus === 'on_break'}
+            className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors shrink-0 border ${punchStatus === 'on_break'
+              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed select-none opacity-80'
+              : punchStatus === 'working'
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 cursor-pointer disabled:opacity-50'
+                : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white border-[#2d6a4f] cursor-pointer disabled:opacity-50'
+              }`}
             title={
-              punchStatus === 'working' || punchStatus === 'on_break'
-                ? 'Currently checked in. Click to Check Out'
-                : punchStatus === 'completed'
-                ? 'Previous session checked out. Click to Check In again'
-                : 'Click to Check In for today'
+              punchStatus === 'on_break'
+                ? 'Clock Out is blocked while on break. Please resume work first.'
+                : punchStatus === 'working'
+                  ? 'Currently clocked in. Click to Clock Out immediately'
+                  : punchStatus === 'completed'
+                    ? 'Previous session clocked out. Click to Clock In again'
+                    : 'Click to Clock In and start your work timer'
             }
           >
-            {punchStatus === 'working' || punchStatus === 'on_break' ? (
+            {punchStatus === 'on_break' ? (
+              <>
+                <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="hidden min-[480px]:inline">On Break</span>
+              </>
+            ) : punchStatus === 'working' ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                <span className="hidden min-[480px]:inline">Check Out</span>
-              </>
-            ) : punchStatus === 'completed' ? (
-              <>
-                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                <span className="hidden min-[480px]:inline">Check In</span>
+                <span className="hidden min-[480px]:inline">
+                  {actionLoading ? 'Clocking Out...' : 'Clock Out'}
+                </span>
               </>
             ) : (
               <>
-                <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-                <span className="hidden min-[480px]:inline">Check In</span>
+                <Clock className="w-3.5 h-3.5 text-white shrink-0" />
+                <span className="hidden min-[480px]:inline">
+                  {actionLoading ? 'Clocking In...' : 'Clock In'}
+                </span>
               </>
             )}
           </button>
@@ -297,9 +377,9 @@ export const Header: React.FC<HeaderProps> = ({
         <div ref={profileMenuRef} className="relative shrink-0">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#ecfdf5] transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer shrink-0"
           >
-            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#dcfce7] text-[#065f46] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#a7f3d0] overflow-hidden">
+            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#d8f3dc] text-[#1b4332] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#95d5b2] overflow-hidden">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -311,20 +391,20 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
-              <span className="text-xs font-bold text-[#0d271d] leading-tight block truncate">
+              <span className="text-xs font-semibold text-[#212529] leading-tight block truncate">
                 {user.firstName || 'User'} {user.lastName || ''}
               </span>
-              <span className="text-[10px] text-[#4e6a5d] leading-none block truncate">
+              <span className="text-[10px] text-[#343a40] leading-none block truncate">
                 {portalMode === 'admin' ? 'Administrator' : 'Employee'}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#4e6a5d] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#343a40] shrink-0" />
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#d8ebd9] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3.5 py-2.5 border-b border-[#edf6f0] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#dcfce7] text-[#065f46] font-bold text-xs flex items-center justify-center shrink-0 border border-[#a7f3d0] overflow-hidden">
+            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#e9ecef] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3.5 py-2.5 border-b border-[#f8f9fa] flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dee2e6] overflow-hidden">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -332,15 +412,12 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#0d271d] truncate">
+                  <p className="text-xs font-bold text-[#212529] truncate">
                     {user.firstName || 'User'} {user.lastName || ''}
                   </p>
-                  <p className="text-[11px] text-[#4e6a5d] truncate">
+                  <p className="text-[11px] text-[#343a40] truncate">
                     {user.email || ''}
                   </p>
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-[10px] font-bold">
-                    {workStatus}
-                  </span>
                 </div>
               </div>
 
@@ -350,9 +427,9 @@ export const Header: React.FC<HeaderProps> = ({
                     setProfileMenuOpen(false);
                     onOpenProfile();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <User className="w-3.5 h-3.5 text-[#4e6a5d]" />
+                  <User className="w-3.5 h-3.5 text-[#343a40]" />
                   My Profile
                 </button>
               )}
@@ -363,27 +440,14 @@ export const Header: React.FC<HeaderProps> = ({
                     setProfileMenuOpen(false);
                     onNavigateSettings();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5 text-[#4e6a5d]" />
+                  <Settings className="w-3.5 h-3.5 text-[#343a40]" />
                   Settings
                 </button>
               )}
 
-              {onOpenMobileModal && (
-                <button
-                  onClick={() => {
-                    setProfileMenuOpen(false);
-                    onOpenMobileModal();
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                  Mobile & Multi-Device
-                </button>
-              )}
-
-              <div className="border-t border-[#edf6f0] my-1" />
+              <div className="border-t border-[#f8f9fa] my-1" />
 
               <button
                 onClick={() => {

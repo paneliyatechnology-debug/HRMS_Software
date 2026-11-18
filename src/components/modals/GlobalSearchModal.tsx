@@ -53,19 +53,19 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   const matchedEmployees = q
     ? employees.filter((e) => {
-        const name = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
-        const dept = (e.departmentName || '').toLowerCase();
-        const desig = (e.designationTitle || '').toLowerCase();
-        const code = (e.employeeCode || '').toLowerCase();
-        const email = (e.email || '').toLowerCase();
-        return (
-          name.includes(q) ||
-          dept.includes(q) ||
-          desig.includes(q) ||
-          code.includes(q) ||
-          email.includes(q)
-        );
-      })
+      const name = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
+      const dept = (e.departmentName || '').toLowerCase();
+      const desig = (e.designationTitle || '').toLowerCase();
+      const code = (e.employeeCode || '').toLowerCase();
+      const email = (e.email || '').toLowerCase();
+      return (
+        name.includes(q) ||
+        dept.includes(q) ||
+        desig.includes(q) ||
+        code.includes(q) ||
+        email.includes(q)
+      );
+    })
     : employees.slice(0, 5);
 
   const hasResults = matchedModules.length > 0 || matchedEmployees.length > 0;
@@ -83,7 +83,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       >
         {/* Search Input Bar */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-          <Search className="w-5 h-5 text-[#4f5fe8] shrink-0" />
+          <Search className="w-5 h-5 text-[#343a40] shrink-0" />
           <input
             type="text"
             autoFocus
@@ -132,15 +132,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         onNavigateModule(m.id);
                         onClose();
                       }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#eef2ff] text-left transition-colors text-xs font-semibold text-slate-800 hover:text-[#3446bd] group"
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8f9fa] text-left transition-colors text-xs font-semibold text-slate-800 hover:text-[#343a40] group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-[#4f5fe8] group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-[#343a40] group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
                           <Icon className="w-4 h-4" />
                         </div>
                         <span>{m.name}</span>
                       </div>
-                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-[#4f5fe8]">Jump to module &rarr;</span>
+                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-[#343a40]">Jump to module &rarr;</span>
                     </button>
                   );
                 })}
@@ -162,7 +162,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       onSelectEmployee(emp);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8fafc] text-left transition-colors text-xs group border border-transparent hover:border-slate-100"
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8f9fa] text-left transition-colors text-xs group border border-transparent hover:border-slate-100"
                   >
                     <div className="flex items-center gap-3">
                       {emp.avatarUrl ? (
@@ -172,12 +172,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           className="w-8 h-8 rounded-full object-cover border border-slate-200"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3446bd] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dce4f7]">
+                        <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#e9ecef]">
                           {emp.firstName?.[0] || 'E'}{emp.lastName?.[0] || ''}
                         </div>
                       )}
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-[#4f5fe8] transition-colors">
+                        <p className="font-bold text-slate-900 group-hover:text-[#343a40] transition-colors">
                           {emp.firstName} {emp.lastName}
                         </p>
                         <p className="text-[11px] text-slate-400">

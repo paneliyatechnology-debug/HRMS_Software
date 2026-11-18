@@ -162,7 +162,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
               showToast({
                 type: 'success',
-                title: 'Payment Successful! 🎉',
+                title: 'Payment Successful!',
                 message: `Transaction ${response.razorpay_payment_id} verified. Upgraded to ${plan.name}!`,
               });
 
@@ -193,7 +193,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           planName: plan.name,
         },
         theme: {
-          color: plan.id === 'Enterprise' ? '#6b21a8' : '#2563eb',
+          color: plan.id === 'Enterprise' ? '#343a40' : '#343a40',
         },
         modal: {
           ondismiss: function () {
@@ -265,21 +265,19 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200/80 inline-flex items-center gap-1 text-xs font-bold">
               <button
                 onClick={() => setBillingCycle('Monthly')}
-                className={`px-4 py-1.5 rounded-xl transition cursor-pointer ${
-                  billingCycle === 'Monthly'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`px-4 py-1.5 rounded-xl transition cursor-pointer ${billingCycle === 'Monthly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
               >
                 Monthly Billing
               </button>
               <button
                 onClick={() => setBillingCycle('Annual')}
-                className={`px-4 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
-                  billingCycle === 'Annual'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`px-4 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${billingCycle === 'Annual'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
               >
                 <span>Annual Billing</span>
                 <span className="px-1.5 py-0.5 rounded-md bg-emerald-400 text-slate-900 text-[10px] font-black uppercase tracking-wider">
@@ -307,13 +305,12 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl p-6 border transition-all flex flex-col justify-between relative ${
-                  plan.isPopular
-                    ? 'border-indigo-500/80 ring-2 ring-indigo-500/20 shadow-xl bg-gradient-to-b from-indigo-50/40 via-white to-white'
-                    : isCurrent
+                className={`rounded-3xl p-6 border transition-all flex flex-col justify-between relative ${plan.isPopular
+                  ? 'border-indigo-500/80 ring-2 ring-indigo-500/20 shadow-xl bg-gradient-to-b from-indigo-50/40 via-white to-white'
+                  : isCurrent
                     ? 'border-emerald-400/80 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/20'
                     : 'border-slate-200/90 hover:border-slate-300 shadow-xs bg-white'
-                }`}
+                  }`}
               >
                 {/* Top Badge */}
                 {plan.isPopular && (
@@ -390,15 +387,14 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                   <button
                     disabled={isUpgradingThis || isCurrent}
                     onClick={() => handleSelectPlan(plan)}
-                    className={`w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
-                      isCurrent
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                        : plan.isPopular
+                    className={`w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${isCurrent
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                      : plan.isPopular
                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/25'
                         : plan.id === 'Enterprise'
-                        ? 'bg-purple-700 hover:bg-purple-800 text-white shadow-md shadow-purple-500/25'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white'
-                    }`}
+                          ? 'bg-purple-700 hover:bg-purple-800 text-white shadow-md shadow-purple-500/25'
+                          : 'bg-slate-900 hover:bg-slate-800 text-white'
+                      }`}
                   >
                     {isUpgradingThis ? (
                       <span className="flex items-center gap-2">

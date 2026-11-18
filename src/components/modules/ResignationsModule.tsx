@@ -223,7 +223,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   const completedCount = resignations.filter((r) => r.status === 'Completed').length;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Module Title & Subtitle */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
@@ -232,7 +232,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
               <LogOut className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h1 className="hrms-page-title">
                 {isEmployeeView ? 'My Resignation & Exit Pipeline' : 'Resignations & Exit Clearances'}
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -270,13 +270,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
                         myResignation.status === 'Completed'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                           : 'bg-amber-100 text-amber-800 border border-amber-300'
                       }`}
                     >
-                      {myResignation.status === 'Completed' ? '✓ Resignation Approved & Completed' : '⏳ Submitted (Pending Admin Clearance)'}
+                      {myResignation.status === 'Completed' ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Resignation Approved &amp; Completed</>
+                      ) : (
+                        <><Clock className="w-3.5 h-3.5 shrink-0" /> Submitted (Pending Admin Clearance)</>
+                      )}
                     </span>
                     <span className="text-xs text-slate-400">ID: {myResignation.id}</span>
                   </div>
@@ -579,13 +583,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                               isCompleted
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
-                            {isCompleted ? '✓ Completed / Relieved' : '⏳ Clearance Pending'}
+                            {isCompleted ? (
+                              <><CheckCircle2 className="w-3 h-3 shrink-0" /> Completed / Relieved</>
+                            ) : (
+                              <><Clock className="w-3 h-3 shrink-0" /> Clearance Pending</>
+                            )}
                           </span>
                           <span className="text-[11px] text-slate-400">ID: {res.id}</span>
                         </div>

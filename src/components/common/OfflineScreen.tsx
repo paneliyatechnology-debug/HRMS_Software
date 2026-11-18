@@ -81,12 +81,12 @@ export const OfflineScreen: React.FC = () => {
   if (justRestored) {
     return (
       <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-6 duration-300">
-        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#00F0B5] border-[3px] border-black shadow-[5px_5px_0px_0px_#000] text-black">
-          <div className="w-8 h-8 rounded-xl bg-black text-[#00F0B5] flex items-center justify-center font-black">
+        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#ced4da] border-[3px] border-black shadow-[5px_5px_0px_0px_#000] text-black">
+          <div className="w-8 h-8 rounded-xl bg-black text-[#ced4da] flex items-center justify-center font-black">
             <CheckCircle2 className="w-5 h-5 stroke-[3]" />
           </div>
           <div>
-            <p className="text-xs font-black uppercase tracking-wider">Back Online! 🚀</p>
+            <p className="text-xs font-black uppercase tracking-wider">Back Online!</p>
             <p className="text-[11px] font-bold text-slate-900">Your connection is restored and live data is syncing.</p>
           </div>
         </div>
@@ -100,11 +100,11 @@ export const OfflineScreen: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#FFFDF7] flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto selection:bg-[#FFE600] selection:text-black">
+    <div className="fixed inset-0 z-[9999] bg-[#f8f9fa] flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto selection:bg-[#ced4da] selection:text-black">
       {/* Top Neo-Brutalist Ticker Warning */}
-      <div className="w-full absolute top-0 left-0 bg-[#FF5E97] border-b-[3px] border-black py-2.5 px-4 overflow-hidden">
+      <div className="w-full absolute top-0 left-0 bg-[#dc2626] border-b-[3px] border-black py-2.5 px-4 overflow-hidden">
         <div className="flex items-center justify-center gap-4 text-xs font-black uppercase tracking-widest text-black text-center">
-          <span>⚡ NETWORK DISCONNECTED</span>
+          <span className="inline-flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> NETWORK DISCONNECTED</span>
           <span className="hidden sm:inline">|</span>
           <span className="hidden sm:inline">LOCAL CACHE &amp; ATTENDANCE SAFE</span>
           <span className="hidden sm:inline">|</span>
@@ -117,14 +117,14 @@ export const OfflineScreen: React.FC = () => {
         {/* Retro Window Control Bar */}
         <div className="flex items-center justify-between pb-5 border-b-2 border-black mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-full bg-[#FF5E97] border-2 border-black" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#FFE600] border-2 border-black" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#00F0B5] border-2 border-black" />
-            <span className="ml-2 text-xs font-mono font-black text-black bg-[#FAF8F5] px-2.5 py-0.5 rounded border border-black">
+            <div className="w-3.5 h-3.5 rounded-full bg-[#dc2626] border-2 border-black" />
+            <div className="w-3.5 h-3.5 rounded-full bg-[#ced4da] border-2 border-black" />
+            <div className="w-3.5 h-3.5 rounded-full bg-[#ced4da] border-2 border-black" />
+            <span className="ml-2 text-xs font-mono font-black text-black bg-[#f8f9fa] px-2.5 py-0.5 rounded border border-black">
               status: offline_0x0
             </span>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-black bg-[#FFE600] px-2.5 py-1 rounded-md border-2 border-black">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-black bg-[#ced4da] px-2.5 py-1 rounded-md border-2 border-black">
             <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
             NO SIGNAL
           </span>
@@ -133,10 +133,10 @@ export const OfflineScreen: React.FC = () => {
         {/* Center Graphic Icon Box */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="w-20 h-20 rounded-2xl bg-[#FFE600] border-[3px] border-black flex items-center justify-center text-black shadow-[5px_5px_0px_0px_#000] -rotate-2">
+            <div className="w-20 h-20 rounded-2xl bg-[#ced4da] border-[3px] border-black flex items-center justify-center text-black shadow-[5px_5px_0px_0px_#000] -rotate-2">
               <WifiOff className="w-10 h-10 stroke-[2.5]" />
             </div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-[#FF5E97] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_0px_#000] rotate-6">
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-[#dc2626] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_0px_#000] rotate-6">
               <Zap className="w-4 h-4 stroke-[3] text-black" />
             </div>
           </div>
@@ -144,7 +144,7 @@ export const OfflineScreen: React.FC = () => {
 
         {/* Big Brutalist Heading */}
         <div className="text-center">
-          <div className="inline-block bg-[#FF5E97] text-white border-2 border-black px-3 py-1 font-black uppercase text-xs tracking-wider shadow-[3px_3px_0px_0px_#000] -rotate-1 mb-3">
+          <div className="inline-block bg-[#dc2626] text-white border-2 border-black px-3 py-1 font-black uppercase text-xs tracking-wider shadow-[3px_3px_0px_0px_#000] -rotate-1 mb-3">
             YOU ARE CURRENTLY OFFLINE
           </div>
           <h1 className="text-3xl sm:text-4xl font-black text-black tracking-tight leading-tight">
@@ -157,8 +157,8 @@ export const OfflineScreen: React.FC = () => {
 
         {/* Feature Safeguards Checklist */}
         <div className="mt-8 space-y-3">
-          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#FFFDF0] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
-            <div className="w-9 h-9 rounded-xl bg-[#00F0B5] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#f8f9fa] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+            <div className="w-9 h-9 rounded-xl bg-[#ced4da] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
               <HardDriveDownload className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="text-left">
@@ -167,8 +167,8 @@ export const OfflineScreen: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#F0FFF9] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
-            <div className="w-9 h-9 rounded-xl bg-[#38BDF8] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#f8f9fa] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+            <div className="w-9 h-9 rounded-xl bg-[#ced4da] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
               <Activity className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="text-left">
@@ -183,7 +183,7 @@ export const OfflineScreen: React.FC = () => {
           <button
             onClick={handleRetry}
             disabled={isReconnecting}
-            className="flex-1 py-3.5 px-6 rounded-2xl bg-[#FFE600] hover:bg-[#ffd700] text-black font-black text-xs uppercase tracking-wider border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+            className="flex-1 py-3.5 px-6 rounded-2xl bg-[#ced4da] hover:bg-[#ced4da] text-black font-black text-xs uppercase tracking-wider border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
           >
             <RefreshCw className={`w-4 h-4 stroke-[2.5] ${isReconnecting ? 'animate-spin' : ''}`} />
             <span>{isReconnecting ? 'Testing Connection...' : 'Retry Connection'}</span>
@@ -201,7 +201,7 @@ export const OfflineScreen: React.FC = () => {
 
       {/* Bottom Footer Note */}
       <div className="text-center text-[11px] font-black uppercase tracking-wider text-black">
-        <span className="bg-[#FAF8F5] px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+        <span className="bg-[#f8f9fa] px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
           My Own HRMS • Enterprise Offline Resilience Engine
         </span>
       </div>

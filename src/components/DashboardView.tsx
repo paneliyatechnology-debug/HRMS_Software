@@ -37,14 +37,31 @@ import {
   HelpCircle,
   ExternalLink,
   Receipt,
+  BarChart3,
+  Megaphone,
+  Zap,
+  LayoutGrid,
+  RotateCcw,
 } from 'lucide-react';
+import {
+  WidgetCardWrapper,
+  WidgetDropZone,
+  WidgetGallerySidebar,
+  DashboardWidgetDef,
+} from './dashboard/DashboardWidgetShell';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
 import { api } from '../lib/api';
+import {
+  fetchLeaveQuotaData,
+  resolveLeaveQuotaSummary,
+  RawLeaveQuotaPayload,
+} from '../lib/leaveQuotaUtils';
 import { getRoleDefinition } from '../lib/roleConfig';
 import { ChangeRoleModal } from './modals/ChangeRoleModal';
 import { TrackedHoursChart } from './attendance/TrackedHoursChart';
+import { DailyAttendanceGraph } from './attendance/DailyAttendanceGraph';
 import {
   checkEmployeePunchEligibility,
   performCheckIn,
@@ -201,10 +218,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     };
   }, []);
 
-  // Real announcements, holidays, and leave balance states
+  // Real announcements, holidays, and admin-configured leave quota/balance states
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<any>(null);
+  const [leaveQuotaData, setLeaveQuotaData] = useState<RawLeaveQuotaPayload | null>(null);
+  const [leaveQuotaLoading, setLeaveQuotaLoading] = useState<boolean>(portalMode !== 'admin');
 
   useEffect(() => {
     let isMounted = true;
@@ -222,16 +240,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         console.warn('DashboardView fetch extra data notice:', err);
       }
 
-      if (portalMode !== 'admin' && activeEmpId && activeEmpId !== 'emp-self') {
+      if (portalMode !== 'admin') {
+        if (isMounted) setLeaveQuotaLoading(true);
         try {
-          const bal = await api.getLeaveBalances(activeEmpId);
-          if (isMounted) setLeaveBalances(bal);
-        } catch (_) {}
+          const payload = await fetchLeaveQuotaData(activeEmpId);
+          if (isMounted) setLeaveQuotaData(payload);
+        } catch (_) {
+        } finally {
+          if (isMounted) setLeaveQuotaLoading(false);
+        }
       }
     };
     fetchExtraData();
+
+    const handleLeaveQuotaSync = async () => {
+      if (portalMode === 'admin') return;
+      try {
+        const payload = await fetchLeaveQuotaData(activeEmpId);
+        if (isMounted) setLeaveQuotaData(payload);
+      } catch (_) { }
+    };
+
+    window.addEventListener('hrms_settings_updated', handleLeaveQuotaSync);
+    window.addEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
     return () => {
       isMounted = false;
+      window.removeEventListener('hrms_settings_updated', handleLeaveQuotaSync);
+      window.removeEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
     };
   }, [portalMode, activeEmpId]);
 
@@ -278,13 +313,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return result;
   }, [allAttendance, employees.length]);
 
+  // Merge real backend attendance prop with live session attendance records (deduplicated by date + employeeId)
+  const mergedAttendance = useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    for (const rec of allAttendance) {
+      const key = `${(rec.employeeId || rec.id || '').toLowerCase()}__${rec.date}`;
+      map.set(key, rec);
+    }
+    for (const rec of attendance) {
+      const key = `${(rec.employeeId || rec.id || '').toLowerCase()}__${rec.date}`;
+      if (!map.has(key)) {
+        map.set(key, rec);
+      }
+    }
+    return Array.from(map.values());
+  }, [attendance, allAttendance]);
+
+  // Real employee full attendance history (for 7d/14d daily graph)
+  const myAllAttendance = useMemo(() => {
+    return mergedAttendance
+      .filter((a) => myCandidateIds.has((a.employeeId || '').toLowerCase()))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [mergedAttendance, myCandidateIds]);
+
   // Real employee recent attendance (last 5 records)
   const myRecentAttendance = useMemo(() => {
-    return allAttendance
-      .filter((a) => myCandidateIds.has((a.employeeId || '').toLowerCase()))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-      .slice(0, 5);
-  }, [allAttendance, myCandidateIds]);
+    return myAllAttendance.slice(0, 5);
+  }, [myAllAttendance]);
 
   // Upcoming holidays
   const upcomingHolidays = useMemo(() => {
@@ -512,25 +567,201 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const activeWorkingCount = todayRecords.filter((a) => !a.isCompleted && !a.isOnBreak).length;
   const onBreakCount = todayRecords.filter((a) => !a.isCompleted && a.isOnBreak).length;
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;
+  const approvedLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length;
+
+  // =========================================================================
+  // TEMPORARY MOBILE-STYLE WIDGET CUSTOMIZER (IN-MEMORY ONLY — NO STORAGE)
+  // =========================================================================
+  const DEFAULT_ADMIN_KPIS = ['kpi_employees', 'kpi_present', 'kpi_pending_leaves', 'kpi_team_hub'];
+  const DEFAULT_ADMIN_PANELS = [
+    'panel_attendance_graph',
+    'panel_announcements',
+    'panel_pending_approvals',
+    'panel_staff_directory',
+  ];
+  const DEFAULT_EMP_KPIS = ['emp_kpi_status', 'emp_kpi_leave', 'emp_kpi_salary', 'emp_kpi_manager'];
+  const DEFAULT_EMP_PANELS = [
+    'emp_panel_shift_console',
+    'emp_panel_recent_attendance',
+    'emp_panel_attendance_graph',
+    'emp_panel_leave_breakdown',
+    'emp_panel_holidays',
+  ];
+
+  const [widgetEditMode, setWidgetEditMode] = useState(false);
+  const [adminKpiOrder, setAdminKpiOrder] = useState<string[]>(DEFAULT_ADMIN_KPIS);
+  const [adminPanelOrder, setAdminPanelOrder] = useState<string[]>(DEFAULT_ADMIN_PANELS);
+  const [empKpiOrder, setEmpKpiOrder] = useState<string[]>(DEFAULT_EMP_KPIS);
+  const [empPanelOrder, setEmpPanelOrder] = useState<string[]>(DEFAULT_EMP_PANELS);
+
+  const adminWidgetDefs: DashboardWidgetDef[] = [
+    { id: 'kpi_employees', title: 'Total Employees', description: 'Active workforce count', group: 'kpi', icon: <Users className="w-4 h-4" /> },
+    { id: 'kpi_present', title: 'Present Today', description: 'Live working & break staff', group: 'kpi', icon: <Clock className="w-4 h-4" /> },
+    { id: 'kpi_pending_leaves', title: 'Pending Leaves', description: 'Requests awaiting review', group: 'kpi', icon: <Shield className="w-4 h-4" /> },
+    { id: 'kpi_team_hub', title: 'Team Hub', description: 'Quick link to team chat', group: 'kpi', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'kpi_holidays', title: 'Upcoming Holidays', description: 'Scheduled holiday count', group: 'kpi', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'kpi_approved_leaves', title: 'Approved Leaves', description: 'Total approved leave requests', group: 'kpi', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'panel_attendance_graph', title: 'Attendance Graph', description: '7 & 14 day workforce chart', group: 'panel', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'panel_announcements', title: 'Announcements', description: 'Latest company notices', group: 'panel', icon: <Megaphone className="w-4 h-4" /> },
+    { id: 'panel_pending_approvals', title: 'Pending Leave Approvals', description: '1-click Approve / Reject queue', group: 'panel', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'panel_staff_directory', title: 'Staff Directory & Tracking', description: 'Live shift status & messaging', group: 'panel', icon: <Users className="w-4 h-4" /> },
+    { id: 'panel_upcoming_holidays', title: 'Upcoming Holidays List', description: 'Upcoming company holidays', group: 'panel', icon: <Calendar className="w-4 h-4" /> },
+  ];
+
+  const empWidgetDefs: DashboardWidgetDef[] = [
+    { id: 'emp_kpi_status', title: "Today's Status", description: 'Live shift status & timer', group: 'kpi', icon: <Clock className="w-4 h-4" /> },
+    { id: 'emp_kpi_leave', title: 'Leave Balance', description: 'Remaining & used leave days', group: 'kpi', icon: <Shield className="w-4 h-4" /> },
+    { id: 'emp_kpi_salary', title: 'Salary & Payslips', description: 'Net salary & payslip shortcut', group: 'kpi', icon: <Receipt className="w-4 h-4" /> },
+    { id: 'emp_kpi_manager', title: 'Reports To', description: 'Reporting manager & quick chat', group: 'kpi', icon: <Briefcase className="w-4 h-4" /> },
+    { id: 'emp_kpi_holidays', title: 'Upcoming Holidays', description: 'Next holiday count', group: 'kpi', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'emp_panel_shift_console', title: 'Daily Shift Console', description: 'Clock in, break & clock out', group: 'panel', icon: <Clock className="w-4 h-4" /> },
+    { id: 'emp_panel_recent_attendance', title: 'My Recent Attendance', description: 'Recent daily timestamps table', group: 'panel', icon: <CalendarCheck className="w-4 h-4" /> },
+    { id: 'emp_panel_attendance_graph', title: 'Daily Attendance Analysis', description: 'Graphical daily hours chart', group: 'panel', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'emp_panel_leave_breakdown', title: 'Leave Quota & Balances', description: 'Casual, Sick & Annual quota', group: 'panel', icon: <Shield className="w-4 h-4" /> },
+    { id: 'emp_panel_holidays', title: 'Upcoming Holidays', description: 'Upcoming company holiday dates', group: 'panel', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'emp_panel_announcements', title: 'Company Announcements', description: 'Latest HR notices & circulars', group: 'panel', icon: <Megaphone className="w-4 h-4" /> },
+  ];
+
+  const handleAddWidget = (id: string, group: 'kpi' | 'panel') => {
+    if (portalMode === 'admin') {
+      if (group === 'kpi') setAdminKpiOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      else setAdminPanelOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    } else {
+      if (group === 'kpi') setEmpKpiOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      else setEmpPanelOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }
+  };
+
+  const handleRemoveWidget = (id: string, group: 'kpi' | 'panel') => {
+    if (portalMode === 'admin') {
+      if (group === 'kpi') setAdminKpiOrder((prev) => prev.filter((item) => item !== id));
+      else setAdminPanelOrder((prev) => prev.filter((item) => item !== id));
+    } else {
+      if (group === 'kpi') setEmpKpiOrder((prev) => prev.filter((item) => item !== id));
+      else setEmpPanelOrder((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleDropWidget = (
+    payload: string,
+    targetId: string | null,
+    targetGroup: 'kpi' | 'panel'
+  ) => {
+    const parts = payload.split(':');
+    if (parts.length !== 3) return;
+    const [origin, sourceGroupRaw, sourceId] = parts;
+    const sourceGroup = sourceGroupRaw as 'kpi' | 'panel';
+
+    const updateList = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+      setter((prev) => {
+        if (origin === 'gallery') {
+          if (prev.includes(sourceId)) return prev;
+          if (targetId && sourceGroup === targetGroup) {
+            const idx = prev.indexOf(targetId);
+            if (idx !== -1) {
+              const copy = [...prev];
+              copy.splice(idx, 0, sourceId);
+              return copy;
+            }
+          }
+          return [...prev, sourceId];
+        }
+        // Reordering existing board widgets within the same group
+        if (sourceGroup !== targetGroup) return prev;
+        if (!targetId || sourceId === targetId) return prev;
+        const fromIdx = prev.indexOf(sourceId);
+        const toIdx = prev.indexOf(targetId);
+        if (fromIdx === -1 || toIdx === -1) return prev;
+        const copy = [...prev];
+        const [moved] = copy.splice(fromIdx, 1);
+        copy.splice(toIdx, 0, moved);
+        return copy;
+      });
+    };
+
+    if (portalMode === 'admin') {
+      updateList(sourceGroup === 'kpi' ? setAdminKpiOrder : setAdminPanelOrder);
+    } else {
+      updateList(sourceGroup === 'kpi' ? setEmpKpiOrder : setEmpPanelOrder);
+    }
+  };
+
+  const handleResetWidgets = () => {
+    if (portalMode === 'admin') {
+      setAdminKpiOrder(DEFAULT_ADMIN_KPIS);
+      setAdminPanelOrder(DEFAULT_ADMIN_PANELS);
+    } else {
+      setEmpKpiOrder(DEFAULT_EMP_KPIS);
+      setEmpPanelOrder(DEFAULT_EMP_PANELS);
+    }
+  };
+
+  const currentWidgetDefs = portalMode === 'admin' ? adminWidgetDefs : empWidgetDefs;
+  const currentActiveWidgetIds =
+    portalMode === 'admin'
+      ? [...adminKpiOrder, ...adminPanelOrder]
+      : [...empKpiOrder, ...empPanelOrder];
 
   return (
-    <div className="space-y-5 pb-12 w-full max-w-full overflow-hidden">
+    <div className={`space-y-5 w-full overflow-x-clip transition-all duration-200 ${widgetEditMode ? 'lg:pr-[332px]' : ''}`}>
       {/* Welcome & Section Head (Admin Only) */}
       {portalMode === 'admin' && (
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-2 border-b border-[#d8ebd9]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
           <div>
-            <div className="text-xs text-[#4e6a5d] font-medium">
-              {currentDateString} &bull; Admin workspace
-            </div>
-            <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
-              hello, {user.firstName || 'Admin'}! 👋
+            <h1
+              className="text-2xl sm:text-[30px] leading-tight tracking-[-0.03em] flex items-baseline gap-1.5 flex-wrap"
+              style={{ fontFamily: 'var(--font-display), sans-serif' }}
+            >
+              <span
+                className="font-bold"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, #081c15 0%, #1b4332 45%, #40916c 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Hello,
+              </span>
+              <span
+                className="font-bold"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, #081c15 0%, #1b4332 45%, #40916c 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                {user.firstName || 'Admin'}!
+              </span>
             </h1>
-            <div className="text-xs text-[#4e6a5d] mt-0.5">
-              Here&apos;s what&apos;s happening across your workspace today.
-            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {widgetEditMode && (
+              <button
+                type="button"
+                onClick={handleResetWidgets}
+                className="btn-ghost text-xs"
+                title="Restore default dashboard widgets"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            )}
+            <button
+              id="btn-toggle-dashboard-widgets"
+              type="button"
+              onClick={() => setWidgetEditMode((prev) => !prev)}
+              className={
+                widgetEditMode
+                  ? 'btn-primary'
+                  : 'btn-secondary'
+              }
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>{widgetEditMode ? 'Done Editing' : 'Edit Widgets'}</span>
+            </button>
             <button
               onClick={() => onNavigateModule('announcements')}
               className="btn-primary"
@@ -541,434 +772,627 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
+      {/* Employee Welcome & Widget Customizer Bar */}
+      {portalMode !== 'admin' && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
+          <div>
+            <h1 className="hrms-page-title">
+              Hello, {user.firstName || 'Employee'}!
+            </h1>
+            {widgetEditMode && (
+              <p className="text-xs font-semibold text-[#1b4332] mt-1">
+                Widget Edit Mode — drag cards to reorder, click &times; to remove, or drag new widgets from the right panel.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {widgetEditMode && (
+              <button
+                type="button"
+                onClick={handleResetWidgets}
+                className="btn-ghost text-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            )}
+            <button
+              id="btn-toggle-emp-dashboard-widgets"
+              type="button"
+              onClick={() => setWidgetEditMode((prev) => !prev)}
+              className={widgetEditMode ? 'btn-primary' : 'btn-secondary'}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>{widgetEditMode ? 'Done Editing' : 'Edit Widgets'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {portalMode === 'admin' ? (
         /* ============================================================== */
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* Stats Row (Matching HTML .stats) */}
+          {/* Editable KPI Stats Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div
-              onClick={() => onNavigateModule('employees')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Total Employees</small>
-                <strong>{employees.length}</strong>
-                <small>Active workforce</small>
-              </div>
-            </div>
+            {adminKpiOrder.map((kpiId) => {
+              if (kpiId === 'kpi_employees') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Total Employees"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('employees')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Total Employees</small>
+                        <strong>{employees.length}</strong>
+                        <small>Active workforce</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              if (kpiId === 'kpi_present') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Present Today"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('attendance')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Present Today</small>
+                        <strong>{todayRecords.length}</strong>
+                        <small>{activeWorkingCount} working, {onBreakCount} break</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              if (kpiId === 'kpi_pending_leaves') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Pending Leaves"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('leaves')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Pending Leaves</small>
+                        <strong>{pendingLeaves.length}</strong>
+                        <small>Need review</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              if (kpiId === 'kpi_team_hub') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Team Hub"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('chat')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Team Hub</small>
+                        <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
+                        <small>Real-time collaboration</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              if (kpiId === 'kpi_holidays') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Upcoming Holidays"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('calendar')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Upcoming Holidays</small>
+                        <strong>{upcomingHolidays.length}</strong>
+                        <small>Scheduled dates</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              if (kpiId === 'kpi_approved_leaves') {
+                return (
+                  <WidgetCardWrapper
+                    key={kpiId}
+                    id={kpiId}
+                    title="Approved Leaves"
+                    group="kpi"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div
+                      onClick={() => onNavigateModule('leaves')}
+                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                    >
+                      <div className="stat-icon">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <small>Approved Leaves</small>
+                        <strong>{approvedLeavesCount}</strong>
+                        <small>Total approved</small>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+              return null;
+            })}
 
-            <div
-              onClick={() => onNavigateModule('attendance')}
-              className="stat cursor-pointer hover:border-[#10b981]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#dcfce7', color: '#166534' }}>
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Present Today</small>
-                <strong>{todayRecords.length}</strong>
-                <small>{activeWorkingCount} working, {onBreakCount} break</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('leaves')}
-              className="stat cursor-pointer hover:border-[#f59e0b]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Pending Leaves</small>
-                <strong>{pendingLeaves.length}</strong>
-                <small>Need review</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('chat')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#f0fdf4', color: '#047857' }}>
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Team Hub</small>
-                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                <small>Real-time collaboration</small>
-              </div>
-            </div>
+            {widgetEditMode && adminKpiOrder.length === 0 && (
+              <WidgetDropZone
+                group="kpi"
+                label="Drop KPI Stat Cards Here"
+                onDropWidget={handleDropWidget}
+              />
+            )}
           </div>
 
-          {/* Main Dashboard Grid (1.2fr 1fr .9fr on desktop) */}
+          {/* Editable Main Dashboard Grid (1.2fr 1fr .9fr on desktop) */}
           <div className="dashboard-grid">
-            {/* Panel 1: Attendance Overview (7 Days Chart) */}
-            <section className="panel md:col-span-2">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <span className="text-base">📊</span> Attendance Rate & Turnout
-                </span>
-                <span className="tag">Last 7 Days</span>
-              </h3>
-              <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
-                {sevenDaysData.map((item: { day: string; date: string; val: number; count: string; isToday: boolean }, idx: number) => (
-                  <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
-                    <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
-                      {item.val}%
-                    </div>
-                    <div
-                      style={{ height: `${Math.max(4, item.val)}%` }}
-                      className={`w-full max-w-[42px] rounded-t-lg transition-all shadow-xs ${item.isToday
-                          ? 'bg-gradient-to-t from-[#047857] to-[#10b981] ring-2 ring-[#10b981]/50'
-                          : 'bg-gradient-to-t from-[#059669] to-[#34d399] group-hover:brightness-110'
-                        }`}
-                      title={item.count}
+            {adminPanelOrder.map((panelId) => {
+              if (panelId === 'panel_attendance_graph') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Attendance Graph"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="md:col-span-2"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <DailyAttendanceGraph
+                      mode="admin"
+                      records={mergedAttendance}
+                      totalEmployees={employees.length}
+                      onViewFullLog={() => onNavigateModule('attendance')}
                     />
-                    <small
-                      className={`text-[11px] font-bold mt-1 ${item.isToday ? 'text-[#059669]' : 'text-[#4e6a5d]'
-                        }`}
-                    >
-                      {item.day}
-                    </small>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
-                <span className="font-medium">
-                  <strong className="text-[#0d271d]">{todayRecords.length}</strong> checked-in out of{' '}
-                  <strong className="text-[#0d271d]">{employees.length}</strong> team members today
-                </span>
-                <button
-                  onClick={() => onNavigateModule('attendance')}
-                  className="text-[#059669] font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  Open Timesheets &rarr;
-                </button>
-              </div>
-            </section>
+                  </WidgetCardWrapper>
+                );
+              }
 
-            {/* Panel 2: Announcements */}
-            <section className="panel">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <span>📣</span> Announcements
-                </span>
-                <button
-                  onClick={() => onNavigateModule('announcements')}
-                  className="btn-ghost text-xs"
-                >
-                  View all
-                </button>
-              </h3>
-              {announcements.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No company announcements published yet.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {announcements.slice(0, 3).map((item) => (
-                    <div key={item.id} className="item">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-xs text-[#152345] truncate">{item.title}</strong>
-                        <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
-                          {item.priority || 'Notice'}
+              if (panelId === 'panel_announcements') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Announcements"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <section className="panel h-full">
+                      <h3>
+                        <span className="flex items-center gap-2">
+                          <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
                         </span>
-                      </div>
-                      <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed line-clamp-2">
-                        {item.content}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Panel 3: Quick Actions */}
-            <section className="panel">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <span>⚡</span> Quick actions
-                </span>
-              </h3>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde
-                <button
-                  onClick={onOpenClockModal}
-                  className="btn-secondary justify-center py-2.5"
-                >
-                  <Clock className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Mark punch</span>
-                </button>
-                */}
-                <button
-                  onClick={() => onNavigateModule('leaves')}
-                  className="btn-secondary justify-center py-2.5"
-                >
-                  <CalendarCheck className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Leave requests</span>
-                </button>
-                <button
-                  onClick={onOpenAddEmployeeModal}
-                  className="btn-secondary justify-center py-2.5"
-                >
-                  <UserPlus className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Add staff</span>
-                </button>
-                <button
-                  onClick={() => onNavigateModule('calendar')}
-                  className="btn-secondary justify-center py-2.5"
-                >
-                  <Calendar className="w-4 h-4 text-[#4f5fe8]" />
-                  <span>Holidays</span>
-                </button>
-              </div>
-            </section>
-
-            {/* Panel 4: Pending Approvals */}
-            <section className="panel md:col-span-2">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <span>✅</span> Pending leave approvals ({pendingLeaves.length})
-                </span>
-                <button
-                  onClick={() => onNavigateModule('leaves')}
-                  className="btn-ghost text-xs"
-                >
-                  Review all
-                </button>
-              </h3>
-
-              {pendingLeaves.length === 0 ? (
-                <div className="p-6 text-center text-[#6e7b98] text-xs">
-                  No leave requests currently pending review.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
-                    const isProcessing = processingLeaveId === leave.id;
-                    return (
-                      <div
-                        key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
-                        className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
+                        <button
+                          onClick={() => onNavigateModule('announcements')}
+                          className="btn-ghost text-xs"
+                        >
+                          View all
+                        </button>
+                      </h3>
+                      {announcements.length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 text-xs">
+                          No company announcements published yet.
+                        </div>
+                      ) : (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <strong className="text-xs text-[#152345]">
-                              {leave.employeeName}
-                            </strong>
-                            <span className="tag orange">
-                              {leave.leaveType}
-                            </span>
-                            <span className="text-xs text-[#6e7b98] font-mono">
-                              {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
-                            </span>
-                          </div>
-                          <p className="text-xs text-[#6e7b98]">
-                            Reason: <span className="text-[#152345] font-medium">&ldquo;{leave.reason}&rdquo;</span>
+                          {announcements.slice(0, 3).map((item) => (
+                            <div key={item.id} className="item">
+                              <div className="flex items-center justify-between gap-2">
+                                <strong className="text-xs text-[#343a40] truncate">{item.title}</strong>
+                                <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
+                                  {item.priority || 'Notice'}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-[#6c757d] mt-1 leading-relaxed line-clamp-2">
+                                {item.content}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'panel_upcoming_holidays') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Upcoming Holidays"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <section className="panel h-full">
+                      <h3>
+                        <span className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Upcoming Holidays
+                        </span>
+                        <button
+                          onClick={() => onNavigateModule('calendar')}
+                          className="btn-ghost text-xs"
+                        >
+                          Calendar
+                        </button>
+                      </h3>
+                      {upcomingHolidays.length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 text-xs">
+                          No upcoming holidays scheduled.
+                        </div>
+                      ) : (
+                        <div className="space-y-1 text-xs">
+                          {upcomingHolidays.map((h: any) => {
+                            const holDate = new Date(h.date);
+                            const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', weekday: 'short' });
+                            return (
+                              <div key={h.id} className="item flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <strong className="text-xs text-[#212529] block truncate">{h.name}</strong>
+                                  <span className="text-[10px] text-[#6c757d]">{h.type || 'Company Holiday'}</span>
+                                </div>
+                                <span className="tag green shrink-0">{dateLabel}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'panel_pending_approvals') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Pending Leave Approvals"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="col-span-full"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <section className="panel">
+                      <h3>
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
+                        </span>
+                        <button
+                          onClick={() => onNavigateModule('leaves')}
+                          className="btn-ghost text-xs"
+                        >
+                          Review all
+                        </button>
+                      </h3>
+
+                      {pendingLeaves.length === 0 ? (
+                        <div className="p-6 text-center text-[#6c757d] text-xs">
+                          No leave requests currently pending review.
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
+                            const isProcessing = processingLeaveId === leave.id;
+                            return (
+                              <div
+                                key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
+                                className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                              >
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <strong className="text-xs text-[#343a40]">
+                                      {leave.employeeName}
+                                    </strong>
+                                    <span className="tag orange">
+                                      {leave.leaveType}
+                                    </span>
+                                    <span className="text-xs text-[#6c757d] font-mono">
+                                      {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-[#6c757d]">
+                                    Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                  <button
+                                    onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
+                                    disabled={isProcessing}
+                                    className="btn-primary text-xs py-1.5 px-3"
+                                  >
+                                    {isProcessing ? 'Saving...' : 'Approve'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
+                                    disabled={isProcessing}
+                                    className="btn-danger text-xs py-1.5 px-3"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'panel_staff_directory') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Staff Directory & Tracking"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="col-span-full"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div className="panel space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
+                        <div>
+                          <h3 className="text-sm font-bold text-[#343a40] m-0">
+                            Staff Directory &amp; Live Time Tracking
+                          </h3>
+                          <p className="text-xs text-[#6c757d] mt-0.5">
+                            Live status, recorded punches, and direct messaging
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
-                            disabled={isProcessing}
-                            className="btn-primary text-xs py-1.5 px-3 bg-[#16a779] hover:bg-[#13865f]"
+                            onClick={() => onNavigateModule('attendance')}
+                            className="btn-ghost text-xs"
                           >
-                            {isProcessing ? 'Saving...' : 'Approve'}
+                            <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
+                            <span>Timesheets</span>
                           </button>
                           <button
-                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
-                            disabled={isProcessing}
-                            className="btn-danger text-xs py-1.5 px-3"
+                            onClick={onOpenAddEmployeeModal}
+                            className="btn-primary text-xs"
                           >
-                            Reject
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Add Employee</span>
                           </button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </div>
 
-          {/* Live Staff Attendance & Real-Time Activity Directory */}
-          <div className="panel space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#e4eaf5]">
-              <div>
-                <h3 className="text-sm font-bold text-[#152345] m-0">
-                  Staff Directory &amp; Live Time Tracking
-                </h3>
-                <p className="text-xs text-[#6e7b98] mt-0.5">
-                  Live status, recorded punches, and direct messaging
-                </p>
-              </div>
+                      <div className="tablewrap">
+                        <table className="data">
+                          <thead>
+                            <tr>
+                              <th>EMPLOYEE</th>
+                              <th>ID</th>
+                              <th>DESIGNATION</th>
+                              <th>TODAY&apos;S SHIFT</th>
+                              <th>WORKED TIME</th>
+                              <th>BREAK</th>
+                              <th>STATUS</th>
+                              <th className="text-right">ACTION</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {employees.length === 0 ? (
+                              <tr>
+                                <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
+                                  <div className="flex flex-col items-center justify-center gap-1.5">
+                                    <Users className="w-8 h-8 text-emerald-500/50" />
+                                    <p className="font-bold text-[#343a40]">No employees in this company yet</p>
+                                    <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              employees.map((emp, index) => {
+                                const todayRec = getTodayRecordForEmployee(emp.id);
+                                const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                                const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
+                                const isDone = todayRec && todayRec.isCompleted;
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onNavigateModule('attendance')}
-                  className="btn-ghost text-xs"
-                >
-                  <Clock className="w-3.5 h-3.5 text-[#4f5fe8]" />
-                  <span>Timesheets</span>
-                </button>
-                <button
-                  onClick={onOpenAddEmployeeModal}
-                  className="btn-primary text-xs"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Add Employee</span>
-                </button>
-              </div>
-            </div>
+                                const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
+                                const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
 
-            <div className="tablewrap">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>EMPLOYEE</th>
-                    <th>ID</th>
-                    <th>DESIGNATION</th>
-                    <th>TODAY&apos;S SHIFT</th>
-                    <th>WORKED TIME</th>
-                    <th>BREAK</th>
-                    <th>STATUS</th>
-                    <th className="text-right">ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-10 text-center text-xs text-[#6e7b98]">
-                        <div className="flex flex-col items-center justify-center gap-1.5">
-                          <Users className="w-8 h-8 text-emerald-500/50" />
-                          <p className="font-bold text-[#152345]">No employees in this company yet</p>
-                          <p className="text-[11px] text-[#6e7b98]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    employees.map((emp, index) => {
-                    const todayRec = getTodayRecordForEmployee(emp.id);
-                    const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                    const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
-                    const isDone = todayRec && todayRec.isCompleted;
+                                return (
+                                  <tr
+                                    key={emp.id ? `${emp.id}-${index}` : index}
+                                    onClick={() => onSelectEmployee(emp)}
+                                    className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
+                                  >
+                                    <td className="font-semibold text-[#343a40]">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
+                                          {emp.firstName?.[0] || 'E'}
+                                        </div>
+                                        <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                      </div>
+                                    </td>
+                                    <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
+                                    <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
+                                    <td className="text-[#6c757d] font-mono text-xs">
+                                      {todayRec?.checkIn ? (
+                                        <span>
+                                          {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[#dee2e6]">—</span>
+                                      )}
+                                    </td>
+                                    <td className="font-mono font-bold text-[#343a40] text-xs">
+                                      {todayRec ? formatSecondsToWords(liveSecs) : '—'}
+                                    </td>
+                                    <td className="text-[#6c757d] font-mono text-xs">
+                                      {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                                    </td>
+                                    <td>
+                                      {isWorking ? (
+                                        <span className="tag green">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
+                                          Working
+                                        </span>
+                                      ) : isOnBreak ? (
+                                        <span className="tag orange">
+                                          <Pause className="w-3 h-3 text-[#6c757d]" />
+                                          On Break
+                                        </span>
+                                      ) : isDone ? (
+                                        <span className="tag">
+                                          <Check className="w-3 h-3" />
+                                          Completed
+                                        </span>
+                                      ) : (
+                                        <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
+                                          Not Punched
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="text-right">
+                                      <div
+                                        className="flex items-center justify-end gap-1.5"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <button
+                                          id={`btn-dash-chat-${emp.id}`}
+                                          onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                                          className="btn-ghost text-xs py-1 px-2.5"
+                                          title="Chat with employee"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                          <span className="hidden sm:inline">Chat</span>
+                                        </button>
 
-                    const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
-                    const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
+                                        <button
+                                          id={`btn-dash-role-${emp.id}`}
+                                          onClick={() => setRoleTargetEmpDash(emp)}
+                                          className="btn-secondary text-xs py-1 px-2.5"
+                                          title="Change employee role"
+                                        >
+                                          <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                          <span className="hidden sm:inline">Role</span>
+                                        </button>
 
-                    return (
-                      <tr
-                        key={emp.id ? `${emp.id}-${index}` : index}
-                        onClick={() => onSelectEmployee(emp)}
-                        className="hover:bg-[#f8faff] cursor-pointer transition-colors"
-                      >
-                        <td className="font-semibold text-[#152345]">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[#e8ecff] text-[#3548be] font-bold text-xs flex items-center justify-center shrink-0">
-                              {emp.firstName?.[0] || 'E'}
-                            </div>
-                            <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                          </div>
-                        </td>
-                        <td className="text-[#6e7b98] font-mono text-xs">{emp.employeeCode}</td>
-                        <td className="text-[#152345] truncate">{emp.designationTitle || 'Staff'}</td>
-                        <td className="text-[#6e7b98] font-mono text-xs">
-                          {todayRec?.checkIn ? (
-                            <span>
-                              {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
-                            </span>
-                          ) : (
-                            <span className="text-[#aab8df]">—</span>
-                          )}
-                        </td>
-                        <td className="font-mono font-bold text-[#152345] text-xs">
-                          {todayRec ? formatSecondsToWords(liveSecs) : '—'}
-                        </td>
-                        <td className="text-[#6e7b98] font-mono text-xs">
-                          {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
-                        </td>
-                        <td>
-                          {isWorking ? (
-                            <span className="tag green">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#16a779] animate-pulse" />
-                              Working
-                            </span>
-                          ) : isOnBreak ? (
-                            <span className="tag orange">
-                              <Pause className="w-3 h-3 text-[#f39a3f]" />
-                              On Break
-                            </span>
-                          ) : isDone ? (
-                            <span className="tag">
-                              <Check className="w-3 h-3" />
-                              Completed
-                            </span>
-                          ) : (
-                            <span className="tag" style={{ background: '#f4f7fc', color: '#6e7b98' }}>
-                              Not Punched
-                            </span>
-                          )}
-                        </td>
-                        <td className="text-right">
-                          <div
-                            className="flex items-center justify-end gap-1.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              id={`btn-dash-chat-${emp.id}`}
-                              onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              className="btn-ghost text-xs py-1 px-2.5"
-                              title="Chat with employee"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#4f5fe8]" />
-                              <span className="hidden sm:inline">Chat</span>
-                            </button>
+                                        <button
+                                          id={`btn-dash-notice-${emp.id}`}
+                                          onClick={() => handleOpenNoticeModalDashboard(emp)}
+                                          className="btn-secondary text-xs py-1 px-2.5"
+                                          title="Send notice to employee"
+                                        >
+                                          <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                          <span className="hidden sm:inline">Notice</span>
+                                        </button>
 
-                            <button
-                              id={`btn-dash-role-${emp.id}`}
-                              onClick={() => setRoleTargetEmpDash(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5 text-purple-700 bg-purple-50 hover:bg-purple-100"
-                              title="Change employee role"
-                            >
-                              <Shield className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Role</span>
-                            </button>
-
-                            <button
-                              id={`btn-dash-notice-${emp.id}`}
-                              onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5"
-                              title="Send notice to employee"
-                            >
-                              <Bell className="w-3.5 h-3.5 text-[#4f5fe8]" />
-                              <span className="hidden sm:inline">Notice</span>
-                            </button>
-
-                            {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                              <button
-                                id={`btn-dash-remove-${emp.id}`}
-                                onClick={() => setRemovingEmpDashboard(emp)}
-                                className="btn-danger text-xs py-1 px-2"
-                                title="Remove employee from staff"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                        {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                          <button
+                                            id={`btn-dash-remove-${emp.id}`}
+                                            onClick={() => setRemovingEmpDashboard(emp)}
+                                            className="btn-danger text-xs py-1 px-2"
+                                            title="Remove employee from staff"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-                </tbody>
-              </table>
-            </div>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              return null;
+            })}
+
+            {widgetEditMode && (
+              <WidgetDropZone
+                group="panel"
+                label="Drop Dashboard Panels Here"
+                onDropWidget={handleDropWidget}
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -976,7 +1400,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* EMPLOYEE SELF-SERVICE VIEW (HIGH-CLARITY & SIMPLE)             */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* ═══ STAT CARDS ═══ */}
+          {/* ═══ EDITABLE EMPLOYEE STAT CARDS ═══ */}
           {(() => {
             const myLeaves = leaves.filter((l) => {
               const eId = currentEmp?.id || user?.employeeId || user?.id || '';
@@ -987,294 +1411,529 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               if (eName && l.employeeName?.toLowerCase() === eName) return true;
               return false;
             });
-            const empTakenDays = myLeaves
-              .filter((l) => (l.status || '').toLowerCase() === 'approved')
-              .reduce((sum, l) => sum + (Number(l.daysCount) || 1), 0);
-            const empTotalQuota = 36;
-            const empLeftDays = Math.max(0, empTotalQuota - empTakenDays);
+            const empLeaveSummary = resolveLeaveQuotaSummary(
+              leaveQuotaData?.settings ?? null,
+              leaveQuotaData?.balances ?? null,
+              myLeaves
+            );
+            const empTakenDays = empLeaveSummary.total.taken;
+            const empTotalQuota = empLeaveSummary.total.quota;
+            const empLeftDays = empLeaveSummary.total.available;
 
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* Stat 1: Attendance status */}
-                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: currentStatus === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : currentStatus === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : currentStatus === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                {empKpiOrder.map((kpiId) => {
+                  if (kpiId === 'emp_kpi_status') {
+                    return (
+                      <WidgetCardWrapper
+                        key={kpiId}
+                        id={kpiId}
+                        title="Today's Status"
+                        group="kpi"
+                        editMode={widgetEditMode}
+                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                        onDropWidget={handleDropWidget}
+                      >
+                        <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                              <Clock className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
+                              <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
+                              <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </WidgetCardWrapper>
+                    );
+                  }
+                  if (kpiId === 'emp_kpi_leave') {
+                    return (
+                      <WidgetCardWrapper
+                        key={kpiId}
+                        id={kpiId}
+                        title="Leave Balance"
+                        group="kpi"
+                        editMode={widgetEditMode}
+                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                        onDropWidget={handleDropWidget}
+                      >
+                        <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                              <Shield className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
+                              <p className="text-sm font-black text-slate-900">
+                                {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
+                              </p>
+                              <p className="text-[11px] text-emerald-600 font-semibold">
+                                {leaveQuotaLoading
+                                  ? 'Fetching quota...'
+                                  : `${empTakenDays} Used • ${empTotalQuota} Total`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </WidgetCardWrapper>
+                    );
+                  }
+                  if (kpiId === 'emp_kpi_salary') {
+                    return (
+                      <WidgetCardWrapper
+                        key={kpiId}
+                        id={kpiId}
+                        title="Salary & Payslips"
+                        group="kpi"
+                        editMode={widgetEditMode}
+                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                        onDropWidget={handleDropWidget}
+                      >
+                        <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                              <Receipt className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
+                              <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
+                              <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
+                            </div>
+                          </div>
+                        </div>
+                      </WidgetCardWrapper>
+                    );
+                  }
+                  if (kpiId === 'emp_kpi_manager') {
+                    return (
+                      <WidgetCardWrapper
+                        key={kpiId}
+                        id={kpiId}
+                        title="Reports To"
+                        group="kpi"
+                        editMode={widgetEditMode}
+                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                        onDropWidget={handleDropWidget}
+                      >
+                        <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                              <Briefcase className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
+                              <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
+                              <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
+                            </div>
+                          </div>
+                        </div>
+                      </WidgetCardWrapper>
+                    );
+                  }
+                  if (kpiId === 'emp_kpi_holidays') {
+                    return (
+                      <WidgetCardWrapper
+                        key={kpiId}
+                        id={kpiId}
+                        title="Upcoming Holidays"
+                        group="kpi"
+                        editMode={widgetEditMode}
+                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
+                        onDropWidget={handleDropWidget}
+                      >
+                        <div onClick={() => onNavigateModule('calendar')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                              <Calendar className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Upcoming Holidays</p>
+                              <p className="text-sm font-black text-slate-900">{upcomingHolidays.length}</p>
+                              <p className="text-[11px] text-emerald-700 font-semibold">View Calendar &rarr;</p>
+                            </div>
+                          </div>
+                        </div>
+                      </WidgetCardWrapper>
+                    );
+                  }
+                  return null;
+                })}
 
-                {/* Stat 2: Leave Balance */}
-                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                      <Shield className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                      <p className="text-sm font-black text-slate-900">{empLeftDays} Days Left</p>
-                      <p className="text-[11px] text-emerald-600 font-semibold">{empTakenDays} Taken • {empLeftDays} Left</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stat 3: Salary & Payslips */}
-                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
-                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stat 4: Manager */}
-                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                      <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
-                    </div>
-                  </div>
-                </div>
+                {widgetEditMode && empKpiOrder.length === 0 && (
+                  <WidgetDropZone
+                    group="kpi"
+                    label="Drop KPI Stat Cards Here"
+                    onDropWidget={handleDropWidget}
+                  />
+                )}
               </div>
             );
           })()}
 
-          {/* ═══ 3. PUNCH CONSOLE + SIDEBAR ═══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 7 Cols: Unified Daily Shift Console */}
-            <div className="lg:col-span-7">
-              <DailyShiftConsole clockSize="sm" />
-            </div>
-
-            {/* Right 5 Cols: Workplace Cards */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Employment Details Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-black text-slate-900">Workplace Info</h4>
-                        <p className="text-[10px] text-slate-400">Employment details</p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">Active</span>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    {[
-                      { label: 'Work Location', value: currentEmp?.workLocationName || 'Corporate HQ' },
-                      { label: 'Employment Type', value: currentEmp?.employmentType || 'Full-time' },
-                      { label: 'Joined On', value: currentEmp?.joiningDate ? new Date(currentEmp.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Active' },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-emerald-50/40 hover:border-emerald-100 transition-colors">
-                        <span className="text-slate-500 font-medium">{label}</span>
-                        <span className="font-bold text-slate-900 text-right max-w-[120px] truncate">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => onNavigateModule('organization')}
-                    className="w-full mt-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>
-                    <Building2 className="w-3.5 h-3.5" />
-                    About Organisation
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* ═══ 4. ATTENDANCE HISTORY + LEAVE/HOLIDAYS ═══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 7: Attendance table */}
-            <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-              <div className="p-6">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <CalendarCheck className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900 tracking-tight">
-                        My Recent Attendance (Last 5 Days)
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Your daily punch in/out timestamps and worked duration summary.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onNavigateModule('attendance')}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+          {/* ═══ EDITABLE EMPLOYEE PANELS GRID ═══ */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            {empPanelOrder.map((panelId) => {
+              if (panelId === 'emp_panel_shift_console') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Daily Shift Console"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-6 flex flex-col"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
                   >
-                    <span>Full Log</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                    <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
+                  </WidgetCardWrapper>
+                );
+              }
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                        <th className="py-2.5 px-3 rounded-l-xl">DATE & DAY</th>
-                        <th className="py-2.5 px-3">CHECK IN</th>
-                        <th className="py-2.5 px-3">CHECK OUT</th>
-                        <th className="py-2.5 px-3">BREAK</th>
-                        <th className="py-2.5 px-3">WORKED</th>
-                        <th className="py-2.5 px-3 text-right rounded-r-xl">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {myRecentAttendance.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                            No attendance history recorded yet. Punch in to begin tracking your work hours!
-                          </td>
-                        </tr>
-                      ) : (
-                        myRecentAttendance.map((rec: any) => {
-                          const recDate = new Date(rec.date);
-                          const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'long' });
-                          const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-                          const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
-                          const bSecs = getLiveBreakSeconds(rec);
-                          const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+              if (panelId === 'emp_panel_recent_attendance') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="My Recent Attendance"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-6 flex flex-col"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-full">
+                      <div className="p-3 sm:p-3.5 flex flex-col flex-1 min-h-0">
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                              <CalendarCheck className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
+                                My Recent Attendance
+                              </h3>
+                              <p className="text-[10px] text-slate-400 leading-tight truncate">
+                                Daily clock in/out timestamps &amp; worked duration
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => onNavigateModule('attendance')}
+                            className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
+                          >
+                            <span>Full Log</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                          return (
-                            <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="py-3 px-3 font-bold text-slate-900">
-                                <div>{dayName}</div>
-                                <div className="text-[10px] text-slate-400 font-normal">{formattedDate}</div>
-                              </td>
-                              <td className="py-3 px-3 font-medium text-slate-700">{rec.checkIn || '—'}</td>
-                              <td className="py-3 px-3 font-medium text-slate-700">{rec.checkOut || '—'}</td>
-                              <td className="py-3 px-3 text-slate-500">{breakStr}</td>
-                              <td className="py-3 px-3 font-mono font-bold text-slate-900">{workedStr}</td>
-                              <td className="py-3 px-3 text-right">
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                  rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                                }`}>
-                                  {rec.status || 'Present'}
-                                </span>
-                              </td>
-                            </tr>
+                        <div className="mt-2.5 flex-1 overflow-auto max-h-[145px] [scrollbar-width:thin]">
+                          <table className="w-full text-left text-[11px] border-collapse">
+                            <thead className="sticky top-0 z-10 bg-white">
+                              <tr className="border-b border-slate-100 text-[9px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/80">
+                                <th className="py-1.5 px-2">DATE &amp; DAY</th>
+                                <th className="py-1.5 px-2">CLOCK IN</th>
+                                <th className="py-1.5 px-2">CLOCK OUT</th>
+                                <th className="py-1.5 px-2">BREAK</th>
+                                <th className="py-1.5 px-2">WORKED</th>
+                                <th className="py-1.5 px-2 text-right">STATUS</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {myRecentAttendance.length === 0 ? (
+                                <tr>
+                                  <td colSpan={6} className="py-4 text-center text-slate-400 text-[11px]">
+                                    No attendance history recorded yet. Clock in to begin tracking your work hours!
+                                  </td>
+                                </tr>
+                              ) : (
+                                myRecentAttendance.map((rec: any) => {
+                                  const recDate = new Date(rec.date);
+                                  const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
+                                  const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                                  const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
+                                  const bSecs = getLiveBreakSeconds(rec);
+                                  const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+
+                                  return (
+                                    <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
+                                      <td className="py-1.5 px-2 font-semibold text-slate-900 whitespace-nowrap">
+                                        <span>{dayName}</span>
+                                        <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
+                                      </td>
+                                      <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn || '—'}</td>
+                                      <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut || '—'}</td>
+                                      <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
+                                      <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
+                                      <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-semibold ${rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                                          }`}>
+                                          {rec.status || 'Present'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'emp_panel_attendance_graph') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Daily Attendance Analysis"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-12"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <DailyAttendanceGraph
+                      mode="employee"
+                      records={myAllAttendance}
+                      liveWorkedHMS={liveWorkedHMS}
+                      liveStatus={currentStatus}
+                      todayCheckIn={
+                        activeSession?.startTime
+                          ? new Date(activeSession.startTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })
+                          : lastCompletedSession?.startTime
+                            ? new Date(lastCompletedSession.startTime).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })
+                            : undefined
+                      }
+                      todayCheckOut={
+                        lastCompletedSession?.endTime
+                          ? new Date(lastCompletedSession.endTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })
+                          : undefined
+                      }
+                      todayBreakWords={todaySummary?.totalBreakFormatted || liveBreakWords}
+                      onViewFullLog={() => onNavigateModule('attendance')}
+                    />
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'emp_panel_leave_breakdown') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Leave Quota & Balances"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-6"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
+                      <div className="p-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                          <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota &amp; Balances</h4>
+                          <button
+                            onClick={onOpenLeaveModal}
+                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                          >
+                            + Apply Leave
+                          </button>
+                        </div>
+
+                        {(() => {
+                          const empMyLeaves = leaves.filter((l) => {
+                            const eId = currentEmp?.id || user?.employeeId || user?.id || '';
+                            const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
+                            const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
+                            if (eId && l.employeeId === eId) return true;
+                            if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
+                            if (eName && l.employeeName?.toLowerCase() === eName) return true;
+                            return false;
+                          });
+                          const empSummary = resolveLeaveQuotaSummary(
+                            leaveQuotaData?.settings ?? null,
+                            leaveQuotaData?.balances ?? null,
+                            empMyLeaves
                           );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div></div>
-
-            {/* Right 5: Leave + Holidays */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Leave Breakdown */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                    <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota & Balances</h4>
-                    <button
-                      onClick={onOpenLeaveModal}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
-                    >
-                      + Apply Leave
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
-                    <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Casual</span>
-                      <span className="text-lg font-black text-blue-700 block mt-0.5">
-                        {leaveBalances?.casualLeave?.remaining != null ? `${leaveBalances.casualLeave.remaining} Left` : '—'}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {leaveBalances?.casualLeave?.total != null ? `of ${leaveBalances.casualLeave.total} Total` : 'Standard Quota'}
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Sick</span>
-                      <span className="text-lg font-black text-emerald-700 block mt-0.5">
-                        {leaveBalances?.sickLeave?.remaining != null ? `${leaveBalances.sickLeave.remaining} Left` : '—'}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {leaveBalances?.sickLeave?.total != null ? `of ${leaveBalances.sickLeave.total} Total` : 'Standard Quota'}
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Annual</span>
-                      <span className="text-lg font-black text-purple-700 block mt-0.5">
-                        {leaveBalances?.paidLeave?.remaining != null ? `${leaveBalances.paidLeave.remaining} Left` : '—'}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {leaveBalances?.paidLeave?.total != null ? `of ${leaveBalances.paidLeave.total} Total` : 'Standard Quota'}
-                      </span>
-                    </div>
-                  </div>
-                </div></div>
-
-              {/* Upcoming Holidays */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#f59e0b,#ef4444)' }} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                    <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
-                    <button
-                      onClick={() => onNavigateModule('calendar')}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
-                    >
-                      View Calendar
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    {upcomingHolidays.length === 0 ? (
-                      <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
-                    ) : (
-                      upcomingHolidays.map((h: any) => {
-                        const holDate = new Date(h.date);
-                        const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
-                        return (
-                          <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-base">📅</span>
-                              <div>
-                                <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
-                                <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
+                          if (leaveQuotaLoading) {
+                            return (
+                              <div className="grid grid-cols-3 gap-2.5 text-center text-xs animate-pulse">
+                                {[0, 1, 2].map((idx) => (
+                                  <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
+                                    <div className="h-3 w-12 mx-auto bg-slate-200 rounded" />
+                                    <div className="h-5 w-14 mx-auto bg-slate-200 rounded" />
+                                    <div className="h-2.5 w-16 mx-auto bg-slate-100 rounded" />
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                              <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Casual</span>
+                                <span className="text-lg font-black text-blue-700 block mt-0.5">
+                                  {empSummary.casual.available} Left
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  of {empSummary.casual.quota} Total
+                                </span>
+                              </div>
+                              <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Sick</span>
+                                <span className="text-lg font-black text-emerald-700 block mt-0.5">
+                                  {empSummary.sick.available} Left
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  of {empSummary.sick.quota} Total
+                                </span>
+                              </div>
+                              <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Annual</span>
+                                <span className="text-lg font-black text-purple-700 block mt-0.5">
+                                  {empSummary.paid.available} Left
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  of {empSummary.paid.quota} Total
+                                </span>
                               </div>
                             </div>
-                            <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div></div>
-            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'emp_panel_holidays') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Upcoming Holidays"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-6"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
+                      <div className="p-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                          <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
+                          <button
+                            onClick={() => onNavigateModule('calendar')}
+                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                          >
+                            View Calendar
+                          </button>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          {upcomingHolidays.length === 0 ? (
+                            <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
+                          ) : (
+                            upcomingHolidays.map((h: any) => {
+                              const holDate = new Date(h.date);
+                              const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
+                              return (
+                                <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                      <Calendar className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
+                                      <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              if (panelId === 'emp_panel_announcements') {
+                return (
+                  <WidgetCardWrapper
+                    key={panelId}
+                    id={panelId}
+                    title="Company Announcements"
+                    group="panel"
+                    editMode={widgetEditMode}
+                    className="lg:col-span-6"
+                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
+                    onDropWidget={handleDropWidget}
+                  >
+                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
+                      <div className="p-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                          <h4 className="text-sm font-bold text-slate-900 m-0">Company Announcements</h4>
+                          <button
+                            onClick={() => onNavigateModule('announcements')}
+                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                          >
+                            View All
+                          </button>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          {announcements.length === 0 ? (
+                            <p className="text-center py-6 text-xs text-slate-400">No announcements published yet.</p>
+                          ) : (
+                            announcements.slice(0, 3).map((item: any) => (
+                              <div key={item.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-bold text-slate-900 truncate">{item.title}</span>
+                                  <span className="tag green shrink-0">{item.priority || 'Notice'}</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{item.content}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </WidgetCardWrapper>
+                );
+              }
+
+              return null;
+            })}
+
+            {widgetEditMode && (
+              <WidgetDropZone
+                group="panel"
+                label="Drop Dashboard Panels Here"
+                onDropWidget={handleDropWidget}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1294,13 +1953,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Square className="w-5 h-5 fill-current" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Check Out for Today?</h3>
+                <h3 className="text-sm font-bold text-slate-900">Clock Out for Today?</h3>
                 <p className="text-xs text-slate-500">Attendance shift finalization</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Once checked out, today’s work shift is locked and finalized. You will not be able to punch in again until tomorrow.
+              Once clocked out, today’s work shift is locked and finalized. You will not be able to punch in again until tomorrow.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -1319,7 +1978,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 disabled={actionLoading}
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {actionLoading ? 'Finalizing...' : 'Confirm Check Out'}
+                {actionLoading ? 'Finalizing...' : 'Confirm Clock Out'}
               </button>
             </div>
           </div>
@@ -1501,10 +2160,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   onChange={(e) => setDashNoticePriority(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
                 >
-                  <option value="Low">🟢 Low Priority (General Notice)</option>
-                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
-                  <option value="High">🟠 High Priority (Action Required)</option>
-                  <option value="Urgent">🔴 Urgent Notice (Immediate Attention)</option>
+                  <option value="Low">Low Priority (General Notice)</option>
+                  <option value="Medium">Medium Priority (Standard Notice)</option>
+                  <option value="High">High Priority (Action Required)</option>
+                  <option value="Urgent">Urgent Notice (Immediate Attention)</option>
                 </select>
               </div>
 
@@ -1537,7 +2196,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={handleConfirmSendNoticeDashboard}
                 disabled={dashNoticeLoading}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{dashNoticeLoading ? 'Sending...' : 'Send Notice'}</span>
@@ -1557,6 +2216,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           setRoleTargetEmpDash(null);
           if (onRefreshData) onRefreshData();
         }}
+      />
+
+      {/* Temporary Mobile-Style Right Widget Gallery Drawer */}
+      <WidgetGallerySidebar
+        isOpen={widgetEditMode}
+        allWidgets={currentWidgetDefs}
+        activeIds={currentActiveWidgetIds}
+        onAddWidget={handleAddWidget}
+        onRemoveWidget={handleRemoveWidget}
+        onResetLayout={handleResetWidgets}
+        onClose={() => setWidgetEditMode(false)}
       />
     </div>
   );

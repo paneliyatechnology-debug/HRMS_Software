@@ -308,14 +308,14 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       showToast({
         title: 'Shift Started',
-        message: res?.message || 'Check-in successful. Your work timer is now running!',
+        message: res?.message || 'Clock-in successful. Your work timer is now running!',
         type: 'success',
       });
       return true;
     } catch (err: any) {
       console.error('[WorkSessionContext] Check-in error:', err);
       showToast({
-        title: 'Check-In Failed',
+        title: 'Clock-In Failed',
         message: err.message || 'Could not start shift. Please try again.',
         type: 'error',
       });
@@ -436,8 +436,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const checkOut = useCallback(async (): Promise<boolean> => {
     if (statusRef.current === 'on_break') {
       showToast({
-        title: 'Check-Out Blocked',
-        message: 'Cannot check out while break is active. Please click "Resume Work" first.',
+        title: 'Clock-Out Blocked',
+        message: 'Cannot clock out while break is active. Please click "Resume Work" first.',
         type: 'warning',
       });
       return false;
@@ -461,14 +461,14 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       showToast({
         title: 'Shift Completed',
-        message: res?.message || 'Checked out successfully. Have a great day!',
+        message: res?.message || 'Clocked out successfully. Have a great day!',
         type: 'success',
       });
       return true;
     } catch (err: any) {
       console.error('[WorkSessionContext] Check out error:', err);
       showToast({
-        title: 'Check-Out Failed',
+        title: 'Clock-Out Failed',
         message: err.message || 'Could not complete shift. Please try again.',
         type: 'error',
       });

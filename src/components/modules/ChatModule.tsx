@@ -20,6 +20,12 @@ import {
   User as UserIcon,
   Pencil,
   Trash2,
+  Pin,
+  Mic,
+  Square,
+  Loader2,
+  AlertCircle,
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -43,6 +49,16 @@ import {
   ADMIN_NAME,
 } from '../../lib/chatService';
 import { api } from '../../lib/api';
+import {
+  prepareChatAttachmentFromFile,
+  getAttachmentPreviewText,
+  detectAttachmentKind,
+  formatAudioDuration,
+  resolveAttachmentUrl,
+  dataUrlToBlob,
+} from '../../lib/chatMediaUtils';
+import { ChatAttachmentCard } from '../chat/ChatAttachmentCard';
+import { ChatAttachmentPreviewModal } from '../chat/ChatAttachmentPreviewModal';
 
 interface ChatModuleProps {
   employees?: Employee[];
@@ -59,7 +75,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 }) => {
   const { user, portalMode: authPortalMode } = useAuth();
   const portalMode = propPortalMode || authPortalMode || 'admin';
-  const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead } = useSocket();
+  const { isConnected, showToast, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead } = useSocket();
 
   // Determine current user chat identity
   const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
@@ -76,7 +92,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
+  const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
+  const [previewAttachment, setPreviewAttachment] = useState<ChatAttachment | null>(null);
+  const [isPreparingAttachment, setIsPreparingAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+
+  // Voice recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const recordingSecondsRef = useRef<number>(0);
+  const recordingActionRef = useRef<'attach' | 'send' | 'cancel'>('attach');
 
   // Real-time socket typing state
   const [typingUser, setTypingUser] = useState<string | null>(null);
@@ -108,6 +138,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   }, [deletingMessageId]);
 
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,14 +156,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       const last = thread[thread.length - 1];
       return {
         ...conv,
-        lastMessage: last.content || (last.attachments?.length ? 'Sent an attachment' : ''),
+        lastMessage: last.content || getAttachmentPreviewText(last.attachments),
         lastMessageTimestamp: last.timestamp,
         lastSenderId: last.senderId,
       };
     });
+    // Pin General (broadcast) chat at the very top, followed by all employees below
     withPreview.sort((a, b) => {
-      if (a.type === b.type) return 0;
-      return a.type === 'direct' ? -1 : 1;
+      if (a.type === 'broadcast' && b.type !== 'broadcast') return -1;
+      if (b.type === 'broadcast' && a.type !== 'broadcast') return 1;
+      const tA = a.lastMessageTimestamp ? new Date(a.lastMessageTimestamp).getTime() : 0;
+      const tB = b.lastMessageTimestamp ? new Date(b.lastMessageTimestamp).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return (a.title || '').localeCompare(b.title || '');
     });
     setConversations(withPreview);
   };
@@ -156,7 +192,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         hydrateMessages(rows);
         markOpenConversationRead(currentUserId);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -211,7 +247,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       readerId: currentUserId,
       recipientId: otherId,
     });
-    api.markChatRead(conversationId).catch(() => {});
+    api.markChatRead(conversationId).catch(() => { });
   };
 
   useEffect(() => {
@@ -219,6 +255,39 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   }, [activeConversationId]);
 
   useEffect(() => () => setActiveChatConversation(''), []);
+
+  // Generate a temporary Blob URL when previewing a pending audio attachment
+  useEffect(() => {
+    if (!pendingAttachment || detectAttachmentKind(pendingAttachment) !== 'audio' || !pendingAttachment.url) {
+      setPendingAudioPreviewUrl('');
+      return;
+    }
+    const resolved = resolveAttachmentUrl(pendingAttachment.url);
+    if (resolved.startsWith('data:')) {
+      try {
+        const blob = dataUrlToBlob(resolved);
+        const objUrl = URL.createObjectURL(blob);
+        setPendingAudioPreviewUrl(objUrl);
+        return () => URL.revokeObjectURL(objUrl);
+      } catch {
+        setPendingAudioPreviewUrl(resolved);
+        return;
+      }
+    }
+    setPendingAudioPreviewUrl(resolved);
+  }, [pendingAttachment]);
+
+  // Clean up any active microphone stream/timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -245,10 +314,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     };
   }, [activeConversationId, currentUserId, isConnected]);
 
-  // Auto-scroll to bottom of thread
+  // Auto-scroll ONLY the internal messages container (never scrolls outer page/ancestors)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, activeConversationId]);
 
   // Real-time remote typing indicator via WebSocket
   useEffect(() => {
@@ -281,7 +353,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (conv.type === 'broadcast') {
       return {
         id: 'all',
-        name: conv.title || '📢 General Staff Helpdesk & Broadcast',
+        name: (conv.title || 'General Staff Helpdesk & Broadcast').replace(/^📢\s*/, ''),
         role: 'Broadcast Channel',
         code: 'ALL-STAFF',
         email: 'helpdesk@paneliya.com',
@@ -368,9 +440,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     return { id: targetId || conv.id, name, role, code, email, designation, initials };
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputText.trim() && !pendingAttachment) return;
+  const dispatchChatMessage = (text: string, attachment: ChatAttachment | null) => {
+    if (!text.trim() && !attachment) return;
     if (!activeConversation) return;
 
     const other = getOtherParticipantInfo(activeConversation);
@@ -382,12 +453,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       senderRole: currentUserRole,
       recipientId: other.id,
       recipientName: other.name,
-      content: inputText.trim(),
-      attachments: pendingAttachment ? [pendingAttachment] : undefined,
+      content: text.trim(),
+      attachments: attachment ? [attachment] : undefined,
     });
 
     // Persist on the server, then broadcast to the other person.
-    api.saveChatMessage(sent).catch(() => {});
+    api.saveChatMessage(sent).catch((err: any) => {
+      showToast({
+        title: 'Message Sync Warning',
+        message: attachment
+          ? 'Sent live, but server could not store this attachment (file may exceed backend payload limit).'
+          : err?.message || 'Message could not be saved on server.',
+        type: 'warning',
+        module: 'chat',
+      });
+    });
     emitChatMessage(sent);
     emitChatTyping({
       conversationId: activeConversation.id,
@@ -395,10 +475,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       userName: currentUserName,
       isTyping: false,
     });
+  };
+
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isPreparingAttachment) return;
+    if (!inputText.trim() && !pendingAttachment) return;
+    if (!activeConversation) return;
+
+    dispatchChatMessage(inputText, pendingAttachment);
 
     setInputText('');
     setPendingAttachment(null);
-    inputRef.current?.focus();
+    setAttachmentError(null);
+    inputRef.current?.focus({ preventScroll: true });
   };
 
   const handleQuickReply = (text: string) => {
@@ -415,31 +505,162 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       content: text,
     });
 
-    api.saveChatMessage(sent).catch(() => {});
+    api.saveChatMessage(sent).catch(() => { });
     emitChatMessage(sent);
   };
 
   const handleOpenAttachFile = (accept: string) => {
+    setAttachmentError(null);
     setFileInputAccept(accept);
     setTimeout(() => {
       fileInputRef.current?.click();
     }, 50);
   };
 
-  const handleRealFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRealFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const isImg = file.type.startsWith('image/');
-    const sizeKb = Math.round(file.size / 1024);
-    const sizeStr = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
-
-    setPendingAttachment({
-      id: `att-${Date.now()}`,
-      name: file.name,
-      size: sizeStr,
-      type: isImg ? 'image' : 'pdf',
-    });
     e.target.value = '';
+    if (!file) return;
+
+    setAttachmentError(null);
+    setIsPreparingAttachment(true);
+    try {
+      const prepared = await prepareChatAttachmentFromFile(file);
+      setPendingAttachment(prepared);
+    } catch (err: any) {
+      const msg = err?.message || 'Unable to attach the selected file.';
+      setAttachmentError(msg);
+      showToast({
+        title: 'Attachment Error',
+        message: msg,
+        type: 'error',
+        module: 'chat',
+      });
+    } finally {
+      setIsPreparingAttachment(false);
+    }
+  };
+
+  const cleanupRecordingResources = () => {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    setIsRecordingVoice(false);
+  };
+
+  const handleStartVoiceRecording = async () => {
+    setAttachmentError(null);
+    if (
+      typeof window === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      const msg = 'Voice recording is not supported in this browser. You can still attach an audio file.';
+      setAttachmentError(msg);
+      showToast({ title: 'Voice Recording Unavailable', message: msg, type: 'warning', module: 'chat' });
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+
+      const preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ];
+      const chosenMime = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t));
+      const recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+
+      recordingChunksRef.current = [];
+      recordingSecondsRef.current = 0;
+      recordingActionRef.current = 'attach';
+      setRecordingSeconds(0);
+      setIsRecordingVoice(true);
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          recordingChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const action = recordingActionRef.current;
+        const durationSec = Math.max(1, recordingSecondsRef.current);
+        const chunks = [...recordingChunksRef.current];
+        const mimeType = recorder.mimeType || chosenMime || 'audio/webm';
+        cleanupRecordingResources();
+
+        if (action === 'cancel' || chunks.length === 0) return;
+
+        setIsPreparingAttachment(true);
+        try {
+          const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const blob = new Blob(chunks, { type: mimeType });
+          const voiceFile = new File([blob], `voice-note-${stamp}.${ext}`, { type: mimeType });
+          const prepared = await prepareChatAttachmentFromFile(voiceFile, durationSec);
+
+          if (action === 'send') {
+            dispatchChatMessage(inputText, prepared);
+            setInputText('');
+            setPendingAttachment(null);
+          } else {
+            setPendingAttachment(prepared);
+          }
+        } catch (err: any) {
+          const msg = err?.message || 'Could not process recorded voice note.';
+          setAttachmentError(msg);
+          showToast({ title: 'Voice Note Error', message: msg, type: 'error', module: 'chat' });
+        } finally {
+          setIsPreparingAttachment(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(250);
+      recordingTimerRef.current = window.setInterval(() => {
+        recordingSecondsRef.current += 1;
+        setRecordingSeconds(recordingSecondsRef.current);
+      }, 1000);
+    } catch (err: any) {
+      cleanupRecordingResources();
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Microphone permission was denied. Please allow microphone access to record voice notes.'
+          : 'Unable to access microphone. Check your audio input device.';
+      setAttachmentError(msg);
+      showToast({ title: 'Microphone Error', message: msg, type: 'error', module: 'chat' });
+    }
+  };
+
+  const handleStopVoiceRecording = (action: 'attach' | 'send') => {
+    recordingActionRef.current = action;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    } else {
+      cleanupRecordingResources();
+    }
+  };
+
+  const handleCancelVoiceRecording = () => {
+    recordingActionRef.current = 'cancel';
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    } else {
+      cleanupRecordingResources();
+    }
   };
 
   const handleStartEdit = (msg: ChatMessage) => {
@@ -511,11 +732,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
-    if (
-      conv.id?.includes('admin-keyur') ||
-      conv.participantIds?.includes('admin-keyur')
-    ) {
-      return false;
+    if (portalMode === 'admin' && conv.type === 'direct' && user?.email) {
+      const otherEmail = Object.entries(conv.participantEmails || {})
+        .find(([pid]) => pid !== ADMIN_USER_ID)?.[1]
+        ?.toLowerCase();
+      if (otherEmail && otherEmail === user.email.toLowerCase()) {
+        return false;
+      }
     }
 
     if (portalMode === 'employee') {
@@ -553,38 +776,43 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const quickReplies =
     portalMode === 'admin'
       ? [
-          'Please share your daily progress update.',
-          'Approved, you may proceed.',
-          'Regarding your leave request: please check your email.',
-          'Acknowledged 👍',
-        ]
+        'Please share your daily progress update.',
+        'Approved, you may proceed.',
+        'Regarding your leave request: please check your email.',
+        'Acknowledged',
+      ]
       : [
-          'Good morning sir, task completed.',
-          'Please review my leave application.',
-          'I have uploaded the verification document.',
-          'Understood, thank you sir! 👍',
-        ];
+        'Good morning sir, task completed.',
+        'Please review my leave application.',
+        'I have uploaded the verification document.',
+        'Understood, thank you!',
+      ];
 
   const avatarClass = (kind: 'broadcast' | 'admin' | 'staff') =>
     kind === 'broadcast'
-      ? 'bg-[#efe6d6] text-[#8a6a2f]'
+      ? 'bg-[#d8f3dc] text-[#1b4332]'
       : kind === 'admin'
-        ? 'bg-[#064e3b] text-white'
-        : 'bg-[#d7f5e8] text-[#065f46]';
+        ? 'bg-[#1b4332] text-white'
+        : 'bg-[#e9ecef] text-[#343a40]';
 
   return (
-    <div className="bg-[#f0f2f5] rounded-2xl border border-[#d8e3dc] shadow-sm flex h-[calc(100vh-140px)] min-h-[580px] overflow-hidden">
+    <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
+      {/* Page Title Header */}
+      <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#e9ecef] shrink-0">
+        <h1 className="hrms-page-title">Team Chat</h1>
+      </div>
+
+      <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#e4ebe7] flex flex-col bg-white shrink-0 ${
-          mobileShowThread ? 'hidden md:flex' : 'flex'
-        }`}
+        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#dee2e6] flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
+          }`}
       >
-        <div className="px-4 py-3 bg-[#064e3b] text-white space-y-3">
+        <div className="px-4 py-3.5 bg-white border-b border-[#dee2e6] space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[15px] font-semibold tracking-tight">Chats</h2>
-              <p className="text-[11px] text-emerald-100/80">
+              <h2 className="text-[15px] font-semibold tracking-tight text-[#212529]">Chats</h2>
+              <p className="text-[11px] text-[#6c757d]">
                 {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
               </p>
             </div>
@@ -592,7 +820,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               type="button"
               id="btn-clear-all-chats"
               onClick={handleClearAllChats}
-              className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               title="Clear all chat history"
             >
               <Trash2 className="w-4 h-4" />
@@ -601,19 +829,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-emerald-100 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="input-search-conversations"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search staff, code, or messages..."
-              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border-0 bg-white/15 text-white placeholder:text-emerald-100/70 focus:bg-white focus:text-slate-900 focus:placeholder:text-slate-400 focus:outline-none transition-all"
+              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6c757d] hover:text-[#212529] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -630,9 +858,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               <button
                 key={id}
                 onClick={() => setFilterTab(id)}
-                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                  filterTab === id ? 'bg-white text-[#064e3b]' : 'bg-white/10 text-emerald-50 hover:bg-white/20'
-                }`}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${filterTab === id
+                  ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                  : 'bg-[#f8f9fa] text-[#495057] border border-[#dee2e6] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
+                  }`}
               >
                 {label}
               </button>
@@ -641,7 +870,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto bg-white [scrollbar-width:thin]">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-white [scrollbar-width:thin]">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <Users className="w-8 h-8 mx-auto stroke-1" />
@@ -662,9 +891,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     setMobileShowThread(true);
                     markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 border-b border-[#f1f5f3] ${
-                    isActive ? 'bg-[#e7f6ef]' : 'hover:bg-[#f7fbf8]'
-                  }`}
+                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 cursor-pointer border-l-[3px] ${conv.type === 'broadcast'
+                    ? 'border-b border-[#dee2e6]'
+                    : 'border-b border-[#e9ecef]'
+                    } ${isActive
+                      ? 'bg-[#d8f3dc]/60 border-l-[#2d6a4f]'
+                      : 'border-l-transparent hover:bg-[#f8f9fa]'
+                    }`}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
@@ -679,9 +912,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[14px] font-medium text-[#111b21] truncate">
-                        {other.name}
+                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                      <span className="text-[14px] font-medium text-[#212529] truncate flex items-center gap-1.5">
+                        <span className="truncate">{other.name}</span>
+                        {conv.type === 'broadcast' && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0"
+                            title="Pinned General Chat"
+                          >
+                            <Pin className="w-2.5 h-2.5 shrink-0" />
+                            Pinned
+                          </span>
+                        )}
                       </span>
                       {conv.lastMessage ? (
                         <span className="text-[10px] text-slate-400 shrink-0 ml-1">
@@ -690,13 +932,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       ) : null}
                     </div>
 
-                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#111b21] font-medium' : 'text-[#667781]'}`}>
+                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#212529] font-medium' : 'text-[#6c757d]'}`}>
                       {conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>
 
                   {unread > 0 && (
-                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center">
+                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
                       {unread}
                     </span>
                   )}
@@ -709,19 +951,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
       {/* RIGHT COLUMN: Active Chat Thread */}
       <div
-        className={`flex-1 flex flex-col overflow-hidden ${
-          mobileShowThread ? 'flex' : 'hidden md:flex'
-        }`}
+        className={`flex-1 flex flex-col min-h-0 overflow-hidden ${mobileShowThread ? 'flex' : 'hidden md:flex'
+          }`}
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            <div className="h-[60px] px-3 sm:px-4 bg-[#064e3b] text-white flex items-center justify-between shrink-0">
+            <div className="h-[62px] px-3 sm:px-5 bg-white border-b border-[#dee2e6] text-[#212529] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-full text-white hover:bg-white/10 md:hidden"
+                  className="p-1.5 -ml-1 rounded-full text-[#495057] hover:bg-[#f8f9fa] md:hidden cursor-pointer"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -730,7 +971,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs border border-[#95d5b2]/60 ${avatarClass(
                       activeConversation.type === 'broadcast' ? 'broadcast' : activeOtherInfo.role === 'Admin' ? 'admin' : 'staff',
                     )}`}
                   >
@@ -739,8 +980,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-medium truncate">{activeOtherInfo.name}</h3>
-                  <p className="text-[11px] text-emerald-100/80 truncate">
+                  <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
+                  <p className="text-[11px] text-[#6c757d] truncate">
                     {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
                   </p>
                 </div>
@@ -750,7 +991,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 type="button"
                 id="btn-clear-conversation-chat"
                 onClick={handleClearActiveConversation}
-                className="p-2 rounded-full text-emerald-50 hover:bg-white/10 transition-colors"
+                className="p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                 title="Clear this chat"
               >
                 <Trash2 className="w-4 h-4" />
@@ -759,11 +1000,16 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
             {/* Messages Scroll Area */}
             <div
-              className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 space-y-1.5 [scrollbar-width:thin]"
-              style={{ backgroundColor: '#efeae2', backgroundImage: 'radial-gradient(rgba(7,94,84,0.05) 0.6px, transparent 0.6px)', backgroundSize: '14px 14px' }}
+              ref={messagesContainerRef}
+              className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-4 space-y-2 [scrollbar-width:thin]"
+              style={{
+                backgroundColor: '#e9ecef',
+                backgroundImage: 'radial-gradient(rgba(73,80,87,0.09) 0.7px, transparent 0.7px)',
+                backgroundSize: '16px 16px',
+              }}
             >
               <div className="flex items-center justify-center py-2">
-                <span className="px-3 py-1 rounded-lg bg-white/80 text-[#54656f] text-[11px] shadow-sm">
+                <span className="px-3 py-1 rounded-lg bg-white border border-[#dee2e6] text-[#495057] text-[11px] font-semibold shadow-xs">
                   Today
                 </span>
               </div>
@@ -798,9 +1044,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         {/* Hover action menu for Edit & Delete */}
                         {canManage && !isEditingThis && (
                           <div
-                            className={`absolute -top-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200 shadow-md opacity-0 group-hover/bubble:opacity-100 transition-opacity ${
-                              isMe ? 'right-2' : 'left-2'
-                            }`}
+                            className={`absolute -top-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200 shadow-md opacity-0 group-hover/bubble:opacity-100 transition-opacity ${isMe ? 'right-2' : 'left-2'
+                              }`}
                           >
                             <button
                               id={`btn-edit-msg-${msg.id}`}
@@ -825,39 +1070,34 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                         {/* Message Bubble */}
                         <div
-                          className={`px-2.5 py-1.5 shadow-sm ${
-                            isMe
-                              ? 'bg-[#d9fdd3] text-[#111b21] rounded-lg rounded-tr-none'
-                              : 'bg-white text-[#111b21] rounded-lg rounded-tl-none'
-                          }`}
+                          className={`px-3 py-2 shadow-sm ${isMe
+                            ? 'bg-[#2d6a4f] text-white border border-[#1b4332] rounded-lg rounded-tr-none'
+                            : 'bg-white text-[#212529] border border-[#dee2e6] rounded-lg rounded-tl-none'
+                            }`}
                         >
                           {!isMe && (
-                            <p className="text-[12px] font-semibold text-[#064e3b] leading-tight mb-0.5">
+                            <p className="text-[12px] font-semibold text-[#1b4332] leading-tight mb-0.5">
                               {msg.senderName}
                             </p>
                           )}
                           {/* Attachments */}
                           {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mb-2 space-y-1.5">
+                            <div className={msg.content ? 'mb-2 space-y-2' : 'space-y-2'}>
                               {msg.attachments.map((att) => (
-                                <div
+                                <ChatAttachmentCard
                                   key={att.id}
-                                  className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-medium border ${
-                                    isMe
-                                      ? 'bg-white/10 border-white/20 text-white'
-                                      : 'bg-slate-50 border-slate-200 text-slate-800'
-                                  }`}
-                                >
-                                  {att.type === 'image' ? (
-                                    <ImageIcon className="w-4 h-4 text-blue-400 shrink-0" />
-                                  ) : (
-                                    <FileText className="w-4 h-4 text-rose-400 shrink-0" />
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-semibold">{att.name}</p>
-                                    <p className="text-[10px] opacity-75">{att.size}</p>
-                                  </div>
-                                </div>
+                                  attachment={att}
+                                  isMe={isMe}
+                                  onPreview={(selected) => setPreviewAttachment(selected)}
+                                  onError={(errMsg) =>
+                                    showToast({
+                                      title: 'Attachment Error',
+                                      message: errMsg,
+                                      type: 'error',
+                                      module: 'chat',
+                                    })
+                                  }
+                                />
                               ))}
                             </div>
                           )}
@@ -900,23 +1140,31 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                 </button>
                               </div>
                             </div>
-                          ) : (
-                            <p className="text-[14.5px] leading-snug whitespace-pre-wrap break-words pr-1">
+                          ) : msg.content ? (
+                            <p
+                              style={{ color: isMe ? '#ffffff' : '#212529' }}
+                              className={`text-[14.5px] leading-snug whitespace-pre-wrap break-words pr-1 ${isMe ? 'text-white' : 'text-[#212529]'
+                                }`}
+                            >
                               {msg.content}
                             </p>
-                          )}
+                          ) : null}
 
-                          <div className="flex items-center justify-end gap-1 -mb-0.5 mt-0.5 text-[11px] text-[#667781]">
+                          <div
+                            style={{ color: isMe ? '#d8f3dc' : '#6c757d' }}
+                            className={`flex items-center justify-end gap-1 -mb-0.5 mt-1 text-[11px] ${isMe ? 'text-[#d8f3dc]' : 'text-[#6c757d]'
+                              }`}
+                          >
                             {msg.isEdited && <span className="italic text-[10px]">edited</span>}
                             <span>{formatTime(msg.timestamp)}</span>
                             {isMe && (
                               <span title={msg.status === 'read' ? 'Read' : msg.status === 'delivered' ? 'Delivered' : 'Sent'}>
                                 {msg.status === 'read' ? (
-                                  <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] inline" />
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#74c69d] inline" />
                                 ) : msg.status === 'delivered' ? (
-                                  <CheckCheck className="w-[16px] h-[16px] text-[#667781] inline" />
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#d8f3dc] inline" />
                                 ) : (
-                                  <Check className="w-[15px] h-[15px] text-[#667781] inline" />
+                                  <Check className="w-[15px] h-[15px] text-[#d8f3dc] inline" />
                                 )}
                               </span>
                             )}
@@ -931,33 +1179,103 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             </div>
 
             {/* Quick Reply Suggestions */}
-            <div className="px-3 py-1.5 bg-[#efeae2] flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
+            <div className="px-3 py-2 bg-white border-t border-[#dee2e6] flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
               {quickReplies.map((reply, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleQuickReply(reply)}
-                  className="px-3 py-1 rounded-full bg-white text-[#064e3b] hover:bg-[#e7f6ef] text-[12px] whitespace-nowrap transition-colors shrink-0 shadow-sm"
+                  className="px-3 py-1 rounded-full bg-[#f8f9fa] border border-[#dee2e6] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2] text-[12px] whitespace-nowrap transition-colors shrink-0 cursor-pointer"
                 >
                   {reply}
                 </button>
               ))}
             </div>
 
-            {/* Attachment preview if pending */}
-            {pendingAttachment && (
-              <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-700" />
-                  <span className="text-xs font-medium text-slate-800">
-                    Attached: {pendingAttachment.name} ({pendingAttachment.size})
-                  </span>
+            {/* Attachment preparation / error status */}
+            {isPreparingAttachment && (
+              <div className="px-4 py-2 bg-[#f8f9fa] border-t border-[#dee2e6] flex items-center gap-2 text-xs text-[#495057]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2d6a4f]" />
+                <span>Preparing attachment...</span>
+              </div>
+            )}
+
+            {attachmentError && (
+              <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 flex items-center justify-between gap-2 text-xs text-rose-700">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{attachmentError}</span>
                 </div>
                 <button
-                  onClick={() => setPendingAttachment(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  type="button"
+                  onClick={() => setAttachmentError(null)}
+                  className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            )}
+
+            {/* Attachment preview if pending */}
+            {pendingAttachment && (
+              <div className="px-4 py-2.5 bg-[#f8f9fa] border-t border-[#dee2e6] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {detectAttachmentKind(pendingAttachment) === 'image' && pendingAttachment.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingAttachment.url}
+                      alt={pendingAttachment.name}
+                      onClick={() => setPreviewAttachment(pendingAttachment)}
+                      className="w-11 h-11 rounded-lg object-cover border border-[#ced4da] shrink-0 cursor-pointer"
+                    />
+                  ) : detectAttachmentKind(pendingAttachment) === 'audio' ? (
+                    <div className="w-9 h-9 rounded-full bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                      <Mic className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[#212529] truncate">
+                      {pendingAttachment.name}
+                    </p>
+                    <p className="text-[11px] text-[#6c757d]">
+                      {pendingAttachment.size}
+                      {pendingAttachment.duration ? ` • ${formatAudioDuration(pendingAttachment.duration)}` : ''}
+                    </p>
+                    {detectAttachmentKind(pendingAttachment) === 'audio' && pendingAudioPreviewUrl && (
+                      <audio
+                        controls
+                        src={pendingAudioPreviewUrl}
+                        className="mt-1.5 h-8 w-full max-w-xs"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {detectAttachmentKind(pendingAttachment) !== 'audio' && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment(pendingAttachment)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-[#dee2e6] text-[#1b4332] hover:bg-[#d8f3dc] transition-colors cursor-pointer"
+                      title="Preview before sending"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Preview</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPendingAttachment(null)}
+                    className="p-1.5 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Remove attachment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -965,14 +1283,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {typingUser && (
               <div className="px-4 py-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50/80 border-t border-indigo-100 flex items-center gap-2 animate-in fade-in duration-150">
                 <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
-                <span>✍️ {typingUser} is typing...</span>
+                <span className="inline-flex items-center gap-1"><Pencil className="w-3 h-3" /> {typingUser} is typing...</span>
               </div>
             )}
 
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="px-2 py-2 bg-[#f0f2f5] flex items-end gap-2"
+              className="px-3 py-2.5 bg-white border-t border-[#e9ecef] flex items-center gap-2"
             >
               {/* Hidden File Input for Real Attachments */}
               <input
@@ -983,57 +1301,117 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 className="hidden"
               />
 
-              {/* Attachment Actions */}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleOpenAttachFile('.pdf,.doc,.docx,.txt')}
-                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors"
-                  title="Attach Document"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenAttachFile('image/*')}
-                  className="p-2 rounded-full text-[#54656f] hover:bg-black/5 transition-colors hidden sm:block"
-                  title="Attach Image"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
-              </div>
+              {isRecordingVoice ? (
+                <div className="flex-1 flex items-center justify-between gap-2 px-3.5 py-2 rounded-full bg-[#f8f9fa] border border-[#95d5b2]">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse shrink-0" />
+                    <span className="text-xs font-semibold text-[#1b4332] truncate">
+                      Recording voice note
+                    </span>
+                    <span className="text-xs font-mono font-bold text-[#2d6a4f] tabular-nums">
+                      {formatAudioDuration(recordingSeconds)}
+                    </span>
+                  </div>
 
-              {/* Text Input */}
-              <input
-                ref={inputRef}
-                id="input-chat-message"
-                type="text"
-                value={inputText}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setInputText(val);
-                  if (activeConversation) {
-                    emitChatTyping({
-                      conversationId: activeConversation.id,
-                      userId: currentUserId,
-                      userName: currentUserName,
-                      isTyping: val.length > 0,
-                    });
-                  }
-                }}
-                placeholder="Type a message"
-                className="flex-1 py-2.5 px-4 text-[14px] rounded-full border-0 bg-white text-[#111b21] placeholder:text-[#667781] focus:outline-none"
-              />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelVoiceRecording}
+                      className="p-1.5 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Cancel recording"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStopVoiceRecording('attach')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-white border border-[#dee2e6] text-[#1b4332] hover:bg-[#d8f3dc] transition-colors cursor-pointer"
+                      title="Stop and preview voice note"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStopVoiceRecording('send')}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-[#2d6a4f] hover:bg-[#1b4332] text-white transition-colors cursor-pointer shadow-xs"
+                      title="Send voice note now"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>Send</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Attachment Actions */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenAttachFile(
+                          '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
+                        )
+                      }
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Document, PDF, or Audio"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAttachFile('image/*')}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Photo"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartVoiceRecording}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Record Voice Note"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
 
-              <button
-                id="btn-send-chat-message"
-                type="submit"
-                disabled={!inputText.trim() && !pendingAttachment}
-                className="w-11 h-11 rounded-full bg-[#064e3b] hover:bg-[#05392c] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                title="Send"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+                  {/* Text Input */}
+                  <input
+                    ref={inputRef}
+                    id="input-chat-message"
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInputText(val);
+                      if (activeConversation) {
+                        emitChatTyping({
+                          conversationId: activeConversation.id,
+                          userId: currentUserId,
+                          userName: currentUserName,
+                          isTyping: val.length > 0,
+                        });
+                      }
+                    }}
+                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type a message...'}
+                    className="flex-1 py-2.5 px-4 text-[14px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
+                  />
+
+                  <button
+                    id="btn-send-chat-message"
+                    type="submit"
+                    disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
+                    className="w-10 h-10 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
+                    title="Send"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </form>
           </>
         ) : (
@@ -1138,6 +1516,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           </div>
         </div>
       )}
+      {/* Attachment Lightbox / Document & PDF Preview Modal */}
+      <ChatAttachmentPreviewModal
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        onError={(errMsg) =>
+          showToast({
+            title: 'Download Error',
+            message: errMsg,
+            type: 'error',
+            module: 'chat',
+          })
+        }
+      />
+      </div>
     </div>
   );
 };

@@ -974,7 +974,10 @@ export const api = {
     startDate: string;
     endDate: string;
     reason: string;
+    daysCount?: number;
     isHalfDay?: boolean;
+    halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
+    dayBreakdown?: Array<{ date: string; session: 'FULL_DAY' | 'FIRST_HALF' | 'SECOND_HALF'; duration: number }>;
     employeeName?: string;
     employeeAvatar?: string;
     departmentName?: string;
@@ -984,7 +987,10 @@ export const api = {
       leaveType: data.leaveType,
       startDate: data.startDate,
       endDate: data.endDate,
+      ...(typeof data.daysCount === 'number' ? { daysCount: data.daysCount } : {}),
       isHalfDay: Boolean(data.isHalfDay),
+      ...(data.isHalfDay && data.halfDaySession ? { halfDaySession: data.halfDaySession } : {}),
+      ...(data.dayBreakdown && data.dayBreakdown.length > 0 ? { dayBreakdown: data.dayBreakdown } : {}),
       reason: data.reason,
       employeeId: data.employeeId || data.userId || '',
       employeeName: data.employeeName,
@@ -1465,10 +1471,13 @@ export const api = {
   },
 
   async updateSettings(data: any) {
-    return fetchWithFallback<any>(
+    const res = await fetchWithFallback<any>(
       '/settings',
       { method: 'PUT', body: JSON.stringify(data) }
     );
+    clearApiCache('settings');
+    clearApiCache('leaves');
+    return res;
   },
 
   // =========================================================================

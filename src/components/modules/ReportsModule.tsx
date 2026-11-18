@@ -201,7 +201,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           });
           return;
         }
-        csvContent = 'Date,Employee ID,Employee Name,Check In,Check Out,Break Mins,Working Hours,Status\n';
+        csvContent = 'Date,Employee ID,Employee Name,Clock In,Clock Out,Break Mins,Working Hours,Status\n';
         localAttendance.forEach((a) => {
           csvContent += `"${a.date || ''}","${a.employeeId || ''}","${a.employeeName || ''}","${a.checkIn || ''}","${a.checkOut || ''}",${a.breakDurationMinutes || 0},${a.workingHours || 0},"${a.status || ''}"\n`;
         });
@@ -282,12 +282,12 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     localLeaves.length > 0;
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="hrms-page-title">
             Executive Analytics &amp; Reports
-          </h2>
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
             Real company intelligence for {company?.companyName || company?.name || 'Selected Company'}
           </p>
@@ -465,8 +465,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                       <tr>
                         <th className="py-3 px-4">Date</th>
                         <th className="py-3 px-4">Employee</th>
-                        <th className="py-3 px-4">Check In</th>
-                        <th className="py-3 px-4">Check Out</th>
+                        <th className="py-3 px-4">Clock In</th>
+                        <th className="py-3 px-4">Clock Out</th>
                         <th className="py-3 px-4">Break Duration</th>
                         <th className="py-3 px-4">Worked Hours</th>
                         <th className="py-3 px-4">Status</th>

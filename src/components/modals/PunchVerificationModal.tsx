@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Info,
   Fingerprint,
+  Home,
 } from 'lucide-react';
 import { AttendanceRecord, Employee, DevicePunchInfo } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
@@ -83,28 +84,28 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
 
   const renderDeviceCard = (
     device?: DevicePunchInfo,
-    punchType: 'Check-In' | 'Check-Out' = 'Check-In',
+    punchType: 'Clock-In' | 'Clock-Out' = 'Clock-In',
     photo?: string,
     coords?: { lat?: number; lng?: number; accuracy?: number; distance?: number },
     time?: string
   ) => {
     return (
-      <div className="bg-[#FAF8F5] border-2 border-black rounded-2xl p-4 shadow-[3px_3px_0px_0px_#000] flex flex-col justify-between h-full">
+      <div className="bg-[#f8f9fa] border-2 border-black rounded-2xl p-4 shadow-[3px_3px_0px_0px_#000] flex flex-col justify-between h-full">
         <div>
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b-2 border-black mb-3">
             <div className="flex items-center gap-2">
               <span
                 className={`w-3 h-3 rounded-full border border-black ${
-                  punchType === 'Check-In' ? 'bg-[#00F0B5]' : 'bg-[#FF5C00]'
+                  punchType === 'Clock-In' ? 'bg-[#ced4da]' : 'bg-[#dc2626]'
                 }`}
               />
               <span className="font-black text-xs uppercase tracking-wider text-black">
                 {punchType} Verification
               </span>
             </div>
-            <span className="font-mono text-xs font-black bg-white px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_0px_#000]">
-              ⏰ {time || '—'}
+            <span className="font-mono text-xs font-black bg-white px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_0px_#000] inline-flex items-center gap-1">
+              <Clock className="w-3 h-3" /> {time || '—'}
             </span>
           </div>
 
@@ -159,7 +160,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
               </span>
               {record.isWFH ? (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1">
-                  <span>🏡</span> WFH Approved (Geofence Waived)
+                  <Home className="w-3 h-3 shrink-0" /> WFH Approved (Geofence Waived)
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
@@ -194,7 +195,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
               <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
                 {getDeviceIcon(device)} Detected Device Hardware
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase border border-black bg-[#FFE600] text-black">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase border border-black bg-[#ced4da] text-black">
                 {device?.deviceType || 'Desktop'}
               </span>
             </div>
@@ -268,10 +269,10 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white border-[3px] border-black rounded-3xl shadow-[8px_8px_0px_0px_#000] overflow-hidden">
           {/* Header */}
-          <div className="px-5 py-4 border-b-2 border-black bg-[#FFE600] flex items-center justify-between shrink-0">
+          <div className="px-5 py-4 border-b-2 border-black bg-[#ced4da] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white border-2 border-black flex items-center justify-center font-black text-sm shadow-[2px_2px_0px_0px_#000]">
-                📸
+              <div className="w-10 h-10 rounded-xl bg-white border-2 border-black flex items-center justify-center text-black shadow-[2px_2px_0px_0px_#000]">
+                <Camera className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -344,10 +345,10 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
           {/* Body: Side-by-Side Comparison */}
           <div className="p-5 overflow-y-auto flex-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Check-In Card */}
+              {/* Clock-In Card */}
               {renderDeviceCard(
                 record.checkInDevice,
-                'Check-In',
+                'Clock-In',
                 record.checkInPhoto,
                 {
                   lat: record.checkInLatitude,
@@ -358,10 +359,10 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
                 record.checkIn
               )}
 
-              {/* Check-Out Card */}
+              {/* Clock-Out Card */}
               {renderDeviceCard(
                 record.checkOutDevice,
-                'Check-Out',
+                'Clock-Out',
                 record.checkOutPhoto,
                 {
                   lat: record.checkOutLatitude,

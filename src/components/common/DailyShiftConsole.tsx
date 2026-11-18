@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   Lock,
+  AlertTriangle,
 } from 'lucide-react';
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { ModernDigitClock } from './ModernDigitClock';
@@ -21,12 +22,14 @@ interface DailyShiftConsoleProps {
   className?: string;
   showFooterBadges?: boolean;
   clockSize?: 'sm' | 'md' | 'lg' | 'xl';
+  showHeaderClock?: boolean;
 }
 
 export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   className = '',
   showFooterBadges = true,
   clockSize = 'sm',
+  showHeaderClock = true,
 }) => {
   const {
     status,
@@ -84,44 +87,41 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   // Determine top bar gradient based on status
   const topBarGradient =
     status === 'working'
-      ? 'linear-gradient(90deg, #10b981, #059669)'
+      ? 'linear-gradient(90deg, #adb5bd, #6c757d)'
       : status === 'on_break'
-      ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
-      : status === 'completed'
-      ? 'linear-gradient(90deg, #059669, #10b981)'
-      : 'linear-gradient(90deg, #059669, #10b981)';
+        ? 'linear-gradient(90deg, #adb5bd, #ef4444)'
+        : status === 'completed'
+          ? 'linear-gradient(90deg, #6c757d, #adb5bd)'
+          : 'linear-gradient(90deg, #6c757d, #adb5bd)';
 
   return (
     <div
-      className={`rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between overflow-hidden bg-white ${className}`}
+      className={`rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden bg-white ${className}`}
     >
-      {/* Dynamic colorful top bar */}
-      <div className="h-1.5 w-full transition-all duration-500" style={{ background: topBarGradient }} />
-
-      <div className="p-4 sm:p-6 flex flex-col flex-1">
+      <div className="p-3 sm:p-3.5 flex flex-col">
         <div>
           {/* Header Row */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2 min-w-0">
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shadow-xs shrink-0"
-                style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center shadow-xs shrink-0"
+                style={{ background: 'linear-gradient(135deg, #6c757d, #adb5bd)' }}
               >
-                <Clock className="w-4 h-4 text-white" />
+                <Clock className="w-3.5 h-3.5 text-white" />
               </div>
-              <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-tight truncate">
                   Daily Shift Console
                 </h3>
-                <p className="text-[11px] text-slate-400">
-                  Check-in, break, and work time tracking
+                <p className="text-[10px] text-slate-400 leading-tight truncate">
+                  Clock-in, break, and work time tracking
                 </p>
               </div>
             </div>
 
             {/* Live Clock Digital Badge */}
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center">
+            {showHeaderClock && (
+              <div className="flex items-center shrink-0">
                 <ModernDigitClock
                   timeString={currentSystemTime}
                   size="sm"
@@ -129,64 +129,52 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   showLabels={false}
                 />
               </div>
-            </div>
+            )}
           </div>
 
           {/* Status Hero Box */}
-          <div className="my-5">
+          <div className="mt-2.5">
             {/* 1. STATE: NOT STARTED */}
             {status === 'not_started' && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center space-y-3">
-                <div className="flex justify-center">
-                  <ModernDigitClock
-                    timeString={currentSystemTime}
-                    size={clockSize || "sm"}
-                    variant="light"
-                    showSweepRing={true}
-                    label="Current Live Time"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="text-lg font-black text-slate-900">
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-1 text-center sm:text-left min-w-0">
+                  <h4 className="text-sm font-black text-slate-900 leading-tight">
                     {shiftCheck.isAllowed
                       ? "Ready to Start Today's Shift"
-                      : 'Shift Check-In Currently Locked'}
+                      : 'Shift Clock-In Currently Locked'}
                   </h4>
-                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                  <p className="text-[11px] text-slate-600 leading-snug">
                     Office Shift: <strong>{shiftCheck.shiftStart} – {shiftCheck.shiftEnd}</strong>{' '}
-                    (Grace Buffer: {shiftCheck.config.gracePeriodMinutes} mins).
+                    (Grace: {shiftCheck.config.gracePeriodMinutes} mins)
                   </p>
                   {shiftCheck.isAllowed ? (
-                    <p className="text-[11px] text-emerald-800 font-extrabold bg-emerald-100/90 border border-emerald-300 py-1 px-3 rounded-full inline-block mt-1">
+                    <p className="text-[10px] text-emerald-800 font-bold bg-emerald-100/90 border border-emerald-300 py-0.5 px-2.5 rounded-full inline-block">
                       Allowed Window: {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
                     </p>
                   ) : (
-                    <p className="text-[11px] text-rose-800 font-extrabold bg-rose-100/90 border border-rose-300 py-1 px-3 rounded-full inline-block mt-1">
-                      Locked: Check-in only allowed from {shiftCheck.allowedStart} to{' '}
-                      {shiftCheck.allowedEnd}
+                    <p className="text-[10px] text-rose-800 font-bold bg-rose-100/90 border border-rose-300 py-0.5 px-2.5 rounded-full inline-block">
+                      Locked: {shiftCheck.allowedStart} to {shiftCheck.allowedEnd}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-1">
+                <div className="shrink-0 flex justify-center sm:justify-end">
                   <button
                     id="btn-shift-check-in"
                     onClick={() => checkIn()}
                     disabled={actionLoading}
-                    className={`w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-2xl active:scale-95 font-black text-sm transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 max-w-full text-center ${
-                      !shiftCheck.isAllowed
-                        ? 'bg-rose-700 hover:bg-rose-800 text-white shadow-md shadow-rose-700/20'
-                        : 'bg-[#059669] hover:bg-[#047857] text-white shadow-md shadow-[#059669]/25'
-                    }`}
+                    className={`w-full sm:w-auto px-4 py-2 rounded-xl active:scale-95 font-bold text-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap ${!shiftCheck.isAllowed
+                        ? 'bg-rose-700 hover:bg-rose-800 text-white shadow-sm shadow-rose-700/20'
+                        : 'bg-[#6c757d] hover:bg-[#343a40] text-white shadow-sm shadow-[#6c757d]/25'
+                      }`}
                   >
-                    <Play className="w-4 h-4 fill-current shrink-0" />
+                    <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                     <span>
                       {actionLoading
                         ? 'Starting Shift...'
                         : !shiftCheck.isAllowed
-                        ? 'Shift Locked (View Timing)'
-                        : 'Start Work (Check In Now)'}
+                          ? 'Shift Locked (View Timing)'
+                          : 'Start Work (Clock In Now)'}
                     </span>
                   </button>
                 </div>
@@ -195,35 +183,39 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
             {/* 2. STATE: WORKING */}
             {status === 'working' && (
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-2.5">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold max-w-full truncate shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span className="truncate">
-                    Shift is Active • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
-                  </span>
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="space-y-1 text-center sm:text-left min-w-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold max-w-full truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="truncate">
+                        Shift Active • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      Worked time today • Target: 9.0 Hours
+                    </p>
+                  </div>
+
+                  <div className="shrink-0">
+                    <ModernDigitClock
+                      timeString={liveWorkedHMS}
+                      size={clockSize || "sm"}
+                      variant="light"
+                      showSweepRing={true}
+                      label="ACTIVE WORKED TIMER"
+                    />
+                  </div>
                 </div>
 
-                <div className="py-1 flex justify-center">
-                  <ModernDigitClock
-                    timeString={liveWorkedHMS}
-                    size={clockSize || "sm"}
-                    variant="light"
-                    showSweepRing={true}
-                    label="ACTIVE WORKED TIMER"
-                  />
-                </div>
-                <p className="text-xs text-slate-600">
-                  Worked time recorded today • Shift target: 9.0 Hours
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 max-w-md mx-auto w-full">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     id="btn-shift-take-break"
                     onClick={() => takeBreak()}
                     disabled={actionLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-2xs min-w-0 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs min-w-0 cursor-pointer disabled:opacity-50"
                   >
-                    <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
+                    <Coffee className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                     <span className="truncate">
                       {actionLoading ? 'Pausing...' : 'Take Break'}
                     </span>
@@ -232,11 +224,11 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                     id="btn-shift-check-out"
                     onClick={() => checkOut()}
                     disabled={actionLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm shadow-rose-600/25 min-w-0 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm shadow-rose-600/25 min-w-0 cursor-pointer disabled:opacity-50"
                   >
-                    <Square className="w-4 h-4 fill-current shrink-0" />
+                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
                     <span className="truncate">
-                      {actionLoading ? 'Checking out...' : 'End Day & Check Out'}
+                      {actionLoading ? 'Clocking out...' : 'End Day & Clock Out'}
                     </span>
                   </button>
                 </div>
@@ -245,34 +237,38 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
             {/* 3. STATE: ON BREAK */}
             {status === 'on_break' && (
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center space-y-2.5">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold max-w-full truncate shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                  <span className="truncate">Break in Progress • Work Timer Paused</span>
+              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="space-y-1 text-center sm:text-left min-w-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold max-w-full truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                      <span className="truncate">Break in Progress • Timer Paused</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      Click resume when you are back at your workstation.
+                    </p>
+                  </div>
+
+                  <div className="shrink-0">
+                    <ModernDigitClock
+                      timeString={liveWorkedHMS}
+                      size={clockSize || "sm"}
+                      variant="amber"
+                      showSweepRing={true}
+                      label="TIMER PAUSED (ON BREAK)"
+                      subText={`Break: ${liveBreakWords}`}
+                    />
+                  </div>
                 </div>
 
-                <div className="py-1 flex justify-center">
-                  <ModernDigitClock
-                    timeString={liveWorkedHMS}
-                    size={clockSize || "sm"}
-                    variant="amber"
-                    showSweepRing={true}
-                    label="TIMER PAUSED (ON BREAK)"
-                    subText={`Break Duration: ${liveBreakWords}`}
-                  />
-                </div>
-                <p className="text-xs text-slate-600">
-                  Enjoy your break! Click resume when you are back at your workstation.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 max-w-md mx-auto w-full">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     id="btn-shift-resume-work"
                     onClick={() => resumeWork()}
                     disabled={actionLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm min-w-0 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm min-w-0 cursor-pointer disabled:opacity-50"
                   >
-                    <Play className="w-4 h-4 fill-current shrink-0" />
+                    <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                     <span className="truncate">
                       {actionLoading ? 'Resuming...' : 'Resume Work'}
                     </span>
@@ -281,68 +277,74 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                     id="btn-shift-check-out-from-break"
                     type="button"
                     disabled={true}
-                    title="Checkout is blocked during break. Please resume work first."
-                    className="w-full py-3 px-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 shadow-none min-w-0 cursor-not-allowed select-none"
+                    title="Clock-out is blocked during break. Please resume work first."
+                    className="w-full py-2 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 shadow-none min-w-0 cursor-not-allowed select-none"
                   >
                     <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">
-                      Check Out (Resume Work First)
+                      Clock Out (Resume First)
                     </span>
                   </button>
                 </div>
-                <p className="text-[11px] text-amber-800/85 font-semibold bg-amber-100/70 py-1.5 px-3 rounded-xl border border-amber-200/80 max-w-md mx-auto">
-                  ⚠️ Check-out is blocked while break is active. Please click &ldquo;Resume Work&rdquo; first.
+                <p className="text-[10px] text-amber-800/85 font-semibold bg-amber-100/70 py-1 px-2.5 rounded-lg border border-amber-200/80 flex items-center justify-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                  <span>Clock-out is blocked while break is active. Please click &ldquo;Resume Work&rdquo; first.</span>
                 </p>
               </div>
             )}
 
             {/* 4. STATE: COMPLETED */}
             {status === 'completed' && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-center space-y-2.5">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
-                  <Check className="w-5 h-5 stroke-[3]" />
-                </div>
-                <h4 className="text-base font-black text-slate-900">
-                  ✓ Session Checked Out
-                </h4>
-                <p className="text-xs text-slate-600 max-w-md mx-auto">
-                  Start In:{' '}
-                  <strong>
-                    {formatTimeStr(lastCompletedSession?.startTime) || 'Completed'}
-                  </strong>{' '}
-                  • Out:{' '}
-                  <strong>
-                    {formatTimeStr(lastCompletedSession?.endTime) || 'Completed'}
-                  </strong>{' '}
-                  • Today Worked:{' '}
-                  <strong>
-                    {todaySummary?.totalDurationFormatted || liveWorkedHMS}
-                  </strong>
-                </p>
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5 text-center sm:text-left min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Check className="w-4 h-4 stroke-[3]" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-black text-slate-900 leading-tight">
+                        Session Clocked Out
+                      </h4>
+                      <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
+                        In:{' '}
+                        <strong>
+                          {formatTimeStr(lastCompletedSession?.startTime) || 'Completed'}
+                        </strong>{' '}
+                        • Out:{' '}
+                        <strong>
+                          {formatTimeStr(lastCompletedSession?.endTime) || 'Completed'}
+                        </strong>{' '}
+                        • Worked:{' '}
+                        <strong>
+                          {todaySummary?.totalDurationFormatted || liveWorkedHMS}
+                        </strong>
+                      </p>
+                    </div>
+                  </div>
 
-                <div className="py-1 flex justify-center">
-                  <ModernDigitClock
-                    timeString={liveWorkedHMS}
-                    size={clockSize || "sm"}
-                    variant="light"
-                    showSweepRing={false}
-                    label="SHIFT FINALIZED"
-                    subText={`Total Break: ${
-                      todaySummary?.totalBreakFormatted || liveBreakWords
-                    }`}
-                  />
+                  <div className="shrink-0">
+                    <ModernDigitClock
+                      timeString={liveWorkedHMS}
+                      size={clockSize || "sm"}
+                      variant="light"
+                      showSweepRing={false}
+                      label="SHIFT FINALIZED"
+                      subText={`Break: ${todaySummary?.totalBreakFormatted || liveBreakWords
+                        }`}
+                    />
+                  </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="flex justify-center sm:justify-end">
                   <button
                     id="btn-shift-check-in-again"
                     onClick={() => checkIn()}
                     disabled={actionLoading}
-                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all active:scale-95 inline-flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all active:scale-95 inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>
-                      {actionLoading ? 'Starting Session...' : 'Check In Again (New Session)'}
+                      {actionLoading ? 'Starting Session...' : 'Clock In Again (New Session)'}
                     </span>
                   </button>
                 </div>

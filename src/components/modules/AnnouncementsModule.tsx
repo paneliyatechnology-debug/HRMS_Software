@@ -176,13 +176,13 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto select-none pb-12">
+    <div className="space-y-5 w-full select-none">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-indigo-600" />
-            <span>Notice Board & Circulars</span>
+          <h1 className="flex items-center gap-2.5">
+            <Megaphone className="w-6 h-6 text-[#2d6a4f] shrink-0" />
+            <span className="hrms-page-title">Notice Board &amp; Circulars</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Official staff broadcasts, policy notifications, and personal employee circulars
@@ -193,7 +193,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           <button
             id="btn-new-notice-modal"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-colors self-start sm:self-auto"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-semibold text-xs shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Send New Notice</span>
@@ -203,30 +203,30 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] text-xs font-semibold">
           <button
             onClick={() => setFilterAudience('All')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'All'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterAudience === 'All'
+                ? 'bg-[#1b4332] text-white shadow-xs'
+                : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
               }`}
           >
             All Notices ({announcements.length})
           </button>
           <button
             onClick={() => setFilterAudience('Company')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Company'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterAudience === 'Company'
+                ? 'bg-[#1b4332] text-white shadow-xs'
+                : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
               }`}
           >
             Company-Wide ({announcements.filter((a) => a.targetAudience === 'All').length})
           </button>
           <button
             onClick={() => setFilterAudience('Personal')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Personal'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${filterAudience === 'Personal'
+                ? 'bg-[#1b4332] text-white shadow-xs'
+                : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
               }`}
           >
             Personal Circulars ({announcements.filter((a) => a.targetAudience === 'Individual').length})
@@ -451,10 +451,10 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   onChange={(e) => setPriority(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
                 >
-                  <option value="Low">🟢 Low Priority (General Notice)</option>
-                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
-                  <option value="High">🟠 High Priority (Action Required)</option>
-                  <option value="Urgent">🔴 Urgent Notice (Immediate Attention)</option>
+                  <option value="Low">Low Priority (General Notice)</option>
+                  <option value="Medium">Medium Priority (Standard Notice)</option>
+                  <option value="High">High Priority (Action Required)</option>
+                  <option value="Urgent">Urgent Notice (Immediate Attention)</option>
                 </select>
               </div>
 
@@ -487,7 +487,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   id="btn-publish-bulletin"
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{submitting ? 'Publishing Notice...' : 'Send Notice'}</span>

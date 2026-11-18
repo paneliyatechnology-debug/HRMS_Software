@@ -109,14 +109,14 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Performance Management & OKRs
-            </h2>
+            <h1 className="hrms-page-title">
+              Performance Management &amp; OKRs
+            </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
               {cycles[0]?.title || 'Q3-Q4 2026 Cycle'}
             </span>

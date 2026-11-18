@@ -390,7 +390,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#f0fdf4] via-[#f8fafc] to-[#f0fdf4] flex flex-col justify-between items-center px-4 sm:px-6 py-5 sm:py-8 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden">
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#f8f9fa] via-[#f8f9fa] to-[#f8f9fa] flex flex-col justify-between items-center px-4 sm:px-6 py-5 sm:py-8 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden">
 
       {/* Modern dot mesh and ambient glow */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#0596690a_1px,transparent_1px),linear-gradient(to_bottom,#0596690a_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
@@ -409,12 +409,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           <span className="sm:hidden">Back to Home</span>
         </button>
 
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold text-emerald-800 bg-white/90 border border-emerald-200/80 shadow-2xs backdrop-blur-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Enterprise Cloud Suite</span>
-          </div>
-        </div>
       </header>
 
       {/* Main Center Form Area */}
@@ -1181,13 +1175,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
         </div>
       </main>
 
-      {/* Footer Branding Note */}
-      <footer className="w-full text-center py-2 z-10">
-        <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 border border-slate-200/80 shadow-2xs text-[11px] font-semibold text-slate-500 backdrop-blur-sm">
-          <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>My Own HRMS • Enterprise Cloud Suite</span>
-        </span>
-      </footer>
+     
 
       {/* ================================================================ */}
       {/* BOTTOM POPUP: "You are not part of any organization"             */}

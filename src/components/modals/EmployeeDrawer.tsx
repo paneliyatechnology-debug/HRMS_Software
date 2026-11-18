@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2, Info, Circle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
@@ -270,11 +270,6 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 truncate max-w-[140px]">
                   {adminCompanyName}
                 </span>
-                {nextEmployeeCode && (
-                  <span className="text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
-                    {nextEmployeeCode}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 Adding to {adminCompanyName}
@@ -627,7 +622,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {/[A-Z]/.test(formData.initialPassword) ? '✓' : '○'}
+                    {/[A-Z]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
                   </span>
                   <span>1 Uppercase (A-Z)</span>
                 </div>
@@ -644,7 +639,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {/[0-9]/.test(formData.initialPassword) ? '✓' : '○'}
+                    {/[0-9]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
                   </span>
                   <span>1 Number (0-9)</span>
                 </div>
@@ -661,7 +656,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {/[^A-Za-z0-9]/.test(formData.initialPassword) ? '✓' : '○'}
+                    {/[^A-Za-z0-9]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
                   </span>
                   <span>1 Special character</span>
                 </div>
@@ -678,13 +673,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {formData.initialPassword.length >= 6 ? '✓' : '○'}
+                    {formData.initialPassword.length >= 6 ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
                   </span>
                   <span>Min. 6 characters</span>
                 </div>
               </div>
-              <p className="text-[11px] text-indigo-600 mt-1 font-medium leading-snug">
-                💡 This employee can directly sign in using their registered email or phone with this password.
+              <p className="text-[11px] text-emerald-700 mt-1 font-medium leading-snug flex items-start gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>This employee can directly sign in using their registered email or phone with this password.</span>
               </p>
             </div>
           </div>
