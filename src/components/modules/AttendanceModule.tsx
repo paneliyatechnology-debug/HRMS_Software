@@ -71,6 +71,7 @@ import { useWorkSession } from '../../context/WorkSessionContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 import { ModernDigitClock } from '../common/ModernDigitClock';
 import { DailyShiftConsole } from '../common/DailyShiftConsole';
+import { isDateWeekend, getWorkScheduleConfig } from '../../lib/shiftScheduleService';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -223,7 +224,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     setDetailEmpLoading(true);
     try {
       // Hit attendance work status API per user requirement:
-      // curl --location 'http://192.168.1.108:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
+      // curl --location 'http://192.168.1.105:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
       const res = await api.getWorkStatus();
       if (!res) return;
       setDetailEmpStatusData(res);
@@ -364,7 +365,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           totalWorkSeconds += 4 * 3600;
         }
       } else {
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
         if (!isWeekend && dateStr < todayStr && allEmpRecs.length > 0) {
           absentDays++;
         }
@@ -1101,92 +1102,51 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             </p>
           </div>
 
-          {/* Action Buttons Row */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
-              {isEmployeeView && (
-                <button
-                  onClick={onOpenPunchModal}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${myIsOnBreak
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : myIsWorking
-                      ? 'bg-rose-600 hover:bg-rose-700'
-                      : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
-                >
-                  {myIsOnBreak ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                      <span className="truncate">On Break (Resume Work)</span>
-                    </>
-                  ) : myIsWorking ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                      <span className="truncate">Clock Out</span>
-                    </>
-                  ) : myIsDone ? (
-                    <>
-                      <Clock className="w-4 h-4" />
-                      <span className="truncate">Clock In Again</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 stroke-[2.5]" />
-                      <span className="truncate">Clock In</span>
-                    </>
-                  )}
-                </button>
-              )}
+          {/* Action Buttons Row (for Admin Search or Month Filters) */}
+          {(!isEmployeeView || (resolvedTab as string) === 'summary') && (
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {/* Quick Attendance Employee Search */}
+                {!isEmployeeView && (
+                  <div className="relative min-w-[210px]">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={attendanceSearch}
+                      onChange={(e) => setAttendanceSearch(e.target.value)}
+                      placeholder="Filter staff by name/ID..."
+                      className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                    />
+                    {attendanceSearch && (
+                      <button
+                        onClick={() => setAttendanceSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        title="Clear"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
-              <button
-                onClick={exportCSV}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-              >
-                <Download className="w-3.5 h-3.5 text-slate-500" />
-                <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
-              </button>
-
-              {/* Quick Attendance Employee Search */}
-              {!isEmployeeView && (
-                <div className="relative min-w-[210px]">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={attendanceSearch}
-                    onChange={(e) => setAttendanceSearch(e.target.value)}
-                    placeholder="Filter staff by name/ID..."
-                    className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
-                  />
-                  {attendanceSearch && (
-                    <button
-                      onClick={() => setAttendanceSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      title="Clear"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+              {/* Filters dropdowns for Summary */}
+              {(resolvedTab as string) === 'summary' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-500">Month:</span>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
+                  >
+                    <option value="October">October 2026</option>
+                    <option value="November">November 2026</option>
+                    <option value="December">December 2026</option>
+                  </select>
                 </div>
               )}
             </div>
-
-            {/* Filters dropdowns for Summary */}
-            {(resolvedTab as string) === 'summary' && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold text-slate-500">Month:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
-                >
-                  <option value="October">October 2026</option>
-                  <option value="November">November 2026</option>
-                  <option value="December">December 2026</option>
-                </select>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Right: Compact Daily Shift Console fitted into top-right header area */}
@@ -1215,13 +1175,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
-                  <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+                  <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1">{todayRecords.length} / {employees.length}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
-                  <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                  <p className="text-xl font-semibold tracking-tight text-emerald-600 mt-1 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     {workingCount}
                   </p>
@@ -1230,7 +1190,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
-                  <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
+                  <p className="text-xl font-semibold tracking-tight text-amber-600 mt-1 flex items-center gap-1.5">
                     <Pause className="w-3.5 h-3.5 text-amber-600" />
                     {onBreakCount}
                   </p>
@@ -1239,7 +1199,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
-                  <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                  <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1 flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-slate-600" />
                     {completedCount}
                   </p>
@@ -1292,6 +1252,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={exportCSV}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title={isEmployeeView ? 'Export My Attendance' : 'Export CSV'}
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={async () => {
                       await fetchWorkStatus();
                       onRefresh?.();
@@ -1302,41 +1272,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Refresh</span>
                   </button>
-
-                  {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
-                  {isEmployeeView && (
-                    <button
-                      onClick={onOpenPunchModal}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${myIsOnBreak
-                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                        : myIsWorking
-                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                        }`}
-                    >
-                      {myIsOnBreak ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          <span>On Break (Resume Work)</span>
-                        </>
-                      ) : myIsWorking ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          <span>Clock Out</span>
-                        </>
-                      ) : myIsDone ? (
-                        <>
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Clock In Again</span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Clock In</span>
-                        </>
-                      )}
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -1776,7 +1711,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Users className="w-3.5 h-3.5 text-indigo-500" />
                   <span>Total Employees</span>
                 </div>
-                <div className="text-xl font-bold text-slate-900 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-slate-800 mt-1">
                   {visibleEmployees.length}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Staff on company roster</div>
@@ -1787,7 +1722,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
                   <span>Avg Attendance Rate</span>
                 </div>
-                <div className="text-xl font-bold text-emerald-800 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-emerald-800 mt-1">
                   {visibleEmployees.length > 0
                     ? Math.round(
                       visibleEmployees.reduce(
@@ -1806,7 +1741,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
                   <span>Calendar Days</span>
                 </div>
-                <div className="text-xl font-bold text-blue-800 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-blue-800 mt-1">
                   {daysInMonth.length} Days
                 </div>
                 <div className="text-[10px] text-blue-600 mt-0.5">Total days in {selectedMonth}</div>
@@ -1817,7 +1752,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Plane className="w-3.5 h-3.5 text-purple-600" />
                   <span>Leaves &amp; Absences</span>
                 </div>
-                <div className="text-xl font-bold text-purple-800 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-purple-800 mt-1">
                   {visibleEmployees.reduce(
                     (acc, e) =>
                       acc +
@@ -2342,20 +2277,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     return (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                         <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
-                          <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Present Days</div>
-                          <div className="text-lg font-black text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
+                          <div className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">Present Days</div>
+                          <div className="text-lg font-semibold tracking-tight text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
-                          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Total Break Taken</div>
-                          <div className="text-lg font-black text-amber-800 mt-0.5">{totalBreakStr}</div>
+                          <div className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Total Break Taken</div>
+                          <div className="text-lg font-semibold tracking-tight text-amber-800 mt-0.5">{totalBreakStr}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
-                          <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Total Work Hours</div>
-                          <div className="text-lg font-black text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
+                          <div className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">Total Work Hours</div>
+                          <div className="text-lg font-semibold tracking-tight text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
-                          <div className="text-lg font-black text-slate-800 mt-0.5">{avgHrsStr}</div>
+                          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Daily Average</div>
+                          <div className="text-lg font-semibold tracking-tight text-slate-800 mt-0.5">{avgHrsStr}</div>
                         </div>
                       </div>
                     );
@@ -2565,7 +2500,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
                             const rec = m.allRecords.find((r) => r.date === dateStr);
 
-                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                            const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
                             const isPast = dateStr < todayStr;
                             const isToday = dateStr === todayStr;
 

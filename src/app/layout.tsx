@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -10,13 +10,6 @@ import { OfflineScreen } from '../components/common/OfflineScreen';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-display',
 });
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +58,7 @@ export default function RootLayout({
   const liveEnv = getLiveEnvConfig();
 
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} h-full light`}>
+    <html lang="en" className={`${inter.variable} h-full light`}>
       <head>
         <script
           id="hrms-live-env"

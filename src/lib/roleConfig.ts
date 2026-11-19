@@ -59,6 +59,14 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
   },
 ];
 
+/**
+ * Roles that can be assigned or selected by administrators when changing user roles.
+ * Super Admin cannot be assigned to any user.
+ */
+export const ASSIGNABLE_ROLE_DEFINITIONS: RoleDefinition[] = ROLE_DEFINITIONS.filter(
+  (r) => r.role !== 'SUPER_ADMIN'
+);
+
 export function getRoleDefinition(role?: Role | string): RoleDefinition {
   const employee = ROLE_DEFINITIONS[3];
   if (!role) return employee;

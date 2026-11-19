@@ -17,6 +17,7 @@ import {
   getLiveBreakSeconds,
   formatSecondsToWords,
 } from '../../lib/attendanceService';
+import { isDateWeekend } from '../../lib/shiftScheduleService';
 
 interface DailyAttendanceGraphProps {
   mode: 'employee' | 'admin';
@@ -100,7 +101,7 @@ export const DailyAttendanceGraph: React.FC<DailyAttendanceGraphProps> = ({
       const dateStr = `${yyyy}-${mm}-${dd}`;
       const isToday = dateStr === todayStr;
       const dow = d.getDay();
-      const isWeekend = dow === 0 || dow === 6;
+      const isWeekend = isDateWeekend(dateStr);
 
       const shortLabel = isToday
         ? 'Today'

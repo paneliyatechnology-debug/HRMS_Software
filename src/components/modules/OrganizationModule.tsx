@@ -42,7 +42,7 @@ import { Department, Designation, Location, Role, Employee, DesignationMember } 
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
-import { ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
+import { ASSIGNABLE_ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
 
 interface OrganizationModuleProps {
   departments: Department[];
@@ -764,7 +764,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
                           >
                             <Icon className={`w-4 h-4 ${color} mb-2`} />
-                            <div className="text-xl sm:text-2xl font-black text-white">{value}</div>
+                            <div className="text-xl sm:text-2xl font-semibold tracking-tight text-white">{value}</div>
                             <div className={`text-[10px] font-bold uppercase tracking-wider ${color}`}>{label}</div>
                             <div className="text-[10px] text-white/50 mt-0.5">{sub}</div>
                           </div>
@@ -1724,7 +1724,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   onChange={(e) => setAssignRole(e.target.value as Role)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
                 >
-                  {ROLE_DEFINITIONS.map((r) => (
+                  {ASSIGNABLE_ROLE_DEFINITIONS.map((r) => (
                     <option key={r.role} value={r.role}>
                       {r.label} ({r.role})
                     </option>

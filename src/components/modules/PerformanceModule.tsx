@@ -161,7 +161,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">Manager: {rev.managerName || '—'}</p>
                   </div>
-                  <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-600 font-black text-xs">
+                  <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold text-xs border border-amber-200">
                     <Star className="w-3.5 h-3.5 fill-current" />
                     <span>{rev.finalRating ? `${rev.finalRating} / 5.0` : rev.managerRating ? `${rev.managerRating} / 5.0` : 'Not Rated'}</span>
                   </div>
@@ -292,7 +292,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   <div>
                     <div className="flex justify-between font-semibold mb-1 text-slate-700">
                       <span>Manager Rating Score (1.0 - 5.0):</span>
-                      <span className="font-black text-amber-600 text-sm">{managerScore} / 5.0</span>
+                      <span className="font-semibold text-amber-700 text-sm">{managerScore} / 5.0</span>
                     </div>
                     <input
                       type="range"
@@ -332,7 +332,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   <div>
                     <div className="flex justify-between font-semibold mb-1 text-slate-700">
                       <span>Self-Assessment Score (1.0 - 5.0):</span>
-                      <span className="font-black text-blue-600 text-sm">{selfScore} / 5.0</span>
+                      <span className="font-semibold text-blue-700 text-sm">{selfScore} / 5.0</span>
                     </div>
                     <input
                       type="range"

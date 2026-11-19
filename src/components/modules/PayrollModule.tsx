@@ -196,7 +196,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
           <span className="text-xs font-semibold text-slate-400">Total Gross Salary</span>
-          <p className="text-2xl font-bold text-slate-900 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
             ${totalGross.toLocaleString()}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
@@ -207,7 +207,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
           <span className="text-xs font-semibold text-slate-400">Total Statutory Deductions</span>
-          <p className="text-2xl font-bold text-amber-500 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-amber-600 mt-2">
             ${totalDeductions.toLocaleString()}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
@@ -218,7 +218,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
           <span className="text-xs font-semibold text-slate-400">Net Take-Home Disbursed</span>
-          <p className="text-2xl font-bold text-blue-600 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-blue-600 mt-2">
             ${totalNet.toLocaleString()}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
@@ -393,7 +393,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
               <div className="pt-3 border-t border-slate-200/60 flex justify-between items-center">
                 <span className="font-bold text-slate-900">Net Take-Home Salary:</span>
-                <span className="text-lg font-black text-blue-600">
+                <span className="text-lg font-semibold tracking-tight text-blue-600">
                   ${selectedPayslip.summary.netSalary.toLocaleString()} USD
                 </span>
               </div>

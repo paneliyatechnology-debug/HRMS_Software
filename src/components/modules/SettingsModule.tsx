@@ -42,6 +42,7 @@ import {
   Phone,
   MapPin,
   CalendarOff,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -59,6 +60,7 @@ import {
   saveWorkScheduleConfig,
   formatMinutesToTimeString,
   parseTimeToMinutes,
+  getWeekendPolicyDescription,
   WorkScheduleConfig,
 } from '../../lib/shiftScheduleService';
 
@@ -1332,7 +1334,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         <span>Calculated Daily Punch Window</span>
                       </div>
-                      <p className="text-xl font-mono font-black text-white mt-1">
+                      <p className="text-xl font-mono font-semibold tracking-tight text-white mt-1">
                         {allowedStart} — {allowedEnd}
                       </p>
                       <p className="text-[11px] text-emerald-100/70 mt-0.5">
@@ -1349,6 +1351,119 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </div>
                 );
               })()}
+
+              {/* Weekly Weekend / Off Days Configuration */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+                    <CalendarDays className="w-4 h-4 text-emerald-600" />
+                    <span>Company Weekend &amp; Weekly Off Days</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                    Select which days are official company non-working weekends. Only selected days will reflect as weekends in the Calendar and Attendance.
+                  </p>
+                </div>
+
+                {/* Day selector pills (Sun - Sat) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { day: 0, label: 'Sunday', short: 'Sun' },
+                    { day: 1, label: 'Monday', short: 'Mon' },
+                    { day: 2, label: 'Tuesday', short: 'Tue' },
+                    { day: 3, label: 'Wednesday', short: 'Wed' },
+                    { day: 4, label: 'Thursday', short: 'Thu' },
+                    { day: 5, label: 'Friday', short: 'Fri' },
+                    { day: 6, label: 'Saturday', short: 'Sat' },
+                  ].map((d) => {
+                    const isSelected = (scheduleData.weekendDays ?? [0]).includes(d.day);
+                    return (
+                      <button
+                        key={d.day}
+                        type="button"
+                        onClick={() => {
+                          const current = scheduleData.weekendDays ?? [0];
+                          let next: number[];
+                          let nextSatRule = scheduleData.saturdayRule ?? 'none';
+                          if (isSelected) {
+                            next = current.filter((x) => x !== d.day);
+                            if (d.day === 6) nextSatRule = 'none';
+                          } else {
+                            next = [...current, d.day].sort();
+                            if (d.day === 6 && (!nextSatRule || nextSatRule === 'none')) {
+                              nextSatRule = 'all';
+                            }
+                          }
+                          setScheduleData({ ...scheduleData, weekendDays: next, saturdayRule: nextSatRule });
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                        <span>{d.label}</span>
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${
+                            isSelected ? 'bg-white/20 text-emerald-100' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {isSelected ? 'Off' : 'Work'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Saturday Specific Rule Sub-Options (if Saturday is selected) */}
+                {(scheduleData.weekendDays ?? [0]).includes(6) && (
+                  <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                    <label className="block font-bold text-slate-700 text-xs">
+                      Saturday Operational Schedule
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {[
+                        { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is an official weekend' },
+                        { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
+                        { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
+                      ].map((opt) => {
+                        const isAct = (scheduleData.saturdayRule || 'all') === opt.id;
+                        return (
+                          <div
+                            key={opt.id}
+                            onClick={() => setScheduleData({ ...scheduleData, saturdayRule: opt.id as any })}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              isAct
+                                ? 'border-[#1b4332] bg-[#d8f3dc]/30 ring-1 ring-[#1b4332]'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-900">{opt.title}</span>
+                              <input
+                                type="radio"
+                                name="satRuleSettings"
+                                checked={isAct}
+                                onChange={() => {}}
+                                className="text-emerald-600 focus:ring-emerald-500"
+                              />
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{opt.desc}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary status tag */}
+                <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>
+                    Current weekend schedule: <strong className="text-slate-900">{getWeekendPolicyDescription(scheduleData)}</strong>
+                  </span>
+                </div>
+              </div>
 
               <div className="pt-2 flex justify-end">
                 <button
@@ -1378,7 +1493,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 </div>
                 <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 shrink-0">
                   Total Annual Leaves:{' '}
-                  <span className="font-black text-emerald-700">
+                  <span className="font-semibold text-emerald-800">
                     {settingsLoading
                       ? 'Loading...'
                       : `${(Number(leavePolicyData.casualLeaveAnnual) || 0) + (Number(leavePolicyData.sickLeaveAnnual) || 0) + (Number(leavePolicyData.paidLeaveAnnual) || 0)} Days`}

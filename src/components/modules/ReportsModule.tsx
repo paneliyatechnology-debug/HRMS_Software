@@ -314,12 +314,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
       {/* KPI Cards: 100% Genuine Scoped Data */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+        <div className="p-5 rounded-2xl bg-white border border-[#dee2e6] shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Headcount</span>
-            <Users className="w-4 h-4 text-blue-600" />
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Headcount</span>
+            <div className="w-7 h-7 rounded-[8px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0 text-[#2d6a4f]">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
             {totalHeadcount} Active
           </p>
           <span className="text-[11px] text-slate-400 font-medium mt-1 block">
@@ -327,12 +329,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </span>
         </div>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+        <div className="p-5 rounded-2xl bg-white border border-[#dee2e6] shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Attendance Rate</span>
-            <Percent className="w-4 h-4 text-emerald-600" />
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Attendance Rate</span>
+            <div className="w-7 h-7 rounded-[8px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0 text-[#2d6a4f]">
+              <Percent className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
             {attendanceRateDisplay}
           </p>
           <span className="text-[11px] text-slate-400 font-medium mt-1 block">
@@ -340,12 +344,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </span>
         </div>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+        <div className="p-5 rounded-2xl bg-white border border-[#dee2e6] shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Monthly Payroll</span>
-            <DollarSign className="w-4 h-4 text-purple-600" />
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Monthly Payroll</span>
+            <div className="w-7 h-7 rounded-[8px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0 text-[#2d6a4f]">
+              <DollarSign className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 mt-2">
+          <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
             {payrollDisplay}
           </p>
           <span className="text-[11px] text-slate-400 font-medium mt-1 block">
@@ -353,12 +359,14 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           </span>
         </div>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+        <div className="p-5 rounded-2xl bg-white border border-[#dee2e6] shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Compliance Status</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Compliance Status</span>
+            <div className="w-7 h-7 rounded-[8px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0 text-[#2d6a4f]">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-emerald-600 mt-2">
+          <p className="text-xl sm:text-2xl font-semibold tracking-tight text-[#1b4332] mt-2">
             {complianceStatus}
           </p>
           <span className="text-[11px] text-slate-400 font-medium mt-1 block">

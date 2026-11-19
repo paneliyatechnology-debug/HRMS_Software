@@ -412,7 +412,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       </header>
 
       {/* Main Center Form Area */}
-      <main className="w-full flex-1 flex flex-col justify-center items-center py-2 z-10">
+      <main className="w-full flex-1 flex flex-col justify-center items-center py-2 z-10 animate-module-fade-in">
         <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : viewMode === 'registration_pending' ? 'max-w-lg' : 'max-w-md'} transition-all duration-300`}>
 
           {/* Brand Header */}

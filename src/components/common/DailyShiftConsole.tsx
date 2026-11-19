@@ -110,7 +110,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <Clock className="w-3.5 h-3.5 text-white" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-tight truncate">
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-800 tracking-tight leading-tight truncate">
                   Daily Shift Console
                 </h3>
                 <p className="text-[10px] text-slate-400 leading-tight truncate">
@@ -138,7 +138,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
             {status === 'not_started' && (
               <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1 text-center sm:text-left min-w-0">
-                  <h4 className="text-sm font-black text-slate-900 leading-tight">
+                  <h4 className="text-sm font-semibold text-slate-800 leading-tight">
                     {shiftCheck.isAllowed
                       ? "Ready to Start Today's Shift"
                       : 'Shift Clock-In Currently Locked'}
@@ -302,7 +302,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       <Check className="w-4 h-4 stroke-[3]" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">
+                      <h4 className="text-sm font-semibold text-slate-800 leading-tight">
                         Session Clocked Out
                       </h4>
                       <p className="text-[11px] text-slate-600 leading-snug mt-0.5">

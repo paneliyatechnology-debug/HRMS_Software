@@ -432,7 +432,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       : user?.employeeId || currentUserId;
 
     s.on('chat_message_received', (incomingMessage: any) => {
-      receiveIncomingSocketMessage(incomingMessage, viewerId);
+      receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
       window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
     });

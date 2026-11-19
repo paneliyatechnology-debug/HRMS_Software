@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Menu,
@@ -19,6 +19,19 @@ import {
   Smartphone,
   Receipt,
   Lock,
+  Home,
+  Users,
+  CalendarOff,
+  CircleDollarSign,
+  Award,
+  BarChart3,
+  UserCheck,
+  Sparkles,
+  Briefcase,
+  FolderLock,
+  ShieldCheck,
+  FileText,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkSession } from '../context/WorkSessionContext';
@@ -47,6 +60,10 @@ interface HeaderProps {
   pendingLeavesCount?: number;
   unreadChatCount?: number;
   company?: any;
+  isScrolled?: boolean;
+  pageTitle?: string;
+  activeSubTab?: string;
+  onScrollToTop?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -69,6 +86,10 @@ export const Header: React.FC<HeaderProps> = ({
   pendingLeavesCount = 0,
   unreadChatCount = 0,
   company,
+  isScrolled = false,
+  pageTitle = '',
+  activeSubTab = '',
+  onScrollToTop,
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -188,9 +209,152 @@ export const Header: React.FC<HeaderProps> = ({
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
   const companyLogo = companyInfo.logoUrl;
 
+  const isDashboard = !activeModule || activeModule === 'dashboard';
+
+  // Resolve page heading and icon for the animated morphing header slot
+  const { title: resolvedPageTitle, icon: resolvedPageIcon } = useMemo(() => {
+    let icon = <Clock className="w-3.5 h-3.5" />;
+    switch (activeModule) {
+      case 'dashboard':
+        icon = <Home className="w-3.5 h-3.5" />;
+        break;
+      case 'attendance':
+        icon = <Clock className="w-3.5 h-3.5" />;
+        break;
+      case 'employees':
+        icon = <Users className="w-3.5 h-3.5" />;
+        break;
+      case 'leaves':
+      case 'leave':
+        icon = <CalendarOff className="w-3.5 h-3.5" />;
+        break;
+      case 'calendar':
+        icon = <Calendar className="w-3.5 h-3.5" />;
+        break;
+      case 'payroll':
+        icon = <CircleDollarSign className="w-3.5 h-3.5" />;
+        break;
+      case 'payslips':
+        icon = <Receipt className="w-3.5 h-3.5" />;
+        break;
+      case 'organization':
+        icon = <Building2 className="w-3.5 h-3.5" />;
+        break;
+      case 'announcements':
+        icon = <Award className="w-3.5 h-3.5" />;
+        break;
+      case 'chat':
+        icon = <MessageSquare className="w-3.5 h-3.5" />;
+        break;
+      case 'reports':
+        icon = <BarChart3 className="w-3.5 h-3.5" />;
+        break;
+      case 'recruitment':
+        icon = <UserCheck className="w-3.5 h-3.5" />;
+        break;
+      case 'performance':
+        icon = <Sparkles className="w-3.5 h-3.5" />;
+        break;
+      case 'training':
+        icon = <Briefcase className="w-3.5 h-3.5" />;
+        break;
+      case 'documents':
+        icon = <FolderLock className="w-3.5 h-3.5" />;
+        break;
+      case 'assets':
+        icon = <ShieldCheck className="w-3.5 h-3.5" />;
+        break;
+      case 'resignations':
+        icon = <LogOut className="w-3.5 h-3.5" />;
+        break;
+      case 'audit-logs':
+        icon = <FileText className="w-3.5 h-3.5" />;
+        break;
+      case 'settings':
+        icon = <Settings className="w-3.5 h-3.5" />;
+        break;
+      case 'profile':
+        icon = <User className="w-3.5 h-3.5" />;
+        break;
+      default:
+        icon = <Layers className="w-3.5 h-3.5" />;
+    }
+
+    if (pageTitle && pageTitle.trim()) {
+      return { title: pageTitle.trim(), icon };
+    }
+
+    const userName = user?.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee');
+    switch (activeModule) {
+      case 'dashboard':
+        return {
+          title: `Hello, ${userName}!`,
+          icon,
+        };
+      case 'attendance':
+        return { title: 'Attendance', icon };
+      case 'employees':
+        return { title: 'Employees', icon };
+      case 'leaves':
+      case 'leave':
+        return {
+          title: portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
+          icon,
+        };
+      case 'calendar':
+        return { title: 'Calendar & Holidays', icon };
+      case 'payroll':
+        return { title: 'Payroll', icon };
+      case 'payslips':
+        return { title: 'My Payslips', icon };
+      case 'organization':
+        return {
+          title:
+            activeSubTab === 'departments'
+              ? 'Departments & Roles'
+              : activeSubTab === 'designations'
+                ? 'Designations'
+                : 'About Organisation',
+          icon,
+        };
+      case 'announcements':
+        return { title: 'Notice Board & Circulars', icon };
+      case 'chat':
+        return { title: 'Team Chat', icon };
+      case 'reports':
+        return { title: 'Reports & Analytics', icon };
+      case 'recruitment':
+        return { title: 'Recruitment', icon };
+      case 'performance':
+        return { title: 'Performance Reviews', icon };
+      case 'training':
+        return { title: 'Training Programs', icon };
+      case 'documents':
+        return { title: 'Company Documents', icon };
+      case 'assets':
+        return { title: 'Assets', icon };
+      case 'resignations':
+        return {
+          title: portalMode === 'admin' ? 'Resignations & Clearance' : 'My Resignation',
+          icon,
+        };
+      case 'audit-logs':
+        return { title: 'Audit Logs', icon };
+      case 'settings':
+        return { title: 'Settings & Preferences', icon };
+      case 'profile':
+        return { title: 'My Profile', icon };
+      default:
+        return {
+          title: activeModule ? activeModule.charAt(0).toUpperCase() + activeModule.slice(1) : 'HRMS',
+          icon,
+        };
+    }
+  }, [activeModule, activeSubTab, portalMode, user?.firstName, pageTitle]);
+
   return (
     <header className="h-[58px] sm:h-[66px] bg-white border-b border-[#e9ecef] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
-      {/* Left: Mobile Toggle, Brand Logo & Live Clock Widget */}
+      {/* Left: Mobile Toggle, Brand Logo & Live Clock Widget <-> Scrolled Heading Morph */}
       <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
         <button
           onClick={onOpenSidebar}
@@ -200,7 +364,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2 lg:hidden min-w-0 max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none">
+        <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
           <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
             {companyLogo ? (
               <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-0.5" />
@@ -208,16 +372,38 @@ export const Header: React.FC<HeaderProps> = ({
               companyInitial
             )}
           </div>
-          <div className="min-w-0 hidden min-[340px]:block">
+          <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
             <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
               {displayCompanyName}
             </span>
           </div>
         </div>
 
-        {/* Live Digital Clock Widget (Placed on Top Left) */}
-        <div className="hidden sm:flex items-center shrink-0">
-          <LiveClock showIndicator={false} showTimezone={false} />
+        {/* Header Title Slot: Live Clock on Dashboard; Page Heading on All Other Pages */}
+        <div className="flex items-center h-10 min-w-0">
+          {isDashboard ? (
+            /* Dashboard: Always show Live Digital Clock Widget */
+            <div className="hidden sm:flex items-center shrink-0">
+              <LiveClock showIndicator={false} showTimezone={false} />
+            </div>
+          ) : (
+            /* All Other Pages: Show Page Heading immediately when page is opened */
+            <div className="flex items-center shrink-0">
+              <button
+                type="button"
+                onClick={onScrollToTop}
+                title="Click to scroll to top"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-[10px] bg-[#f8f9fa] hover:bg-[#e9ecef] border border-[#dee2e6] hover:border-[#ced4da] shadow-2xs transition-all active:scale-95 cursor-pointer text-left group"
+              >
+                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 border border-[#b7e4c7] transition-colors">
+                  {resolvedPageIcon}
+                </span>
+                <span className="hrms-header-page-title text-xs sm:text-sm font-semibold tracking-tight text-[#0f172a] truncate max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-[280px] md:max-w-[360px]">
+                  {resolvedPageTitle}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -40,15 +40,7 @@ import {
   BarChart3,
   Megaphone,
   Zap,
-  LayoutGrid,
-  RotateCcw,
 } from 'lucide-react';
-import {
-  WidgetCardWrapper,
-  WidgetDropZone,
-  WidgetGallerySidebar,
-  DashboardWidgetDef,
-} from './dashboard/DashboardWidgetShell';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
@@ -354,10 +346,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
   const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
+  const [approveModalData, setApproveModalData] = useState<{
+    id: string;
+    empName: string;
+    leaveType: string;
+    empId?: string;
+    daysCount?: number;
+    startDate?: string;
+    endDate?: string;
+    reason?: string;
+  } | null>(null);
   const [rejectModalData, setRejectModalData] = useState<{ id: string; empName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('Operational requirements');
 
-  const handleDashboardApproveLeave = async (id: string, empName: string, leaveType: string, empId?: string) => {
+  const handleDashboardOpenApproveModal = (leave: LeaveRequest) => {
+    setApproveModalData({
+      id: leave.id,
+      empName: leave.employeeName,
+      leaveType: leave.leaveType,
+      empId: leave.employeeId,
+      daysCount: leave.daysCount,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      reason: leave.reason,
+    });
+  };
+
+  const executeApproveLeave = async () => {
+    if (!approveModalData) return;
+    const { id, empName, leaveType, empId } = approveModalData;
     setProcessingLeaveId(id);
     try {
       await api.approveLeave(id, user?.role || 'HR', 'HR', 'Approved from Dashboard');
@@ -376,6 +393,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Approved' } }));
       }
+      setApproveModalData(null);
       if (onRefreshData) onRefreshData();
     } catch (err: any) {
       showToast({
@@ -443,6 +461,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   useEffect(() => {
     const isAnyModalOpen = Boolean(
       checkOutModalOpen ||
+      approveModalData ||
       rejectModalData ||
       removingEmpDashboard ||
       noticeTargetEmpDashboard
@@ -453,6 +472,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           if (checkOutModalOpen) setCheckOutModalOpen(false);
+          if (approveModalData) setApproveModalData(null);
           if (rejectModalData) setRejectModalData(null);
           if (removingEmpDashboard) setRemovingEmpDashboard(null);
           if (noticeTargetEmpDashboard) setNoticeTargetEmpDashboard(null);
@@ -464,7 +484,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [checkOutModalOpen, rejectModalData, removingEmpDashboard, noticeTargetEmpDashboard]);
+  }, [checkOutModalOpen, approveModalData, rejectModalData, removingEmpDashboard, noticeTargetEmpDashboard]);
 
   const [roleTargetEmpDash, setRoleTargetEmpDash] = useState<Employee | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -569,199 +589,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;
   const approvedLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length;
 
-  // =========================================================================
-  // TEMPORARY MOBILE-STYLE WIDGET CUSTOMIZER (IN-MEMORY ONLY — NO STORAGE)
-  // =========================================================================
-  const DEFAULT_ADMIN_KPIS = ['kpi_employees', 'kpi_present', 'kpi_pending_leaves', 'kpi_team_hub'];
-  const DEFAULT_ADMIN_PANELS = [
-    'panel_attendance_graph',
-    'panel_announcements',
-    'panel_pending_approvals',
-    'panel_staff_directory',
-  ];
-  const DEFAULT_EMP_KPIS = ['emp_kpi_status', 'emp_kpi_leave', 'emp_kpi_salary', 'emp_kpi_manager'];
-  const DEFAULT_EMP_PANELS = [
-    'emp_panel_shift_console',
-    'emp_panel_recent_attendance',
-    'emp_panel_attendance_graph',
-    'emp_panel_leave_breakdown',
-    'emp_panel_holidays',
-  ];
-
-  const [widgetEditMode, setWidgetEditMode] = useState(false);
-  const [adminKpiOrder, setAdminKpiOrder] = useState<string[]>(DEFAULT_ADMIN_KPIS);
-  const [adminPanelOrder, setAdminPanelOrder] = useState<string[]>(DEFAULT_ADMIN_PANELS);
-  const [empKpiOrder, setEmpKpiOrder] = useState<string[]>(DEFAULT_EMP_KPIS);
-  const [empPanelOrder, setEmpPanelOrder] = useState<string[]>(DEFAULT_EMP_PANELS);
-
-  const adminWidgetDefs: DashboardWidgetDef[] = [
-    { id: 'kpi_employees', title: 'Total Employees', description: 'Active workforce count', group: 'kpi', icon: <Users className="w-4 h-4" /> },
-    { id: 'kpi_present', title: 'Present Today', description: 'Live working & break staff', group: 'kpi', icon: <Clock className="w-4 h-4" /> },
-    { id: 'kpi_pending_leaves', title: 'Pending Leaves', description: 'Requests awaiting review', group: 'kpi', icon: <Shield className="w-4 h-4" /> },
-    { id: 'kpi_team_hub', title: 'Team Hub', description: 'Quick link to team chat', group: 'kpi', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'kpi_holidays', title: 'Upcoming Holidays', description: 'Scheduled holiday count', group: 'kpi', icon: <Calendar className="w-4 h-4" /> },
-    { id: 'kpi_approved_leaves', title: 'Approved Leaves', description: 'Total approved leave requests', group: 'kpi', icon: <CheckCircle2 className="w-4 h-4" /> },
-    { id: 'panel_attendance_graph', title: 'Attendance Graph', description: '7 & 14 day workforce chart', group: 'panel', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'panel_announcements', title: 'Announcements', description: 'Latest company notices', group: 'panel', icon: <Megaphone className="w-4 h-4" /> },
-    { id: 'panel_pending_approvals', title: 'Pending Leave Approvals', description: '1-click Approve / Reject queue', group: 'panel', icon: <CheckCircle2 className="w-4 h-4" /> },
-    { id: 'panel_staff_directory', title: 'Staff Directory & Tracking', description: 'Live shift status & messaging', group: 'panel', icon: <Users className="w-4 h-4" /> },
-    { id: 'panel_upcoming_holidays', title: 'Upcoming Holidays List', description: 'Upcoming company holidays', group: 'panel', icon: <Calendar className="w-4 h-4" /> },
-  ];
-
-  const empWidgetDefs: DashboardWidgetDef[] = [
-    { id: 'emp_kpi_status', title: "Today's Status", description: 'Live shift status & timer', group: 'kpi', icon: <Clock className="w-4 h-4" /> },
-    { id: 'emp_kpi_leave', title: 'Leave Balance', description: 'Remaining & used leave days', group: 'kpi', icon: <Shield className="w-4 h-4" /> },
-    { id: 'emp_kpi_salary', title: 'Salary & Payslips', description: 'Net salary & payslip shortcut', group: 'kpi', icon: <Receipt className="w-4 h-4" /> },
-    { id: 'emp_kpi_manager', title: 'Reports To', description: 'Reporting manager & quick chat', group: 'kpi', icon: <Briefcase className="w-4 h-4" /> },
-    { id: 'emp_kpi_holidays', title: 'Upcoming Holidays', description: 'Next holiday count', group: 'kpi', icon: <Calendar className="w-4 h-4" /> },
-    { id: 'emp_panel_shift_console', title: 'Daily Shift Console', description: 'Clock in, break & clock out', group: 'panel', icon: <Clock className="w-4 h-4" /> },
-    { id: 'emp_panel_recent_attendance', title: 'My Recent Attendance', description: 'Recent daily timestamps table', group: 'panel', icon: <CalendarCheck className="w-4 h-4" /> },
-    { id: 'emp_panel_attendance_graph', title: 'Daily Attendance Analysis', description: 'Graphical daily hours chart', group: 'panel', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'emp_panel_leave_breakdown', title: 'Leave Quota & Balances', description: 'Casual, Sick & Annual quota', group: 'panel', icon: <Shield className="w-4 h-4" /> },
-    { id: 'emp_panel_holidays', title: 'Upcoming Holidays', description: 'Upcoming company holiday dates', group: 'panel', icon: <Calendar className="w-4 h-4" /> },
-    { id: 'emp_panel_announcements', title: 'Company Announcements', description: 'Latest HR notices & circulars', group: 'panel', icon: <Megaphone className="w-4 h-4" /> },
-  ];
-
-  const handleAddWidget = (id: string, group: 'kpi' | 'panel') => {
-    if (portalMode === 'admin') {
-      if (group === 'kpi') setAdminKpiOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
-      else setAdminPanelOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    } else {
-      if (group === 'kpi') setEmpKpiOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
-      else setEmpPanelOrder((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    }
-  };
-
-  const handleRemoveWidget = (id: string, group: 'kpi' | 'panel') => {
-    if (portalMode === 'admin') {
-      if (group === 'kpi') setAdminKpiOrder((prev) => prev.filter((item) => item !== id));
-      else setAdminPanelOrder((prev) => prev.filter((item) => item !== id));
-    } else {
-      if (group === 'kpi') setEmpKpiOrder((prev) => prev.filter((item) => item !== id));
-      else setEmpPanelOrder((prev) => prev.filter((item) => item !== id));
-    }
-  };
-
-  const handleDropWidget = (
-    payload: string,
-    targetId: string | null,
-    targetGroup: 'kpi' | 'panel'
-  ) => {
-    const parts = payload.split(':');
-    if (parts.length !== 3) return;
-    const [origin, sourceGroupRaw, sourceId] = parts;
-    const sourceGroup = sourceGroupRaw as 'kpi' | 'panel';
-
-    const updateList = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-      setter((prev) => {
-        if (origin === 'gallery') {
-          if (prev.includes(sourceId)) return prev;
-          if (targetId && sourceGroup === targetGroup) {
-            const idx = prev.indexOf(targetId);
-            if (idx !== -1) {
-              const copy = [...prev];
-              copy.splice(idx, 0, sourceId);
-              return copy;
-            }
-          }
-          return [...prev, sourceId];
-        }
-        // Reordering existing board widgets within the same group
-        if (sourceGroup !== targetGroup) return prev;
-        if (!targetId || sourceId === targetId) return prev;
-        const fromIdx = prev.indexOf(sourceId);
-        const toIdx = prev.indexOf(targetId);
-        if (fromIdx === -1 || toIdx === -1) return prev;
-        const copy = [...prev];
-        const [moved] = copy.splice(fromIdx, 1);
-        copy.splice(toIdx, 0, moved);
-        return copy;
-      });
-    };
-
-    if (portalMode === 'admin') {
-      updateList(sourceGroup === 'kpi' ? setAdminKpiOrder : setAdminPanelOrder);
-    } else {
-      updateList(sourceGroup === 'kpi' ? setEmpKpiOrder : setEmpPanelOrder);
-    }
-  };
-
-  const handleResetWidgets = () => {
-    if (portalMode === 'admin') {
-      setAdminKpiOrder(DEFAULT_ADMIN_KPIS);
-      setAdminPanelOrder(DEFAULT_ADMIN_PANELS);
-    } else {
-      setEmpKpiOrder(DEFAULT_EMP_KPIS);
-      setEmpPanelOrder(DEFAULT_EMP_PANELS);
-    }
-  };
-
-  const currentWidgetDefs = portalMode === 'admin' ? adminWidgetDefs : empWidgetDefs;
-  const currentActiveWidgetIds =
-    portalMode === 'admin'
-      ? [...adminKpiOrder, ...adminPanelOrder]
-      : [...empKpiOrder, ...empPanelOrder];
-
   return (
-    <div className={`space-y-5 w-full overflow-x-clip transition-all duration-200 ${widgetEditMode ? 'lg:pr-[332px]' : ''}`}>
+    <div className="space-y-5 w-full overflow-x-clip">
       {/* Welcome & Section Head (Admin Only) */}
       {portalMode === 'admin' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
           <div>
-            <h1
-              className="text-2xl sm:text-[30px] leading-tight tracking-[-0.03em] flex items-baseline gap-1.5 flex-wrap"
-              style={{ fontFamily: 'var(--font-display), sans-serif' }}
-            >
-              <span
-                className="font-bold"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, #081c15 0%, #1b4332 45%, #40916c 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                Hello,
-              </span>
-              <span
-                className="font-bold"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, #081c15 0%, #1b4332 45%, #40916c 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                {user.firstName || 'Admin'}!
-              </span>
+            <h1 className="text-2xl sm:text-[28px] font-bold leading-tight tracking-[-0.025em] text-[#0f172a] flex items-baseline gap-1.5 flex-wrap">
+              <span>Hello,</span>
+              <span className="text-[#1b4332]">{user.firstName || 'Admin'}!</span>
             </h1>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {widgetEditMode && (
-              <button
-                type="button"
-                onClick={handleResetWidgets}
-                className="btn-ghost text-xs"
-                title="Restore default dashboard widgets"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
-              </button>
-            )}
-            <button
-              id="btn-toggle-dashboard-widgets"
-              type="button"
-              onClick={() => setWidgetEditMode((prev) => !prev)}
-              className={
-                widgetEditMode
-                  ? 'btn-primary'
-                  : 'btn-secondary'
-              }
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>{widgetEditMode ? 'Done Editing' : 'Edit Widgets'}</span>
-            </button>
             <button
               onClick={() => onNavigateModule('announcements')}
               className="btn-primary"
@@ -772,39 +612,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* Employee Welcome & Widget Customizer Bar */}
+      {/* Employee Welcome */}
       {portalMode !== 'admin' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
           <div>
             <h1 className="hrms-page-title">
               Hello, {user.firstName || 'Employee'}!
             </h1>
-            {widgetEditMode && (
-              <p className="text-xs font-semibold text-[#1b4332] mt-1">
-                Widget Edit Mode — drag cards to reorder, click &times; to remove, or drag new widgets from the right panel.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {widgetEditMode && (
-              <button
-                type="button"
-                onClick={handleResetWidgets}
-                className="btn-ghost text-xs"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
-              </button>
-            )}
-            <button
-              id="btn-toggle-emp-dashboard-widgets"
-              type="button"
-              onClick={() => setWidgetEditMode((prev) => !prev)}
-              className={widgetEditMode ? 'btn-primary' : 'btn-secondary'}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>{widgetEditMode ? 'Done Editing' : 'Edit Widgets'}</span>
-            </button>
           </div>
         </div>
       )}
@@ -814,585 +628,351 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* Editable KPI Stats Row */}
+          {/* KPI Stats Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {adminKpiOrder.map((kpiId) => {
-              if (kpiId === 'kpi_employees') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Total Employees"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('employees')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <Users className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Total Employees</small>
-                        <strong>{employees.length}</strong>
-                        <small>Active workforce</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              if (kpiId === 'kpi_present') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Present Today"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('attendance')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <Clock className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Present Today</small>
-                        <strong>{todayRecords.length}</strong>
-                        <small>{activeWorkingCount} working, {onBreakCount} break</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              if (kpiId === 'kpi_pending_leaves') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Pending Leaves"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('leaves')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <Shield className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Pending Leaves</small>
-                        <strong>{pendingLeaves.length}</strong>
-                        <small>Need review</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              if (kpiId === 'kpi_team_hub') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Team Hub"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('chat')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <MessageSquare className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Team Hub</small>
-                        <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                        <small>Real-time collaboration</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              if (kpiId === 'kpi_holidays') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Upcoming Holidays"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('calendar')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Upcoming Holidays</small>
-                        <strong>{upcomingHolidays.length}</strong>
-                        <small>Scheduled dates</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              if (kpiId === 'kpi_approved_leaves') {
-                return (
-                  <WidgetCardWrapper
-                    key={kpiId}
-                    id={kpiId}
-                    title="Approved Leaves"
-                    group="kpi"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div
-                      onClick={() => onNavigateModule('leaves')}
-                      className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-                    >
-                      <div className="stat-icon">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <small>Approved Leaves</small>
-                        <strong>{approvedLeavesCount}</strong>
-                        <small>Total approved</small>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-              return null;
-            })}
+            <div
+              onClick={() => onNavigateModule('employees')}
+              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+              <div className="stat-icon">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Total Employees</small>
+                <strong>{employees.length}</strong>
+                <small>Active workforce</small>
+              </div>
+            </div>
 
-            {widgetEditMode && adminKpiOrder.length === 0 && (
-              <WidgetDropZone
-                group="kpi"
-                label="Drop KPI Stat Cards Here"
-                onDropWidget={handleDropWidget}
-              />
-            )}
+            <div
+              onClick={() => onNavigateModule('attendance')}
+              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+              <div className="stat-icon">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Present Today</small>
+                <strong>{todayRecords.length}</strong>
+                <small>{activeWorkingCount} working, {onBreakCount} break</small>
+              </div>
+            </div>
+
+            <div
+              onClick={() => onNavigateModule('leaves')}
+              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+              <div className="stat-icon">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Pending Leaves</small>
+                <strong>{pendingLeaves.length}</strong>
+                <small>Need review</small>
+              </div>
+            </div>
+
+            <div
+              onClick={() => onNavigateModule('chat')}
+              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+              <div className="stat-icon">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Team Hub</small>
+                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
+                <small>Real-time collaboration</small>
+              </div>
+            </div>
           </div>
 
-          {/* Editable Main Dashboard Grid (1.2fr 1fr .9fr on desktop) */}
+          {/* Main Dashboard Grid */}
           <div className="dashboard-grid">
-            {adminPanelOrder.map((panelId) => {
-              if (panelId === 'panel_attendance_graph') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Attendance Graph"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="md:col-span-2"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <DailyAttendanceGraph
-                      mode="admin"
-                      records={mergedAttendance}
-                      totalEmployees={employees.length}
-                      onViewFullLog={() => onNavigateModule('attendance')}
-                    />
-                  </WidgetCardWrapper>
-                );
-              }
+            <div className="md:col-span-2">
+              <DailyAttendanceGraph
+                mode="admin"
+                records={mergedAttendance}
+                totalEmployees={employees.length}
+                onViewFullLog={() => onNavigateModule('attendance')}
+              />
+            </div>
 
-              if (panelId === 'panel_announcements') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Announcements"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <section className="panel h-full">
-                      <h3>
-                        <span className="flex items-center gap-2">
-                          <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
+            <section className="panel h-full">
+              <h3>
+                <span className="flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
+                </span>
+                <button
+                  onClick={() => onNavigateModule('announcements')}
+                  className="btn-ghost text-xs"
+                >
+                  View all
+                </button>
+              </h3>
+              {announcements.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No company announcements published yet.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {announcements.slice(0, 3).map((item) => (
+                    <div key={item.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#343a40] truncate">{item.title}</strong>
+                        <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
+                          {item.priority || 'Notice'}
                         </span>
-                        <button
-                          onClick={() => onNavigateModule('announcements')}
-                          className="btn-ghost text-xs"
-                        >
-                          View all
-                        </button>
-                      </h3>
-                      {announcements.length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          No company announcements published yet.
-                        </div>
-                      ) : (
+                      </div>
+                      <div className="text-[11px] text-[#6c757d] mt-1 leading-relaxed line-clamp-2">
+                        {item.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="panel col-span-full">
+              <h3>
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
+                </span>
+                <button
+                  onClick={() => onNavigateModule('leaves')}
+                  className="btn-ghost text-xs"
+                >
+                  Review all
+                </button>
+              </h3>
+
+              {pendingLeaves.length === 0 ? (
+                <div className="p-6 text-center text-[#6c757d] text-xs">
+                  No leave requests currently pending review.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
+                    const isProcessing = processingLeaveId === leave.id;
+                    return (
+                      <div
+                        key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
+                        className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
                         <div className="space-y-1">
-                          {announcements.slice(0, 3).map((item) => (
-                            <div key={item.id} className="item">
-                              <div className="flex items-center justify-between gap-2">
-                                <strong className="text-xs text-[#343a40] truncate">{item.title}</strong>
-                                <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
-                                  {item.priority || 'Notice'}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-[#6c757d] mt-1 leading-relaxed line-clamp-2">
-                                {item.content}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              if (panelId === 'panel_upcoming_holidays') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Upcoming Holidays"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <section className="panel h-full">
-                      <h3>
-                        <span className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Upcoming Holidays
-                        </span>
-                        <button
-                          onClick={() => onNavigateModule('calendar')}
-                          className="btn-ghost text-xs"
-                        >
-                          Calendar
-                        </button>
-                      </h3>
-                      {upcomingHolidays.length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          No upcoming holidays scheduled.
-                        </div>
-                      ) : (
-                        <div className="space-y-1 text-xs">
-                          {upcomingHolidays.map((h: any) => {
-                            const holDate = new Date(h.date);
-                            const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', weekday: 'short' });
-                            return (
-                              <div key={h.id} className="item flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <strong className="text-xs text-[#212529] block truncate">{h.name}</strong>
-                                  <span className="text-[10px] text-[#6c757d]">{h.type || 'Company Holiday'}</span>
-                                </div>
-                                <span className="tag green shrink-0">{dateLabel}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </section>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              if (panelId === 'panel_pending_approvals') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Pending Leave Approvals"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="col-span-full"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <section className="panel">
-                      <h3>
-                        <span className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
-                        </span>
-                        <button
-                          onClick={() => onNavigateModule('leaves')}
-                          className="btn-ghost text-xs"
-                        >
-                          Review all
-                        </button>
-                      </h3>
-
-                      {pendingLeaves.length === 0 ? (
-                        <div className="p-6 text-center text-[#6c757d] text-xs">
-                          No leave requests currently pending review.
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
-                            const isProcessing = processingLeaveId === leave.id;
-                            return (
-                              <div
-                                key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
-                                className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                              >
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <strong className="text-xs text-[#343a40]">
-                                      {leave.employeeName}
-                                    </strong>
-                                    <span className="tag orange">
-                                      {leave.leaveType}
-                                    </span>
-                                    <span className="text-xs text-[#6c757d] font-mono">
-                                      {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-[#6c757d]">
-                                    Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
-                                  </p>
-                                </div>
-
-                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                                  <button
-                                    onClick={() => handleDashboardApproveLeave(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
-                                    disabled={isProcessing}
-                                    className="btn-primary text-xs py-1.5 px-3"
-                                  >
-                                    {isProcessing ? 'Saving...' : 'Approve'}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
-                                    disabled={isProcessing}
-                                    className="btn-danger text-xs py-1.5 px-3"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </section>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              if (panelId === 'panel_staff_directory') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Staff Directory & Tracking"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="col-span-full"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div className="panel space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
-                        <div>
-                          <h3 className="text-sm font-bold text-[#343a40] m-0">
-                            Staff Directory &amp; Live Time Tracking
-                          </h3>
-                          <p className="text-xs text-[#6c757d] mt-0.5">
-                            Live status, recorded punches, and direct messaging
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <strong className="text-xs text-[#343a40]">
+                              {leave.employeeName}
+                            </strong>
+                            <span className="tag orange">
+                              {leave.leaveType}
+                            </span>
+                            <span className="text-xs text-[#6c757d] font-mono">
+                              {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#6c757d]">
+                            Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                           <button
-                            onClick={() => onNavigateModule('attendance')}
-                            className="btn-ghost text-xs"
+                            onClick={() => handleDashboardOpenApproveModal(leave)}
+                            disabled={isProcessing}
+                            className="btn-primary text-xs py-1.5 px-3"
                           >
-                            <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
-                            <span>Timesheets</span>
+                            Approve
                           </button>
                           <button
-                            onClick={onOpenAddEmployeeModal}
-                            className="btn-primary text-xs"
+                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
+                            disabled={isProcessing}
+                            className="btn-danger text-xs py-1.5 px-3"
                           >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            <span>Add Employee</span>
+                            Reject
                           </button>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
 
-                      <div className="tablewrap">
-                        <table className="data">
-                          <thead>
-                            <tr>
-                              <th>EMPLOYEE</th>
-                              <th>ID</th>
-                              <th>DESIGNATION</th>
-                              <th>TODAY&apos;S SHIFT</th>
-                              <th>WORKED TIME</th>
-                              <th>BREAK</th>
-                              <th>STATUS</th>
-                              <th className="text-right">ACTION</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {employees.length === 0 ? (
-                              <tr>
-                                <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
-                                  <div className="flex flex-col items-center justify-center gap-1.5">
-                                    <Users className="w-8 h-8 text-emerald-500/50" />
-                                    <p className="font-bold text-[#343a40]">No employees in this company yet</p>
-                                    <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              employees.map((emp, index) => {
-                                const todayRec = getTodayRecordForEmployee(emp.id);
-                                const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                                const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
-                                const isDone = todayRec && todayRec.isCompleted;
+            <div className="panel space-y-3 col-span-full">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
+                <div>
+                  <h3 className="text-sm font-bold text-[#343a40] m-0">
+                    Staff Directory &amp; Live Time Tracking
+                  </h3>
+                  <p className="text-xs text-[#6c757d] mt-0.5">
+                    Live status, recorded punches, and direct messaging
+                  </p>
+                </div>
 
-                                const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
-                                const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onNavigateModule('attendance')}
+                    className="btn-ghost text-xs"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
+                    <span>Timesheets</span>
+                  </button>
+                  <button
+                    onClick={onOpenAddEmployeeModal}
+                    className="btn-primary text-xs"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Add Employee</span>
+                  </button>
+                </div>
+              </div>
 
-                                return (
-                                  <tr
-                                    key={emp.id ? `${emp.id}-${index}` : index}
-                                    onClick={() => onSelectEmployee(emp)}
-                                    className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
+              <div className="tablewrap">
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>EMPLOYEE</th>
+                      <th>ID</th>
+                      <th>DESIGNATION</th>
+                      <th>TODAY&apos;S SHIFT</th>
+                      <th>WORKED TIME</th>
+                      <th>BREAK</th>
+                      <th>STATUS</th>
+                      <th className="text-right">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
+                          <div className="flex flex-col items-center justify-center gap-1.5">
+                            <Users className="w-8 h-8 text-emerald-500/50" />
+                            <p className="font-bold text-[#343a40]">No employees in this company yet</p>
+                            <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      employees.map((emp, index) => {
+                        const todayRec = getTodayRecordForEmployee(emp.id);
+                        const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                        const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
+                        const isDone = todayRec && todayRec.isCompleted;
+
+                        const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
+                        const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
+
+                        return (
+                          <tr
+                            key={emp.id ? `${emp.id}-${index}` : index}
+                            onClick={() => onSelectEmployee(emp)}
+                            className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
+                          >
+                            <td className="font-semibold text-[#343a40]">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
+                                  {emp.firstName?.[0] || 'E'}
+                                </div>
+                                <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                              </div>
+                            </td>
+                            <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
+                            <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
+                            <td className="text-[#6c757d] font-mono text-xs">
+                              {todayRec?.checkIn ? (
+                                <span>
+                                  {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
+                                </span>
+                              ) : (
+                                <span className="text-[#dee2e6]">—</span>
+                              )}
+                            </td>
+                            <td className="font-mono font-bold text-[#343a40] text-xs">
+                              {todayRec ? formatSecondsToWords(liveSecs) : '—'}
+                            </td>
+                            <td className="text-[#6c757d] font-mono text-xs">
+                              {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                            </td>
+                            <td>
+                              {isWorking ? (
+                                <span className="tag green">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
+                                  Working
+                                </span>
+                              ) : isOnBreak ? (
+                                <span className="tag orange">
+                                  <Pause className="w-3 h-3 text-[#6c757d]" />
+                                  On Break
+                                </span>
+                              ) : isDone ? (
+                                <span className="tag">
+                                  <Check className="w-3 h-3" />
+                                  Completed
+                                </span>
+                              ) : (
+                                <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
+                                  Not Punched
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-right">
+                              <div
+                                className="flex items-center justify-end gap-1.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  id={`btn-dash-chat-${emp.id}`}
+                                  onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                                  className="btn-ghost text-xs py-1 px-2.5"
+                                  title="Chat with employee"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                  <span className="hidden sm:inline">Chat</span>
+                                </button>
+
+                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                  <button
+                                    id={`btn-dash-role-${emp.id}`}
+                                    onClick={() => setRoleTargetEmpDash(emp)}
+                                    className="btn-secondary text-xs py-1 px-2.5"
+                                    title="Change employee role"
                                   >
-                                    <td className="font-semibold text-[#343a40]">
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
-                                          {emp.firstName?.[0] || 'E'}
-                                        </div>
-                                        <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                                      </div>
-                                    </td>
-                                    <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
-                                    <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
-                                    <td className="text-[#6c757d] font-mono text-xs">
-                                      {todayRec?.checkIn ? (
-                                        <span>
-                                          {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[#dee2e6]">—</span>
-                                      )}
-                                    </td>
-                                    <td className="font-mono font-bold text-[#343a40] text-xs">
-                                      {todayRec ? formatSecondsToWords(liveSecs) : '—'}
-                                    </td>
-                                    <td className="text-[#6c757d] font-mono text-xs">
-                                      {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
-                                    </td>
-                                    <td>
-                                      {isWorking ? (
-                                        <span className="tag green">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
-                                          Working
-                                        </span>
-                                      ) : isOnBreak ? (
-                                        <span className="tag orange">
-                                          <Pause className="w-3 h-3 text-[#6c757d]" />
-                                          On Break
-                                        </span>
-                                      ) : isDone ? (
-                                        <span className="tag">
-                                          <Check className="w-3 h-3" />
-                                          Completed
-                                        </span>
-                                      ) : (
-                                        <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
-                                          Not Punched
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="text-right">
-                                      <div
-                                        className="flex items-center justify-end gap-1.5"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <button
-                                          id={`btn-dash-chat-${emp.id}`}
-                                          onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                                          className="btn-ghost text-xs py-1 px-2.5"
-                                          title="Chat with employee"
-                                        >
-                                          <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                          <span className="hidden sm:inline">Chat</span>
-                                        </button>
+                                    <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                    <span className="hidden sm:inline">Role</span>
+                                  </button>
+                                )}
 
-                                        <button
-                                          id={`btn-dash-role-${emp.id}`}
-                                          onClick={() => setRoleTargetEmpDash(emp)}
-                                          className="btn-secondary text-xs py-1 px-2.5"
-                                          title="Change employee role"
-                                        >
-                                          <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                          <span className="hidden sm:inline">Role</span>
-                                        </button>
+                                <button
+                                  id={`btn-dash-notice-${emp.id}`}
+                                  onClick={() => handleOpenNoticeModalDashboard(emp)}
+                                  className="btn-secondary text-xs py-1 px-2.5"
+                                  title="Send notice to employee"
+                                >
+                                  <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                                  <span className="hidden sm:inline">Notice</span>
+                                </button>
 
-                                        <button
-                                          id={`btn-dash-notice-${emp.id}`}
-                                          onClick={() => handleOpenNoticeModalDashboard(emp)}
-                                          className="btn-secondary text-xs py-1 px-2.5"
-                                          title="Send notice to employee"
-                                        >
-                                          <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                          <span className="hidden sm:inline">Notice</span>
-                                        </button>
-
-                                        {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                                          <button
-                                            id={`btn-dash-remove-${emp.id}`}
-                                            onClick={() => setRemovingEmpDashboard(emp)}
-                                            className="btn-danger text-xs py-1 px-2"
-                                            title="Remove employee from staff"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              return null;
-            })}
-
-            {widgetEditMode && (
-              <WidgetDropZone
-                group="panel"
-                label="Drop Dashboard Panels Here"
-                onDropWidget={handleDropWidget}
-              />
-            )}
+                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                  <button
+                                    id={`btn-dash-remove-${emp.id}`}
+                                    onClick={() => setRemovingEmpDashboard(emp)}
+                                    className="btn-danger text-xs py-1 px-2"
+                                    title="Remove employee from staff"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -1400,7 +980,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* EMPLOYEE SELF-SERVICE VIEW (HIGH-CLARITY & SIMPLE)             */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* ═══ EDITABLE EMPLOYEE STAT CARDS ═══ */}
+          {/* ═══ EMPLOYEE STAT CARDS ═══ */}
           {(() => {
             const myLeaves = leaves.filter((l) => {
               const eId = currentEmp?.id || user?.employeeId || user?.id || '';
@@ -1422,518 +1002,271 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                {empKpiOrder.map((kpiId) => {
-                  if (kpiId === 'emp_kpi_status') {
-                    return (
-                      <WidgetCardWrapper
-                        key={kpiId}
-                        id={kpiId}
-                        title="Today's Status"
-                        group="kpi"
-                        editMode={widgetEditMode}
-                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                        onDropWidget={handleDropWidget}
-                      >
-                        <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                              <Clock className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
-                              <p className="text-sm font-black text-slate-900 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
-                              <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </WidgetCardWrapper>
-                    );
-                  }
-                  if (kpiId === 'emp_kpi_leave') {
-                    return (
-                      <WidgetCardWrapper
-                        key={kpiId}
-                        id={kpiId}
-                        title="Leave Balance"
-                        group="kpi"
-                        editMode={widgetEditMode}
-                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                        onDropWidget={handleDropWidget}
-                      >
-                        <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                              <Shield className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                              <p className="text-sm font-black text-slate-900">
-                                {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
-                              </p>
-                              <p className="text-[11px] text-emerald-600 font-semibold">
-                                {leaveQuotaLoading
-                                  ? 'Fetching quota...'
-                                  : `${empTakenDays} Used • ${empTotalQuota} Total`}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </WidgetCardWrapper>
-                    );
-                  }
-                  if (kpiId === 'emp_kpi_salary') {
-                    return (
-                      <WidgetCardWrapper
-                        key={kpiId}
-                        id={kpiId}
-                        title="Salary & Payslips"
-                        group="kpi"
-                        editMode={widgetEditMode}
-                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                        onDropWidget={handleDropWidget}
-                      >
-                        <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                              <Receipt className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
-                              <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
-                              <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
-                            </div>
-                          </div>
-                        </div>
-                      </WidgetCardWrapper>
-                    );
-                  }
-                  if (kpiId === 'emp_kpi_manager') {
-                    return (
-                      <WidgetCardWrapper
-                        key={kpiId}
-                        id={kpiId}
-                        title="Reports To"
-                        group="kpi"
-                        editMode={widgetEditMode}
-                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                        onDropWidget={handleDropWidget}
-                      >
-                        <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                              <Briefcase className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                              <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                              <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
-                            </div>
-                          </div>
-                        </div>
-                      </WidgetCardWrapper>
-                    );
-                  }
-                  if (kpiId === 'emp_kpi_holidays') {
-                    return (
-                      <WidgetCardWrapper
-                        key={kpiId}
-                        id={kpiId}
-                        title="Upcoming Holidays"
-                        group="kpi"
-                        editMode={widgetEditMode}
-                        onRemove={(id) => handleRemoveWidget(id, 'kpi')}
-                        onDropWidget={handleDropWidget}
-                      >
-                        <div onClick={() => onNavigateModule('calendar')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                              <Calendar className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Upcoming Holidays</p>
-                              <p className="text-sm font-black text-slate-900">{upcomingHolidays.length}</p>
-                              <p className="text-[11px] text-emerald-700 font-semibold">View Calendar &rarr;</p>
-                            </div>
-                          </div>
-                        </div>
-                      </WidgetCardWrapper>
-                    );
-                  }
-                  return null;
-                })}
+                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
+                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                    </div>
+                  </div>
+                </div>
 
-                {widgetEditMode && empKpiOrder.length === 0 && (
-                  <WidgetDropZone
-                    group="kpi"
-                    label="Drop KPI Stat Cards Here"
-                    onDropWidget={handleDropWidget}
-                  />
-                )}
+                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Leave Balance</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-semibold">
+                        {leaveQuotaLoading
+                          ? 'Fetching quota...'
+                          : `${empTakenDays} Used • ${empTotalQuota} Total`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
+                      <p className="text-sm font-semibold text-slate-800">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
+                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Reports To</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
+                      <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })()}
 
-          {/* ═══ EDITABLE EMPLOYEE PANELS GRID ═══ */}
+          {/* ═══ EMPLOYEE PANELS GRID ═══ */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {empPanelOrder.map((panelId) => {
-              if (panelId === 'emp_panel_shift_console') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Daily Shift Console"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-6 flex flex-col"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
-                  </WidgetCardWrapper>
-                );
-              }
+            <div className="lg:col-span-6 flex flex-col">
+              <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
+            </div>
 
-              if (panelId === 'emp_panel_recent_attendance') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="My Recent Attendance"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-6 flex flex-col"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-full">
-                      <div className="p-3 sm:p-3.5 flex flex-col flex-1 min-h-0">
-                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 shrink-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                              <CalendarCheck className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
-                                My Recent Attendance
-                              </h3>
-                              <p className="text-[10px] text-slate-400 leading-tight truncate">
-                                Daily clock in/out timestamps &amp; worked duration
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => onNavigateModule('attendance')}
-                            className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
-                          >
-                            <span>Full Log</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="mt-2.5 flex-1 overflow-auto max-h-[145px] [scrollbar-width:thin]">
-                          <table className="w-full text-left text-[11px] border-collapse">
-                            <thead className="sticky top-0 z-10 bg-white">
-                              <tr className="border-b border-slate-100 text-[9px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/80">
-                                <th className="py-1.5 px-2">DATE &amp; DAY</th>
-                                <th className="py-1.5 px-2">CLOCK IN</th>
-                                <th className="py-1.5 px-2">CLOCK OUT</th>
-                                <th className="py-1.5 px-2">BREAK</th>
-                                <th className="py-1.5 px-2">WORKED</th>
-                                <th className="py-1.5 px-2 text-right">STATUS</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {myRecentAttendance.length === 0 ? (
-                                <tr>
-                                  <td colSpan={6} className="py-4 text-center text-slate-400 text-[11px]">
-                                    No attendance history recorded yet. Clock in to begin tracking your work hours!
-                                  </td>
-                                </tr>
-                              ) : (
-                                myRecentAttendance.map((rec: any) => {
-                                  const recDate = new Date(rec.date);
-                                  const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
-                                  const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                                  const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
-                                  const bSecs = getLiveBreakSeconds(rec);
-                                  const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-
-                                  return (
-                                    <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
-                                      <td className="py-1.5 px-2 font-semibold text-slate-900 whitespace-nowrap">
-                                        <span>{dayName}</span>
-                                        <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
-                                      </td>
-                                      <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn || '—'}</td>
-                                      <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut || '—'}</td>
-                                      <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
-                                      <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
-                                      <td className="py-1.5 px-2 text-right whitespace-nowrap">
-                                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-semibold ${rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                                          }`}>
-                                          {rec.status || 'Present'}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
+            <div className="lg:col-span-6 flex flex-col">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-full">
+                <div className="p-3 sm:p-3.5 flex flex-col flex-1 min-h-0">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
+                          My Recent Attendance
+                        </h3>
+                        <p className="text-[10px] text-slate-400 leading-tight truncate">
+                          Daily clock in/out timestamps &amp; worked duration
+                        </p>
                       </div>
                     </div>
-                  </WidgetCardWrapper>
-                );
-              }
+                    <button
+                      onClick={() => onNavigateModule('attendance')}
+                      className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
+                    >
+                      <span>Full Log</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-              if (panelId === 'emp_panel_attendance_graph') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Daily Attendance Analysis"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-12"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <DailyAttendanceGraph
-                      mode="employee"
-                      records={myAllAttendance}
-                      liveWorkedHMS={liveWorkedHMS}
-                      liveStatus={currentStatus}
-                      todayCheckIn={
-                        activeSession?.startTime
-                          ? new Date(activeSession.startTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true,
-                          })
-                          : lastCompletedSession?.startTime
-                            ? new Date(lastCompletedSession.startTime).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            })
-                            : undefined
-                      }
-                      todayCheckOut={
-                        lastCompletedSession?.endTime
-                          ? new Date(lastCompletedSession.endTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true,
-                          })
-                          : undefined
-                      }
-                      todayBreakWords={todaySummary?.totalBreakFormatted || liveBreakWords}
-                      onViewFullLog={() => onNavigateModule('attendance')}
-                    />
-                  </WidgetCardWrapper>
-                );
-              }
+                  <div className="mt-2.5 flex-1 overflow-auto max-h-[145px] [scrollbar-width:thin]">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead className="sticky top-0 z-10 bg-white">
+                        <tr className="border-b border-slate-100 text-[9px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/80">
+                          <th className="py-1.5 px-2">DATE &amp; DAY</th>
+                          <th className="py-1.5 px-2">CLOCK IN</th>
+                          <th className="py-1.5 px-2">CLOCK OUT</th>
+                          <th className="py-1.5 px-2">BREAK</th>
+                          <th className="py-1.5 px-2">WORKED</th>
+                          <th className="py-1.5 px-2 text-right">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {myRecentAttendance.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-4 text-center text-slate-400 text-[11px]">
+                              No attendance history recorded yet. Clock in to begin tracking your work hours!
+                            </td>
+                          </tr>
+                        ) : (
+                          myRecentAttendance.map((rec: any) => {
+                            const recDate = new Date(rec.date);
+                            const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
+                            const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                            const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
+                            const bSecs = getLiveBreakSeconds(rec);
+                            const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
 
-              if (panelId === 'emp_panel_leave_breakdown') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Leave Quota & Balances"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-6"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
-                      <div className="p-5">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                          <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota &amp; Balances</h4>
-                          <button
-                            onClick={onOpenLeaveModal}
-                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                          >
-                            + Apply Leave
-                          </button>
-                        </div>
-
-                        {(() => {
-                          const empMyLeaves = leaves.filter((l) => {
-                            const eId = currentEmp?.id || user?.employeeId || user?.id || '';
-                            const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
-                            const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
-                            if (eId && l.employeeId === eId) return true;
-                            if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
-                            if (eName && l.employeeName?.toLowerCase() === eName) return true;
-                            return false;
-                          });
-                          const empSummary = resolveLeaveQuotaSummary(
-                            leaveQuotaData?.settings ?? null,
-                            leaveQuotaData?.balances ?? null,
-                            empMyLeaves
-                          );
-                          if (leaveQuotaLoading) {
                             return (
-                              <div className="grid grid-cols-3 gap-2.5 text-center text-xs animate-pulse">
-                                {[0, 1, 2].map((idx) => (
-                                  <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
-                                    <div className="h-3 w-12 mx-auto bg-slate-200 rounded" />
-                                    <div className="h-5 w-14 mx-auto bg-slate-200 rounded" />
-                                    <div className="h-2.5 w-16 mx-auto bg-slate-100 rounded" />
-                                  </div>
-                                ))}
-                              </div>
+                              <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
+                                <td className="py-1.5 px-2 font-semibold text-slate-900 whitespace-nowrap">
+                                  <span>{dayName}</span>
+                                  <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
+                                </td>
+                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn || '—'}</td>
+                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut || '—'}</td>
+                                <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
+                                <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
+                                <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-semibold ${rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                                    }`}>
+                                    {rec.status || 'Present'}
+                                  </span>
+                                </td>
+                              </tr>
                             );
-                          }
-                          return (
-                            <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
-                              <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Casual</span>
-                                <span className="text-lg font-black text-blue-700 block mt-0.5">
-                                  {empSummary.casual.available} Left
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  of {empSummary.casual.quota} Total
-                                </span>
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-6">
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
+                <div className="p-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                    <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota &amp; Balances</h4>
+                    <button
+                      onClick={onOpenLeaveModal}
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                    >
+                      + Apply Leave
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const empMyLeaves = leaves.filter((l) => {
+                      const eId = currentEmp?.id || user?.employeeId || user?.id || '';
+                      const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
+                      const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
+                      if (eId && l.employeeId === eId) return true;
+                      if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
+                      if (eName && l.employeeName?.toLowerCase() === eName) return true;
+                      return false;
+                    });
+                    const empSummary = resolveLeaveQuotaSummary(
+                      leaveQuotaData?.settings ?? null,
+                      leaveQuotaData?.balances ?? null,
+                      empMyLeaves
+                    );
+                    if (leaveQuotaLoading) {
+                      return (
+                        <div className="grid grid-cols-3 gap-2.5 text-center text-xs animate-pulse">
+                          {[0, 1, 2].map((idx) => (
+                            <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
+                              <div className="h-3 w-12 mx-auto bg-slate-200 rounded" />
+                              <div className="h-5 w-14 mx-auto bg-slate-200 rounded" />
+                              <div className="h-2.5 w-16 mx-auto bg-slate-100 rounded" />
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                        <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Casual</span>
+                          <span className="text-lg font-semibold tracking-tight text-blue-700 block mt-0.5">
+                            {empSummary.casual.available} Left
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            of {empSummary.casual.quota} Total
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Sick</span>
+                          <span className="text-lg font-semibold tracking-tight text-emerald-700 block mt-0.5">
+                            {empSummary.sick.available} Left
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            of {empSummary.sick.quota} Total
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Annual</span>
+                          <span className="text-lg font-semibold tracking-tight text-purple-700 block mt-0.5">
+                            {empSummary.paid.available} Left
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            of {empSummary.paid.quota} Total
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-6">
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
+                <div className="p-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                    <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
+                    <button
+                      onClick={() => onNavigateModule('calendar')}
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                    >
+                      View Calendar
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    {upcomingHolidays.length === 0 ? (
+                      <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
+                    ) : (
+                      upcomingHolidays.map((h: any) => {
+                        const holDate = new Date(h.date);
+                        const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
+                        return (
+                          <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <Calendar className="w-3.5 h-3.5" />
                               </div>
-                              <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Sick</span>
-                                <span className="text-lg font-black text-emerald-700 block mt-0.5">
-                                  {empSummary.sick.available} Left
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  of {empSummary.sick.quota} Total
-                                </span>
-                              </div>
-                              <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Annual</span>
-                                <span className="text-lg font-black text-purple-700 block mt-0.5">
-                                  {empSummary.paid.available} Left
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  of {empSummary.paid.quota} Total
-                                </span>
+                              <div>
+                                <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
+                                <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
                               </div>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              if (panelId === 'emp_panel_holidays') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Upcoming Holidays"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-6"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
-                      <div className="p-5">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                          <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
-                          <button
-                            onClick={() => onNavigateModule('calendar')}
-                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                          >
-                            View Calendar
-                          </button>
-                        </div>
-
-                        <div className="space-y-2 text-xs">
-                          {upcomingHolidays.length === 0 ? (
-                            <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
-                          ) : (
-                            upcomingHolidays.map((h: any) => {
-                              const holDate = new Date(h.date);
-                              const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
-                              return (
-                                <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-7 h-7 bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                                      <Calendar className="w-3.5 h-3.5" />
-                                    </div>
-                                    <div>
-                                      <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
-                                      <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
-                                    </div>
-                                  </div>
-                                  <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              if (panelId === 'emp_panel_announcements') {
-                return (
-                  <WidgetCardWrapper
-                    key={panelId}
-                    id={panelId}
-                    title="Company Announcements"
-                    group="panel"
-                    editMode={widgetEditMode}
-                    className="lg:col-span-6"
-                    onRemove={(id) => handleRemoveWidget(id, 'panel')}
-                    onDropWidget={handleDropWidget}
-                  >
-                    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
-                      <div className="p-5">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                          <h4 className="text-sm font-bold text-slate-900 m-0">Company Announcements</h4>
-                          <button
-                            onClick={() => onNavigateModule('announcements')}
-                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                          >
-                            View All
-                          </button>
-                        </div>
-
-                        <div className="space-y-2 text-xs">
-                          {announcements.length === 0 ? (
-                            <p className="text-center py-6 text-xs text-slate-400">No announcements published yet.</p>
-                          ) : (
-                            announcements.slice(0, 3).map((item: any) => (
-                              <div key={item.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-bold text-slate-900 truncate">{item.title}</span>
-                                  <span className="tag green shrink-0">{item.priority || 'Notice'}</span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{item.content}</p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </WidgetCardWrapper>
-                );
-              }
-
-              return null;
-            })}
-
-            {widgetEditMode && (
-              <WidgetDropZone
-                group="panel"
-                label="Drop Dashboard Panels Here"
-                onDropWidget={handleDropWidget}
-              />
-            )}
+                            <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1979,6 +1312,105 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {actionLoading ? 'Finalizing...' : 'Confirm Clock Out'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modern In-App Leave Approval Modal for Admin */}
+      {mounted && approveModalData && typeof document !== 'undefined' && createPortal(
+        <div
+          id="dashboard-approve-leave-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setApproveModalData(null);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Approve Leave Application
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApproveModalData(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Are you sure you want to approve the leave application for{' '}
+                <strong className="text-slate-900 font-semibold">{approveModalData.empName}</strong>?
+              </p>
+
+              {/* Leave Details Box */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-500">Leave Type:</span>
+                  <span className="font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                    {approveModalData.leaveType}
+                  </span>
+                </div>
+                {approveModalData.startDate && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-slate-500">Duration:</span>
+                    <span className="font-bold text-slate-800">
+                      {approveModalData.startDate} {approveModalData.endDate && approveModalData.endDate !== approveModalData.startDate ? `to ${approveModalData.endDate}` : ''} ({approveModalData.daysCount || 1}d)
+                    </span>
+                  </div>
+                )}
+                {approveModalData.reason && (
+                  <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                    <span className="font-semibold text-slate-500 block mb-0.5">Reason:</span>
+                    <p className="text-slate-700 italic bg-white p-2 rounded-lg border border-slate-100">
+                      &ldquo;{approveModalData.reason}&rdquo;
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                id="btn-cancel-approve-leave"
+                type="button"
+                onClick={() => setApproveModalData(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-approve-leave"
+                type="button"
+                onClick={executeApproveLeave}
+                disabled={processingLeaveId === approveModalData.id}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                {processingLeaveId === approveModalData.id ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Confirm Approve</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -2218,16 +1650,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }}
       />
 
-      {/* Temporary Mobile-Style Right Widget Gallery Drawer */}
-      <WidgetGallerySidebar
-        isOpen={widgetEditMode}
-        allWidgets={currentWidgetDefs}
-        activeIds={currentActiveWidgetIds}
-        onAddWidget={handleAddWidget}
-        onRemoveWidget={handleRemoveWidget}
-        onResetLayout={handleResetWidgets}
-        onClose={() => setWidgetEditMode(false)}
-      />
+
     </div>
   );
 };

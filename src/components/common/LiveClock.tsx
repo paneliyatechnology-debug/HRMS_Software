@@ -194,7 +194,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
             <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-[#52b788]"></span>
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#2d6a4f]"></span>
           </span>
-          <span className="text-[9px] font-black uppercase tracking-wider text-[#1b4332] bg-[#d8f3dc] px-1.5 py-0.5 rounded-full leading-tight">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[#1b4332] bg-[#d8f3dc] px-1.5 py-0.5 rounded-full leading-tight">
             LIVE
           </span>
         </div>

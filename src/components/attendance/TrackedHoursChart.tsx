@@ -324,11 +324,11 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
             <Clock className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#343a40]">Weekly Total</p>
-            <p className="text-base sm:text-lg font-black text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Weekly Total</p>
+            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
               {formatHMS(totalWorkedSeconds)}
             </p>
-            <p className="text-[10px] text-[#6c757d] font-bold truncate mt-0.5">
+            <p className="text-[10px] text-[#6c757d] font-semibold truncate mt-0.5">
               {weeklyPercent}% of {WEEKLY_TARGET_HOURS}h goal
             </p>
           </div>
@@ -340,8 +340,8 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
             <Target className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#343a40]">Remaining</p>
-            <p className="text-base sm:text-lg font-black text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Remaining</p>
+            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
               {formatHMS(remainingSeconds)}
             </p>
             <p className="text-[10px] text-[#343a40] font-semibold truncate mt-0.5">
@@ -356,8 +356,8 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#343a40]">Daily Pace</p>
-            <p className="text-base sm:text-lg font-black text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Daily Pace</p>
+            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
               {formatHoursDecimal(totalWorkedSeconds / 5)} / day
             </p>
             <p className="text-[10px] text-[#6c757d] font-semibold truncate mt-0.5">
@@ -372,8 +372,8 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
             <Coffee className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#343a40]">Breaks Logged</p>
-            <p className="text-base sm:text-lg font-black text-[#343a40] font-mono leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Breaks Logged</p>
+            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#343a40] font-mono leading-tight">
               {formatHMS(totalBreakSeconds)}
             </p>
             <p className="text-[10px] text-[#343a40] font-semibold truncate mt-0.5">
@@ -475,10 +475,10 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
 
           {/* Center Label inside rings */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-black font-mono text-white tracking-tight leading-none">
+            <span className="text-2xl font-semibold tracking-tight font-mono text-white leading-none">
               {weeklyPercent}%
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#dee2e6] mt-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#dee2e6] mt-1">
               Completed
             </span>
           </div>
@@ -488,10 +488,10 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
         <div className="flex-1 space-y-4 w-full">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#343a40] pb-3">
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#dee2e6]">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#dee2e6]">
                 Weekly Target Summary
               </span>
-              <h4 className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">
+              <h4 className="text-xl sm:text-2xl font-semibold tracking-tight text-white font-mono mt-0.5">
                 {formatHMS(totalWorkedSeconds)} <span className="text-sm font-sans font-normal text-slate-300">of {WEEKLY_TARGET_HOURS}h Standard</span>
               </h4>
             </div>
@@ -507,7 +507,7 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-[#adb5bd]" />
                 <span className="text-xs font-bold text-slate-200">Work Hours</span>
               </div>
-              <p className="text-base font-black text-white font-mono">{formatHMS(totalWorkedSeconds)}</p>
+              <p className="text-base font-semibold tracking-tight text-white font-mono">{formatHMS(totalWorkedSeconds)}</p>
               <p className="text-[10px] text-[#dee2e6] mt-0.5">{weeklyPercent}% of 45h goal</p>
             </div>
 
@@ -516,7 +516,7 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-[#adb5bd]" />
                 <span className="text-xs font-bold text-amber-200">Breaks</span>
               </div>
-              <p className="text-base font-black text-amber-300 font-mono">{formatHMS(totalBreakSeconds)}</p>
+              <p className="text-base font-semibold tracking-tight text-amber-300 font-mono">{formatHMS(totalBreakSeconds)}</p>
               <p className="text-[10px] text-amber-300/80 mt-0.5">Compliant with policy</p>
             </div>
 
@@ -525,7 +525,7 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-[#ced4da]" />
                 <span className="text-xs font-bold text-sky-200">Overtime</span>
               </div>
-              <p className="text-base font-black text-sky-300 font-mono">{formatHMS(totalOvertimeSeconds)}</p>
+              <p className="text-base font-semibold tracking-tight text-sky-300 font-mono">{formatHMS(totalOvertimeSeconds)}</p>
               <p className="text-[10px] text-sky-300/80 mt-0.5">Standard shift hours</p>
             </div>
           </div>

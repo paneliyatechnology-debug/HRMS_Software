@@ -215,7 +215,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             )}
           </div>
           <div className="mt-2.5">
-            <p className="text-2xl sm:text-3xl font-black text-slate-900">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
               {latestPayslip ? `₹${latestPayslip.netSalary.toLocaleString('en-IN')}` : '—'}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
@@ -228,7 +228,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
         {/* Card 2: Total Disbursed */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
+            <span className="text-[11px] font-semibold uppercase text-emerald-700 tracking-wider">
               Total Earnings Received
             </span>
             <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200">
@@ -236,7 +236,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             </span>
           </div>
           <div className="mt-2.5">
-            <p className="text-2xl sm:text-3xl font-black text-slate-900">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
               ₹{totalDisbursed.toLocaleString('en-IN')}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
@@ -248,13 +248,13 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
         {/* Card 3: Average Take-Home */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase text-violet-700 tracking-wider">
+            <span className="text-[11px] font-semibold uppercase text-violet-700 tracking-wider">
               Average Net Pay
             </span>
             <span className="text-[10px] font-bold text-slate-400">Monthly</span>
           </div>
           <div className="mt-2.5">
-            <p className="text-2xl sm:text-3xl font-black text-slate-900">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
               ₹{avgSalary.toLocaleString('en-IN')}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
@@ -617,7 +617,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 </div>
 
                 <div className="text-left sm:text-right">
-                  <p className="text-2xl sm:text-3xl font-black text-indigo-700">
+                  <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-indigo-700">
                     ₹{selectedPayslip.netSalary.toLocaleString('en-IN')}
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">

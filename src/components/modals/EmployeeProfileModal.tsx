@@ -212,6 +212,13 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   if ((!isPageMode && !isOpen) || !employee || !currentEmp) return null;
 
   const roleDef = getRoleDefinition(currentEmp.role || 'EMPLOYEE');
+  const isCurrentUser = Boolean(
+    user && currentEmp && (
+      Boolean(user.email && currentEmp.email && user.email.toLowerCase() === currentEmp.email.toLowerCase()) ||
+      Boolean(user.employeeId && (currentEmp.id === user.employeeId || (currentEmp as any).employeeId === user.employeeId)) ||
+      Boolean(user.id && (currentEmp.id === user.id || (currentEmp as any).userId === user.id))
+    )
+  );
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
@@ -390,7 +397,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
             {/* Right: Actions & Close Button */}
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {portalMode === 'admin' && (
+              {portalMode === 'admin' && !isCurrentUser && (
                 <button
                   type="button"
                   onClick={() => setRoleModalOpen(true)}
@@ -657,7 +664,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
                     </div>
                   </div>
-                  {portalMode === 'admin' && (
+                  {portalMode === 'admin' && !isCurrentUser && (
                     <button
                       type="button"
                       onClick={() => setRoleModalOpen(true)}

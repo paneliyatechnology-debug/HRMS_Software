@@ -296,7 +296,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                   <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
                     Expected Last Working Day
                   </span>
-                  <span className="text-lg font-black text-slate-900">{myResignation.lastWorkingDay}</span>
+                  <span className="text-lg font-semibold tracking-tight text-slate-800">{myResignation.lastWorkingDay}</span>
                   <span className="text-xs text-emerald-600 font-bold block mt-0.5">
                     Notice: {myResignation.noticePeriodDays} Days
                   </span>
@@ -491,26 +491,26 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
           {/* Admin Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Total Resignations
               </span>
-              <span className="text-2xl font-black text-slate-900 mt-1 block">{resignations.length}</span>
+              <span className="text-2xl font-semibold tracking-tight text-slate-800 mt-1 block">{resignations.length}</span>
               <span className="text-[11px] text-slate-400">Total recorded filings</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider block">
                 Pending Clearance
               </span>
-              <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingCount}</span>
+              <span className="text-2xl font-semibold tracking-tight text-amber-600 mt-1 block">{pendingCount}</span>
               <span className="text-[11px] text-slate-400">Awaiting clearance / approval</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider block">
                 Approved & Completed
               </span>
-              <span className="text-2xl font-black text-emerald-600 mt-1 block">{completedCount}</span>
+              <span className="text-2xl font-semibold tracking-tight text-emerald-700 mt-1 block">{completedCount}</span>
               <span className="text-[11px] text-slate-400">Relieving certificates issued</span>
             </div>
           </div>

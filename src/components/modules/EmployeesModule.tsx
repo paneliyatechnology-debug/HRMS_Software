@@ -6,12 +6,8 @@ import {
   Search,
   Plus,
   ChevronDown,
-  Columns,
-  Table as TableIcon,
-  List,
   Info,
   Check,
-  Filter,
   Trash2,
   Bell,
   X,
@@ -138,6 +134,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [roleTargetEmp, setRoleTargetEmp] = useState<Employee | null>(null);
 
   const handleOpenRoleModal = (emp: Employee) => {
+    const isSelf =
+      Boolean(user.email && emp.email && user.email.toLowerCase() === emp.email.toLowerCase()) ||
+      Boolean(user.employeeId && (emp.id === user.employeeId || (emp as any).employeeId === user.employeeId)) ||
+      Boolean(user.id && (emp.id === user.id || (emp as any).userId === user.id));
+    if (isSelf) {
+      showToast({
+        type: 'warning',
+        title: 'Action Not Permitted',
+        message: 'Administrators cannot change their own system role.',
+      });
+      return;
+    }
     setRoleTargetEmp(emp);
   };
 
@@ -405,33 +413,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
-
-          {/* Filters icon button */}
-          <button
-            onClick={() => alert('Filter panel')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <span>Filters</span>
-          </button>
-
-          {/* View Mode Controls */}
-          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-2xs">
-            <button className="p-1.5 rounded-lg bg-slate-100 text-slate-900" title="Table View">
-              <TableIcon className="w-3.5 h-3.5" />
-            </button>
-            <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800" title="List View">
-              <List className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <button
-            onClick={() => alert('Column customizer')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-          >
-            <Columns className="w-3.5 h-3.5 text-slate-500" />
-            <span>Columns</span>
-          </button>
         </div>
       </div>
 
@@ -497,38 +478,42 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {portalMode === 'admin' ? (
-                        <div className="inline-flex items-center p-0.5 rounded-full bg-slate-100 border border-slate-200/80 shadow-2xs">
-                          <button
-                            type="button"
-                            disabled={statusLoadingId === emp.id || (emp.status || '').toLowerCase() === 'active'}
-                            onClick={() => handleToggleEmployeeStatus(emp, 'Active')}
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                              (emp.status || '').toLowerCase() === 'active'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${(emp.status || '').toLowerCase() === 'active' ? 'bg-white' : 'bg-slate-400'}`} />
-                            Active
-                          </button>
-                          <button
-                            type="button"
-                            disabled={statusLoadingId === emp.id || (emp.status || '').toLowerCase() === 'inactive'}
-                            onClick={() => handleToggleEmployeeStatus(emp, 'Inactive')}
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                              (emp.status || '').toLowerCase() === 'inactive'
-                                ? 'bg-slate-700 text-white shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={(emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'}
+                          disabled={statusLoadingId === emp.id}
+                          onClick={() => {
+                            const isAct = (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation';
+                            handleToggleEmployeeStatus(emp, isAct ? 'Inactive' : 'Active');
+                          }}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none cursor-pointer disabled:opacity-50 ${
+                            (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                              ? 'bg-[#2d6a4f]'
+                              : 'bg-slate-300'
+                          }`}
+                          title={
+                            (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                              ? 'Active — Click to deactivate'
+                              : 'Inactive — Click to activate'
+                          }
+                        >
+                          <span
+                            className={`inline-flex items-center justify-center h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                              (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                                ? 'translate-x-4.5'
+                                : 'translate-x-1'
                             }`}
                           >
                             {statusLoadingId === emp.id ? (
-                              <span className="w-2.5 h-2.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                              <span className="block w-2 h-2 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation' ? (
+                              <Check className="w-2.5 h-2.5 text-[#2d6a4f]" strokeWidth={3} />
                             ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${(emp.status || '').toLowerCase() === 'inactive' ? 'bg-white' : 'bg-slate-400'}`} />
+                              <X className="w-2.5 h-2.5 text-slate-400" strokeWidth={3} />
                             )}
-                            Inactive
-                          </button>
-                        </div>
+                          </span>
+                        </button>
                       ) : (
                         emp.status?.toLowerCase() === 'inactive' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
@@ -549,14 +534,23 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <span className="truncate text-[11px]">{emp.email}</span>
                     <button
                       type="button"
-                      disabled={portalMode !== 'admin'}
+                      disabled={portalMode !== 'admin' || isCurrentUser}
                       onClick={(e) => {
-                        if (portalMode === 'admin') {
+                        if (portalMode === 'admin' && !isCurrentUser) {
                           e.stopPropagation();
                           handleOpenRoleModal(emp);
                         }
                       }}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shrink-0 ${roleDef.badgeClass}`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shrink-0 ${roleDef.badgeClass} ${
+                        isCurrentUser ? 'cursor-default opacity-90' : 'cursor-pointer hover:ring-2 hover:ring-indigo-300'
+                      }`}
+                      title={
+                        isCurrentUser
+                          ? `${roleDef.label} (Your role cannot be modified)`
+                          : portalMode === 'admin'
+                            ? `Click to change role (Current: ${roleDef.label})`
+                            : roleDef.description
+                      }
                     >
                       <Shield className="w-2.5 h-2.5 shrink-0" />
                       <span>{roleDef.label}</span>
@@ -691,36 +685,33 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       {(() => {
                         const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
                         return (
-                          <div className="flex flex-col gap-1 items-start">
-                            <button
-                              type="button"
-                              disabled={portalMode !== 'admin'}
-                              onClick={(e) => {
-                                if (portalMode === 'admin') {
-                                  e.stopPropagation();
-                                  handleOpenRoleModal(emp);
-                                }
-                              }}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                                roleDef.badgeClass
-                              } ${
-                                portalMode === 'admin'
-                                  ? 'hover:ring-2 hover:ring-indigo-400/50 hover:shadow-xs cursor-pointer'
-                                  : 'cursor-default'
-                              }`}
-                              title={
-                                portalMode === 'admin'
+                          <button
+                            type="button"
+                            disabled={portalMode !== 'admin' || isCurrentUser}
+                            onClick={(e) => {
+                              if (portalMode === 'admin' && !isCurrentUser) {
+                                e.stopPropagation();
+                                handleOpenRoleModal(emp);
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                              roleDef.badgeClass
+                            } ${
+                              portalMode === 'admin' && !isCurrentUser
+                                ? 'hover:ring-2 hover:ring-indigo-400/50 hover:shadow-xs cursor-pointer'
+                                : 'cursor-default opacity-90'
+                            }`}
+                            title={
+                              isCurrentUser
+                                ? `${roleDef.label} (Your account — Role cannot be modified)`
+                                : portalMode === 'admin'
                                   ? `Click to change role (Current: ${roleDef.label})`
                                   : roleDef.description
-                              }
-                            >
-                              <Shield className="w-3 h-3 shrink-0" />
-                              <span>{roleDef.label}</span>
-                            </button>
-                            <span className="text-[10px] text-slate-400 font-medium truncate max-w-[150px]">
-                              {emp.designationTitle || 'Staff Member'}
-                            </span>
-                          </div>
+                            }
+                          >
+                            <Shield className="w-3 h-3 shrink-0" />
+                            <span>{roleDef.label}</span>
+                          </button>
                         );
                       })()}
                     </td>
@@ -729,38 +720,42 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     </td>
                     <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       {portalMode === 'admin' ? (
-                        <div className="inline-flex items-center p-0.5 rounded-full bg-slate-100 border border-slate-200/80 shadow-2xs">
+                        <div className="flex items-center">
                           <button
                             type="button"
-                            disabled={statusLoadingId === emp.id || (emp.status || '').toLowerCase() === 'active'}
-                            onClick={() => handleToggleEmployeeStatus(emp, 'Active')}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                              (emp.status || '').toLowerCase() === 'active'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
+                            role="switch"
+                            aria-checked={(emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'}
+                            disabled={statusLoadingId === emp.id}
+                            onClick={() => {
+                              const isAct = (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation';
+                              handleToggleEmployeeStatus(emp, isAct ? 'Inactive' : 'Active');
+                            }}
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none cursor-pointer disabled:opacity-50 ${
+                              (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                                ? 'bg-[#2d6a4f]'
+                                : 'bg-slate-300'
                             }`}
-                            title="Set status to Active"
+                            title={
+                              (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                                ? 'Active — Click to deactivate'
+                                : 'Inactive — Click to activate'
+                            }
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full ${(emp.status || '').toLowerCase() === 'active' ? 'bg-white' : 'bg-slate-400'}`} />
-                            <span>Active</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={statusLoadingId === emp.id || (emp.status || '').toLowerCase() === 'inactive'}
-                            onClick={() => handleToggleEmployeeStatus(emp, 'Inactive')}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                              (emp.status || '').toLowerCase() === 'inactive'
-                                ? 'bg-slate-700 text-white shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                            title="Set status to Inactive (DELETE /api/employees/{id})"
-                          >
-                            {statusLoadingId === emp.id ? (
-                              <span className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <span className={`w-1.5 h-1.5 rounded-full ${(emp.status || '').toLowerCase() === 'inactive' ? 'bg-white' : 'bg-slate-400'}`} />
-                            )}
-                            <span>Inactive</span>
+                            <span
+                              className={`inline-flex items-center justify-center h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                                (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation'
+                                  ? 'translate-x-4.5'
+                                  : 'translate-x-1'
+                              }`}
+                            >
+                              {statusLoadingId === emp.id ? (
+                                <span className="block w-2 h-2 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                              ) : (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation' ? (
+                                <Check className="w-2.5 h-2.5 text-[#2d6a4f]" strokeWidth={3} />
+                              ) : (
+                                <X className="w-2.5 h-2.5 text-slate-400" strokeWidth={3} />
+                              )}
+                            </span>
                           </button>
                         </div>
                       ) : (
@@ -794,15 +789,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             <span className="hidden sm:inline">Chat</span>
                           </button>
 
-                          <button
-                            id={`btn-role-${emp.id}`}
-                            onClick={() => handleOpenRoleModal(emp)}
-                            className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
-                            title="Change system role (Admin/HR/Manager/Team Leader/Employee)"
-                          >
-                            <Shield className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Role</span>
-                          </button>
+                          {!isCurrentUser && (
+                            <button
+                              id={`btn-role-${emp.id}`}
+                              onClick={() => handleOpenRoleModal(emp)}
+                              className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                              title="Change system role (Admin/HR/Manager/Team Leader/Employee)"
+                            >
+                              <Shield className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Role</span>
+                            </button>
+                          )}
 
                           <button
                             id={`btn-notice-${emp.id}`}

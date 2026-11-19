@@ -99,6 +99,61 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrolledPageTitle, setScrolledPageTitle] = useState('');
+  const mainScrollRef = useRef<HTMLElement>(null);
+
+  const handleScrollToTop = useCallback(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Listen to main scroll container to trigger header live clock <-> page title morph
+  useEffect(() => {
+    const mainEl = mainScrollRef.current;
+    if (!mainEl) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollTop = mainEl.scrollTop;
+          const nextScrolled = scrollTop > 35;
+          setIsScrolled(nextScrolled);
+
+          if (nextScrolled) {
+            const headingEl = mainEl.querySelector('h1, .hrms-page-title');
+            if (headingEl) {
+              const text = headingEl.textContent?.trim();
+              if (text) {
+                setScrolledPageTitle(text);
+              }
+            }
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    mainEl.addEventListener('scroll', handleScroll, { passive: true });
+    // Run once on initial layout or change
+    handleScroll();
+
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeModule, subTab]);
+
+  // Reset scroll and header title on page / sub-tab navigation
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+    setIsScrolled(false);
+    setScrolledPageTitle('');
+  }, [activeModule, subTab]);
 
   // Synchronize route with activeModule and support backward-compatible query redirection
   useEffect(() => {
@@ -686,21 +741,26 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           employees={employees}
           portalMode={portalMode}
           activeModule={activeModule}
+          activeSubTab={subTab}
           isAddEmployeeModalOpen={addEmployeeModalOpen}
           isLeaveModalOpen={leaveModalOpen}
           pendingLeavesCount={pendingLeavesCount}
           unreadChatCount={unreadChatCount}
           company={currentCompany}
+          isScrolled={isScrolled}
+          pageTitle={scrolledPageTitle}
+          onScrollToTop={handleScrollToTop}
         />
 
         <main
+          ref={mainScrollRef}
           className={`flex-1 w-full [scrollbar-width:thin] bg-transparent relative z-10 ${activeModule === 'chat'
             ? 'overflow-hidden flex flex-col px-4 sm:px-6 py-4 pb-20 sm:pb-5'
             : 'overflow-y-auto px-4 sm:px-6 py-5 pb-24 sm:pb-8'
             }`}
         >
           <div
-            key={activeModule}
+            key={`${activeModule}-${subTab || 'root'}`}
             className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' ? 'flex-1 min-h-0 flex flex-col' : ''
               }`}
           >
@@ -792,6 +852,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 candidates={candidates}
                 departments={departments}
                 onRefresh={loadData}
+                onImportCandidates={(newCands) => {
+                  setCandidates((prev) => [...prev, ...newCands]);
+                }}
               />
             )}
 

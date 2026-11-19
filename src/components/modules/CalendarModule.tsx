@@ -33,6 +33,13 @@ import { AttendanceRecord, LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import {
+  WorkScheduleConfig,
+  getWorkScheduleConfig,
+  saveWorkScheduleConfig,
+  isDateWeekend,
+  getWeekendPolicyDescription,
+} from '../../lib/shiftScheduleService';
 
 interface CalendarModuleProps {
   attendance: AttendanceRecord[];
@@ -93,22 +100,108 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [isDeletingHoliday, setIsDeletingHoliday] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // Corporate Work Schedule & Weekend Config (Loaded from backend settings)
+  const [scheduleConfig, setScheduleConfig] = useState<WorkScheduleConfig>(() =>
+    getWorkScheduleConfig(user?.companyId)
+  );
+  // Modal: Weekend Rules Config
+  const [isWeekendModalOpen, setIsWeekendModalOpen] = useState(false);
+  const [editingWeekendDays, setEditingWeekendDays] = useState<number[]>([0]);
+  const [editingSatRule, setEditingSatRule] = useState<'all' | 'none' | 'alternate_2_4' | 'alternate_1_3'>('none');
+  const [isSavingWeekend, setIsSavingWeekend] = useState(false);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Sync Work Schedule & Weekend Config from backend & live events
   useEffect(() => {
-    if (!isAddHolidayOpen) return;
+    let active = true;
+    const loadSchedule = async () => {
+      try {
+        const raw = await api.getSettings();
+        const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+        if (!active) return;
+        if (data?.workSchedule) {
+          setScheduleConfig(data.workSchedule);
+          saveWorkScheduleConfig(data.workSchedule, user?.companyId);
+        }
+      } catch (err) {
+        console.error('Failed to load schedule for calendar:', err);
+      }
+    };
+    loadSchedule();
+
+    const handleScheduleUpdate = (e: any) => {
+      if (e.detail?.config) {
+        setScheduleConfig(e.detail.config);
+      } else {
+        setScheduleConfig(getWorkScheduleConfig(user?.companyId));
+      }
+    };
+    window.addEventListener('hrms_schedule_updated', handleScheduleUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener('hrms_schedule_updated', handleScheduleUpdate);
+    };
+  }, [user?.companyId]);
+
+  useEffect(() => {
+    if (!isAddHolidayOpen && !isWeekendModalOpen) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsAddHolidayOpen(false);
+      if (e.key === 'Escape') {
+        setIsAddHolidayOpen(false);
+        setIsWeekendModalOpen(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isAddHolidayOpen]);
+  }, [isAddHolidayOpen, isWeekendModalOpen]);
+
+  const handleOpenWeekendModal = () => {
+    const activeDays = scheduleConfig.weekendDays ?? [0];
+    setEditingWeekendDays(activeDays);
+    setEditingSatRule(scheduleConfig.saturdayRule ?? (activeDays.includes(6) ? 'all' : 'none'));
+    setIsWeekendModalOpen(true);
+  };
+
+  const handleSaveWeekendPolicy = async () => {
+    setIsSavingWeekend(true);
+    try {
+      const updatedConfig: WorkScheduleConfig = {
+        ...scheduleConfig,
+        weekendDays: editingWeekendDays,
+        saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
+      };
+      saveWorkScheduleConfig(updatedConfig, user?.companyId);
+      setScheduleConfig(updatedConfig);
+
+      // Persist to backend /settings
+      await api.updateSettings({
+        workSchedule: updatedConfig,
+      });
+
+      showToast({
+        type: 'success',
+        title: 'Weekend Policy Updated',
+        message: `Corporate weekend schedule set to: ${getWeekendPolicyDescription(updatedConfig)}`,
+      });
+      setIsWeekendModalOpen(false);
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: err.message || 'Could not update weekend schedule.',
+      });
+    } finally {
+      setIsSavingWeekend(false);
+    }
+  };
 
   const [holidayName, setHolidayName] = useState('');
   const [holidayDate, setHolidayDate] = useState(() => {
@@ -257,11 +350,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const prevMonthNum = prevMonthDate.getMonth() + 1;
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = prevMonthDays - i;
+      const dateStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
       list.push({
         day: dNum,
         isCurrentMonth: false,
-        dateStr: `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`,
-        isWeekend: false,
+        dateStr,
+        isWeekend: isDateWeekend(dateStr, scheduleConfig),
       });
     }
 
@@ -269,7 +363,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayOfWeek = new Date(year, month, d).getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isWeekend = isDateWeekend(dateStr, scheduleConfig);
 
       const dayRecords = userAttendance.filter((a) => a.date === dateStr);
       const holObj = holidayDateMap[dateStr];
@@ -294,16 +388,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const totalSlots = Math.ceil(list.length / 7) * 7;
     const remainingSlots = totalSlots - list.length;
     for (let i = 1; i <= remainingSlots; i++) {
+      const dateStr = `${nextYear}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       list.push({
         day: i,
         isCurrentMonth: false,
-        dateStr: `${nextYear}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`,
-        isWeekend: false,
+        dateStr,
+        isWeekend: isDateWeekend(dateStr, scheduleConfig),
       });
     }
 
     return list;
-  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap]);
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig]);
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
@@ -378,7 +473,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <CalendarIcon className="w-4 h-4 text-[#495057]" />
             </div>
           </div>
-          <p className="text-lg font-black text-[#212529] mt-1">
+          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
             {monthNames[month].slice(0, 3)} {year}
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#6c757d] font-medium">
@@ -389,12 +484,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 2: Working Days */}
         <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Working Days</span>
+            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Working Days</span>
             <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
               <Briefcase className="w-4 h-4 text-[#495057]" />
             </div>
           </div>
-          <p className="text-lg font-black text-[#212529] mt-1">
+          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
             {stats.workingDays} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
@@ -405,12 +500,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 3: Days Logged / Present */}
         <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
+            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
             <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
             </div>
           </div>
-          <p className="text-lg font-black text-[#1b4332] mt-1">
+          <p className="text-lg font-semibold tracking-tight text-[#1b4332] mt-1">
             {stats.presentCount + stats.lateCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
@@ -422,12 +517,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 4: Official Holidays */}
         <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Holidays</span>
+            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Holidays</span>
             <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
               <Star className="w-4 h-4 text-[#2d6a4f]" />
             </div>
           </div>
-          <p className="text-lg font-black text-[#212529] mt-1">
+          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
             {stats.holidaysCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
@@ -438,12 +533,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Card 5: Hours Worked */}
         <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
+            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
             <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4 text-[#495057]" />
             </div>
           </div>
-          <p className="text-lg font-black text-[#212529] mt-1">
+          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
             {stats.totalHoursWorked} <span className="text-xs font-semibold text-[#6c757d]">Hrs</span>
           </p>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
@@ -533,13 +628,25 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* Quick Actions */}
           <div className="flex items-center gap-2">
             {portalMode !== 'employee' && (
-              <button
-                onClick={() => setIsAddHolidayOpen(true)}
-                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Holiday</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenWeekendModal}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#ced4da] text-[#212529] hover:text-[#1b4332] text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Configure Corporate Weekend Policy"
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                  <span>Weekend Rules</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddHolidayOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Holiday</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -564,8 +671,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1b4332] text-white border border-[#081c15]">
                 <Star className="w-2.5 h-2.5 text-[#95d5b2] fill-[#95d5b2]" /> Holiday
               </span>
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e9ecef] text-[#495057] border border-[#ced4da]">
-                <span className="w-2 h-2 rounded-full bg-[#6c757d]" /> Weekend
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e9ecef] text-[#495057] border border-[#ced4da]"
+                title={`Company Weekend Schedule: ${getWeekendPolicyDescription(scheduleConfig)}`}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#6c757d]" /> Weekend ({getWeekendPolicyDescription(scheduleConfig)})
               </span>
               {!isAdminCalendar && (
                 <>
@@ -588,7 +698,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* Weekday Names Header */}
           <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center bg-[#1b4332] rounded-xl p-1.5 shadow-2xs">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
-              const isWeekend = i === 0 || i === 6;
+              const isWeekend = (scheduleConfig.weekendDays ?? [0]).includes(i) || (i === 6 && (scheduleConfig.saturdayRule || 'none') !== 'none');
               return (
                 <div
                   key={d}
@@ -785,10 +895,16 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
               <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Shift Schedule</span>
               <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.holiday || selectedDayInfo.isWeekend ? 'Off Duty' : '09:00 AM – 06:00 PM'}
+                {selectedDayInfo.holiday || selectedDayInfo.isWeekend
+                  ? 'Off Duty'
+                  : `${scheduleConfig.shiftStartTime || '09:00 AM'} – ${scheduleConfig.shiftEndTime || '06:00 PM'}`}
               </span>
               <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holiday ? 'Corporate Public Holiday' : selectedDayInfo.isWeekend ? 'Weekend Weekly Rest' : 'Standard Corporate Shift (8h net)'}
+                {selectedDayInfo.holiday
+                  ? 'Corporate Public Holiday'
+                  : selectedDayInfo.isWeekend
+                    ? 'Official Weekend Weekly Rest'
+                    : 'Standard Corporate Shift'}
               </span>
             </div>
 
@@ -812,7 +928,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 {selectedDayInfo.holiday ? selectedDayInfo.holiday : selectedDayInfo.isWeekend ? 'Weekend Off' : 'Regular Work Day'}
               </span>
               <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holidayObj?.description || (selectedDayInfo.isWeekend ? 'Saturday / Sunday corporate weekend' : 'Scheduled operational business day')}
+                {selectedDayInfo.holidayObj?.description ||
+                  (selectedDayInfo.isWeekend
+                    ? `${new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })} corporate weekend off`
+                    : 'Scheduled operational business day')}
               </span>
             </div>
 
@@ -868,8 +987,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                           : 'bg-[#2d6a4f] text-white'
                         }`}
                     >
-                      <span className="text-[10px] font-bold uppercase leading-none">{monthNames[month].slice(0, 3)}</span>
-                      <span className="text-base font-black leading-none mt-0.5">{evt.day}</span>
+                      <span className="text-[10px] font-semibold uppercase leading-none">{monthNames[month].slice(0, 3)}</span>
+                      <span className="text-base font-semibold leading-none mt-0.5">{evt.day}</span>
                     </div>
 
                     <div>
@@ -941,13 +1060,25 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
 
               {portalMode !== 'employee' && (
-                <button
-                  onClick={() => setIsAddHolidayOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Holiday</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleOpenWeekendModal}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#dee2e6] text-[#212529] hover:text-[#1b4332] text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Configure Corporate Weekend Policy"
+                  >
+                    <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                    <span>Weekend Rules</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddHolidayOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Holiday</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -974,8 +1105,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-xl bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[10px] font-black uppercase text-[#2d6a4f] leading-none">{mName || 'DAY'}</span>
-                      <span className="text-base font-black leading-none mt-0.5">{dNum || '--'}</span>
+                      <span className="text-[10px] font-semibold uppercase text-[#2d6a4f] leading-none">{mName || 'DAY'}</span>
+                      <span className="text-base font-semibold leading-none mt-0.5">{dNum || '--'}</span>
                     </div>
 
                     <div>
@@ -1153,6 +1284,367 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               >
                 {isDeletingHoliday ? 'Deleting...' : 'Confirm Remove'}
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* =========================================================================
+          MODAL: CONFIGURE CORPORATE WEEKEND POLICY
+          ========================================================================= */}
+      {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/55 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+          >
+            {/* Modal Header */}
+            <div className="p-5 bg-[#1b4332] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-white/15 text-[#95d5b2]">
+                  <CalendarDays className="w-5 h-5 text-[#95d5b2]" />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    Corporate Weekend Schedule
+                  </h3>
+                  <p className="text-[11px] text-[#d8f3dc]">
+                    Configure official weekly off days for company calendar &amp; attendance
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingWeekend}
+                onClick={() => setIsWeekendModalOpen(false)}
+                className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-5">
+              {/* Day selection */}
+              <div>
+                <label className="block text-xs font-bold text-[#212529] mb-1">
+                  Weekly Non-Working Days (Off Days)
+                </label>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { day: 0, label: 'Sunday', short: 'Sun' },
+                    { day: 1, label: 'Monday', short: 'Mon' },
+                    { day: 2, label: 'Tuesday', short: 'Tue' },
+                    { day: 3, label: 'Wednesday', short: 'Wed' },
+                    { day: 4, label: 'Thursday', short: 'Thu' },
+                    { day: 5, label: 'Friday', short: 'Fri' },
+                    { day: 6, label: 'Saturday', short: 'Sat' },
+                  ].map((d) => {
+                    const isSelected = editingWeekendDays.includes(d.day);
+                    return (
+                      <button
+                        key={d.day}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setEditingWeekendDays(editingWeekendDays.filter((x) => x !== d.day));
+                            if (d.day === 6) setEditingSatRule('none');
+                          } else {
+                            const next = [...editingWeekendDays, d.day].sort();
+                            setEditingWeekendDays(next);
+                            if (d.day === 6 && editingSatRule === 'none') {
+                              setEditingSatRule('all');
+                            }
+                          }
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
+                          ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
+                          : 'bg-[#f8f9fa] text-[#495057] border-[#dee2e6] hover:border-[#adb5bd] hover:bg-white'
+                          }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#95d5b2]" />}
+                        <span>{d.label}</span>
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-[#d8f3dc]' : 'bg-[#e9ecef] text-[#6c757d]'
+                            }`}
+                        >
+                          {isSelected ? 'Off' : 'Work'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Saturday Rule Selector (if Saturday is selected) */}
+              {editingWeekendDays.includes(6) && (
+                <div className="pt-3 border-t border-[#e9ecef] space-y-2 animate-in fade-in">
+                  <label className="block text-xs font-bold text-[#212529]">
+                    Saturday Operational Schedule
+                  </label>
+                  <p className="text-[11px] text-[#6c757d]">
+                    Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    {[
+                      { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is a full corporate weekend' },
+                      { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
+                      { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
+                    ].map((opt) => {
+                      const isAct = editingSatRule === opt.id;
+                      return (
+                        <div
+                          key={opt.id}
+                          onClick={() => setEditingSatRule(opt.id as any)}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${isAct
+                            ? 'border-[#1b4332] bg-[#d8f3dc]/35 ring-1 ring-[#1b4332]'
+                            : 'border-[#dee2e6] bg-[#f8f9fa] hover:border-[#adb5bd]'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#212529]">{opt.title}</span>
+                            <input
+                              type="radio"
+                              name="calendarSatRule"
+                              checked={isAct}
+                              onChange={() => { }}
+                              className="text-[#1b4332] focus:ring-[#2d6a4f]"
+                            />
+                          </div>
+                          <p className="text-[11px] text-[#6c757d] mt-1 leading-snug">{opt.desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Real-time Summary Box */}
+              <div className="p-3.5 rounded-xl bg-[#d8f3dc]/40 border border-[#95d5b2] text-[#1b4332] text-xs">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+                  <span>Preview Configuration:</span>
+                </div>
+                <p className="mt-1 font-semibold text-sm text-[#081c15]">
+                  {getWeekendPolicyDescription({
+                    weekendDays: editingWeekendDays,
+                    saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
+                  })}
+                </p>
+                <p className="text-[11px] text-[#2d6a4f] mt-0.5">
+                  Unselected days will be treated as operational business days in calendar statistics and attendance records.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#e9ecef]">
+                <button
+                  type="button"
+                  disabled={isSavingWeekend}
+                  onClick={() => setIsWeekendModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#dee2e6] text-[#495057] font-bold text-xs hover:bg-[#f8f9fa] cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingWeekend}
+                  onClick={handleSaveWeekendPolicy}
+                  className="px-5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* =========================================================================
+          MODAL: CONFIGURE CORPORATE WEEKEND POLICY
+          ========================================================================= */}
+      {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/55 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+          >
+            {/* Modal Header */}
+            <div className="p-5 bg-[#1b4332] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-white/15 text-[#95d5b2]">
+                  <CalendarDays className="w-5 h-5 text-[#95d5b2]" />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    Corporate Weekend Schedule
+                  </h3>
+                  <p className="text-[11px] text-[#d8f3dc]">
+                    Configure official weekly off days for company calendar &amp; attendance
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingWeekend}
+                onClick={() => setIsWeekendModalOpen(false)}
+                className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-5">
+              {/* Day selection */}
+              <div>
+                <label className="block text-xs font-bold text-[#212529] mb-1">
+                  Weekly Non-Working Days (Off Days)
+                </label>
+                <p className="text-[11px] text-[#6c757d] mb-3">
+                  Click a day to toggle between Working Day and Weekend Off. Only selected days will appear as weekends.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { day: 0, label: 'Sunday', short: 'Sun' },
+                    { day: 1, label: 'Monday', short: 'Mon' },
+                    { day: 2, label: 'Tuesday', short: 'Tue' },
+                    { day: 3, label: 'Wednesday', short: 'Wed' },
+                    { day: 4, label: 'Thursday', short: 'Thu' },
+                    { day: 5, label: 'Friday', short: 'Fri' },
+                    { day: 6, label: 'Saturday', short: 'Sat' },
+                  ].map((d) => {
+                    const isSelected = editingWeekendDays.includes(d.day);
+                    return (
+                      <button
+                        key={d.day}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setEditingWeekendDays(editingWeekendDays.filter((x) => x !== d.day));
+                            if (d.day === 6) setEditingSatRule('none');
+                          } else {
+                            const next = [...editingWeekendDays, d.day].sort();
+                            setEditingWeekendDays(next);
+                            if (d.day === 6 && editingSatRule === 'none') {
+                              setEditingSatRule('all');
+                            }
+                          }
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
+                            ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
+                            : 'bg-[#f8f9fa] text-[#495057] border-[#dee2e6] hover:border-[#adb5bd] hover:bg-white'
+                          }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#95d5b2]" />}
+                        <span>{d.label}</span>
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-[#d8f3dc]' : 'bg-[#e9ecef] text-[#6c757d]'
+                            }`}
+                        >
+                          {isSelected ? 'Off' : 'Work'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Saturday Rule Selector (if Saturday is selected) */}
+              {editingWeekendDays.includes(6) && (
+                <div className="pt-3 border-t border-[#e9ecef] space-y-2 animate-in fade-in">
+                  <label className="block text-xs font-bold text-[#212529]">
+                    Saturday Operational Schedule
+                  </label>
+                  <p className="text-[11px] text-[#6c757d]">
+                    Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    {[
+                      { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is a full corporate weekend' },
+                      { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
+                      { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
+                    ].map((opt) => {
+                      const isAct = editingSatRule === opt.id;
+                      return (
+                        <div
+                          key={opt.id}
+                          onClick={() => setEditingSatRule(opt.id as any)}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${isAct
+                              ? 'border-[#1b4332] bg-[#d8f3dc]/35 ring-1 ring-[#1b4332]'
+                              : 'border-[#dee2e6] bg-[#f8f9fa] hover:border-[#adb5bd]'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#212529]">{opt.title}</span>
+                            <input
+                              type="radio"
+                              name="calendarSatRule"
+                              checked={isAct}
+                              onChange={() => { }}
+                              className="text-[#1b4332] focus:ring-[#2d6a4f]"
+                            />
+                          </div>
+                          <p className="text-[11px] text-[#6c757d] mt-1 leading-snug">{opt.desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Real-time Summary Box */}
+              <div className="p-3.5 rounded-xl bg-[#d8f3dc]/40 border border-[#95d5b2] text-[#1b4332] text-xs">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+                  <span>Preview Configuration:</span>
+                </div>
+                <p className="mt-1 font-semibold text-sm text-[#081c15]">
+                  {getWeekendPolicyDescription({
+                    weekendDays: editingWeekendDays,
+                    saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
+                  })}
+                </p>
+                <p className="text-[11px] text-[#2d6a4f] mt-0.5">
+                  Unselected days will be treated as operational business days in calendar statistics and attendance records.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#e9ecef]">
+                <button
+                  type="button"
+                  disabled={isSavingWeekend}
+                  onClick={() => setIsWeekendModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#dee2e6] text-[#495057] font-bold text-xs hover:bg-[#f8f9fa] cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingWeekend}
+                  onClick={handleSaveWeekendPolicy}
+                  className="px-5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>,

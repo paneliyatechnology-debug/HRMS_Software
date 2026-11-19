@@ -209,7 +209,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
         {/* 1. Hours Card */}
         <div className="flex flex-col items-center">
           <div
-            className={`font-mono font-black tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
+            className={`font-mono font-bold tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
           >
             <div className={`absolute top-0 left-0 right-0 h-0.5 ${variantMap.cardTop}`} />
             <span className={variantMap.digitColor}>{hours}</span>
@@ -223,7 +223,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
 
         {/* Colon */}
         <div
-          className={`font-mono font-black self-center pb-2.5 sm:pb-3 animate-clock-colon ${sizeMap.colon} ${variantMap.colonColor}`}
+          className={`font-mono font-bold self-center pb-2.5 sm:pb-3 animate-clock-colon ${sizeMap.colon} ${variantMap.colonColor}`}
         >
           :
         </div>
@@ -231,7 +231,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
         {/* 2. Minutes Card */}
         <div className="flex flex-col items-center">
           <div
-            className={`font-mono font-black tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
+            className={`font-mono font-bold tracking-tight text-center relative overflow-hidden flex items-center justify-center ${sizeMap.card} ${variantMap.cardBg}`}
           >
             <div className={`absolute top-0 left-0 right-0 h-0.5 ${variantMap.cardTop}`} />
             <span className={variantMap.digitColor}>{minutes}</span>
@@ -245,7 +245,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
 
         {/* Colon */}
         <div
-          className={`font-mono font-black self-center pb-2.5 sm:pb-3 animate-clock-colon ${sizeMap.colon} ${variantMap.colonColor}`}
+          className={`font-mono font-bold self-center pb-2.5 sm:pb-3 animate-clock-colon ${sizeMap.colon} ${variantMap.colonColor}`}
         >
           :
         </div>
@@ -254,7 +254,7 @@ export const ModernDigitClock: React.FC<ModernDigitClockProps> = ({
         <div className="flex flex-col items-center">
           <div
             key={seconds}
-            className={`font-mono font-black tracking-tight text-center relative overflow-hidden flex items-center justify-center animate-digit-tick ${sizeMap.card} ${variantMap.cardBg}`}
+            className={`font-mono font-bold tracking-tight text-center relative overflow-hidden flex items-center justify-center animate-digit-tick ${sizeMap.card} ${variantMap.cardBg}`}
           >
             <div className={`absolute top-0 left-0 right-0 h-0.5 ${variantMap.cardTop}`} />
             <span className={variantMap.secColor}>{seconds}</span>

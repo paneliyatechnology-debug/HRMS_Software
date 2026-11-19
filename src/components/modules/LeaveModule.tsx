@@ -70,23 +70,30 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     setCurrentPage(1);
   }, [search, statusFilter]);
 
+  // Approval modal state
+  const [approvingLeave, setApprovingLeave] = useState<LeaveRequest | null>(null);
+  const [approvalRemarks, setApprovalRemarks] = useState('');
+
   // Rejection modal / prompt state
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   useEffect(() => {
-    if (!rejectingLeave) return;
+    if (!rejectingLeave && !approvingLeave) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setRejectingLeave(null);
+      if (e.key === 'Escape') {
+        setRejectingLeave(null);
+        setApprovingLeave(null);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [rejectingLeave]);
-
-  const [rejectionReason, setRejectionReason] = useState('');
+  }, [rejectingLeave, approvingLeave]);
 
   const myId = user.employeeId || user.id || '';
   const myEmail = user.email?.toLowerCase() || '';
@@ -194,14 +201,25 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, displayedLeaves.length);
   const paginatedLeaves = displayedLeaves.slice(startIndex, endIndex);
 
-  const handleApprove = async (id: string, empName: string, leaveType: string, empId?: string) => {
+  const handleOpenApproveModal = (leave: LeaveRequest) => {
+    setApprovingLeave(leave);
+    setApprovalRemarks('');
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!approvingLeave) return;
+    const id = approvingLeave.id;
+    const empName = approvingLeave.employeeName;
+    const leaveType = approvingLeave.leaveType;
+    const empId = approvingLeave.employeeId;
+
     setProcessingId(id);
     try {
       await api.approveLeave(
         id,
         user?.role || 'HR',
         user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
-        'Approved by HR Administration'
+        approvalRemarks.trim() || 'Approved by HR Administration'
       );
       showToast({
         type: 'success',
@@ -215,6 +233,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         leaveType,
         status: 'Approved',
       });
+      setApprovingLeave(null);
+      setApprovalRemarks('');
       onRefresh();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Approved' } }));
@@ -232,7 +252,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   const handleOpenRejectModal = (leave: LeaveRequest) => {
     setRejectingLeave(leave);
-    setRejectionReason('Project deliverable timeline conflict. Please discuss with team lead.');
+    setRejectionReason('');
   };
 
   const handleConfirmReject = async () => {
@@ -392,9 +412,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                   {/* Prominent Taken/Total */}
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-black text-slate-900 tracking-tight">{totalTaken}</span>
-                    <span className="text-2xl font-black text-slate-400">/{TOTAL_QUOTA}</span>
-                    <span className="text-xs font-bold text-indigo-600 ml-1.5">Used</span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-800">{totalTaken}</span>
+                    <span className="text-2xl font-semibold text-slate-400">/{TOTAL_QUOTA}</span>
+                    <span className="text-xs font-semibold text-indigo-600 ml-1.5">Used</span>
                   </div>
 
                   <div className="mt-2 flex items-center justify-between text-xs">
@@ -438,9 +458,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                   {/* Prominent Taken/Total */}
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-black text-slate-900 tracking-tight">{casualTaken}</span>
-                    <span className="text-2xl font-black text-slate-400">/{CASUAL_QUOTA}</span>
-                    <span className="text-xs font-bold text-emerald-700 ml-1.5">Used</span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-800">{casualTaken}</span>
+                    <span className="text-2xl font-semibold text-slate-400">/{CASUAL_QUOTA}</span>
+                    <span className="text-xs font-semibold text-emerald-700 ml-1.5">Used</span>
                   </div>
 
                   <div className="mt-2 flex items-center justify-between text-xs">
@@ -484,9 +504,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                   {/* Prominent Taken/Total */}
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-black text-slate-900 tracking-tight">{sickTaken}</span>
-                    <span className="text-2xl font-black text-slate-400">/{SICK_QUOTA}</span>
-                    <span className="text-xs font-bold text-amber-700 ml-1.5">Used</span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-800">{sickTaken}</span>
+                    <span className="text-2xl font-semibold text-slate-400">/{SICK_QUOTA}</span>
+                    <span className="text-xs font-semibold text-amber-700 ml-1.5">Used</span>
                   </div>
 
                   <div className="mt-2 flex items-center justify-between text-xs">
@@ -530,9 +550,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                   {/* Prominent Taken/Total */}
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl font-black text-slate-900 tracking-tight">{paidTaken}</span>
-                    <span className="text-2xl font-black text-slate-400">/{PAID_QUOTA}</span>
-                    <span className="text-xs font-bold text-violet-700 ml-1.5">Used</span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-800">{paidTaken}</span>
+                    <span className="text-2xl font-semibold text-slate-400">/{PAID_QUOTA}</span>
+                    <span className="text-xs font-semibold text-violet-700 ml-1.5">Used</span>
                   </div>
 
                   <div className="mt-2 flex items-center justify-between text-xs">
@@ -587,8 +607,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 key={tab}
                 onClick={() => setStatusFilter(tab)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 ${isActive
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 font-medium'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 font-medium'
                   }`}
               >
                 <span>{tab}</span>
@@ -674,10 +694,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${leave.status === 'Approved'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : leave.status === 'Pending'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : leave.status === 'Pending'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}
                     >
                       {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -711,7 +731,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   {portalMode === 'admin' && leave.status === 'Pending' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
-                        onClick={() => handleApprove(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)}
+                        onClick={() => handleOpenApproveModal(leave)}
                         disabled={isProcessing}
                         className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
@@ -810,10 +830,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       <td className="py-3 px-4">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${leave.status === 'Approved'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : leave.status === 'Pending'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : leave.status === 'Pending'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
                             }`}
                         >
                           {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -832,11 +852,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           {leave.status === 'Pending' ? (
                             <div className="flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() =>
-                                  handleApprove(leave.id, leave.employeeName, leave.leaveType, leave.employeeId)
-                                }
+                                onClick={() => handleOpenApproveModal(leave)}
                                 disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                                 title="Approve Request"
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -912,8 +930,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${isActive
-                            ? 'bg-slate-900 text-white shadow-xs'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                           }`}
                       >
                         {pageNum}
@@ -936,6 +954,118 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </div>
         )}
       </div>
+
+      {/* Approval Confirmation Modal Dialog */}
+      {approvingLeave && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setApprovingLeave(null);
+          }}
+          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Approve Leave Application
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApprovingLeave(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Are you sure you want to approve the leave application for{' '}
+                <strong className="text-slate-900">{approvingLeave.employeeName}</strong>?
+              </p>
+
+              {/* Leave Details Summary Box */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-500">Leave Type:</span>
+                  <span className="font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                    {approvingLeave.leaveType}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-500">Duration:</span>
+                  <span className="font-bold text-slate-800">
+                    {approvingLeave.startDate} to {approvingLeave.endDate} ({approvingLeave.daysCount} {approvingLeave.daysCount === 1 ? 'day' : 'days'})
+                  </span>
+                </div>
+                {approvingLeave.departmentName && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-slate-500">Department:</span>
+                    <span className="font-medium text-slate-700">{approvingLeave.departmentName}</span>
+                  </div>
+                )}
+                {approvingLeave.reason && (
+                  <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                    <span className="font-semibold text-slate-500 block mb-0.5">Reason:</span>
+                    <p className="text-slate-700 italic bg-white p-2 rounded-lg border border-slate-100">
+                      &ldquo;{approvingLeave.reason}&rdquo;
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  Approval Remarks (Optional):
+                </label>
+                <input
+                  type="text"
+                  value={approvalRemarks}
+                  onChange={(e) => setApprovalRemarks(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  placeholder="e.g. Approved by HR Administration"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setApprovingLeave(null)}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApprove}
+                disabled={processingId === approvingLeave.id}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              >
+                {processingId === approvingLeave.id ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Confirm Approve</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rejection Modal Dialog */}
       {rejectingLeave && (
