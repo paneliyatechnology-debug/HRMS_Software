@@ -38,6 +38,7 @@ export interface WorkSessionContextType {
   currentBreak: any | null;
   lastCompletedSession: any | null;
   todaySummary: any | null;
+  todaySessions: any[];
   serverTime: string | null;
   actionLoading: boolean;
   initialLoading: boolean;
@@ -64,6 +65,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [currentBreak, setCurrentBreak] = useState<any | null>(null);
   const [lastCompletedSession, setLastCompletedSession] = useState<any | null>(null);
   const [todaySummary, setTodaySummary] = useState<any | null>(null);
+  const [todaySessions, setTodaySessions] = useState<any[]>([]);
   const [serverTime, setServerTime] = useState<string | null>(null);
 
   const [actionLoading, setActionLoading] = useState(false);
@@ -118,6 +120,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setCurrentBreak(data.currentBreak || null);
       setLastCompletedSession(data.lastCompletedSession || null);
       setTodaySummary(data.todaySummary || null);
+      setTodaySessions(Array.isArray(data.todaySessions) ? data.todaySessions : []);
 
       const hasActive = Boolean(
         data.hasActiveSession ||
@@ -597,6 +600,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         currentBreak,
         lastCompletedSession,
         todaySummary,
+        todaySessions,
         serverTime,
         actionLoading,
         initialLoading,

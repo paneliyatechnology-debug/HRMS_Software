@@ -38,7 +38,7 @@ import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
-const EmployeeDrawer = dynamic(() => import('../modals/EmployeeDrawer').then((m) => m.EmployeeDrawer), { ssr: false });
+import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
 const GlobalSearchModal = dynamic(() => import('../modals/GlobalSearchModal').then((m) => m.GlobalSearchModal), { ssr: false });
 const MobileConnectModal = dynamic(() => import('../modals/MobileConnectModal').then((m) => m.MobileConnectModal), { ssr: false });

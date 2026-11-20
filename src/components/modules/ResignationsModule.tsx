@@ -166,7 +166,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       const actorName = `${user.firstName || 'HR'} ${user.lastName || 'Admin'}`;
       const updated = await api.approveResignation(resId, actorName);
 
-      setResignations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...updated, status: 'Completed' } : r)));
+      setResignations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...updated } : r)));
       showToast({
         type: 'success',
         title: 'Resignation Approved',

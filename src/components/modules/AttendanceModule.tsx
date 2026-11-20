@@ -263,6 +263,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   // Dedicated state for authoritative work status response (/api/attendance/work/status)
   const [workStatusData, setWorkStatusData] = useState<any>(null);
+  const [historySessions, setHistorySessions] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
   const isFetchingWorkStatusRef = React.useRef(false);
 
   const fetchWorkStatus = useCallback(async () => {
@@ -279,17 +282,36 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   }, []);
 
+  const loadWorkHistory = useCallback(async () => {
+    if (!isEmployeeView) return;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const res = await api.getWorkHistory(1, 100);
+      setHistorySessions(Array.isArray(res.sessions) ? res.sessions : []);
+    } catch (err: any) {
+      setHistorySessions([]);
+      setHistoryError(err?.message || 'Could not load attendance log history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [isEmployeeView]);
+
   // Sync logged in employee's work status from backend on mount only if not already loaded by WorkSessionContext, and on punch updates
   useEffect(() => {
     if (!todaySummary && !activeSession && !lastCompletedSession) {
       fetchWorkStatus();
     }
-    const handleUpdate = () => fetchWorkStatus();
+    loadWorkHistory();
+    const handleUpdate = () => {
+      fetchWorkStatus();
+      loadWorkHistory();
+    };
     window.addEventListener('hrms_work_status_updated', handleUpdate);
     return () => {
       window.removeEventListener('hrms_work_status_updated', handleUpdate);
     };
-  }, [fetchWorkStatus, todaySummary, activeSession, lastCompletedSession]);
+  }, [fetchWorkStatus, loadWorkHistory, todaySummary, activeSession, lastCompletedSession]);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -510,44 +532,79 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   };
 
-  // Full daily attendance records for the logged-in employee (Strictly Today Only per user requirement)
+  // Daily attendance for the logged-in employee, including past days from /attendance/work/history
   const employeeDailyRecords = React.useMemo(() => {
     const todayDateStr = getTodayDateString();
     const map = new Map<string, AttendanceRecord>();
 
-    const isRecordForToday = (r: any): boolean => {
-      if (!r) return false;
-      const d = r.date || r.todayDate || r.attendanceDate || r.startTime || r.createdAt;
-      if (!d) return false;
-      const clean = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : String(d);
-      return clean === todayDateStr;
+    const cleanRecordDate = (r: any): string => {
+      const d = r?.date || r?.todayDate || r?.attendanceDate || r?.startTime || r?.createdAt;
+      if (!d) return '';
+      if (typeof d === 'string' && d.includes('T')) {
+        const parsed = new Date(d);
+        if (!isNaN(parsed.getTime())) {
+          const month = String(parsed.getMonth() + 1).padStart(2, '0');
+          const day = String(parsed.getDate()).padStart(2, '0');
+          return `${parsed.getFullYear()}-${month}-${day}`;
+        }
+        return d.split('T')[0];
+      }
+      return String(d).slice(0, 10);
     };
 
-    // 1. Process database records for today only
     (records || []).forEach((r) => {
-      if (r && isRecordForToday(r) && isMyAttendanceRecord(r)) {
-        const cleanDate = r.date && !r.date.includes('T') ? r.date : todayDateStr;
+      if (r && isMyAttendanceRecord(r)) {
+        const cleanDate = cleanRecordDate(r) || todayDateStr;
         map.set(cleanDate, { ...r, date: cleanDate });
       }
     });
 
-    // 2. Overlay live records for today only
     (liveRecords || []).forEach((r) => {
-      if (r && isRecordForToday(r) && isMyAttendanceRecord(r)) {
-        const cleanDate = r.date && !r.date.includes('T') ? r.date : todayDateStr;
+      if (r && isMyAttendanceRecord(r)) {
+        const cleanDate = cleanRecordDate(r) || todayDateStr;
         map.set(cleanDate, { ...r, date: cleanDate });
       }
+    });
+
+    if (historySessions.length > 0) {
+      map.clear();
+    }
+    historySessions.forEach((session) => {
+      const cleanDate = cleanRecordDate(session);
+      if (!cleanDate || !session?.id) return;
+      const active = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
+      const breakSeconds = Number(session.totalBreakSeconds) || 0;
+      const workSeconds = Number(session.durationSeconds) || 0;
+      map.set(session.id, {
+        id: session.id,
+        employeeId: session.employeeId || selfEmployee?.id || myEmpId,
+        employeeName: session.employeeName || (selfEmployee ? `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim() : ''),
+        employeeCode: selfEmployee?.employeeCode,
+        date: cleanDate,
+        checkIn: formatIsoTo12HourTime(session.startTime) || '—',
+        checkOut: active ? undefined : formatIsoTo12HourTime(session.endTime),
+        status: session.status === 'ON_BREAK' ? 'On Break' : active ? 'Working' : 'Completed',
+        isCompleted: !active,
+        isOnBreak: session.status === 'ON_BREAK',
+        activeSeconds: workSeconds,
+        breakSeconds,
+        formattedTotalBreak: session.formattedTotalBreak || formatSecondsToWords(breakSeconds),
+        durationFormatted: session.durationFormatted || formatSecondsToHMS(workSeconds),
+        createdAt: session.startTime,
+      } as AttendanceRecord);
     });
 
     // 3. Ensure today's live record is present with most current ticking/punch state
-    const todayRec = selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
-    if (todayRec && (isRecordForToday(todayRec) || !todayRec.date)) {
+    const todayRec = historySessions.length === 0 && selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
+    if (todayRec) {
       const cleanDate = todayRec.date && !todayRec.date.includes('T') ? todayRec.date : todayDateStr;
       map.set(cleanDate, { ...todayRec, date: cleanDate });
     }
 
     // 4. Authoritative overlay from /api/attendance/work/status (todayDate, status, start time, end time, break time, active work time)
-    const statusDataToUse = workStatusData || (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
+    const statusDataToUse = historySessions.length === 0
+      ? (workStatusData || (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null))
+      : null;
     if (statusDataToUse) {
       const summary = statusDataToUse.todaySummary;
       const active = statusDataToUse.activeSession;
@@ -616,9 +673,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
     // Sort descending by date (newest first)
     return Array.from(map.values()).sort((a, b) => {
-      return (b.date || '').localeCompare(a.date || '');
+      const aTime = (a as any).createdAt || a.date || '';
+      const bTime = (b as any).createdAt || b.date || '';
+      return String(bTime).localeCompare(String(aTime));
     });
-  }, [records, liveRecords, selfEmployee, isMyAttendanceRecord, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS]);
+  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS]);
 
   // Helper to reliably extract and format break time for any attendance record
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
@@ -1273,7 +1332,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      await fetchWorkStatus();
+                      await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
                       onRefresh?.();
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -1288,8 +1347,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               {/* VIEW 1: Employee Daily Attendance */}
               {isEmployeeView ? (
                 <>
-                  {/* Empty state when no daily records exist */}
-                  {employeeDailyRecords.length === 0 ? (
+                  {historyError ? (
+                    <div className="py-10 px-4 text-center">
+                      <h4 className="text-sm font-bold text-rose-700">Attendance history could not be loaded</h4>
+                      <p className="text-xs text-slate-500 mt-1">{historyError}</p>
+                    </div>
+                  ) : historyLoading && employeeDailyRecords.length === 0 ? (
+                    <div className="py-14 px-4 text-center text-xs text-slate-500">Loading attendance log history...</div>
+                  ) : employeeDailyRecords.length === 0 ? (
                     <div className="py-14 px-4 text-center">
                       <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
                         <Clock className="w-6 h-6" />
@@ -1303,7 +1368,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <>
                       {/* Mobile Cards View (Visible on < md) */}
                       <div className="md:hidden divide-y divide-slate-100">
-                        {employeeDailyRecords.map((rec) => {
+                        {employeeDailyRecords.map((rec, recIdx) => {
                           const dateInfo = formatDailyDate(rec.date);
                           const isToday = dateInfo.isToday;
                           const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
@@ -1313,7 +1378,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           const breakSecs = getLiveBreakSeconds(rec);
 
                           return (
-                            <div key={rec.id || rec.date} className="p-3.5 space-y-2.5">
+                            <div key={`${rec.id || rec.date}-m-${recIdx}`} className="p-3.5 space-y-2.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-1.5">
@@ -1394,7 +1459,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {employeeDailyRecords.map((rec) => {
+                            {employeeDailyRecords.map((rec, recIdx) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
                               const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
@@ -1402,7 +1467,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
 
                               return (
-                                <tr key={rec.id || rec.date} className="hover:bg-slate-50/70 transition-colors">
+                                <tr key={`${rec.id || rec.date}-d-${recIdx}`} className="hover:bg-slate-50/70 transition-colors">
                                   {!isEmployeeView && (
                                     <td className="py-3 px-4 font-semibold text-slate-900">
                                       {rec.employeeName || rec.employeeId}

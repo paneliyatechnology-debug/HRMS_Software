@@ -938,18 +938,25 @@ export const api = {
     return this.resumeBreak(data);
   },
 
-  async getWorkHistory(page = 1, limit = 10) {
-    return fetchWithFallback<{
-      data: any[];
+  async getWorkHistory(page = 1, limit = 50, employeeId?: string) {
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (employeeId) query.set('employeeId', employeeId);
+    const res = await fetchWithFallback<{
+      sessions?: any[];
+      data?: any[];
       total: number;
       page: number;
       limit: number;
-    }>(`/api/attendance/work/history?page=${page}&limit=${limit}`, undefined, {
-      data: [],
-      total: 0,
-      page,
-      limit,
-    });
+    }>(`/attendance/work/history?${query.toString()}`);
+    const sessions = Array.isArray(res?.sessions)
+      ? res.sessions
+      : Array.isArray(res?.data)
+        ? res.data
+        : [];
+    return { ...res, sessions, data: sessions };
   },
 
   getWorkSelfieUrl(workSessionId: string, type: 'start' | 'stop') {

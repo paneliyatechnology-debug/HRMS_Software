@@ -382,16 +382,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       const targetUserId = (selectedEmp as any).userId || selectedEmp.id;
 
       // Find target designation for the selected department or use default
-      const matchingDes =
-        designations.find((d) => d.departmentId === selectedDept.id) ||
-        designations.find((d) => d.id === 'des-1793877127945') ||
-        designations[0];
-      const targetDesId = matchingDes?.id || 'des-1793877127945';
+      const matchingDes = designations.find((d) => d.departmentId === selectedDept.id);
 
       // 1. Call POST /organization/designations/:id/members with { userIds: [targetUserId] }
       let apiMessage = '';
       try {
-        const desRes = await api.addDesignationMembers(targetDesId, [targetUserId]);
+        const desRes = matchingDes
+          ? await api.addDesignationMembers(matchingDes.id, [targetUserId])
+          : null;
         if (desRes?.message) {
           apiMessage = desRes.message;
         }
