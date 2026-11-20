@@ -283,18 +283,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="hrms-page-title">
-            Executive Analytics &amp; Reports
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Real company intelligence for {company?.companyName || company?.name || 'Selected Company'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        <button
             onClick={handleExport}
             disabled={loading}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
@@ -310,7 +300,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             <Printer className="w-4 h-4" />
           </button>
         </div>
-      </div>
 
       {/* KPI Cards: 100% Genuine Scoped Data */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

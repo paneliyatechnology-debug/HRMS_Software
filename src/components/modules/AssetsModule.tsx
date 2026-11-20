@@ -184,17 +184,9 @@ export const AssetsModule: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="hrms-page-title">
-              Enterprise Hardware &amp; Asset Registry
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
-              {assets.length} Tracked Items
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Track hardware allocation, serial numbers, warranty terms, and IT return clearances
-          </p>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
+            {assets.length} Tracked Items
+          </span>
         </div>
 
         <button

@@ -616,8 +616,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {portalMode !== 'admin' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
           <div>
-            <h1 className="hrms-page-title">
-              Hello, {user.firstName || 'Employee'}!
+            <h1 className="text-2xl sm:text-[28px] font-bold leading-tight tracking-[-0.025em] text-[#0f172a] flex items-baseline gap-1.5 flex-wrap">
+              <span>Hello,</span>
+              <span className="text-[#1b4332]">{user.firstName || 'Employee'}!</span>
             </h1>
           </div>
         </div>

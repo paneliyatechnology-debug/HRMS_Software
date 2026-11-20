@@ -28,11 +28,15 @@ import {
   LayoutGrid,
   ListOrdered,
   Award,
+  CalendarOff,
+  UserMinus,
 } from 'lucide-react';
 import { AttendanceRecord, LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { getAllLeaves, setLiveLeaves } from '../../lib/leaveService';
+import { getAllEmployees } from '../../lib/employeeService';
 import {
   WorkScheduleConfig,
   getWorkScheduleConfig,
@@ -51,7 +55,7 @@ interface CalendarModuleProps {
 
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
   attendance,
-  leaves: _leaves,
+  leaves: leavesProp = [],
   onOpenLeaveModal: _onOpenLeaveModal,
   onOpenClockModal,
   portalMode = 'admin',
@@ -76,6 +80,113 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     ? attendance.filter((record) => !isOwnPunch(record))
     : attendance.filter((record) => isOwnPunch(record));
 
+  // Live in-memory leaves store for calendar
+  const [leavesList, setLeavesList] = useState<LeaveRequest[]>(() =>
+    Array.isArray(leavesProp) && leavesProp.length > 0 ? leavesProp : getAllLeaves() || []
+  );
+
+  useEffect(() => {
+    if (Array.isArray(leavesProp) && leavesProp.length > 0) {
+      setLeavesList(leavesProp);
+    }
+  }, [leavesProp]);
+
+  // Real-time synchronization & fallback fetch for leaves
+  useEffect(() => {
+    let active = true;
+    const loadLeaves = async () => {
+      try {
+        const data = await api.getLeaves();
+        if (!active) return;
+        if (Array.isArray(data)) {
+          setLeavesList(data);
+          setLiveLeaves(data);
+        }
+      } catch (err) {
+        console.error('Failed to load leaves for calendar:', err);
+      }
+    };
+
+    if (!leavesProp || leavesProp.length === 0) {
+      loadLeaves();
+    }
+
+    const handleLeavesUpdate = () => {
+      loadLeaves();
+    };
+
+    window.addEventListener('hrms_leaves_updated', handleLeavesUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener('hrms_leaves_updated', handleLeavesUpdate);
+    };
+  }, [leavesProp]);
+
+  // Normalize date string to YYYY-MM-DD
+  const normalizeDate = (d?: string): string => {
+    if (!d) return '';
+    const str = String(d).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      return str.slice(0, 10);
+    }
+    const dateObj = new Date(str);
+    if (!isNaN(dateObj.getTime())) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return str;
+  };
+
+  const isLeaveActiveOnDate = (leave: LeaveRequest, targetDateStr: string): boolean => {
+    if (!leave) return false;
+    if (leave.status === 'Rejected' || (leave.status as string) === 'Cancelled') return false;
+
+    const start = normalizeDate(leave.startDate);
+    const end = normalizeDate(leave.endDate) || start;
+
+    if (start && end) {
+      if (targetDateStr >= start && targetDateStr <= end) {
+        return true;
+      }
+    }
+
+    if (Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.length > 0) {
+      return leave.dayBreakdown.some((bd) => normalizeDate(bd.date) === targetDateStr);
+    }
+
+    return false;
+  };
+
+  const resolveLeaveEmployeeName = (leave: LeaveRequest): string => {
+    if (leave.employeeName && leave.employeeName !== 'Staff Member' && leave.employeeName !== 'Staff Employee') {
+      return leave.employeeName;
+    }
+    const emps = getAllEmployees();
+    const emp = emps.find((e) => e.id === leave.employeeId);
+    if (emp) {
+      return `${emp.firstName} ${emp.lastName || ''}`.trim();
+    }
+    return leave.employeeName || 'Staff Member';
+  };
+
+  const resolveLeaveDepartment = (leave: LeaveRequest): string => {
+    if (leave.departmentName && leave.departmentName !== 'General' && leave.departmentName !== '--') {
+      return leave.departmentName;
+    }
+    const emps = getAllEmployees();
+    const emp = emps.find((e) => e.id === leave.employeeId);
+    return emp?.departmentName || leave.departmentName || 'General';
+  };
+
+  const isOwnLeave = (leave: LeaveRequest): boolean => {
+    return (
+      (!!myEmpId && (leave.employeeId === myEmpId || leave.employeeId === user?.id)) ||
+      (!!myEmpCode && (leave as any).employeeCode === myEmpCode)
+    );
+  };
+
   // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster)
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays'>('grid');
   const [filterType, setFilterType] = useState<'all' | 'attendance' | 'holidays'>('all');
@@ -99,6 +210,114 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [deletingHoliday, setDeletingHoliday] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingHoliday, setIsDeletingHoliday] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Tooltip Hover Popup State for Dates & Employees on Leave
+  interface HoveredDateInfo {
+    day: number;
+    dateStr: string;
+    isCurrentMonth: boolean;
+    isToday: boolean;
+    isWeekend: boolean;
+    holiday?: string;
+    holidayObj?: any;
+    attendance?: AttendanceRecord;
+    staffCount?: number;
+    leaves: LeaveRequest[];
+  }
+
+  interface HoverPosition {
+    x: number;
+    y: number;
+    placement: 'top' | 'bottom';
+  }
+
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<HoveredDateInfo | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<HoverPosition | null>(null);
+
+  const handleCellMouseEnter = (e: React.MouseEvent<HTMLDivElement>, item: any) => {
+    if (!item.isCurrentMonth && !item.day) return;
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const popupWidth = 320;
+    const estimatedHeight = 250;
+
+    let x = rect.left + rect.width / 2 - popupWidth / 2;
+    const minX = 12;
+    const maxX = window.innerWidth - popupWidth - 12;
+    x = Math.max(minX, Math.min(x, maxX));
+
+    let y: number;
+    let placement: 'top' | 'bottom';
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    if (spaceBelow >= estimatedHeight + 16 || spaceBelow >= spaceAbove) {
+      y = rect.bottom + 8;
+      placement = 'bottom';
+    } else {
+      y = rect.top - 8;
+      placement = 'top';
+    }
+
+    const isToday =
+      item.isCurrentMonth &&
+      item.day === todayDateNum &&
+      month === todayMonth &&
+      year === todayYear;
+
+    setHoveredDate({
+      day: item.day,
+      dateStr: item.dateStr,
+      isCurrentMonth: item.isCurrentMonth,
+      isToday,
+      isWeekend: item.isWeekend,
+      holiday: item.holiday,
+      holidayObj: item.holidayObj,
+      attendance: item.attendance,
+      staffCount: item.staffCount,
+      leaves: item.leaves || [],
+    });
+
+    setHoverPosition({ x, y, placement });
+  };
+
+  const handleCellMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredDate(null);
+      setHoverPosition(null);
+    }, 120);
+  };
+
+  const handlePopupMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const handlePopupMouseLeave = () => {
+    setHoveredDate(null);
+    setHoverPosition(null);
+  };
+
+  useEffect(() => {
+    const handleScrollOrResize = () => {
+      setHoveredDate(null);
+      setHoverPosition(null);
+    };
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   // Corporate Work Schedule & Weekend Config (Loaded from backend settings)
   const [scheduleConfig, setScheduleConfig] = useState<WorkScheduleConfig>(() =>
@@ -259,7 +478,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   };
 
   const handleConfirmDeleteHoliday = async () => {
-    if (!deletingHoliday) return;
+    if (!deletingHoliday || portalMode === 'employee') return;
     const { id, name } = deletingHoliday;
     setIsDeletingHoliday(true);
     try {
@@ -351,11 +570,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = prevMonthDays - i;
       const dateStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
       list.push({
         day: dNum,
         isCurrentMonth: false,
         dateStr,
         isWeekend: isDateWeekend(dateStr, scheduleConfig),
+        leaves: dayLeaves,
       });
     }
 
@@ -367,6 +588,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
       const dayRecords = userAttendance.filter((a) => a.date === dateStr);
       const holObj = holidayDateMap[dateStr];
+      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
 
       list.push({
         day: d,
@@ -378,6 +600,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         staffCount: isAdminCalendar ? dayRecords.length : 0,
         holiday: holObj?.name,
         holidayObj: holObj,
+        leaves: dayLeaves,
       });
     }
 
@@ -389,16 +612,18 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const remainingSlots = totalSlots - list.length;
     for (let i = 1; i <= remainingSlots; i++) {
       const dateStr = `${nextYear}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
       list.push({
         day: i,
         isCurrentMonth: false,
         dateStr,
         isWeekend: isDateWeekend(dateStr, scheduleConfig),
+        leaves: dayLeaves,
       });
     }
 
     return list;
-  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig]);
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig, leavesList]);
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
@@ -456,11 +681,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {/* Page Title Header */}
-      <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
-        <h1 className="hrms-page-title">Calendar &amp; Holidays</h1>
-      </div>
-
       {/* =========================================================================
           TOP EXECUTIVE METRICS CARDS
           ========================================================================= */}
@@ -744,6 +964,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   onClick={() => {
                     if (item.isCurrentMonth) setSelectedDay(item.day);
                   }}
+                  onMouseEnter={(e) => handleCellMouseEnter(e, item)}
+                  onMouseLeave={handleCellMouseLeave}
                   className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between cursor-pointer group ${cellStyle}`}
                 >
                   {/* Day Number Header */}
@@ -828,6 +1050,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             }`}
                         />
                         <span className="truncate">{item.attendance.status}</span>
+                      </div>
+                    )}
+
+                    {/* Employees on Leave Badge */}
+                    {item.isCurrentMonth && item.leaves && item.leaves.length > 0 && (
+                      <div
+                        className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-amber-50 text-amber-900 border-amber-200 shadow-2xs"
+                        title={`${item.leaves.length} employee(s) on leave`}
+                      >
+                        <CalendarOff className="w-2.5 h-2.5 shrink-0 text-amber-700" />
+                        <span className="truncate">{item.leaves.length} on leave</span>
                       </div>
                     )}
                   </div>
@@ -945,6 +1178,70 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 Attendance &amp; presence verified
               </span>
             </div>
+          </div>
+
+          {/* Employees On Leave in Selected Day */}
+          <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#212529] flex items-center gap-2">
+                <CalendarOff className="w-4 h-4 text-[#2d6a4f]" />
+                <span>Employees on Leave ({selectedDayInfo.leaves?.length || 0})</span>
+              </span>
+              {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  {selectedDayInfo.leaves.length} on leave
+                </span>
+              )}
+            </div>
+
+            {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                {selectedDayInfo.leaves.map((lv: LeaveRequest, lIdx: number) => {
+                  const empName = resolveLeaveEmployeeName(lv);
+                  const deptName = resolveLeaveDepartment(lv);
+                  const isApproved = lv.status === 'Approved';
+                  const isOwn = isOwnLeave(lv);
+
+                  return (
+                    <div
+                      key={lv.id || lIdx}
+                      className="p-2.5 rounded-xl bg-white border border-[#dee2e6] hover:border-[#95d5b2] transition-all flex items-center justify-between gap-2 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-[#1b4332] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                          {empName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 leading-tight">
+                          <p className="text-xs font-bold text-[#212529] truncate flex items-center gap-1">
+                            <span>{empName}</span>
+                            {isOwn && <span className="text-[10px] font-semibold text-[#2d6a4f]">(You)</span>}
+                          </p>
+                          <p className="text-[10px] text-[#6c757d] truncate">
+                            {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
+                            {lv.isHalfDay && ' (Half Day)'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 border ${
+                          isApproved
+                            ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {lv.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 py-2 text-xs text-[#6c757d]">
+                <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
+                <span>No employees on leave on this date.</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1125,17 +1422,19 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingHoliday({ id: holidayId, name: h.name });
-                    }}
-                    className="p-1.5 rounded-xl text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                    title="Delete Holiday"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {portalMode !== 'employee' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingHoliday({ id: holidayId, name: h.name });
+                      }}
+                      className="p-1.5 rounded-xl text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      title="Delete Holiday"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -1470,6 +1769,194 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       )}
 
       {/* =========================================================================
+          ANIMATED FLOATING HOVER POPUP (DATE DETAILS & EMPLOYEES ON LEAVE)
+          ========================================================================= */}
+      {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
+            style={{
+              position: 'fixed',
+              left: `${hoverPosition.x}px`,
+              ...(hoverPosition.placement === 'bottom'
+                ? { top: `${hoverPosition.y}px` }
+                : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
+              zIndex: 99999,
+            }}
+            className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${
+              hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
+            }`}
+          >
+            {/* Header: Date + Day Badge */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  {hoveredDate.day}
+                </div>
+                <div className="leading-tight">
+                  <h4 className="text-xs font-bold text-[#212529]">
+                    {hoveredDate.day} {monthNames[month]} {year}
+                  </h4>
+                  <span className="text-[10px] text-[#6c757d] font-medium">
+                    {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Day Classification Badge */}
+              <div>
+                {hoveredDate.holiday ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
+                    <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
+                    <span className="truncate max-w-[80px]">Holiday</span>
+                  </span>
+                ) : hoveredDate.isWeekend ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
+                    <span>Weekend</span>
+                  </span>
+                ) : hoveredDate.isToday ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+                    <span>Today</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
+                    Work Day
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Date Details / Shift & Punch Summary */}
+            <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
+              {hoveredDate.holiday ? (
+                <div className="flex items-start gap-1.5 text-[#1b4332]">
+                  <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">{hoveredDate.holiday}</span>
+                    {hoveredDate.holidayObj?.description && (
+                      <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
+                        {hoveredDate.holidayObj.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : hoveredDate.isWeekend ? (
+                <div className="flex items-center gap-1.5 text-[#495057]">
+                  <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
+                  <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[#495057]">
+                    <span className="text-[10px] text-[#6c757d]">Shift:</span>
+                    <span className="font-semibold text-[#212529]">
+                      {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
+                    </span>
+                  </div>
+
+                  {isAdminCalendar ? (
+                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px] text-[#6c757d]">Present:</span>
+                      <span className="font-semibold text-[#1b4332] flex items-center gap-1">
+                        <Users className="w-3 h-3 text-[#2d6a4f]" />
+                        <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
+                      </span>
+                    </div>
+                  ) : hoveredDate.attendance ? (
+                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px] text-[#6c757d]">Punch:</span>
+                      <span className="font-semibold text-[#1b4332]">
+                        {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
+                        {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px]">Status:</span>
+                      <span className="text-[10px] font-medium italic">No attendance punched</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Employees On Leave List Section */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
+                  <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                  <span>Employees on Leave</span>
+                </span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    hoveredDate.leaves.length > 0
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-[#e9ecef] text-[#6c757d]'
+                  }`}
+                >
+                  {hoveredDate.leaves.length}
+                </span>
+              </div>
+
+              {hoveredDate.leaves.length === 0 ? (
+                <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                  <span>No employees on leave on this date</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
+                  {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
+                    const empName = resolveLeaveEmployeeName(lv);
+                    const deptName = resolveLeaveDepartment(lv);
+                    const isApproved = lv.status === 'Approved';
+                    const isOwn = isOwnLeave(lv);
+
+                    return (
+                      <div
+                        key={lv.id || lIdx}
+                        className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {empName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 leading-tight">
+                            <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
+                              <span>{empName}</span>
+                              {isOwn && (
+                                <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-[#6c757d] truncate">
+                              {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
+                              {lv.isHalfDay && ' (Half Day)'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${
+                            isApproved
+                              ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {lv.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* =========================================================================
           MODAL: CONFIGURE CORPORATE WEEKEND POLICY
           ========================================================================= */}
       {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
@@ -1650,6 +2137,194 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>,
         document.body
       )}
+
+      {/* =========================================================================
+          ANIMATED FLOATING HOVER POPUP (DATE DETAILS & EMPLOYEES ON LEAVE)
+          ========================================================================= */}
+      {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
+            style={{
+              position: 'fixed',
+              left: `${hoverPosition.x}px`,
+              ...(hoverPosition.placement === 'bottom'
+                ? { top: `${hoverPosition.y}px` }
+                : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
+              zIndex: 99999,
+            }}
+            className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${
+              hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
+            }`}
+          >
+            {/* Header: Date + Day Badge */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  {hoveredDate.day}
+                </div>
+                <div className="leading-tight">
+                  <h4 className="text-xs font-bold text-[#212529]">
+                    {hoveredDate.day} {monthNames[month]} {year}
+                  </h4>
+                  <span className="text-[10px] text-[#6c757d] font-medium">
+                    {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Day Classification Badge */}
+              <div>
+                {hoveredDate.holiday ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
+                    <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
+                    <span className="truncate max-w-[80px]">Holiday</span>
+                  </span>
+                ) : hoveredDate.isWeekend ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
+                    <span>Weekend</span>
+                  </span>
+                ) : hoveredDate.isToday ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+                    <span>Today</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
+                    Work Day
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Date Details / Shift & Punch Summary */}
+            <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
+              {hoveredDate.holiday ? (
+                <div className="flex items-start gap-1.5 text-[#1b4332]">
+                  <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">{hoveredDate.holiday}</span>
+                    {hoveredDate.holidayObj?.description && (
+                      <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
+                        {hoveredDate.holidayObj.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : hoveredDate.isWeekend ? (
+                <div className="flex items-center gap-1.5 text-[#495057]">
+                  <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
+                  <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[#495057]">
+                    <span className="text-[10px] text-[#6c757d]">Shift:</span>
+                    <span className="font-semibold text-[#212529]">
+                      {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
+                    </span>
+                  </div>
+
+                  {isAdminCalendar ? (
+                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px] text-[#6c757d]">Present:</span>
+                      <span className="font-semibold text-[#1b4332] flex items-center gap-1">
+                        <Users className="w-3 h-3 text-[#2d6a4f]" />
+                        <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
+                      </span>
+                    </div>
+                  ) : hoveredDate.attendance ? (
+                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px] text-[#6c757d]">Punch:</span>
+                      <span className="font-semibold text-[#1b4332]">
+                        {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
+                        {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
+                      <span className="text-[10px]">Status:</span>
+                      <span className="text-[10px] font-medium italic">No attendance punched</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Employees On Leave List Section */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
+                  <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                  <span>Employees on Leave</span>
+                </span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    hoveredDate.leaves.length > 0
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-[#e9ecef] text-[#6c757d]'
+                  }`}
+                >
+                  {hoveredDate.leaves.length}
+                </span>
+              </div>
+
+              {hoveredDate.leaves.length === 0 ? (
+                <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                  <span>No employees on leave on this date</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
+                  {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
+                    const empName = resolveLeaveEmployeeName(lv);
+                    const deptName = resolveLeaveDepartment(lv);
+                    const isApproved = lv.status === 'Approved';
+                    const isOwn = isOwnLeave(lv);
+
+                    return (
+                      <div
+                        key={lv.id || lIdx}
+                        className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {empName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 leading-tight">
+                            <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
+                              <span>{empName}</span>
+                              {isOwn && (
+                                <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-[#6c757d] truncate">
+                              {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
+                              {lv.isHalfDay && ' (Half Day)'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${
+                            isApproved
+                              ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {lv.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

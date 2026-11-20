@@ -42,16 +42,7 @@ export const AuditLogsModule: React.FC = () => {
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="hrms-page-title">
-            Security &amp; Compliance Audit Trail
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Immutable log of all user logins, administrative state updates, payroll executions, and permission changes
-          </p>
-        </div>
-
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-2">
           <button
             onClick={loadLogs}

@@ -639,17 +639,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {/* ── Page Header + Tab Bar ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-xs">
-              <Building2 className="w-4 h-4 text-white" />
-            </span>
-            <span className="hrms-page-title">About Organisation</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">Company profile, structure & corporate identity</p>
-        </div>
+      {/* ── Tab Bar ─────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
         <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
           {[
             { key: 'departments', label: `Departments (${departments.length})`, icon: Layers },

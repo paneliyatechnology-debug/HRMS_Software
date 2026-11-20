@@ -113,17 +113,9 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="hrms-page-title">
-              Performance Management &amp; OKRs
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
-              {cycles[0]?.title || 'Q3-Q4 2026 Cycle'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Goal tracking, quarterly appraisal cycles, self-assessment ratings, and manager 360-degree feedback
-          </p>
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
+            {cycles[0]?.title || 'Q3-Q4 2026 Cycle'}
+          </span>
         </div>
 
         {cycles.length > 0 && (

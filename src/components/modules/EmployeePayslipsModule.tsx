@@ -150,24 +150,8 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Module Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
-              <Receipt className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            <div>
-              <h1 className="hrms-page-title">
-                My Payslips &amp; Salary History
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                View, download, and print your month-wise official salary disbursement slips.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      {/* Top Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
         {/* Year Filter Tabs */}
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 shrink-0 self-start sm:self-auto">
           <button

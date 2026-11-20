@@ -22,6 +22,7 @@ import {
   performTakeBreak,
   performResumeWork,
   performCheckOut,
+  parseTimeStringToTimestamp,
 } from '../lib/attendanceService';
 
 export type WorkPunchStatus = 'not_started' | 'working' | 'on_break' | 'completed';
@@ -146,40 +147,145 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setStatus(resolved);
       statusRef.current = resolved;
       anchorTimeRef.current = Date.now();
-      clockRef.current = data.clock || null;
-      if (data.clock && publishClock(data.clock)) {
-        // Employee clock uses the same break-start timestamps as the admin list.
+
+      // Build authoritative live clock whenever an active session is in progress
+      let activeClock = data.clock || null;
+      if (!activeClock && hasActive && data.activeSession) {
+        const sessionStartTime =
+          data.activeSession.startTime ||
+          data.activeSession.startedAt ||
+          data.activeSession.createdAt ||
+          data.activeSession.checkIn;
+
+        if (sessionStartTime) {
+          let sessionClosedBreakSeconds = 0;
+          if (Array.isArray(data.activeSession.breaks)) {
+            data.activeSession.breaks.forEach((b: any) => {
+              if (b.resumeBreak && b.startBreak) {
+                sessionClosedBreakSeconds += Math.max(
+                  0,
+                  Math.floor((new Date(b.resumeBreak).getTime() - new Date(b.startBreak).getTime()) / 1000)
+                );
+              } else if (b.endTime && b.startTime) {
+                sessionClosedBreakSeconds += Math.max(
+                  0,
+                  Math.floor((new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 1000)
+                );
+              } else if (typeof b.durationSeconds === 'number') {
+                sessionClosedBreakSeconds += b.durationSeconds;
+              } else if (typeof b.duration === 'number') {
+                sessionClosedBreakSeconds += b.duration;
+              }
+            });
+          }
+          if (sessionClosedBreakSeconds === 0) {
+            sessionClosedBreakSeconds =
+              Number(data.activeSession.totalBreakSeconds) ||
+              Number(data.totalBreakSeconds) ||
+              0;
+          }
+
+          const totalSessions = Number(data.todaySummary?.totalSessionsToday) || 0;
+          const priorWork =
+            totalSessions > 1 && data.lastCompletedSession
+              ? Number(data.lastCompletedSession.durationSeconds) || 0
+              : 0;
+          const priorBreak =
+            totalSessions > 1 && data.lastCompletedSession
+              ? Number(data.lastCompletedSession.totalBreakSeconds) || 0
+              : 0;
+
+          const openBreakStartTime = isOnBrk
+            ? data.currentBreak?.startTime ||
+              data.currentBreak?.startBreak ||
+              data.activeSession.currentBreak?.startTime ||
+              data.activeSession.openBreakStartTime ||
+              data.activeSession.lastBreakTimestamp ||
+              data.serverTime ||
+              new Date().toISOString()
+            : null;
+
+          activeClock = {
+            isLive: true,
+            sessionStartTime,
+            isOnBreak: isOnBrk,
+            openBreakStartTime,
+            completedWorkSeconds: priorWork,
+            completedBreakSeconds: priorBreak,
+            sessionClosedBreakSeconds,
+          };
+        }
+      }
+
+      clockRef.current = activeClock;
+      if (activeClock && publishClock(activeClock)) {
+        // Authoritative live clock synchronized seamlessly from backend start timestamp
       } else if (resolved === 'working') {
-        baseWorkedRef.current = data.activeSession?.elapsedSeconds ?? 0;
-        baseBreakRef.current =
-          data.totalBreakSeconds ??
-          data.activeSession?.totalBreakSeconds ??
+        let fallbackWorked = 0;
+        if (data.activeSession?.startTime || data.activeSession?.startedAt) {
+          const sMs = new Date(data.activeSession.startTime || data.activeSession.startedAt).getTime();
+          if (!Number.isNaN(sMs) && sMs > 0) {
+            fallbackWorked = Math.max(0, Math.floor((Date.now() - sMs) / 1000));
+          }
+        }
+        if (fallbackWorked === 0) {
+          fallbackWorked =
+            Number(data.activeSession?.elapsedSeconds) ||
+            Number(data.activeSession?.durationSeconds) ||
+            Number(data.todaySummary?.totalSecondsWorked) ||
+            0;
+        }
+
+        const fallbackBreak =
+          Number(data.totalBreakSeconds) ||
+          Number(data.activeSession?.totalBreakSeconds) ||
+          Number(data.todaySummary?.totalBreakSecondsToday) ||
           0;
-        setElapsedSeconds(baseWorkedRef.current);
-        setBreakSeconds(baseBreakRef.current);
-        setLiveWorkedHMS(formatSecondsToHMS(baseWorkedRef.current));
-        setLiveBreakWords(formatSecondsToWords(baseBreakRef.current));
-        setLiveBreakHMS(formatSecondsToHMS(baseBreakRef.current));
+
+        baseWorkedRef.current = fallbackWorked;
+        baseBreakRef.current = fallbackBreak;
+        setElapsedSeconds(fallbackWorked);
+        setBreakSeconds(fallbackBreak);
+        setLiveWorkedHMS(formatSecondsToHMS(fallbackWorked));
+        setLiveBreakWords(formatSecondsToWords(fallbackBreak));
+        setLiveBreakHMS(formatSecondsToHMS(fallbackBreak));
       } else if (resolved === 'on_break') {
-        baseWorkedRef.current = data.activeSession?.elapsedSeconds ?? 0;
-        baseBreakRef.current =
-          data.currentBreak?.elapsedSeconds ??
-          data.totalBreakSeconds ??
-          data.activeSession?.totalBreakSeconds ??
+        let fallbackWorked = 0;
+        if (data.activeSession?.startTime || data.activeSession?.startedAt) {
+          const sMs = new Date(data.activeSession.startTime || data.activeSession.startedAt).getTime();
+          const bMs = data.currentBreak?.startTime ? new Date(data.currentBreak.startTime).getTime() : Date.now();
+          if (!Number.isNaN(sMs) && sMs > 0) {
+            fallbackWorked = Math.max(0, Math.floor((bMs - sMs) / 1000));
+          }
+        }
+        if (fallbackWorked === 0) {
+          fallbackWorked =
+            Number(data.activeSession?.elapsedSeconds) ||
+            Number(data.activeSession?.durationSeconds) ||
+            0;
+        }
+
+        const fallbackBreak =
+          Number(data.currentBreak?.elapsedSeconds) ||
+          Number(data.totalBreakSeconds) ||
+          Number(data.activeSession?.totalBreakSeconds) ||
           0;
-        setElapsedSeconds(baseWorkedRef.current);
-        setBreakSeconds(baseBreakRef.current);
-        setLiveWorkedHMS(formatSecondsToHMS(baseWorkedRef.current));
-        setLiveBreakWords(formatSecondsToWords(baseBreakRef.current));
-        setLiveBreakHMS(formatSecondsToHMS(baseBreakRef.current));
+
+        baseWorkedRef.current = fallbackWorked;
+        baseBreakRef.current = fallbackBreak;
+        setElapsedSeconds(fallbackWorked);
+        setBreakSeconds(fallbackBreak);
+        setLiveWorkedHMS(formatSecondsToHMS(fallbackWorked));
+        setLiveBreakWords(formatSecondsToWords(fallbackBreak));
+        setLiveBreakHMS(formatSecondsToHMS(fallbackBreak));
       } else if (resolved === 'completed') {
         const finalSecs =
-          data.lastCompletedSession?.durationSeconds ??
-          data.todaySummary?.totalSecondsWorked ??
+          Number(data.lastCompletedSession?.durationSeconds) ||
+          Number(data.todaySummary?.totalSecondsWorked) ||
           0;
         const totalBrk =
-          data.todaySummary?.totalBreakSecondsToday ??
-          data.lastCompletedSession?.totalBreakSeconds ??
+          Number(data.todaySummary?.totalBreakSecondsToday) ||
+          Number(data.lastCompletedSession?.totalBreakSeconds) ||
           0;
         baseWorkedRef.current = finalSecs;
         baseBreakRef.current = totalBrk;
@@ -206,7 +312,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           formattedTotalBreak: data.formattedTotalBreak || data.todaySummary?.totalBreakFormatted,
           totalBreakSeconds: data.totalBreakSeconds ?? data.todaySummary?.totalBreakSecondsToday,
         });
-        if (rec) updateLocalRecordFromBackend({ ...rec, ...(data.clock || {}) });
+        if (rec) updateLocalRecordFromBackend({ ...rec, ...(activeClock ? { clock: activeClock } : (data.clock || {})) });
       } else if (data.lastCompletedSession) {
         const rec = parseWorkSessionToRecord({
           ...data.lastCompletedSession,

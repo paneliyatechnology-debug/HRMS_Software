@@ -224,27 +224,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Module Title & Subtitle */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-              <LogOut className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div>
-              <h1 className="hrms-page-title">
-                {isEmployeeView ? 'My Resignation & Exit Pipeline' : 'Resignations & Exit Clearances'}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isEmployeeView
-                  ? 'Submit formal resignation to HR Administration, monitor clearance status, and download relieving certificate.'
-                  : 'Review employee resignation filings, approve exit requests, conduct department handoffs, and issue relieving letters.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {!isEmployeeView && (
+      {/* Top Action Button (Admin) */}
+      {!isEmployeeView && (
+        <div className="flex justify-end pb-2 border-b border-slate-200">
           <button
             onClick={() => {
               setResigningEmpId(employees[0]?.id || 'emp-1');
@@ -255,8 +237,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>File Employee Resignation</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW                                                      */}

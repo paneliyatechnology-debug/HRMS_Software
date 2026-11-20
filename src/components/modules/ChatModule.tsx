@@ -797,11 +797,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
-      {/* Page Title Header */}
-      <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#e9ecef] shrink-0">
-        <h1 className="hrms-page-title">Team Chat</h1>
-      </div>
-
       <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div

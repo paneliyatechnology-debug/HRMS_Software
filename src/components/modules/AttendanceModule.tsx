@@ -92,7 +92,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
-  const { todaySummary, liveBreakWords: sessionBreakWords, activeSession, lastCompletedSession } = useWorkSession();
+  const {
+    todaySummary,
+    liveWorkedHMS: sessionWorkedHMS,
+    liveBreakWords: sessionBreakWords,
+    activeSession,
+    lastCompletedSession,
+  } = useWorkSession();
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
   const userIsAdminRole =
@@ -571,7 +577,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         summary?.totalDurationFormatted ||
         lastComp?.durationFormatted ||
         (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
-        (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
+        (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? (sessionWorkedHMS || liveWorkedHMS) : '00:00:00'));
 
       const statusStr = isCompleted ? 'Completed' : isOnBreak ? 'On Break' : hasActive ? 'Working' : 'Present';
 
@@ -669,8 +675,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     const isToday = rec.date === getTodayDateString();
     const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
 
-    if (isWorking && liveWorkedHMS && liveWorkedHMS !== '00:00:00') {
-      return liveWorkedHMS;
+    if (isWorking) {
+      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        return sessionWorkedHMS;
+      }
+      if (liveWorkedHMS && liveWorkedHMS !== '00:00:00') {
+        return liveWorkedHMS;
+      }
     }
     if (anyRec.durationFormatted && anyRec.durationFormatted !== '00:00:00' && anyRec.durationFormatted !== '00h 00m 00s') {
       return anyRec.durationFormatted;
@@ -818,8 +829,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       if (myRec) {
         const active = getLiveActiveSeconds(myRec);
         const brk = getLiveBreakSeconds(myRec);
-        setLiveWorkedHMS(formatSecondsToHMS(active));
+        const activeStr =
+          active > 0
+            ? formatSecondsToHMS(active)
+            : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+            ? sessionWorkedHMS
+            : '00:00:00';
+        setLiveWorkedHMS(activeStr);
         setLiveBreakWords(formatSecondsToWords(brk));
+      } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        setLiveWorkedHMS(sessionWorkedHMS);
+        setLiveBreakWords(sessionBreakWords || '0s');
       } else {
         setLiveWorkedHMS('00:00:00');
         setLiveBreakWords('0s');
@@ -1091,19 +1111,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     <div className="space-y-5 w-full select-none animate-in fade-in">
       {/* Top Header, Action Buttons & Compact Shift Console */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 pt-1">
-        {/* Left: Title, Subtitle & Action Buttons */}
-        <div className="space-y-3 flex-1 min-w-0">
-          <div>
-            <h1 className="hrms-page-title">Attendance</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {isEmployeeView
-                ? 'Monitor daily clock punches, live work timers, and workforce monthly summaries'
-                : "Monitor today's live clock punches, active work timers, and shift records"}
-            </p>
-          </div>
-
-          {/* Action Buttons Row (for Admin Search or Month Filters) */}
-          {(!isEmployeeView || (resolvedTab as string) === 'summary') && (
+        {/* Left: Action Buttons Row (for Admin Search or Month Filters) */}
+        {(!isEmployeeView || (resolvedTab as string) === 'summary') ? (
+          <div className="space-y-3 flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 {/* Quick Attendance Employee Search */}
@@ -1146,8 +1156,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {/* Right: Compact Daily Shift Console fitted into top-right header area */}
         {isEmployeeView && resolvedTab === 'today' && (

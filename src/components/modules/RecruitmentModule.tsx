@@ -372,20 +372,10 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none animate-in fade-in">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-        <div>
-          <h1 className="hrms-page-title">
-            Recruitment &amp; Talent Pipeline (ATS)
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Published job requisitions, candidate pipeline tracking, interview scheduling, and 1-click onboarding
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <select
-            id="select-job-requisition-filter"
+      {/* Top Controls */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+        <select
+          id="select-job-requisition-filter"
             value={selectedJob}
             onChange={(e) => setSelectedJob(e.target.value)}
             className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white focus:outline-none shadow-2xs"
@@ -428,7 +418,6 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
             <span>Create Job Opening</span>
           </button>
         </div>
-      </div>
 
       {/* Published Requisitions Cards */}
       {jobs.length === 0 ? (

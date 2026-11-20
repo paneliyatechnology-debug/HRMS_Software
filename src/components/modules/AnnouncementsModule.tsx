@@ -177,19 +177,9 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
-        <div>
-          <h1 className="flex items-center gap-2.5">
-            <Megaphone className="w-6 h-6 text-[#2d6a4f] shrink-0" />
-            <span className="hrms-page-title">Notice Board &amp; Circulars</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Official staff broadcasts, policy notifications, and personal employee circulars
-          </p>
-        </div>
-
-        {portalMode === 'admin' && (
+      {/* Top Action (Admin) */}
+      {portalMode === 'admin' && (
+        <div className="flex justify-end pb-3 border-b border-slate-200">
           <button
             id="btn-new-notice-modal"
             onClick={() => setModalOpen(true)}
@@ -198,8 +188,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Send New Notice</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

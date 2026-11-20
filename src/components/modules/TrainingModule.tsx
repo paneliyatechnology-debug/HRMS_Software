@@ -182,17 +182,9 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="hrms-page-title">
-              Learning &amp; Professional Upskilling
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
-              {programs.length} Curricula
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Skill development courses, compliance certifications, enrolled cohorts, and progress milestones
-          </p>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
+            {programs.length} Curricula
+          </span>
         </div>
 
         <div className="flex items-center gap-2.5">

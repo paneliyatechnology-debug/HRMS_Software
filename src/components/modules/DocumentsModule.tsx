@@ -197,25 +197,14 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="hrms-page-title">
-              Document Compliance &amp; Vault
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1 border border-emerald-100">
-              <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Secure employee documentation, tax filings, identity records, and HR verification audits
-          </p>
-        </div>
-
+      {/* Top Action */}
+      <div className="flex items-center justify-between gap-4">
+        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1 border border-emerald-100">
+          <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted Vault
+        </span>
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 cursor-pointer"
         >
           <UploadCloud className="w-3.5 h-3.5" />
           <span>Upload Document</span>

@@ -676,25 +676,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     return (
       <div className="space-y-5 w-full animate-in fade-in select-none">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-          <div>
-            <h1 className="flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-xs">
-                <Settings className="w-4 h-4" />
-              </span>
-              <span className="hrms-page-title">Settings &amp; Preferences</span>
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Personalize your employee account, security, and notifications.
-            </p>
-          </div>
-
-          {savedMessage && (
+        {savedMessage && (
+          <div className="flex justify-end pb-2">
             <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
               <Check className="w-3.5 h-3.5" /> Saved Successfully
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 2-Column Responsive Layout */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -1036,20 +1024,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-xs">
-              <Settings className="w-4 h-4" />
-            </span>
-            <h1 className="hrms-page-title">
-              Settings &amp; Policies
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-              {companyData.name || 'Admin Workspace'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1 ml-10">
-            Configure company identity, working hours, and leave quotas.
-          </p>
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+            {companyData.name || 'Admin Workspace'}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">

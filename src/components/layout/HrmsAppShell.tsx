@@ -320,8 +320,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [activeCompanyId, activeCompanyCode]);
 
   const scopeLeaves = useCallback((rawLeaves: LeaveRequest[], scopedEmps: Employee[]): LeaveRequest[] => {
+    if (!Array.isArray(rawLeaves)) return [];
+    if (scopedEmps.length === 0) return rawLeaves;
     const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
-    return (Array.isArray(rawLeaves) ? rawLeaves : [])
+    return rawLeaves
       .filter(
         (l) =>
           scopedEmpIds.has(l.employeeId) ||
@@ -501,14 +503,23 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
         setDesignations(Array.isArray(designationsData) ? designationsData : []);
       } else if (targetModule === 'calendar') {
-        const [attendanceData, leavesData] = await Promise.all([
+        const needEmployees = employeesRef.current.length === 0;
+        const [attendanceData, leavesData, employeesData] = await Promise.all([
           api.getAttendance().catch(() => []),
           api.getLeaves().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
         ]);
-        const scopedAtt = scopeAttendance(attendanceData, employeesRef.current);
+        if (needEmployees && Array.isArray(employeesData) && employeesData.length > 0) {
+          const scopedEmps = scopeEmployees(employeesData);
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
+        const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
+        const scopedAtt = scopeAttendance(attendanceData, activeEmps);
         setAttendance(scopedAtt);
-        const scopedLvs = scopeLeaves(leavesData, employeesRef.current);
+        const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
+        setLiveLeaves(scopedLvs);
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
         const employeesData = await api.getEmployees().catch(() => []);
         const scopedEmps = scopeEmployees(employeesData);
@@ -919,9 +930,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'profile' && (
               <div className="space-y-5 w-full">
-                <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
-                  <h1 className="hrms-page-title">My Profile</h1>
-                </div>
                 <EmployeeProfileModal
                   variant="page"
                   employee={myProfileEmployee}

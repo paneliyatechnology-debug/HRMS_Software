@@ -162,34 +162,23 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="hrms-page-title">
-            Payroll &amp; Compensation
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Automated salary calculations, statutory deductions, tax slabs, and payslips
-          </p>
-        </div>
+      {/* Top Header Controls */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        <input
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden"
+        />
 
-        <div className="flex items-center gap-2.5">
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-1.5 rounded-full border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden"
-          />
-
-          <button
-            onClick={handleGenerateBatch}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
-          >
-            <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Calculating...' : 'Run Payroll'}</span>
-          </button>
-        </div>
+        <button
+          onClick={handleGenerateBatch}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50"
+        >
+          <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span>{loading ? 'Calculating...' : 'Run Payroll'}</span>
+        </button>
       </div>
 
       {/* 3 Payroll Summary Cards */}

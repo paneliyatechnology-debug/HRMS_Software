@@ -315,30 +315,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {portalMode !== 'employee' && (
-        <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
-          <h1 className="hrms-page-title">Leave Requests</h1>
-        </div>
-      )}
-
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW: PERSONAL LEAVE BALANCES */}
       {/* ========================================================================= */}
       {portalMode === 'employee' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
-            <div>
-              <h1 className="hrms-page-title">
-                My Leaves &amp; Balance
-              </h1>
-              <p className="text-xs text-slate-500">
-                Track your active leave allowance and submit new leave applications.
-              </p>
-            </div>
-
+          <div className="flex items-center justify-end gap-3 pb-2 border-b border-[#e9ecef]">
             <button
               onClick={onOpenApplyModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Apply for Leave</span>

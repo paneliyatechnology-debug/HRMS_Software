@@ -339,7 +339,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
         <div className="flex items-baseline gap-2.5">
-          <h1 className="hrms-page-title">Employees</h1>
           <span className="text-xs text-slate-500 font-medium">
             {filtered.length} {filtered.length === 1 ? 'employee' : 'employees'}
           </span>
