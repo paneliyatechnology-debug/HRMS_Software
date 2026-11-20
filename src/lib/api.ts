@@ -99,15 +99,15 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
       const storedToken =
         typeof window !== 'undefined'
           ? getCookie('hrms_auth_token') ||
-            getCookie('bearerToken') ||
-            getCookie('accessToken') ||
-            getCookie('token') ||
-            (window.localStorage
-              ? window.localStorage.getItem('hrms_auth_token') ||
-                window.localStorage.getItem('bearerToken') ||
-                window.localStorage.getItem('accessToken') ||
-                window.localStorage.getItem('token')
-              : null)
+          getCookie('bearerToken') ||
+          getCookie('accessToken') ||
+          getCookie('token') ||
+          (window.localStorage
+            ? window.localStorage.getItem('hrms_auth_token') ||
+            window.localStorage.getItem('bearerToken') ||
+            window.localStorage.getItem('accessToken') ||
+            window.localStorage.getItem('token')
+            : null)
           : null;
 
       const token = storedToken;
@@ -131,7 +131,7 @@ async function fetchWithFallback<T>(url: string, options?: RequestInit, fallback
           const errJson = await res.json();
           if (errJson?.error?.message) errorMsg = errJson.error.message;
           else if (errJson?.message) errorMsg = errJson.message;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errorMsg);
       }
 
@@ -243,6 +243,80 @@ export const api = {
     }
   },
 
+  async resetPassword(data: {
+    password: string;
+    confirmPassword?: string;
+    token?: string;
+    email?: string;
+    identifier?: string;
+    userId?: string;
+  }) {
+    try {
+      const storedToken =
+        typeof window !== 'undefined'
+          ? getCookie('hrms_auth_token') ||
+            getCookie('bearerToken') ||
+            getCookie('accessToken') ||
+            getCookie('token')
+          : null;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      } else if (data.token) {
+        headers['Authorization'] = `Bearer ${data.token}`;
+      }
+
+      // 1. Try /auth/set-password
+      const res = await fetch(`${getApiBase()}/auth/set-password`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...data,
+          confirmPassword: data.confirmPassword || data.password,
+        }),
+      });
+
+      if (res.ok) {
+        return await res.json().catch(() => ({ success: true, message: 'Password updated successfully' }));
+      }
+
+      // 2. If 404, fallback to /auth/reset-password
+      if (res.status === 404) {
+        const res2 = await fetch(`${getApiBase()}/auth/reset-password`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ...data,
+            confirmPassword: data.confirmPassword || data.password,
+          }),
+        });
+
+        if (res2.ok) {
+          return await res2.json().catch(() => ({ success: true, message: 'Password reset successfully' }));
+        }
+
+        const err2 = await res2.json().catch(() => ({}));
+        let message = 'Failed to reset password.';
+        if (typeof err2?.message === 'string') message = err2.message;
+        else if (Array.isArray(err2?.message)) message = err2.message.join(', ');
+        else if (typeof err2?.error === 'string') message = err2.error;
+        throw new Error(message);
+      }
+
+      const errData = await res.json().catch(() => ({}));
+      let message = 'Failed to set password.';
+      if (typeof errData?.message === 'string') message = errData.message;
+      else if (Array.isArray(errData?.message)) message = errData.message.join(', ');
+      else if (typeof errData?.error === 'string') message = errData.error;
+      throw new Error(message);
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
   async register(data: {
     firstName: string;
     lastName: string;
@@ -346,15 +420,15 @@ export const api = {
     const storedToken =
       typeof window !== 'undefined'
         ? getCookie('hrms_auth_token') ||
-          getCookie('bearerToken') ||
-          getCookie('accessToken') ||
-          getCookie('token') ||
-          (window.localStorage
-            ? window.localStorage.getItem('hrms_auth_token') ||
-              window.localStorage.getItem('bearerToken') ||
-              window.localStorage.getItem('accessToken') ||
-              window.localStorage.getItem('token')
-            : null)
+        getCookie('bearerToken') ||
+        getCookie('accessToken') ||
+        getCookie('token') ||
+        (window.localStorage
+          ? window.localStorage.getItem('hrms_auth_token') ||
+          window.localStorage.getItem('bearerToken') ||
+          window.localStorage.getItem('accessToken') ||
+          window.localStorage.getItem('token')
+          : null)
         : null;
     const authToken = storedToken;
 
@@ -446,7 +520,7 @@ export const api = {
           const errJson = await res.json();
           if (errJson?.error?.message) errorMsg = errJson.error.message;
           else if (errJson?.message) errorMsg = errJson.message;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errorMsg);
       }
 
@@ -894,7 +968,7 @@ export const api = {
       if (res && (res.todaySummary || res.lastCompletedSession || res.activeSession || res.serverTime || res.assignedOffice)) {
         return res;
       }
-    } catch (_) {}
+    } catch (_) { }
     return fetchWithFallback<any>('/attendance/work/status', undefined, {
       active: false,
       hasActiveSession: false,

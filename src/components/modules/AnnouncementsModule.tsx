@@ -114,7 +114,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         title: title.trim(),
         content: content.trim(),
         priority,
-        targetAudience: audienceType,
+        targetAudience: audienceType === 'Management' ? 'Individual' : audienceType,
         targetEmployeeId: audienceType === 'Management' ? targetEmployeeId : undefined,
         targetEmployeeName: selectedEmpName,
         departmentName: selectedDept,
