@@ -13,6 +13,7 @@ import {
   FileCheck,
   AlertCircle,
   Eye,
+  Trash2,
   Building2,
   Crown,
   Mail,
@@ -192,17 +193,43 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
     }
   };
 
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+    try {
+      await api.deleteDocument(id);
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      showToast({
+        title: 'Document Deleted',
+        message: `"${title}" has been deleted.`,
+        type: 'success',
+        module: 'documents',
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete document');
+    }
+  };
+
   const docQ = searchTerm.trim().toLowerCase();
-  const filtered = documents.filter((doc) => {
+  const filtered = documents.filter((doc: any) => {
     if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
       return false;
     }
-    const matchesCat = category === 'ALL' || (doc.category || '').toLowerCase() === category.toLowerCase();
+    const catLower = category.toLowerCase();
+    const matchesCat =
+      category === 'ALL' ||
+      (doc.category || '').toLowerCase() === catLower ||
+      (doc.fileType || '').toLowerCase() === catLower ||
+      (doc.title || '').toLowerCase().includes(catLower);
+
     const matchesSearch =
       !docQ ||
       (doc.title || '').toLowerCase().includes(docQ) ||
+      (doc.fileName || '').toLowerCase().includes(docQ) ||
+      (doc.userName || '').toLowerCase().includes(docQ) ||
       (doc.employeeName || '').toLowerCase().includes(docQ) ||
-      (doc.category || '').toLowerCase().includes(docQ);
+      (doc.uploadedByName || '').toLowerCase().includes(docQ) ||
+      (doc.companyName || '').toLowerCase().includes(docQ);
+
     return matchesCat && matchesSearch;
   });
 
@@ -364,8 +391,8 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                 <th className="py-2.5 px-3">Document Title</th>
                 <th className="py-2.5 px-3">Employee</th>
-                <th className="py-2.5 px-3">Category</th>
-                <th className="py-2.5 px-3">File Size</th>
+                <th className="py-2.5 px-3">Uploaded By</th>
+                <th className="py-2.5 px-3">Format</th>
                 <th className="py-2.5 px-3">Upload Date</th>
                 <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
@@ -383,43 +410,48 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                filtered.map((doc) => (
+                filtered.map((doc: any) => (
                   <tr key={doc.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                        <FileText className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="block leading-tight">{doc.title}</span>
-                        <span className="text-[10px] font-normal text-slate-400 font-mono">
-                          {doc.id}
-                        </span>
+                    <td className="py-3 px-3 font-semibold text-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block font-bold text-slate-900 leading-tight truncate">{doc.title}</span>
+                          <span className="text-[11px] font-normal text-slate-400 font-mono truncate block" title={doc.fileName || doc.id}>
+                            {doc.fileName || doc.id}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-3 font-medium text-slate-700">
-                      {doc.employeeName}
+                      <span className="block font-semibold text-slate-900">{doc.userName || doc.employeeName || '—'}</span>
+                      {doc.companyName && (
+                        <span className="text-[10px] text-slate-400 block">{doc.companyName}</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-slate-600 font-medium">
+                      {doc.uploadedByName || 'Self'}
                     </td>
                     <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold">
-                        {doc.category}
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider border border-slate-200">
+                        {doc.fileType || (doc.mimeType ? doc.mimeType.split('/').pop()?.toUpperCase() : 'PDF')}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">
-                      {doc.fileSize}
-                    </td>
-                    <td className="py-3 px-3 text-slate-400">{doc.uploadDate}</td>
+                    <td className="py-3 px-3 text-slate-500 font-medium">{doc.uploadDate}</td>
                     <td className="py-3 px-3">
                       <span
                         className={`px-2 py-0.5 rounded-full font-semibold text-[10px] flex items-center gap-1 w-fit ${
-                          doc.verificationStatus === 'Verified'
-                            ? 'bg-emerald-50 text-emerald-600'
+                          doc.verificationStatus === 'Verified' || doc.verificationStatus === 'Active'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                             : doc.verificationStatus === 'Pending'
-                            ? 'bg-amber-50 text-amber-600'
-                            : 'bg-rose-50 text-rose-600'
+                            ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200'
                         }`}
                       >
-                        {doc.verificationStatus === 'Verified' && <CheckCircle className="w-3 h-3" />}
-                        {doc.verificationStatus}
+                        {(doc.verificationStatus === 'Verified' || doc.verificationStatus === 'Active') && <CheckCircle className="w-3 h-3" />}
+                        {doc.verificationStatus || 'Verified'}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
@@ -427,14 +459,35 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                         <a
                           href={doc.fileUrl}
                           target="_blank"
-                          rel="noreferrer"
-                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
-                          title="View / Download"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="View Document"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </a>
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={doc.fileName || doc.title}
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          title="Download"
                         >
                           <Download className="w-3.5 h-3.5" />
                         </a>
+                        {portalMode === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(doc.id, doc.title)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {portalMode === 'admin' && doc.verificationStatus === 'Pending' && (
                           <button
+                            type="button"
                             onClick={() => handleVerify(doc.id, 'Verified')}
                             className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[10px]"
                           >

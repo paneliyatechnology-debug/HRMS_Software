@@ -209,16 +209,37 @@ async function deleteDocument(id: string) {
 }
 function backendDocToEmployeeDocument(d: any) {
   if (!d) return null;
-  const userName = d.userName || (d.user ? `${d.user.firstName || ''} ${d.user.lastName || ''}`.trim() : '') || 'Company Document';
+  const userName = d.userName || (d.user ? `${d.user.firstName || ''} ${d.user.lastName || ''}`.trim() : '') || 'Keyur Sangani';
+  const uploadedByName = d.uploadedByName || (d.uploadedByUser ? `${d.uploadedByUser.firstName || ''} ${d.uploadedByUser.lastName || ''}`.trim() : '') || userName;
+  const fileExt = d.fileName
+    ? d.fileName.split('.').pop()?.toUpperCase()
+    : d.mimeType
+    ? d.mimeType.split('/').pop()?.toUpperCase()
+    : 'PDF';
+
+  const formattedDate = d.createdAt
+    ? new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : d.uploadDate || new Date().toISOString().split('T')[0];
+
   return {
     id: d.id || `doc-${Date.now()}`,
+    companyId: d.companyId || '',
+    companyName: d.companyName || '',
+    userId: d.userId || '',
+    userName: userName,
     employeeId: d.userId || d.employeeId || '',
     employeeName: userName,
-    title: d.title || d.name || 'Untitled Document',
-    category: d.category || 'Other',
+    uploadedBy: d.uploadedBy || '',
+    uploadedByName: uploadedByName,
+    title: d.title || d.name || d.fileName || 'Untitled Document',
+    fileName: d.fileName || `${d.title || 'document'}.${fileExt.toLowerCase()}`,
     fileUrl: d.fileUrl || d.url || (d.path ? `${getApiBaseUrl().replace(/\/api$/, '')}/${String(d.path).replace(/^\/+/, '')}` : '#'),
-    fileSize: d.fileSize || (d.size ? `${(Number(d.size) / 1024).toFixed(1)} KB` : 'N/A'),
-    uploadDate: d.uploadDate || (d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+    mimeType: d.mimeType || 'application/pdf',
+    fileType: fileExt,
+    category: d.category || fileExt || 'Document',
+    fileSize: d.fileSize || (d.size ? `${(Number(d.size) / 1024).toFixed(1)} KB` : 'PDF'),
+    uploadDate: formattedDate,
+    createdAt: d.createdAt,
     verificationStatus: (d.verificationStatus || d.status || 'Verified'),
     verifiedBy: d.verifiedBy || undefined,
   };
