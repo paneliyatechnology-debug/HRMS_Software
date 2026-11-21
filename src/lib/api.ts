@@ -826,7 +826,7 @@ async function listLeaveTypes() {
   }
 }
 
-// 33. PUT / PATCH /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
+// 33. PATCH / PUT /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
 async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string } | string) {
   const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
   if (!name || !name.trim()) {
@@ -836,16 +836,16 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string }
   try {
     let response;
     try {
-      response = await http.put(
+      response = await http.patch(
         `/leave-types/${leaveTypeId}`,
         { name: name.trim() },
         {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-    } catch (putErr: any) {
-      if (putErr?.response?.status === 404 || putErr?.response?.status === 405) {
-        response = await http.patch(
+    } catch (patchErr: any) {
+      if (patchErr?.response?.status === 404 || patchErr?.response?.status === 405) {
+        response = await http.put(
           `/leave-types/${leaveTypeId}`,
           { name: name.trim() },
           {
@@ -853,7 +853,7 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string }
           }
         );
       } else {
-        throw putErr;
+        throw patchErr;
       }
     }
     clearApiCache('/leave-types');

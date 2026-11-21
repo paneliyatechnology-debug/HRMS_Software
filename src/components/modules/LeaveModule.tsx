@@ -93,6 +93,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
   const [editingLeaveTypeName, setEditingLeaveTypeName] = useState('');
   const [isSubmittingLeaveType, setIsSubmittingLeaveType] = useState(false);
+  const [deletingLeaveTypeId, setDeletingLeaveTypeId] = useState<string | null>(null);
 
   const loadLeaveTypes = React.useCallback(async () => {
     setLeaveTypesLoading(true);
@@ -161,11 +162,18 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       return;
     }
     const nameToUpdate = editingLeaveTypeName.trim();
-    if (!nameToUpdate) return;
+    if (!nameToUpdate) {
+      showToast({ type: 'warning', title: 'Name Required', message: 'Please enter a valid leave type name.' });
+      return;
+    }
     setIsSubmittingLeaveType(true);
     try {
-      await api.updateLeaveType(id, { name: nameToUpdate });
-      showToast({ type: 'success', title: 'Leave Type Updated', message: 'Leave type updated successfully.' });
+      const updated = await api.updateLeaveType(id, { name: nameToUpdate });
+      showToast({
+        type: 'success',
+        title: 'Leave Type Updated',
+        message: `"${updated?.name || nameToUpdate}" updated successfully.`,
+      });
       setEditingLeaveTypeId(null);
       setEditingLeaveTypeName('');
       await loadLeaveTypes();
@@ -176,21 +184,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
   };
 
-  const handleDeleteLeaveType = async (id: string) => {
+  const handleDeleteLeaveType = async (id: string, name?: string) => {
     if (!isAdminOrHr) {
       showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can delete leave types.' });
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this leave type?')) return;
-    setIsSubmittingLeaveType(true);
+    const nameStr = name ? ` "${name}"` : '';
+    if (!window.confirm(`Are you sure you want to delete leave type${nameStr}? This action cannot be undone.`)) {
+      return;
+    }
+    setDeletingLeaveTypeId(id);
     try {
       await api.deleteLeaveType(id);
-      showToast({ type: 'success', title: 'Leave Type Deleted', message: 'Leave type removed successfully.' });
+      showToast({ type: 'success', title: 'Leave Type Deleted', message: `Leave type${nameStr} removed successfully.` });
       await loadLeaveTypes();
     } catch (err: any) {
       showToast({ type: 'error', title: 'Deletion Failed', message: err.message || 'Could not delete leave type' });
     } finally {
-      setIsSubmittingLeaveType(false);
+      setDeletingLeaveTypeId(null);
     }
   };
 
@@ -1438,7 +1449,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         </div>
       )}
       {/* Leave Types Management Modal (Admin / HR) */}
-      {isLeaveTypesModalOpen && (
+      {isLeaveTypesModalOpen && isAdminOrHr && (
         <div
           onClick={() => setIsLeaveTypesModalOpen(false)}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
@@ -1526,10 +1537,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateLeaveType(lt.id)}
-                            disabled={isSubmittingLeaveType}
-                            className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            disabled={isSubmittingLeaveType || !editingLeaveTypeName.trim()}
+                            className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                           >
-                            Save
+                            {isSubmittingLeaveType ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              <span>Save</span>
+                            )}
                           </button>
                           <button
                             type="button"
@@ -1537,7 +1555,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               setEditingLeaveTypeId(null);
                               setEditingLeaveTypeName('');
                             }}
-                            className="px-2 py-1 border border-slate-200 text-slate-600 text-xs rounded-lg hover:bg-slate-100"
+                            disabled={isSubmittingLeaveType}
+                            className="px-2 py-1 border border-slate-200 text-slate-600 text-xs rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -1552,18 +1571,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                 setEditingLeaveTypeId(lt.id);
                                 setEditingLeaveTypeName(lt.name);
                               }}
-                              className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100"
+                              disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
+                              className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteLeaveType(lt.id)}
-                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              onClick={() => handleDeleteLeaveType(lt.id, lt.name)}
+                              disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
+                              className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer transition-colors"
                               title="Delete"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingLeaveTypeId === lt.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         </>
