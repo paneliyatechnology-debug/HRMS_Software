@@ -19,6 +19,7 @@ export const VALID_MODULE_MAP: Record<string, { module: string; subTab?: string 
   'leave': { module: 'leaves' },
   'payroll': { module: 'payroll' },
   'payslips': { module: 'payslips' },
+  'tasks': { module: 'tasks' },
   'organization': { module: 'organization', subTab: 'about' },
   'departments': { module: 'organization', subTab: 'departments' },
   'designations': { module: 'organization', subTab: 'designations' },
