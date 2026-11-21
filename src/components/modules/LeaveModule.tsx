@@ -26,6 +26,7 @@ import {
   Edit2,
   Trash2,
   Loader2,
+  Sun,
 } from 'lucide-react';
 import { LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -871,8 +872,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 font-medium block">Type & Duration</span>
-                      <span className="font-semibold text-indigo-700 text-[11px]">
-                        {leave.leaveType} ({leave.daysCount}d)
+                      <span className="font-semibold text-indigo-700 text-[11px] flex items-center gap-1 flex-wrap">
+                        <span>{leave.leaveType}</span>
+                        <span>({leave.daysCount}d • {leave.isHalfDay ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st') : 'Full Day'})</span>
                       </span>
                     </div>
                   </div>
@@ -953,31 +955,80 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         {leave.departmentName || '--'}
                       </td>
                       <td className="py-3 px-4 text-slate-700">
-                        <div>
+                        <div className="font-semibold text-slate-900">
                           {leave.startDate}{' '}
                           {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}
                         </div>
-                        {Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
+                        {Array.isArray(leave.days) && leave.days.length > 0 ? (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {leave.dayBreakdown
-                              .filter((d) => d.session !== 'FULL_DAY')
-                              .map((d) => (
+                            {leave.days.map((d, idx) => {
+                              const portion = d.portion || 'Full Day';
+                              const pLower = portion.toLowerCase();
+                              const isHalf = pLower.includes('half') || pLower.includes('first') || pLower.includes('second');
+                              return (
                                 <span
-                                  key={d.date}
-                                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#f8f9fa] text-[#343a40] border border-[#dee2e6]"
+                                  key={idx}
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                    isHalf
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  }`}
+                                  title={`${d.date}: ${portion}`}
                                 >
-                                  {d.date}: {d.session === 'FIRST_HALF' ? '1st Half' : '2nd Half'}
+                                  {leave.days && leave.days.length > 1 ? `${d.date}: ` : ''}{portion}
                                 </span>
-                              ))}
+                              );
+                            })}
                           </div>
-                        ) : leave.isHalfDay && leave.halfDaySession ? (
-                          <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#f8f9fa] text-[#343a40] border border-[#dee2e6]">
-                            {leave.halfDaySession === 'FIRST_HALF' ? 'First Half' : 'Second Half'}
+                        ) : Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {leave.dayBreakdown.map((d, idx) => {
+                              const isHalf = d.session !== 'FULL_DAY';
+                              const label = d.session === 'FIRST_HALF' ? 'First Half' : d.session === 'SECOND_HALF' ? 'Second Half' : 'Full Day';
+                              return (
+                                <span
+                                  key={idx}
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                    isHalf
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  }`}
+                                >
+                                  {leave.dayBreakdown && leave.dayBreakdown.length > 1 ? `${d.date}: ` : ''}{label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : leave.isHalfDay ? (
+                          <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                            {leave.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half'}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Full Day
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">
-                        {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="font-bold text-slate-900 text-xs">
+                            {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
+                          </span>
+                          {leave.isHalfDay ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-900 border border-amber-200">
+                              <Sun className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span>
+                                {leave.daysCount === 0.5
+                                  ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day (2nd)' : 'Half Day (1st)')
+                                  : 'Includes Half Day'}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100/70 text-emerald-900 border border-emerald-200">
+                              Full Day
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-700">
                         {leave.leaveType}
@@ -1159,8 +1210,25 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   <span className="font-semibold text-slate-500">Duration:</span>
                   <span className="font-bold text-slate-800">
                     {approvingLeave.startDate} to {approvingLeave.endDate} ({approvingLeave.daysCount} {approvingLeave.daysCount === 1 ? 'day' : 'days'})
+                    {approvingLeave.isHalfDay ? (
+                      <span className="ml-1 text-amber-700 font-semibold">• Half Day ({approvingLeave.halfDaySession === 'SECOND_HALF' ? '2nd Half' : '1st Half'})</span>
+                    ) : (
+                      <span className="ml-1 text-emerald-700 font-semibold">• Full Day</span>
+                    )}
                   </span>
                 </div>
+                {Array.isArray(approvingLeave.days) && approvingLeave.days.length > 0 && (
+                  <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
+                    <span className="font-semibold text-slate-500 block mb-1">Date-Wise Breakdown:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {approvingLeave.days.map((d, i) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-medium text-[10px]">
+                          {d.date}: <strong className="text-slate-900">{d.portion || 'Full Day'}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {approvingLeave.departmentName && (
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-slate-500">Department:</span>
@@ -1252,7 +1320,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               <p className="text-slate-600">
                 You are about to reject the leave application for{' '}
                 <strong className="text-slate-900">{rejectingLeave.employeeName}</strong> (
-                {rejectingLeave.leaveType}, {rejectingLeave.daysCount} days).
+                {rejectingLeave.leaveType}, {rejectingLeave.daysCount} {rejectingLeave.daysCount === 1 ? 'day' : 'days'}{rejectingLeave.isHalfDay ? ' • Half Day' : ' • Full Day'}).
               </p>
 
               <div>

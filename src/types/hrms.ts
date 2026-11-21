@@ -298,6 +298,7 @@ export interface LeaveRequest {
   isHalfDay: boolean;
   halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
   dayBreakdown?: LeaveDayBreakdown[];
+  days?: Array<{ date: string; portion?: string }>;
   reason: string;
   status: LeaveStatus;
   appliedDate: string;

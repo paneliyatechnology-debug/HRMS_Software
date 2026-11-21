@@ -246,6 +246,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       const firstHalfDayEntry = dayBreakdown.find((d) => d.session !== 'FULL_DAY');
       const hasAnyHalfDay = Boolean(firstHalfDayEntry);
 
+      const formattedDays = dayBreakdown.map((d) => {
+        const sessionUpper = String(d.session || '').toUpperCase();
+        const isFirst = sessionUpper === 'FIRST_HALF' || sessionUpper.includes('FIRST');
+        const isSecond = sessionUpper === 'SECOND_HALF' || sessionUpper.includes('SECOND');
+        const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
+        return {
+          date: d.date,
+          portion,
+        };
+      });
+
       const leavePayload = {
         userId: targetUserId,
         employeeId: user.employeeId || targetUserId,
@@ -259,7 +270,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         ...(hasAnyHalfDay && firstHalfDayEntry && firstHalfDayEntry.session !== 'FULL_DAY'
           ? { halfDaySession: firstHalfDayEntry.session }
           : {}),
-        ...(hasAnyHalfDay ? { dayBreakdown } : {}),
+        dayBreakdown,
+        days: formattedDays,
         reason: reason.trim(),
       };
 

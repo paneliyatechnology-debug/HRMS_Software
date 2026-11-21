@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getApiBaseUrl } from './config';
 import { getCookie, setCookie } from './cookies';
-import { LeaveRequest, AttendanceRecord } from '../types/hrms';
+import { LeaveRequest, AttendanceRecord, LeaveDayBreakdown, LeaveDaySession } from '../types/hrms';
 
 export const http = axios.create({
   withCredentials: true,
@@ -929,25 +929,43 @@ async function deleteLeaveType(leaveTypeId: string) {
 function backendLeaveToFrontend(l: any): LeaveRequest {
   if (!l) return l;
   const userName = l.userName || (l.user ? `${l.user.firstName || ''} ${l.user.lastName || ''}`.trim() : '') || l.employeeName || 'Staff Member';
-  const daysList = Array.isArray(l.days) ? l.days : [];
+  const daysList: Array<{ date: string; portion?: string }> = Array.isArray(l.days) ? l.days : [];
   let startDate = l.startDate || '';
   let endDate = l.endDate || '';
-  let daysCount = l.daysCount || (daysList.length > 0 ? daysList.length : 1);
+  let daysCount = typeof l.daysCount === 'number' ? l.daysCount : (daysList.length > 0 ? daysList.length : 1);
+
+  const dayBreakdown: LeaveDayBreakdown[] = daysList.map((d: any) => {
+    const portion = d.portion || (d.isHalfDay ? (d.halfDaySession || 'First Half') : 'Full Day');
+    const pLower = String(portion).toLowerCase();
+    const isFirstHalf = pLower.includes('first') || portion === 'SESSION_1' || portion === 'FIRST_HALF';
+    const isSecondHalf = pLower.includes('second') || portion === 'SESSION_2' || portion === 'SECOND_HALF';
+    const isHalf = isFirstHalf || isSecondHalf || pLower.includes('half');
+    const session: LeaveDaySession = isFirstHalf ? 'FIRST_HALF' : isSecondHalf ? 'SECOND_HALF' : 'FULL_DAY';
+    return {
+      date: d.date,
+      session,
+      duration: isHalf ? 0.5 : 1,
+    };
+  });
 
   if (daysList.length > 0) {
-    const dates = daysList.map((d: any) => d.date).sort();
-    if (!startDate) startDate = dates[0];
-    if (!endDate) endDate = dates[dates.length - 1];
-    let computedCount = 0;
-    daysList.forEach((d: any) => {
-      if (d.portion === 'First Half' || d.portion === 'Second Half' || d.portion === 'Half Day') {
-        computedCount += 0.5;
-      } else {
-        computedCount += 1;
-      }
-    });
+    const dates = daysList.map((d: any) => d.date).filter(Boolean).sort();
+    if (!startDate && dates.length > 0) startDate = dates[0];
+    if (!endDate && dates.length > 0) endDate = dates[dates.length - 1];
+    const computedCount = dayBreakdown.reduce((sum, item) => sum + item.duration, 0);
     if (computedCount > 0) daysCount = computedCount;
   }
+
+  const hasHalfDays = dayBreakdown.some((d) => d.session !== 'FULL_DAY') || Boolean(l.isHalfDay);
+  const nonFullSession = dayBreakdown.find((d) => d.session !== 'FULL_DAY')?.session;
+  const firstHalfSession: 'FIRST_HALF' | 'SECOND_HALF' =
+    nonFullSession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : nonFullSession === 'FIRST_HALF'
+      ? 'FIRST_HALF'
+      : l.halfDaySession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : 'FIRST_HALF';
 
   let status: 'Pending' | 'Approved' | 'Rejected' = 'Pending';
   const rawStatus = (l.status || '').toUpperCase();
@@ -963,8 +981,11 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
     leaveType: l.leaveType || 'Casual Leave',
     startDate: startDate || new Date().toISOString().split('T')[0],
     endDate: endDate || startDate || new Date().toISOString().split('T')[0],
-    daysCount: daysCount,
-    isHalfDay: daysList.some((d: any) => d.portion && d.portion !== 'Full Day'),
+    daysCount: Number(daysCount.toFixed(2)),
+    isHalfDay: hasHalfDays,
+    halfDaySession: hasHalfDays ? firstHalfSession : undefined,
+    dayBreakdown: dayBreakdown.length > 0 ? dayBreakdown : undefined,
+    days: daysList,
     reason: l.reason || '',
     status: status,
     appliedDate: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : (l.appliedDate || new Date().toISOString().split('T')[0]),
@@ -980,7 +1001,9 @@ export interface ApplyLeaveInput {
   days?: Array<{ date: string; portion: string }>;
   startDate?: string;
   endDate?: string;
-  dayBreakdown?: Array<{ date: string; session: string }>;
+  isHalfDay?: boolean;
+  halfDaySession?: string;
+  dayBreakdown?: Array<{ date: string; session: string; duration?: number }>;
 }
 
 async function applyLeave(data: ApplyLeaveInput) {
@@ -988,22 +1011,37 @@ async function applyLeave(data: ApplyLeaveInput) {
     let daysArray = data.days;
     if (!daysArray || daysArray.length === 0) {
       if (Array.isArray(data.dayBreakdown) && data.dayBreakdown.length > 0) {
-        daysArray = data.dayBreakdown.map((d) => ({
-          date: d.date,
-          portion: d.session === 'SESSION_1' ? 'First Half' : d.session === 'SESSION_2' ? 'Second Half' : 'Full Day',
-        }));
+        daysArray = data.dayBreakdown.map((d) => {
+          const s = String(d.session || '').toUpperCase();
+          const isFirst = s === 'FIRST_HALF' || s === 'SESSION_1' || s.includes('FIRST');
+          const isSecond = s === 'SECOND_HALF' || s === 'SESSION_2' || s.includes('SECOND');
+          const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
+          return {
+            date: d.date,
+            portion,
+          };
+        });
       } else if (data.startDate && data.endDate) {
         const start = new Date(data.startDate);
         const end = new Date(data.endDate);
         daysArray = [];
         for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+          const dateStr = dt.toISOString().split('T')[0];
+          let portion = 'Full Day';
+          if (data.isHalfDay) {
+            portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+          }
           daysArray.push({
-            date: dt.toISOString().split('T')[0],
-            portion: 'Full Day',
+            date: dateStr,
+            portion,
           });
         }
       } else if (data.startDate) {
-        daysArray = [{ date: data.startDate, portion: 'Full Day' }];
+        let portion = 'Full Day';
+        if (data.isHalfDay) {
+          portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+        }
+        daysArray = [{ date: data.startDate, portion }];
       } else {
         daysArray = [];
       }
