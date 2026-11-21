@@ -260,6 +260,14 @@ export interface DevicePunchInfo {
   ipAddress?: string;
 }
 
+export type LeaveDaySession = 'FULL_DAY' | 'FIRST_HALF' | 'SECOND_HALF';
+
+export interface LeaveDayBreakdown {
+  date: string;
+  session: LeaveDaySession;
+  duration: number;
+}
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;
@@ -271,6 +279,8 @@ export interface LeaveRequest {
   endDate: string;
   daysCount: number;
   isHalfDay: boolean;
+  halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
+  dayBreakdown?: LeaveDayBreakdown[];
   reason: string;
   status: LeaveStatus;
   appliedDate: string;
@@ -529,8 +539,10 @@ export interface ChatAttachment {
   id: string;
   name: string;
   size: string;
-  type: 'image' | 'document' | 'pdf';
+  type: 'image' | 'document' | 'pdf' | 'audio';
   url?: string;
+  mimeType?: string;
+  duration?: number;
 }
 
 export interface ChatMessage {

@@ -42,7 +42,7 @@ import { Department, Designation, Location, Role, Employee, DesignationMember } 
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
-import { ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
+import { ASSIGNABLE_ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
 
 interface OrganizationModuleProps {
   departments: Department[];
@@ -382,16 +382,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       const targetUserId = (selectedEmp as any).userId || selectedEmp.id;
 
       // Find target designation for the selected department or use default
-      const matchingDes =
-        designations.find((d) => d.departmentId === selectedDept.id) ||
-        designations.find((d) => d.id === 'des-1793877127945') ||
-        designations[0];
-      const targetDesId = matchingDes?.id || 'des-1793877127945';
+      const matchingDes = designations.find((d) => d.departmentId === selectedDept.id);
 
       // 1. Call POST /organization/designations/:id/members with { userIds: [targetUserId] }
       let apiMessage = '';
       try {
-        const desRes = await api.addDesignationMembers(targetDesId, [targetUserId]);
+        const desRes = matchingDes
+          ? await api.addDesignationMembers(matchingDes.id, [targetUserId])
+          : null;
         if (desRes?.message) {
           apiMessage = desRes.message;
         }
@@ -638,18 +636,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const totalLocations = locations.length;
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto select-none">
-      {/* ── Page Header + Tab Bar ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-xs">
-              <Building2 className="w-4 h-4 text-white" />
-            </span>
-            About Organisation
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">Company profile, structure & corporate identity</p>
-        </div>
+    <div className="space-y-5 w-full select-none">
+      {/* ── Tab Bar ─────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
         <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
           {[
             { key: 'departments', label: `Departments (${departments.length})`, icon: Layers },
@@ -659,11 +648,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               key={key}
               id={`tab-btn-${key}`}
               onClick={() => setActiveTab(key as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                activeTab === key
-                  ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200/80'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${activeTab === key
+                ? 'bg-[#1b4332] text-white shadow-xs border border-[#1b4332]'
+                : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
+                }`}
             >
               <Icon className="w-3.5 h-3.5" />
               {label}
@@ -700,7 +688,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
             return (
               <>
-                <div className="relative rounded-3xl overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}>
+                <div className="relative rounded-3xl overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 45%, #081c15 100%)' }}>
                   {/* Glow blobs */}
                   <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full opacity-30 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.3), transparent 70%)', transform: 'translate(30%, -40%)' }} />
                   <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-25 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.2), transparent 70%)', transform: 'translate(-30%, 40%)' }} />
@@ -712,7 +700,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         <div className="relative shrink-0">
                           <div
                             className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center font-black text-white text-4xl shadow-2xl border border-white/20"
-                            style={{ background: 'linear-gradient(135deg, #059669, #0d9488, #10b981)' }}
+                            style={{ background: 'linear-gradient(135deg, #52b788, #40916c, #2d6a4f)' }}
                           >
                             {compInitial}
                           </div>
@@ -722,8 +710,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              ✓ {currentCompany?.status || 'Active'} Company
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              <Check className="w-3 h-3 shrink-0" /> {currentCompany?.status || 'Active'} Company
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
                               {estYear}
@@ -732,7 +720,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                               <button
                                 type="button"
                                 onClick={handleOpenEditCompany}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition cursor-pointer"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold bg-[#2d6a4f] hover:bg-[#40916c] text-white border border-[#95d5b2]/50 shadow-xs transition cursor-pointer"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 <span>Edit Profile</span>
@@ -765,7 +753,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
                           >
                             <Icon className={`w-4 h-4 ${color} mb-2`} />
-                            <div className="text-xl sm:text-2xl font-black text-white">{value}</div>
+                            <div className="text-xl sm:text-2xl font-semibold tracking-tight text-white">{value}</div>
                             <div className={`text-[10px] font-bold uppercase tracking-wider ${color}`}>{label}</div>
                             <div className="text-[10px] text-white/50 mt-0.5">{sub}</div>
                           </div>
@@ -779,7 +767,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Leadership Card */}
                   <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                    <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #059669, #10b981, #06b6d4)' }} />
                     <div className="p-6">
                       <div className="flex items-center gap-2.5 mb-5">
                         <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
@@ -799,7 +786,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         <div className="flex items-center gap-4">
                           <div
                             className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #059669, #064e3b)' }}
+                            style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                           >
                             {(ownerDisplayName[0] || 'L').toUpperCase()}
                           </div>
@@ -836,7 +823,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
                   {/* Corporate Identity Card */}
                   <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                    <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #059669, #0d9488, #10b981)' }} />
                     <div className="p-6">
                       <div className="flex items-center gap-2.5 mb-5">
                         <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
@@ -889,7 +875,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       bg: 'bg-emerald-50',
                       iconColor: 'text-emerald-600',
                       body: compAddress !== 'Not provided' ? compAddress : 'Corporate office address is not provided yet.',
-                      footer: `📍 ${compCityState}`,
+                      footer: compCityState,
                     },
                     {
                       icon: Target,
@@ -898,7 +884,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       bg: 'bg-emerald-50',
                       iconColor: 'text-emerald-600',
                       body: compDesc,
-                      footer: `🎯 ${compName}`,
+                      footer: compName,
                     },
                     {
                       icon: Heart,
@@ -907,14 +893,13 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       bg: 'bg-rose-50',
                       iconColor: 'text-rose-600',
                       body: 'Dedicated to transparency, teamwork, employee wellness, and building sustainable business operations.',
-                      footer: '🌟 Growth • Excellence • Integrity',
+                      footer: 'Growth • Excellence • Integrity',
                     },
                   ].map(({ icon: Icon, title, color, bg, iconColor, body, footer }) => (
                     <div
                       key={title}
                       className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
                     >
-                      <div className={`h-1.5 w-full bg-gradient-to-r ${color}`} />
                       <div className="p-5">
                         <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                           <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -1008,7 +993,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   id="btn-add-dept-modal"
                   onClick={() => setAddDeptModalOpen(true)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Add Department</span>
@@ -1034,7 +1019,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 );
                 return (
                   <div key={dept.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
-                    <div className={`h-1.5 bg-gradient-to-r ${c.bg}`} />
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-3">
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
@@ -1143,7 +1127,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     id="btn-add-des-modal"
                     onClick={() => setAddDesModalOpen(true)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                    style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                     <span>Add Designation</span>
@@ -1202,11 +1186,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                                   [des.id]: !prev[des.id],
                                 }))
                               }
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                                memberCount > 0
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
-                                  : 'bg-slate-100 text-slate-500 border border-slate-200'
-                              }`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${memberCount > 0
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                }`}
                             >
                               <Users className="w-3 h-3" />
                               <span>{memberCount} {memberCount === 1 ? 'Member' : 'Members'}</span>
@@ -1314,11 +1297,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                                             </td>
                                             <td className="py-2.5 px-4">
                                               <span
-                                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                                                  m.status === 'Active'
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                    : 'bg-slate-100 text-slate-600 border-slate-200'
-                                                }`}
+                                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${m.status === 'Active'
+                                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                                                  }`}
                                               >
                                                 {m.status || 'Active'}
                                               </span>
@@ -1382,7 +1364,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             {/* Top node */}
             <div className="flex justify-center mb-4">
               <div className="px-6 py-4 rounded-2xl text-white shadow-xl max-w-xs w-full"
-                style={{ background: 'linear-gradient(135deg, #062d1f, #064e3b)' }}>
+                style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
                 <div className="text-[10px] font-black uppercase tracking-wider text-amber-300 mb-1">Executive Leadership</div>
                 <div className="text-base font-black">Company Director</div>
                 <div className="text-xs text-emerald-200 mt-0.5">Managing Director & HR Head</div>
@@ -1431,10 +1413,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}>
+              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}>
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
                   <Building2 className="w-4 h-4" />
                 </div>
                 <h3 className="text-base font-bold text-slate-900">Add New Department</h3>
@@ -1462,11 +1444,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     }
                   }}
                   placeholder="e.g. Artificial Intelligence"
-                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
-                    deptErrors.deptName
-                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                  }`} />
+                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${deptErrors.deptName
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                    }`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1487,11 +1468,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       }
                     }}
                     placeholder="e.g. AI"
-                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
-                      deptErrors.deptCode
-                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                    }`} />
+                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${deptErrors.deptCode
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                      }`} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1.5">Dept. Head</label>
@@ -1512,7 +1492,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </button>
                 <button id="btn-submit-add-dept" type="submit" disabled={deptSubmitting}
                   className="px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm disabled:opacity-50 transition active:scale-95 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
                   {deptSubmitting ? 'Creating…' : 'Create Department'}
                 </button>
               </div>
@@ -1532,10 +1512,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}>
+              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}>
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
                   <Briefcase className="w-4 h-4" />
                 </div>
                 <h3 className="text-base font-bold text-slate-900">Add New Designation</h3>
@@ -1563,11 +1543,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     }
                   }}
                   placeholder="e.g. Senior Staff Engineer"
-                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
-                    desErrors.desTitle
-                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                  }`} />
+                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${desErrors.desTitle
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                    }`} />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1.5">Department</label>
@@ -1596,11 +1575,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         setDesErrors((p) => { const c = { ...p }; delete c.desMinSalary; return c; });
                       }
                     }}
-                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${
-                      desErrors.desMinSalary
-                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                    }`} />
+                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${desErrors.desMinSalary
+                      ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                      }`} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1.5">Max Salary (Annual)</label>
@@ -1615,7 +1593,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </button>
                 <button id="btn-submit-add-des" type="submit" disabled={desSubmitting}
                   className="px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm disabled:opacity-50 transition active:scale-95 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
                   {desSubmitting ? 'Saving…' : 'Add Designation'}
                 </button>
               </div>
@@ -1642,12 +1620,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             {/* Modal Header */}
             <div
               className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
-              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
             >
               <div className="flex items-center gap-2.5">
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <UserPlus className="w-4 h-4 stroke-[2.5]" />
                 </div>
@@ -1735,7 +1713,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   onChange={(e) => setAssignRole(e.target.value as Role)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition cursor-pointer"
                 >
-                  {ROLE_DEFINITIONS.map((r) => (
+                  {ASSIGNABLE_ROLE_DEFINITIONS.map((r) => (
                     <option key={r.role} value={r.role}>
                       {r.label} ({r.role})
                     </option>
@@ -1799,7 +1777,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   type="submit"
                   disabled={assignSubmitting || !assignEmployeeId || !assignDeptId}
                   className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{assignSubmitting ? 'Adding...' : 'Add Employee'}</span>
@@ -1825,12 +1803,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           >
             <div
               className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
-              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
             >
               <div className="flex items-center gap-2.5">
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <UserPlus className="w-4 h-4 stroke-[2.5]" />
                 </div>
@@ -1887,9 +1865,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       return (
                         <label
                           key={emp.id}
-                          className={`flex items-center justify-between p-2.5 hover:bg-emerald-50/50 transition cursor-pointer ${
-                            isSelected ? 'bg-emerald-50/70' : ''
-                          }`}
+                          className={`flex items-center justify-between p-2.5 hover:bg-emerald-50/50 transition cursor-pointer ${isSelected ? 'bg-emerald-50/70' : ''
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <input
@@ -1928,7 +1905,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   type="submit"
                   disabled={addMemberSubmitting || addMemberUserIds.length === 0}
                   className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{addMemberSubmitting ? 'Assigning...' : `Assign Member (${addMemberUserIds.length})`}</span>
@@ -1954,12 +1931,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           >
             <div
               className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)' }}
+              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
             >
               <div className="flex items-center gap-2.5">
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <Edit2 className="w-4 h-4" />
                 </div>
@@ -2053,7 +2030,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   type="submit"
                   disabled={editMemberSubmitting}
                   className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{editMemberSubmitting ? 'Saving...' : 'Save Changes'}</span>
@@ -2112,12 +2089,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           </div>
         </div>
       )}
-    
+
       {/* ── Edit Organization Modal for Admin ── */}
       {isEditCompanyOpen && (
         <div onClick={(e) => {
-            if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
-          }}
+          if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
+        }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
           <div
             onClick={(e) => e.stopPropagation()}
@@ -2271,6 +2248,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           </div>
         </div>
       )}
-</div>
+    </div>
   );
 };

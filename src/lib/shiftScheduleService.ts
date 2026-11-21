@@ -14,6 +14,8 @@ export interface WorkScheduleConfig {
   earlyBufferMinutes: number; // e.g. 30 (Buffer before shift start)
   enforceShiftWindow: boolean; // default true for company that enables it, false for others
   halfDayHours?: number;
+  weekendDays?: number[]; // [0] = Sunday, [6] = Saturday, etc. (0 - 6)
+  saturdayRule?: 'all' | 'none' | 'alternate_2_4' | 'alternate_1_3'; // Saturday policy
 }
 
 const DEFAULT_SCHEDULE_CONFIG: WorkScheduleConfig = {
@@ -26,6 +28,8 @@ const DEFAULT_SCHEDULE_CONFIG: WorkScheduleConfig = {
   earlyBufferMinutes: 30,
   enforceShiftWindow: true,
   halfDayHours: 4,
+  weekendDays: [0], // Default Sunday only (Admin must select Saturday for it to be weekend)
+  saturdayRule: 'none',
 };
 
 import { getAllEmployees } from './employeeService';
@@ -220,4 +224,87 @@ export function verifyShiftTimeWindow(
     minutesDifference: 0,
     config,
   };
+}
+
+/**
+ * Check if a specific date is a weekend based on company work schedule configuration.
+ * @param date Date object or "YYYY-MM-DD" string
+ * @param config Optional WorkScheduleConfig override
+ */
+export function isDateWeekend(
+  date: Date | string,
+  config?: Partial<WorkScheduleConfig> | null
+): boolean {
+  let d: Date;
+  if (typeof date === 'string') {
+    // If YYYY-MM-DD, parse parts safely to avoid UTC offset shifting
+    const parts = date.split('-').map(Number);
+    if (parts.length === 3) {
+      d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+    } else {
+      d = new Date(date);
+    }
+  } else {
+    d = date;
+  }
+  if (!d || isNaN(d.getTime())) return false;
+
+  const resolvedConfig = (config && config.weekendDays !== undefined)
+    ? config
+    : getWorkScheduleConfig(config?.companyId);
+
+  const weekendDays = resolvedConfig.weekendDays ?? [0];
+  const saturdayRule = resolvedConfig.saturdayRule ?? (weekendDays.includes(6) ? 'all' : 'none');
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  // If Saturday (6)
+  if (dayOfWeek === 6) {
+    if (saturdayRule === 'none' && !weekendDays.includes(6)) return false;
+    if (saturdayRule === 'all') return true;
+    if (saturdayRule === 'alternate_2_4') {
+      const dayOfMonth = d.getDate();
+      const satIndex = Math.ceil(dayOfMonth / 7);
+      return satIndex === 2 || satIndex === 4;
+    }
+    if (saturdayRule === 'alternate_1_3') {
+      const dayOfMonth = d.getDate();
+      const satIndex = Math.ceil(dayOfMonth / 7);
+      return satIndex === 1 || satIndex === 3;
+    }
+    return weekendDays.includes(6);
+  }
+
+  // Other days (Sunday = 0, Mon = 1, etc.)
+  return weekendDays.includes(dayOfWeek);
+}
+
+/**
+ * Returns human-friendly text describing the company's weekend schedule.
+ */
+export function getWeekendPolicyDescription(config?: Partial<WorkScheduleConfig> | null): string {
+  const resolved = (config && config.weekendDays !== undefined)
+    ? config
+    : getWorkScheduleConfig(config?.companyId);
+  const days = resolved.weekendDays ?? [0];
+  const satRule = resolved.saturdayRule ?? (days.includes(6) ? 'all' : 'none');
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  if (days.length === 0 && satRule === 'none') {
+    return 'No official weekends (7-day operations)';
+  }
+
+  const parts: string[] = [];
+  days.filter((d) => d !== 6).forEach((d) => {
+    parts.push(dayNames[d]);
+  });
+
+  if (satRule === 'all' || (days.includes(6) && satRule !== 'alternate_2_4' && satRule !== 'alternate_1_3')) {
+    parts.push('Saturday');
+  } else if (satRule === 'alternate_2_4') {
+    parts.push('2nd & 4th Saturday');
+  } else if (satRule === 'alternate_1_3') {
+    parts.push('1st & 3rd Saturday');
+  }
+
+  return parts.length > 0 ? parts.join(', ') + ' Off' : 'No weekly off';
 }

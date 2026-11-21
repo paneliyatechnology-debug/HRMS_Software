@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",
+    "192.168.1.105",
     "192.168.1.108",
     "192.168.1.*",
     "192.168.*.*",
@@ -36,6 +37,7 @@ const nextConfig: NextConfig = {
     ...localIps,
   ],
   turbopack: {
+    root: __dirname,
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

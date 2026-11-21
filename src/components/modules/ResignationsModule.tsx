@@ -166,7 +166,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       const actorName = `${user.firstName || 'HR'} ${user.lastName || 'Admin'}`;
       const updated = await api.approveResignation(resId, actorName);
 
-      setResignations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...updated, status: 'Completed' } : r)));
+      setResignations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...updated } : r)));
       showToast({
         type: 'success',
         title: 'Resignation Approved',
@@ -223,28 +223,10 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   const completedCount = resignations.filter((r) => r.status === 'Completed').length;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
-      {/* Module Title & Subtitle */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-              <LogOut className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                {isEmployeeView ? 'My Resignation & Exit Pipeline' : 'Resignations & Exit Clearances'}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isEmployeeView
-                  ? 'Submit formal resignation to HR Administration, monitor clearance status, and download relieving certificate.'
-                  : 'Review employee resignation filings, approve exit requests, conduct department handoffs, and issue relieving letters.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {!isEmployeeView && (
+    <div className="space-y-5 w-full animate-in fade-in select-none">
+      {/* Top Action Button (Admin) */}
+      {!isEmployeeView && (
+        <div className="flex justify-end pb-2 border-b border-slate-200">
           <button
             onClick={() => {
               setResigningEmpId(employees[0]?.id || 'emp-1');
@@ -255,8 +237,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>File Employee Resignation</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW                                                      */}
@@ -270,13 +252,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
                         myResignation.status === 'Completed'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                           : 'bg-amber-100 text-amber-800 border border-amber-300'
                       }`}
                     >
-                      {myResignation.status === 'Completed' ? '✓ Resignation Approved & Completed' : '⏳ Submitted (Pending Admin Clearance)'}
+                      {myResignation.status === 'Completed' ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Resignation Approved &amp; Completed</>
+                      ) : (
+                        <><Clock className="w-3.5 h-3.5 shrink-0" /> Submitted (Pending Admin Clearance)</>
+                      )}
                     </span>
                     <span className="text-xs text-slate-400">ID: {myResignation.id}</span>
                   </div>
@@ -292,7 +278,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                   <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
                     Expected Last Working Day
                   </span>
-                  <span className="text-lg font-black text-slate-900">{myResignation.lastWorkingDay}</span>
+                  <span className="text-lg font-semibold tracking-tight text-slate-800">{myResignation.lastWorkingDay}</span>
                   <span className="text-xs text-emerald-600 font-bold block mt-0.5">
                     Notice: {myResignation.noticePeriodDays} Days
                   </span>
@@ -487,26 +473,26 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
           {/* Admin Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
                 Total Resignations
               </span>
-              <span className="text-2xl font-black text-slate-900 mt-1 block">{resignations.length}</span>
+              <span className="text-2xl font-semibold tracking-tight text-slate-800 mt-1 block">{resignations.length}</span>
               <span className="text-[11px] text-slate-400">Total recorded filings</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider block">
                 Pending Clearance
               </span>
-              <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingCount}</span>
+              <span className="text-2xl font-semibold tracking-tight text-amber-600 mt-1 block">{pendingCount}</span>
               <span className="text-[11px] text-slate-400">Awaiting clearance / approval</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider block">
                 Approved & Completed
               </span>
-              <span className="text-2xl font-black text-emerald-600 mt-1 block">{completedCount}</span>
+              <span className="text-2xl font-semibold tracking-tight text-emerald-700 mt-1 block">{completedCount}</span>
               <span className="text-[11px] text-slate-400">Relieving certificates issued</span>
             </div>
           </div>
@@ -579,13 +565,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                               isCompleted
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
-                            {isCompleted ? '✓ Completed / Relieved' : '⏳ Clearance Pending'}
+                            {isCompleted ? (
+                              <><CheckCircle2 className="w-3 h-3 shrink-0" /> Completed / Relieved</>
+                            ) : (
+                              <><Clock className="w-3 h-3 shrink-0" /> Clearance Pending</>
+                            )}
                           </span>
                           <span className="text-[11px] text-slate-400">ID: {res.id}</span>
                         </div>

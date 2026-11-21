@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { X, UserPlus, Check, Camera, Upload, Trash2, AlertCircle, Loader2, Info, Circle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Employee, Department, Designation } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
@@ -142,10 +142,14 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         errors.phone = phoneCheck.error || 'Please enter a valid 10-digit mobile number.';
       }
 
-      // 5. Validate Password
-      const passCheck = validatePassword(formData.initialPassword, 6);
+      // 5. Validate Password (minimum 6 characters, 1 uppercase, 1 special character, 1 number)
+      const passCheck = validatePassword(formData.initialPassword, 6, {
+        requireUppercase: true,
+        requireSpecial: true,
+        requireNumber: true,
+      });
       if (!passCheck.isValid) {
-        errors.initialPassword = passCheck.error || 'Password is required (minimum 6 characters).';
+        errors.initialPassword = passCheck.error || 'Password must contain at least 1 uppercase letter, 1 number, and 1 special character.';
       }
 
       if (Object.keys(errors).length > 0) {
@@ -499,11 +503,25 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 <input
                   id="input-employee-phone"
                   type="tel"
-                  maxLength={13}
+                  maxLength={10}
                   required
                   autoComplete="off"
                   value={formData.phone}
-                  onChange={(e) => updateField('phone', e.target.value.replace(/[^0-9+\s]/g, '').slice(0, 13))}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    updateField('phone', clean);
+                  }}
+                  onBlur={() => {
+                    if (formData.phone) {
+                      const check = validatePhone(formData.phone, true);
+                      if (!check.isValid) {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          phone: check.error || 'Please enter a valid 10-digit mobile number.',
+                        }));
+                      }
+                    }
+                  }}
                   placeholder="9876543210"
                   className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
                     fieldErrors.phone
@@ -511,7 +529,12 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
                   }`}
                 />
-                <p className="text-[10px] text-slate-400 mt-1">10-digit mobile number</p>
+                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                  <span>10-digit mobile number</span>
+                  <span className={formData.phone.length === 10 ? 'text-emerald-600 font-bold' : ''}>
+                    {formData.phone.length}/10 digits
+                  </span>
+                </div>
               </div>
 
               <div>
@@ -567,15 +590,101 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 autoComplete="new-password"
                 value={formData.initialPassword}
                 onChange={(e) => updateField('initialPassword', e.target.value)}
-                placeholder="Create initial login password (min. 6 characters)"
+                onBlur={() => {
+                  if (formData.initialPassword) {
+                    const check = validatePassword(formData.initialPassword, 6, {
+                      requireUppercase: true,
+                      requireSpecial: true,
+                      requireNumber: true,
+                    });
+                    if (!check.isValid) {
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        initialPassword: check.error || 'Password must meet all complexity requirements.',
+                      }));
+                    }
+                  }
+                }}
+                placeholder="Create password (min. 6 chars, 1 uppercase, 1 special, 1 number)"
                 className={`w-full px-3 py-2 text-xs rounded-xl border bg-white transition-all ${
                   fieldErrors.initialPassword
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20 text-rose-900'
                     : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
                 }`}
               />
-              <p className="text-[11px] text-emerald-700 mt-1 font-medium leading-snug">
-                💡 This employee can directly sign in using their registered email or phone with this password.
+              {/* Requirement Checklist */}
+              <div className="mt-2 grid grid-cols-2 gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[10px]">
+                <div
+                  className={`flex items-center gap-1.5 font-medium transition-colors ${
+                    /[A-Z]/.test(formData.initialPassword) ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                      /[A-Z]/.test(formData.initialPassword)
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {/[A-Z]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
+                  </span>
+                  <span>1 Uppercase (A-Z)</span>
+                </div>
+
+                <div
+                  className={`flex items-center gap-1.5 font-medium transition-colors ${
+                    /[0-9]/.test(formData.initialPassword) ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                      /[0-9]/.test(formData.initialPassword)
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {/[0-9]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
+                  </span>
+                  <span>1 Number (0-9)</span>
+                </div>
+
+                <div
+                  className={`flex items-center gap-1.5 font-medium transition-colors ${
+                    /[^A-Za-z0-9]/.test(formData.initialPassword) ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                      /[^A-Za-z0-9]/.test(formData.initialPassword)
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {/[^A-Za-z0-9]/.test(formData.initialPassword) ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
+                  </span>
+                  <span>1 Special character</span>
+                </div>
+
+                <div
+                  className={`flex items-center gap-1.5 font-medium transition-colors ${
+                    formData.initialPassword.length >= 6 ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                      formData.initialPassword.length >= 6
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {formData.initialPassword.length >= 6 ? <Check className="w-2.5 h-2.5" /> : <Circle className="w-2 h-2" />}
+                  </span>
+                  <span>Min. 6 characters</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-emerald-700 mt-1 font-medium leading-snug flex items-start gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>This employee can directly sign in using their registered email or phone with this password.</span>
               </p>
             </div>
           </div>

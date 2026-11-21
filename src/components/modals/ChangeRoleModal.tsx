@@ -14,9 +14,10 @@ import {
 } from 'lucide-react';
 import { Employee, Role } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
-import { ROLE_DEFINITIONS, getRoleDefinition, RoleDefinition } from '../../lib/roleConfig';
+import { ASSIGNABLE_ROLE_DEFINITIONS, getRoleDefinition, RoleDefinition } from '../../lib/roleConfig';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChangeRoleModalProps {
   isOpen: boolean;
@@ -31,14 +32,25 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
   employee,
   onSuccess,
 }) => {
+  const { user } = useAuth();
   const { showToast } = useSocket();
   const [selectedRole, setSelectedRole] = useState<Role>('EMPLOYEE');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const isSelf = Boolean(
+    employee &&
+      user &&
+      (Boolean(employee.email && user.email && employee.email.toLowerCase() === user.email.toLowerCase()) ||
+        Boolean(user.employeeId && (employee.id === user.employeeId || (employee as any).employeeId === user.employeeId)) ||
+        Boolean(user.id && (employee.id === user.id || (employee as any).userId === user.id)))
+  );
+
   useEffect(() => {
     if (employee) {
-      setSelectedRole((employee.role as Role) || 'EMPLOYEE');
+      const initialRole = (employee.role as Role) || 'EMPLOYEE';
+      // Super Admin is never assignable; default to ADMIN if existing is SUPER_ADMIN
+      setSelectedRole(initialRole === 'SUPER_ADMIN' ? 'ADMIN' : initialRole);
       setErrorMsg(null);
     }
   }, [employee, isOpen]);
@@ -65,6 +77,14 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
 
   const handleSubmit = async () => {
     if (!employee) return;
+    if (isSelf) {
+      setErrorMsg('Administrators cannot change their own system role.');
+      return;
+    }
+    if (selectedRole === 'SUPER_ADMIN') {
+      setErrorMsg('Super Admin role cannot be assigned to any user.');
+      return;
+    }
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -172,6 +192,13 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
               Changing an employee’s role immediately adjusts their system permissions, dashboard modules, and approval capabilities.
             </p>
 
+            {isSelf && (
+              <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                <span>Administrators cannot change their own system role to prevent accidental account lockout.</span>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -179,8 +206,8 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {ROLE_DEFINITIONS.map((def) => {
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {ASSIGNABLE_ROLE_DEFINITIONS.map((def) => {
                 const isSelected = selectedRole === def.role;
                 const isCurrent = (employee.role || 'EMPLOYEE') === def.role;
 
@@ -261,7 +288,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isLoading || selectedRole === (employee.role || 'EMPLOYEE')}
+            disabled={isLoading || isSelf || selectedRole === (employee.role || 'EMPLOYEE')}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
           >
             {isLoading ? (

@@ -34,7 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { Employee } from '../../types/hrms';
+import { Employee, LeaveRequest } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { ChangeRoleModal } from './ChangeRoleModal';
@@ -42,12 +42,18 @@ import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { api } from '../../lib/api';
+import {
+  fetchLeaveQuotaData,
+  resolveLeaveQuotaSummary,
+  ResolvedLeaveQuotaSummary,
+} from '../../lib/leaveQuotaUtils';
 
 interface EmployeeProfileModalProps {
   employee: Employee | null;
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   onRefresh?: () => void;
+  variant?: 'modal' | 'page';
 }
 
 export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
@@ -55,7 +61,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   isOpen,
   onClose,
   onRefresh,
+  variant = 'modal',
 }) => {
+  const isPageMode = variant === 'page';
   const { portalMode, user, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -63,6 +71,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [empLeaveSummary, setEmpLeaveSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
+  const [empLeaveLoading, setEmpLeaveLoading] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
 
   const scrollTabs = (direction: 'left' | 'right') => {
@@ -75,6 +85,45 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   React.useEffect(() => {
     setCurrentEmp(employee);
   }, [employee]);
+
+  React.useEffect(() => {
+    if (!isOpen || !currentEmp) return;
+    let active = true;
+    const loadEmployeeLeaves = async () => {
+      setEmpLeaveLoading(true);
+      try {
+        const targetId = currentEmp.id || currentEmp.userId || '';
+        const targetEmail = currentEmp.email?.toLowerCase() || '';
+        const targetName = `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim().toLowerCase();
+
+        const [quotaPayload, rawLeaves] = await Promise.all([
+          fetchLeaveQuotaData(targetId),
+          api.getLeaves(targetId ? { employeeId: targetId } : undefined).catch(() => [] as LeaveRequest[]),
+        ]);
+        if (!active) return;
+
+        const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
+        const empLeaves = allLeaves.filter((l) => {
+          if (targetId && l.employeeId === targetId) return true;
+          if (targetEmail && (l as any).employeeEmail?.toLowerCase() === targetEmail) return true;
+          if (targetName && l.employeeName?.toLowerCase() === targetName) return true;
+          return false;
+        });
+
+        setEmpLeaveSummary(
+          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, empLeaves)
+        );
+      } catch (_) {
+        if (active) setEmpLeaveSummary(null);
+      } finally {
+        if (active) setEmpLeaveLoading(false);
+      }
+    };
+    loadEmployeeLeaves();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, currentEmp]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -155,11 +204,21 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     }
   };
 
-  useModalOverlay({ isOpen, onClose });
+  useModalOverlay({
+    isOpen: !isPageMode && isOpen,
+    onClose: () => onClose?.(),
+  });
 
-  if (!isOpen || !employee || !currentEmp) return null;
+  if ((!isPageMode && !isOpen) || !employee || !currentEmp) return null;
 
   const roleDef = getRoleDefinition(currentEmp.role || 'EMPLOYEE');
+  const isCurrentUser = Boolean(
+    user && currentEmp && (
+      Boolean(user.email && currentEmp.email && user.email.toLowerCase() === currentEmp.email.toLowerCase()) ||
+      Boolean(user.employeeId && (currentEmp.id === user.employeeId || (currentEmp as any).employeeId === user.employeeId)) ||
+      Boolean(user.id && (currentEmp.id === user.id || (currentEmp as any).userId === user.id))
+    )
+  );
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
@@ -183,16 +242,16 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     .filter((s) => s && s !== '.' && s !== '-')
     .join(' • ');
 
-  return (
-    <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
-    >
+  const profileCardContent = (
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full h-[92vh] sm:h-[86vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom"
+        onClick={(e) => {
+          if (!isPageMode) e.stopPropagation();
+        }}
+        className={
+          isPageMode
+            ? 'bg-white rounded-2xl w-full shadow-sm flex flex-col border border-slate-200 overflow-hidden cursor-default'
+            : 'bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full h-[92vh] sm:h-[86vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom'
+        }
       >
         {/* Header Profile Hero */}
         <div className="p-5 sm:p-6 bg-white border-b border-slate-100 text-slate-900 relative shrink-0">
@@ -338,7 +397,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
             {/* Right: Actions & Close Button */}
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {portalMode === 'admin' && (
+              {portalMode === 'admin' && !isCurrentUser && (
                 <button
                   type="button"
                   onClick={() => setRoleModalOpen(true)}
@@ -349,13 +408,15 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   <span>Change Role</span>
                 </button>
               )}
-              <button
-                onClick={onClose}
-                className="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-                title="Close Profile"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {!isPageMode && onClose && (
+                <button
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                  title="Close Profile"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -411,7 +472,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </div>
 
         {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 text-xs text-slate-700 space-y-6">
+        <div className={`${isPageMode ? 'p-4 sm:p-6' : 'flex-1 overflow-y-auto p-4 sm:p-6'} text-xs text-slate-700 space-y-6`}>
           {/* 1. Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-5">
@@ -603,7 +664,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
                     </div>
                   </div>
-                  {portalMode === 'admin' && (
+                  {portalMode === 'admin' && !isCurrentUser && (
                     <button
                       type="button"
                       onClick={() => setRoleModalOpen(true)}
@@ -657,7 +718,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check In Time</span>
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Clock In Time</span>
                           <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">{todayRec.checkIn || '—'}</p>
                           {todayRec.checkInPhoto && (
                             <div className="mt-2 flex items-center gap-2">
@@ -674,7 +735,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                         </div>
 
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check Out Time</span>
+                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Clock Out Time</span>
                           <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">{todayRec.checkOut || 'Pending'}</p>
                           {todayRec.checkOutPhoto && (
                             <div className="mt-2 flex items-center gap-2">
@@ -713,7 +774,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     </div>
                   ) : (
                     <div className="p-5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
-                      No check-in recorded for today yet.
+                      No clock-in recorded for today yet.
                     </div>
                   )}
                 </div>
@@ -724,20 +785,53 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {/* 5. Leave */}
           {activeTab === 'leave' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-center">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold">Casual Leave</span>
-                  <p className="text-xl font-extrabold text-blue-700 mt-1">10 Left</p>
+              {empLeaveLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-pulse">
+                  {[0, 1, 2].map((idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-2">
+                      <div className="h-3 w-20 mx-auto bg-slate-200 rounded" />
+                      <div className="h-6 w-16 mx-auto bg-slate-200 rounded" />
+                      <div className="h-3 w-24 mx-auto bg-slate-100 rounded" />
+                    </div>
+                  ))}
                 </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold">Sick Leave</span>
-                  <p className="text-xl font-extrabold text-emerald-700 mt-1">9 Left</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-center">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">Casual Leave</span>
+                    <p className="text-xl font-extrabold text-blue-700 mt-1">
+                      {empLeaveSummary ? `${empLeaveSummary.casual.available} Left` : '0 Left'}
+                    </p>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                      {empLeaveSummary
+                        ? `${empLeaveSummary.casual.taken} Used / ${empLeaveSummary.casual.quota} Total`
+                        : '0 Used / 0 Total'}
+                    </span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">Sick Leave</span>
+                    <p className="text-xl font-extrabold text-emerald-700 mt-1">
+                      {empLeaveSummary ? `${empLeaveSummary.sick.available} Left` : '0 Left'}
+                    </p>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                      {empLeaveSummary
+                        ? `${empLeaveSummary.sick.taken} Used / ${empLeaveSummary.sick.quota} Total`
+                        : '0 Used / 0 Total'}
+                    </span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-center">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">Paid / Annual</span>
+                    <p className="text-xl font-extrabold text-purple-700 mt-1">
+                      {empLeaveSummary ? `${empLeaveSummary.paid.available} Left` : '0 Left'}
+                    </p>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                      {empLeaveSummary
+                        ? `${empLeaveSummary.paid.taken} Used / ${empLeaveSummary.paid.quota} Total`
+                        : '0 Used / 0 Total'}
+                    </span>
+                  </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-center">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold">Paid / Annual</span>
-                  <p className="text-xl font-extrabold text-purple-700 mt-1">12 Left</p>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -824,6 +918,35 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isPageMode) {
+    return (
+      <div className="space-y-5 w-full">
+        {profileCardContent}
+
+        {/* Change Role Modal */}
+        <ChangeRoleModal
+          isOpen={roleModalOpen}
+          onClose={() => setRoleModalOpen(false)}
+          employee={currentEmp}
+          onSuccess={(updated) => {
+            setCurrentEmp(updated);
+            if (onRefresh) onRefresh();
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
+    >
+      {profileCardContent}
 
       {/* Change Role Modal */}
       <ChangeRoleModal

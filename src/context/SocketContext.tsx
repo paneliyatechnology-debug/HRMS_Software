@@ -432,7 +432,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       : (user?.employeeId || currentUserId || undefined);
 
     s.on('chat_message_received', (incomingMessage: any) => {
-      receiveIncomingSocketMessage(incomingMessage, viewerId);
+      receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
       window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
     });
@@ -513,8 +513,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     >
       {children}
 
-      {/* Floating Real-Time Toast Notifications Container */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+      {/* Floating Real-Time Toast Notifications Container (Compact Glassmorphic Top-Right) */}
+      <div className="fixed top-[72px] sm:top-[76px] right-4 z-50 flex flex-col gap-2 max-w-[300px] w-[calc(100vw-2rem)] pointer-events-none">
         {toasts.map((toast) => {
           const isSuccess = toast.type === 'success';
           const isWarning = toast.type === 'warning';
@@ -523,55 +523,56 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto p-4 rounded-2xl shadow-2xl backdrop-blur-md border animate-in slide-in-from-bottom-5 transition-all duration-300 flex items-start gap-3.5 ${
+              className={`pointer-events-auto pl-3 pr-2.5 py-2.5 rounded-xl bg-white/60 backdrop-blur-xl shadow-[0_8px_24px_-6px_rgba(6,45,31,0.18)] border border-white/70 ring-1 ring-black/5 border-l-4 animate-in slide-in-from-top-3 transition-all duration-200 flex items-start gap-2.5 ${
                 isSuccess
-                  ? 'bg-emerald-950/90 border-emerald-500/30 text-white'
+                  ? 'border-l-emerald-600'
                   : isWarning
-                  ? 'bg-amber-950/90 border-amber-500/30 text-white'
+                  ? 'border-l-amber-500'
                   : isError
-                  ? 'bg-rose-950/90 border-rose-500/30 text-white'
-                  : 'bg-slate-900/90 border-slate-700/50 text-white'
+                  ? 'border-l-rose-600'
+                  : 'border-l-emerald-600'
               }`}
             >
               <div
-                className={`p-2 rounded-xl shrink-0 ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                   isSuccess
-                    ? 'bg-emerald-500/20 text-emerald-400'
+                    ? 'bg-emerald-500/15 text-emerald-700'
                     : isWarning
-                    ? 'bg-amber-500/20 text-amber-400'
+                    ? 'bg-amber-500/15 text-amber-700'
                     : isError
-                    ? 'bg-rose-500/20 text-rose-400'
-                    : 'bg-blue-500/20 text-blue-400'
+                    ? 'bg-rose-500/15 text-rose-700'
+                    : 'bg-emerald-500/15 text-emerald-700'
                 }`}
               >
                 {isSuccess ? (
-                  <CheckCircle2 className="w-5 h-5" />
+                  <CheckCircle2 className="w-4 h-4" />
                 ) : isWarning ? (
-                  <AlertCircle className="w-5 h-5" />
+                  <AlertCircle className="w-4 h-4" />
                 ) : isError ? (
-                  <AlertCircle className="w-5 h-5" />
+                  <AlertCircle className="w-4 h-4" />
                 ) : (
-                  <Bell className="w-5 h-5" />
+                  <Bell className="w-4 h-4" />
                 )}
               </div>
 
-              <div className="flex-1 min-w-0 pr-1">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h5 className="text-xs font-semibold text-[#212529] truncate leading-tight">
                     {toast.title}
                   </h5>
-                  <span className="text-[10px] text-slate-400">{toast.timestamp}</span>
+                  <span className="text-[10px] text-slate-500 shrink-0">{toast.timestamp}</span>
                 </div>
-                <p className="text-sm font-medium mt-0.5 leading-snug line-clamp-2 text-slate-100">
+                <p className="text-[11px] font-normal mt-0.5 leading-snug line-clamp-2 text-slate-700">
                   {toast.message}
                 </p>
               </div>
 
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-black/5 transition shrink-0 cursor-pointer"
+                aria-label="Dismiss notification"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           );

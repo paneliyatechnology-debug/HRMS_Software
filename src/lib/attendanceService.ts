@@ -198,14 +198,20 @@ export function computeShiftClock(
   const isLive = Boolean(clock.isLive && sessionStartTime);
   if (!isLive) return null;
 
-  const startMs = new Date(sessionStartTime as string).getTime();
+  let startMs = new Date(sessionStartTime as string).getTime();
+  if (!startMs || Number.isNaN(startMs)) {
+    startMs = parseTimeStringToTimestamp(sessionStartTime as string);
+  }
   if (!startMs || Number.isNaN(startMs)) return null;
 
   const completedWork = Number(clock.completedWorkSeconds) || 0;
   const completedBreak = Number(clock.completedBreakSeconds) || 0;
   const sessionClosedBreak = Number(clock.sessionClosedBreakSeconds) || 0;
   const onBreak = Boolean(clock.isOnBreak && openBreakStartTime);
-  const breakStartMs = openBreakStartTime ? new Date(openBreakStartTime).getTime() : 0;
+  let breakStartMs = openBreakStartTime ? new Date(openBreakStartTime).getTime() : 0;
+  if (openBreakStartTime && (!breakStartMs || Number.isNaN(breakStartMs))) {
+    breakStartMs = parseTimeStringToTimestamp(openBreakStartTime);
+  }
 
   if (onBreak && breakStartMs && !Number.isNaN(breakStartMs)) {
     const frozenSegment = Math.max(0, Math.floor((breakStartMs - startMs) / 1000) - sessionClosedBreak);
