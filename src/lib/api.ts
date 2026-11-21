@@ -776,6 +776,10 @@ function backendLeaveTypeToFrontend(lt: any) {
     name: lt.name || '',
     companyId: lt.companyId || '',
     createdAt: lt.createdAt || '',
+    daysAllowed: lt.daysAllowed !== undefined ? Number(lt.daysAllowed) : (lt.quota !== undefined ? Number(lt.quota) : 12),
+    code: lt.code || '',
+    color: lt.color || '',
+    isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
   };
 }
 

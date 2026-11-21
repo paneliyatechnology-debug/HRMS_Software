@@ -146,9 +146,16 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         if (!active) return;
 
         if (Array.isArray(liveLeaveTypes) && liveLeaveTypes.length > 0) {
-          setBackendLeaveTypes(liveLeaveTypes);
-          if (liveLeaveTypes[0]?.name) {
-            setLeaveType(liveLeaveTypes[0].name as LeaveType);
+          const seen = new Set<string>();
+          const uniqueList = liveLeaveTypes.filter((lt) => {
+            const key = (lt.name || '').trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setBackendLeaveTypes(uniqueList);
+          if (uniqueList[0]?.name) {
+            setLeaveType(uniqueList[0].name as LeaveType);
           }
         }
 

@@ -26,7 +26,8 @@ export type LeaveType =
   | 'Unpaid Leave'
   | 'Comp Off'
   | 'Maternity Leave'
-  | 'Paternity Leave';
+  | 'Paternity Leave'
+  | (string & {});
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 

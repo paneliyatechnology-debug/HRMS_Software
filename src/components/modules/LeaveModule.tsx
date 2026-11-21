@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   Upload,
@@ -105,6 +105,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       setLeaveTypesLoading(false);
     }
   }, [showToast]);
+
+  useEffect(() => {
+    loadLeaveTypes();
+  }, [loadLeaveTypes]);
 
   useEffect(() => {
     if (isLeaveTypesModalOpen) {
@@ -290,6 +294,129 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   const getUsagePercent = (taken: number, quota: number) =>
     quota > 0 ? Math.min(100, Math.round((taken / quota) * 100)) : 0;
+
+  // Top 4 leave types configured by administrator for the employee summary boxes
+  const dynamicLeaveCards = useMemo(() => {
+    if (!leaveTypesList || leaveTypesList.length === 0) return [];
+
+    // Filter out invalid names and deduplicate
+    const seen = new Set<string>();
+    const unique = leaveTypesList.filter((lt) => {
+      const name = (lt.name || '').trim();
+      if (!name || seen.has(name.toLowerCase())) return false;
+      seen.add(name.toLowerCase());
+      return true;
+    });
+
+    // Sort by highest daysAllowed/quota descending, preserving admin configured order
+    const sorted = [...unique].sort((a, b) => {
+      const quotaA = Number((a as any).daysAllowed ?? 0);
+      const quotaB = Number((b as any).daysAllowed ?? 0);
+      return quotaB - quotaA;
+    });
+
+    // Take highest 4 leave types configured by administrator
+    const top4 = sorted.slice(0, 4);
+
+    const THEMES = [
+      {
+        border: 'border-emerald-100',
+        dot: 'bg-emerald-500',
+        title: 'text-emerald-800',
+        badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        usedTag: 'text-emerald-700',
+        progressBar: 'bg-emerald-500',
+      },
+      {
+        border: 'border-amber-100',
+        dot: 'bg-amber-500',
+        title: 'text-amber-800',
+        badge: 'bg-amber-50 text-amber-800 border-amber-200',
+        usedTag: 'text-amber-700',
+        progressBar: 'bg-amber-500',
+      },
+      {
+        border: 'border-violet-100',
+        dot: 'bg-violet-600',
+        title: 'text-violet-800',
+        badge: 'bg-violet-50 text-violet-800 border-violet-200',
+        usedTag: 'text-violet-700',
+        progressBar: 'bg-violet-600',
+      },
+      {
+        border: 'border-indigo-100',
+        dot: 'bg-indigo-600',
+        title: 'text-indigo-700',
+        badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        usedTag: 'text-indigo-600',
+        progressBar: 'bg-indigo-600',
+      },
+    ];
+
+    return top4.map((lt, idx) => {
+      const tName = (lt.name || '').trim().toLowerCase();
+
+      let quota = 0;
+      if (tName.includes('casual') && CASUAL_QUOTA > 0) {
+        quota = CASUAL_QUOTA;
+      } else if ((tName.includes('sick') || tName.includes('med')) && SICK_QUOTA > 0) {
+        quota = SICK_QUOTA;
+      } else if ((tName.includes('paid') || tName.includes('annual') || tName.includes('earn')) && PAID_QUOTA > 0) {
+        quota = PAID_QUOTA;
+      } else if (typeof (lt as any).daysAllowed === 'number' && (lt as any).daysAllowed > 0) {
+        quota = (lt as any).daysAllowed;
+      } else {
+        quota = 12; // default annual company leave allocation
+      }
+
+      const taken = relevantLeaves
+        .filter((l) => {
+          const lType = (l.leaveType || '').trim().toLowerCase();
+          const isApproved = (l.status || '').toLowerCase() === 'approved';
+          return isApproved && (lType === tName || lType.includes(tName) || tName.includes(lType));
+        })
+        .reduce((sum, l) => {
+          const count = Number(l.daysCount);
+          if (Number.isFinite(count) && count > 0) return sum + count;
+          return sum + (l.isHalfDay ? 0.5 : 1);
+        }, 0);
+
+      const pending = relevantLeaves
+        .filter((l) => {
+          const lType = (l.leaveType || '').trim().toLowerCase();
+          const isPending = (l.status || '').toLowerCase() === 'pending';
+          return isPending && (lType === tName || lType.includes(tName) || tName.includes(lType));
+        })
+        .reduce((sum, l) => {
+          const count = Number(l.daysCount);
+          if (Number.isFinite(count) && count > 0) return sum + count;
+          return sum + (l.isHalfDay ? 0.5 : 1);
+        }, 0);
+
+      const available = Math.max(0, quota - taken);
+
+      let badge = (lt as any).code || '';
+      if (!badge) {
+        if (tName.includes('casual')) badge = 'CASUAL';
+        else if (tName.includes('sick') || tName.includes('med')) badge = 'MEDICAL';
+        else if (tName.includes('paid') || tName.includes('annual')) badge = 'EARNED';
+        else if (tName.includes('privilege')) badge = 'PRIVILEGE';
+        else if ((lt as any).isPaid === false) badge = 'UNPAID';
+        else badge = (lt.name || '').toUpperCase().slice(0, 10);
+      }
+
+      return {
+        id: lt.id,
+        name: lt.name,
+        quota,
+        taken,
+        pending,
+        available,
+        badge,
+        theme: THEMES[idx % THEMES.length],
+      };
+    });
+  }, [leaveTypesList, relevantLeaves, CASUAL_QUOTA, SICK_QUOTA, PAID_QUOTA]);
 
   // Filter leaves according to current portal & filters
   const lq = search.trim().toLowerCase();
@@ -488,7 +615,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           )}
 
           {/* Empty / Unconfigured Admin Quota Notice */}
-          {!quotaLoading && !quotaError && !quotaSummary.hasConfiguredQuota && (
+          {!quotaLoading && !quotaError && !quotaSummary.hasConfiguredQuota && dynamicLeaveCards.length === 0 && (
             <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 text-emerald-700 shrink-0" />
               <span>
@@ -517,6 +644,58 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </div>
                   <div className="pt-2 border-t border-slate-100 space-y-2">
                     <div className="h-2.5 w-full bg-slate-100 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : dynamicLeaveCards.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {dynamicLeaveCards.map((card: any) => (
+                <div
+                  key={card.id}
+                  className={`p-4 rounded-2xl bg-white border-2 ${card.theme.border} shadow-sm hover:shadow-md transition-all flex flex-col justify-between`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span className={`text-[11px] font-black uppercase ${card.theme.title} tracking-wider flex items-center gap-1.5 truncate`}>
+                        <span className={`w-2 h-2 rounded-full ${card.theme.dot} shrink-0`} />
+                        <span className="truncate">{card.name}</span>
+                      </span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${card.theme.badge} shrink-0`}>
+                        {card.badge}
+                      </span>
+                    </div>
+
+                    {/* Prominent Taken/Total */}
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-3xl font-semibold tracking-tight text-slate-800">{card.taken}</span>
+                      <span className="text-2xl font-semibold text-slate-400">/{card.quota}</span>
+                      <span className={`text-xs font-semibold ${card.theme.usedTag} ml-1.5`}>Used</span>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-rose-600">{card.taken} Used</span>
+                      <span className="font-bold text-emerald-600">{card.available} Available</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                      <span>{card.taken}/{card.quota} Days Used</span>
+                      <span className="text-emerald-700 font-extrabold">{card.available} Remaining</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                      <div
+                        className={`${card.theme.progressBar} h-2 rounded-full transition-all duration-500`}
+                        style={{ width: `${getUsagePercent(card.taken, card.quota)}%` }}
+                      />
+                    </div>
+                    {card.pending > 0 && (
+                      <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3 shrink-0" />
+                        <span>{card.pending} {card.pending === 1 ? 'day' : 'days'} pending review</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
