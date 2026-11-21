@@ -18,8 +18,14 @@ http.interceptors.request.use((config) => {
       config.headers.set('Authorization', `Bearer ${token}`);
     }
   }
+  const contentType = (config.headers && typeof (config.headers as any).get === 'function')
+    ? (config.headers as any).get('Content-Type')
+    : (config.headers as any)?.['Content-Type'];
+
+  const isExplicitJson = typeof contentType === 'string' && contentType.includes('application/json');
+
   const data = config.data;
-  if (data && typeof data === 'object' && !(data instanceof FormData)) {
+  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
     const form = new FormData();
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (value == null || value === '') continue;
@@ -57,6 +63,18 @@ async function login(email: string, password: string) {
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Email or password is incorrect.');
+  }
+}
+
+async function forgotPassword(email: string) {
+  try {
+    const response = await http.post('/users/forgot', { email }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send password reset link.');
   }
 }
 
@@ -252,7 +270,7 @@ async function registerCompany(data: CompanyRegisterInput) {
   }
 }
 
-export const api = new Proxy({ registerCompany, login, getProfile, logout, createUser, listUsers, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
+export const api = new Proxy({ registerCompany, login, forgotPassword, getProfile, logout, createUser, listUsers, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
   get(target, prop) {
     if (typeof prop !== 'string') return undefined;
     if (!target[prop]) target[prop] = notConnected;

@@ -39,7 +39,7 @@ import {
 
 export interface LoginPageProps {
   onBackToHome?: () => void;
-  initialMode?: 'login' | 'signup';
+  initialMode?: 'login' | 'signup' | 'forgot';
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode = 'login' }) => {
@@ -47,7 +47,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const { login, registerCompanyAccount } = useAuth();
   const handleBack = onBackToHome || (() => router.push('/dashboard'));
 
-  const [viewMode, setViewMode] = useState<'login' | 'signup' | 'registration_pending'>(() => {
+  const [viewMode, setViewMode] = useState<'login' | 'signup' | 'registration_pending' | 'forgot' | 'forgot_success'>(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/register') {
       return 'signup';
     }
@@ -64,11 +64,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     ownerName: '',
   });
 
+  // Forgot password form states
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+
   const handleSwitchToSignup = () => {
     clearAllSignupFields();
     setViewMode('signup');
     setErrorMessage(null);
     setSuccessMessage(null);
+    setForgotError(null);
+    setForgotSuccess(null);
     if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
       window.history.pushState(null, '', '/register');
     }
@@ -80,8 +88,48 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setViewMode('login');
     setErrorMessage(null);
     setSuccessMessage(null);
+    setForgotError(null);
+    setForgotSuccess(null);
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.history.pushState(null, '', '/login');
+    }
+  };
+
+  const handleSwitchToForgot = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setForgotError(null);
+    setForgotSuccess(null);
+    // Pre-populate if identifier looks like an email
+    if (identifier && identifier.includes('@')) {
+      setForgotEmail(identifier.trim());
+    }
+    setViewMode('forgot');
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    const trimmedEmail = forgotEmail.trim();
+    if (!trimmedEmail) {
+      setForgotError('Please enter your email address.');
+      return;
+    }
+    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await api.forgotPassword(trimmedEmail);
+      const msg = res?.message || 'A password form link was sent to your email.';
+      setForgotSuccess(msg);
+      setViewMode('forgot_success');
+    } catch (err: any) {
+      setForgotError(err?.message || 'Failed to send password reset link. Please verify your email.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -387,12 +435,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                 ? 'Register your company workspace & owner account'
                 : viewMode === 'registration_pending'
                   ? 'Company Registration Status'
-                  : 'Unified Workspace Login • Employee & Admin'}
+                  : viewMode === 'forgot' || viewMode === 'forgot_success'
+                    ? 'Account Recovery • Password Reset'
+                    : 'Unified Workspace Login • Employee & Admin'}
             </p>
           </div>
 
           {/* Luxury Card */}
           <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-slate-200/80 shadow-[0_20px_60px_-15px_rgba(5,150,105,0.08),0_1px_3px_rgba(0,0,0,0.05)] p-6 sm:p-9">
+
+            {/* Top Header Row for Forgot Password Mode */}
+            {(viewMode === 'forgot' || viewMode === 'forgot_success') && (
+              <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+                    <Lock className="w-5 h-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">Reset Password</h2>
+                    <p className="text-[11px] text-slate-500">Receive password reset instructions by email</p>
+                  </div>
+                </div>
+                <button
+                  id="btn-back-to-login-forgot-top"
+                  type="button"
+                  onClick={handleSwitchToLogin}
+                  className="text-xs font-bold text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Login</span>
+                </button>
+              </div>
+            )}
 
             {/* Top Header Row for Signup Mode */}
             {viewMode === 'signup' && (
@@ -487,6 +561,145 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Back to Login Page</span>
+                  </button>
+                </div>
+              </div>
+            ) : viewMode === 'forgot' ? (
+              /* ========================================================== */
+              /* FORGOT PASSWORD FORM                                       */
+              /* ========================================================== */
+              <form
+                onSubmit={handleForgotSubmit}
+                className="space-y-4 animate-in fade-in zoom-in-95 duration-200"
+                autoComplete="off"
+              >
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-950 leading-relaxed space-y-1">
+                  <p className="font-bold flex items-center gap-1.5 text-emerald-900">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Password Recovery</span>
+                  </p>
+                  <p className="text-slate-600">
+                    Enter the email associated with your account. We will send a secure link to reset your workspace password.
+                  </p>
+                </div>
+
+                {forgotError && (
+                  <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="input-forgot-email" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Registered Work Email
+                  </label>
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="input-forgot-email"
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => {
+                        setForgotEmail(e.target.value);
+                        if (forgotError) setForgotError(null);
+                      }}
+                      placeholder="e.g. name@company.com"
+                      className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <button
+                  id="btn-submit-forgot"
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group"
+                >
+                  {forgotLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Sending Reset Link...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Send Password Reset Link</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-4 mt-4 border-t border-slate-100 text-center">
+                  <button
+                    id="btn-cancel-forgot"
+                    type="button"
+                    onClick={handleSwitchToLogin}
+                    className="text-xs font-semibold text-slate-600 hover:text-emerald-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Workspace Login</span>
+                  </button>
+                </div>
+              </form>
+            ) : viewMode === 'forgot_success' ? (
+              /* ========================================================== */
+              /* FORGOT PASSWORD SUCCESS VIEW                               */
+              /* ========================================================== */
+              <div className="py-2 text-center animate-in fade-in zoom-in-95 duration-200 space-y-4">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+                  <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
+                </div>
+
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                    Reset Link Sent
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    {forgotSuccess || 'A password form link was sent to your email.'}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/50 border border-emerald-200 text-left space-y-2.5 shadow-xs">
+                  <div className="flex items-start gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 shrink-0 mt-0.5">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-900">
+                        Recipient: <span className="font-mono text-emerald-700 break-all">{forgotEmail}</span>
+                      </p>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Please check your email inbox and spam folder. Follow the link provided in the message to create your new password.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    id="btn-forgot-success-back-login"
+                    type="button"
+                    onClick={handleSwitchToLogin}
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Workspace Login</span>
+                  </button>
+                  <button
+                    id="btn-forgot-try-again"
+                    type="button"
+                    onClick={() => {
+                      setForgotSuccess(null);
+                      setForgotError(null);
+                      setViewMode('forgot');
+                    }}
+                    className="w-full py-2 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  >
+                    Didn't receive the email? Try again
                   </button>
                 </div>
               </div>
@@ -611,9 +824,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     </button>
                   </div>
                   <div className="flex justify-end mt-1.5">
-                    <span className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 hover:underline cursor-pointer">
+                    <button
+                      id="btn-forgot-password-link"
+                      type="button"
+                      onClick={handleSwitchToForgot}
+                      className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                    >
                       Forgot?
-                    </span>
+                    </button>
                   </div>
                 </div>
 
