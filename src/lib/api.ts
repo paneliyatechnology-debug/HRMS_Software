@@ -290,12 +290,34 @@ async function refreshToken() {
   }
 }
 
+function isEmployeeSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const portalMode = getCookie('hrms_portal_mode');
+    if (portalMode === 'employee') return true;
+    const currentRole = getCookie('hrms_current_role');
+    if (currentRole && currentRole.toUpperCase() === 'EMPLOYEE') return true;
+    const userCookie = getCookie('hrms_auth_user');
+    if (userCookie) {
+      const parsed = JSON.parse(userCookie);
+      if (parsed?.role && parsed.role.toUpperCase() === 'EMPLOYEE') return true;
+    }
+    const token = getCookie('hrms_auth_token') || getCookie('bearerToken') || getCookie('accessToken');
+    if (token && token.includes('.')) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload?.role && payload.role.toUpperCase() === 'EMPLOYEE') return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
 // 8. GET /users (List users - Admin)
 async function listUsers(params?: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
   try {
-    const portalMode = typeof window !== 'undefined' ? getCookie('hrms_portal_mode') : null;
-    const currentRole = typeof window !== 'undefined' ? getCookie('hrms_current_role') : null;
-    if (portalMode === 'employee' || (currentRole && currentRole.toUpperCase() === 'EMPLOYEE')) {
+    if (isEmployeeSession()) {
       return { data: [], users: [], total: 0 };
     }
     return await deduplicatedGet('/users', { params });
@@ -1121,9 +1143,7 @@ function userToEmployee(u: any): any {
 
 async function getEmployees() {
   try {
-    const portalMode = typeof window !== 'undefined' ? getCookie('hrms_portal_mode') : null;
-    const currentRole = typeof window !== 'undefined' ? getCookie('hrms_current_role') : null;
-    if (portalMode === 'employee' || (currentRole && currentRole.toUpperCase() === 'EMPLOYEE')) {
+    if (isEmployeeSession()) {
       return [];
     }
     const res = await listUsers({ limit: 100 });

@@ -6,11 +6,6 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { LeaveType, LeaveRequest, LeaveDaySession, LeaveDayBreakdown } from '../../types/hrms';
-import {
-  fetchLeaveQuotaData,
-  resolveLeaveQuotaSummary,
-  ResolvedLeaveQuotaSummary,
-} from '../../lib/leaveQuotaUtils';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface LeaveModalProps {
@@ -76,8 +71,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [quotaSummary, setQuotaSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
-  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
   const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>(availableLeaveTypes || []);
 
   const selectedDates = useMemo(() => getDatesInRange(startDate, endDate), [startDate, endDate]);
@@ -133,19 +127,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setError('');
 
     let active = true;
-    const loadDynamicBalances = async () => {
-      setQuotaLoading(true);
+    const fetchLeaveTypesOnly = async () => {
+      setLeaveTypesLoading(true);
       try {
-        const myId = user?.employeeId || user?.id || '';
-        const myEmail = user?.email?.toLowerCase() || '';
-        const myName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim().toLowerCase();
         const userCompId = user?.companyId;
-
-        const [quotaPayload, rawLeaves, liveLeaveTypes] = await Promise.all([
-          fetchLeaveQuotaData(myId),
-          api.getLeaves(myId ? { employeeId: myId } : undefined).catch(() => [] as LeaveRequest[]),
-          api.listLeaveTypes(userCompId ? { companyId: userCompId } : undefined).catch(() => []),
-        ]);
+        const liveLeaveTypes = await api.listLeaveTypes(userCompId ? { companyId: userCompId } : undefined).catch(() => []);
         if (!active) return;
 
         const candidates =
@@ -171,29 +157,20 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
           setBackendLeaveTypes([]);
           setLeaveType('' as LeaveType);
         }
-
-        const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
-        const myLeaves = allLeaves.filter((l) => {
-          if (myId && l.employeeId === myId) return true;
-          if (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail) return true;
-          if (myName && l.employeeName?.toLowerCase() === myName) return true;
-          return false;
-        });
-
-        setQuotaSummary(
-          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, myLeaves)
-        );
       } catch (_) {
-        if (active) setQuotaSummary(null);
+        if (active) {
+          setBackendLeaveTypes([]);
+          setLeaveType('' as LeaveType);
+        }
       } finally {
-        if (active) setQuotaLoading(false);
+        if (active) setLeaveTypesLoading(false);
       }
     };
-    loadDynamicBalances();
+    fetchLeaveTypesOnly();
     return () => {
       active = false;
     };
-  }, [isOpen, availableLeaveTypes, user]);
+  }, [isOpen, availableLeaveTypes, user?.companyId]);
 
   const clearFieldError = (f: string) => {
     setFieldErrors((prev) => {
@@ -366,7 +343,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               required
             >
-              {quotaLoading && backendLeaveTypes.length === 0 ? (
+              {leaveTypesLoading && backendLeaveTypes.length === 0 ? (
                 <option value="" disabled>Loading company leave types...</option>
               ) : backendLeaveTypes.length > 0 ? (
                 backendLeaveTypes.map((lt) => (
