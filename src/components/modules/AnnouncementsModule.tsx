@@ -61,8 +61,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
-  const [audienceType, setAudienceType] = useState<'All' | 'Department' | 'Management'>('All');
+  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
+  const [audienceType, setAudienceType] = useState<'All' | 'Individual'>('All');
   const [targetEmployeeId, setTargetEmployeeId] = useState(employees[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
 
@@ -102,7 +102,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
       let selectedEmpName: string | undefined = undefined;
       let selectedDept: string | undefined = undefined;
 
-      if (audienceType === 'Management') {
+      if (audienceType === 'Individual') {
         const found = employees.find((emp) => emp.id === targetEmployeeId);
         if (found) {
           selectedEmpName = `${found.firstName} ${found.lastName}`;
@@ -114,8 +114,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         title: title.trim(),
         content: content.trim(),
         priority,
-        targetAudience: audienceType === 'Management' ? 'Individual' : audienceType,
-        targetEmployeeId: audienceType === 'Management' ? targetEmployeeId : undefined,
+        targetAudience: audienceType,
+        targetEmployeeId: audienceType === 'Individual' ? targetEmployeeId : undefined,
         targetEmployeeName: selectedEmpName,
         departmentName: selectedDept,
         authorName: `${user.firstName || 'HR'} ${user.lastName || 'Admin'} (HR & Admin)`,
@@ -126,7 +126,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         type: 'success',
         title: 'Notice Published',
         message:
-          audienceType === 'Management'
+          audienceType === 'Individual'
             ? `Notice sent directly to ${selectedEmpName || 'employee'}.`
             : 'Company-wide notice broadcast successfully.',
       });
@@ -171,7 +171,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
 
   const filteredNotices = announcements.filter((a) => {
     if (filterAudience === 'Company') return a.targetAudience === 'All';
-    if (filterAudience === 'Personal') return a.targetAudience === 'Management';
+    if (filterAudience === 'Personal') return a.targetAudience === 'Individual';
     return true;
   });
 
@@ -219,7 +219,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                 : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
               }`}
           >
-            Personal Circulars ({announcements.filter((a) => a.targetAudience === 'Management').length})
+            Personal Circulars ({announcements.filter((a) => a.targetAudience === 'Individual').length})
           </button>
         </div>
 
@@ -237,7 +237,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         ) : (
           filteredNotices.map((anc) => {
             const isPersonalToMe =
-              anc.targetAudience === 'Management' &&
+              anc.targetAudience === 'Individual' &&
               (anc.targetEmployeeId === user.employeeId ||
                 anc.targetEmployeeName?.toLowerCase().includes((user.firstName || '').toLowerCase()));
 
@@ -264,13 +264,13 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                       {anc.priority} Priority
                     </span>
 
-                    {anc.targetAudience === 'Management' ? (
+                    {anc.targetAudience === 'Individual' ? (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
                         <User className="w-3 h-3" />
                         <span>
                           {isPersonalToMe
                             ? 'Personal Notice to You'
-                            : `Management: ${anc.targetEmployeeName || 'Staff Member'}`}
+                            : `Individual: ${anc.targetEmployeeName || 'Staff Member'}`}
                         </span>
                       </span>
                     ) : (
@@ -381,8 +381,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAudienceType('Management')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Management'
+                    onClick={() => setAudienceType('Individual')}
+                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Individual'
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
@@ -393,8 +393,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                 </div>
               </div>
 
-              {/* If Management: select employee */}
-              {audienceType === 'Management' && (
+              {/* If Individual: select employee */}
+              {audienceType === 'Individual' && (
                 <div>
                   <label className="font-bold text-slate-700 block mb-1.5 text-xs">
                     Select Target Employee *
@@ -441,10 +441,10 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   onChange={(e) => setPriority(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
                 >
-                  <option value="Low">🟢 Low Priority (General Notice)</option>
-                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
-                  <option value="High">🔴 High Priority (Action Required)</option>
-                  <option value="Urgent">⚠️ Urgent Notice (Immediate Attention)</option>
+                  <option value="Low">Low Priority (General Notice)</option>
+                  <option value="Medium">Medium Priority (Standard Notice)</option>
+                  <option value="High">High Priority (Action Required)</option>
+                  <option value="Urgent">Urgent Notice (Immediate Attention)</option>
                 </select>
               </div>
 

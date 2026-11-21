@@ -575,7 +575,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       const active = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
       const breakSeconds = Number(session.totalBreakSeconds) || 0;
       const workSeconds = Number(session.durationSeconds) || 0;
-      map.set(session.id, ({
+      map.set(session.id, {
         id: session.id,
         employeeId: session.employeeId || selfEmployee?.id || myEmpId,
         employeeName: session.employeeName || (selfEmployee ? `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim() : ''),
@@ -589,12 +589,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         activeSeconds: workSeconds,
         breakSeconds,
         breakDurationMinutes: Math.round(breakSeconds / 60),
-        workingHours: +(workSeconds / 3600).toFixed(2),
+        workingHours: Number((workSeconds / 3600).toFixed(2)),
         overtimeHours: 0,
         formattedTotalBreak: session.formattedTotalBreak || formatSecondsToWords(breakSeconds),
         durationFormatted: session.durationFormatted || formatSecondsToHMS(workSeconds),
         createdAt: session.startTime,
-      } as unknown as AttendanceRecord));
+      } as unknown as AttendanceRecord);
     });
 
     // 3. Ensure today's live record is present with most current ticking/punch state
@@ -922,7 +922,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.startWork({});
+      const res = await api.clockIn({ note: 'Morning shift clock-in' });
       performCheckIn({
         id: selfEmployee.id || myEmpId,
         firstName: selfEmployee.firstName,
@@ -970,7 +970,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckOutAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.stopWork({});
+      const res = await api.clockOut({ note: 'Evening clock-out' });
       const outRes = performCheckOut(selfEmployee.id || myEmpId, {
         remarks: 'Evening clock-out',
       });

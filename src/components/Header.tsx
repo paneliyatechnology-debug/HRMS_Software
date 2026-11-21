@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   FileText,
   Layers,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkSession } from '../context/WorkSessionContext';
@@ -53,7 +54,7 @@ interface HeaderProps {
   onNavigateModule?: (moduleName: string, subTab?: string) => void;
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
-  portalMode?: 'employee' | 'admin';
+  portalMode?: 'employee' | 'admin' | 'hr';
   activeModule?: string;
   isAddEmployeeModalOpen?: boolean;
   isLeaveModalOpen?: boolean;
@@ -237,6 +238,9 @@ export const Header: React.FC<HeaderProps> = ({
       case 'payslips':
         icon = <Receipt className="w-3.5 h-3.5" />;
         break;
+      case 'tasks':
+        icon = <ClipboardList className="w-3.5 h-3.5" />;
+        break;
       case 'organization':
         icon = <Building2 className="w-3.5 h-3.5" />;
         break;
@@ -284,7 +288,7 @@ export const Header: React.FC<HeaderProps> = ({
       return { title: pageTitle.trim(), icon };
     }
 
-    const userName = user?.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee');
+    const userName = user?.firstName || (portalMode === 'admin' ? 'Admin' : portalMode === 'hr' ? 'HR' : 'Employee');
     switch (activeModule) {
       case 'dashboard':
         return {
@@ -307,6 +311,8 @@ export const Header: React.FC<HeaderProps> = ({
         return { title: 'Payroll', icon };
       case 'payslips':
         return { title: 'My Payslips', icon };
+      case 'tasks':
+        return { title: 'My Tasks', icon };
       case 'organization':
         return {
           title:
@@ -468,7 +474,7 @@ export const Header: React.FC<HeaderProps> = ({
         })()}
 
         {/* Shortcut Action Buttons (Transferred from Employee Dashboard Banner) */}
-        {portalMode !== 'admin' && (() => {
+        {portalMode === 'employee' && (() => {
           const isApplyLeaveActive = isLeaveModalOpen;
           const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
           const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
@@ -514,7 +520,7 @@ export const Header: React.FC<HeaderProps> = ({
         })()}
 
         {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
-        {portalMode !== 'admin' && (
+        {portalMode === 'employee' && (
           <button
             id="btn-header-punch-toggle"
             type="button"
@@ -581,7 +587,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {user.firstName || 'User'} {user.lastName || ''}
               </span>
               <span className="text-[10px] text-[#343a40] leading-none block truncate">
-                {portalMode === 'admin' ? 'Administrator' : 'Employee'}
+                {portalMode === 'admin' ? 'Administrator' : portalMode === 'hr' ? 'HR' : 'Employee'}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-[#343a40] shrink-0" />
