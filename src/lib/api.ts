@@ -973,6 +973,16 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
   else if (rawStatus === 'REJECTED') status = 'Rejected';
   else status = 'Pending';
 
+  const adminResponse =
+    l.response ||
+    l.adminResponse ||
+    l.comments ||
+    l.rejectionReason ||
+    l.rejectionRemarks ||
+    l.approvalRemarks ||
+    l.remarks ||
+    '';
+
   return {
     id: l.id || `leave-${Date.now()}`,
     employeeId: l.userId || l.employeeId || '',
@@ -989,7 +999,8 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
     reason: l.reason || '',
     status: status,
     appliedDate: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : (l.appliedDate || new Date().toISOString().split('T')[0]),
-    comments: l.response || l.comments || '',
+    comments: adminResponse,
+    response: adminResponse,
   };
 }
 
@@ -1094,10 +1105,17 @@ async function getLeave(leaveId: string) {
 }
 
 // 38. POST /leaves/:leaveId/accept (Accept leave)
-async function acceptLeave(leaveId: string, responseText?: string) {
+async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[]) {
   try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Accepted. Take care.';
+
     const response = await http.post(`/leaves/${leaveId}/accept`, {
-      response: responseText || 'Accepted. Take care.',
+      response: finalResponse,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1110,10 +1128,17 @@ async function acceptLeave(leaveId: string, responseText?: string) {
 }
 
 // 39. POST /leaves/:leaveId/reject (Reject leave)
-async function rejectLeave(leaveId: string, responseText?: string) {
+async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[]) {
   try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Rejected.';
+
     const response = await http.post(`/leaves/${leaveId}/reject`, {
-      response: responseText || 'Rejected.',
+      response: finalResponse,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1306,8 +1331,8 @@ async function getAttendance(params?: any) {
 // Leave aliases
 const getLeaves = listLeaves;
 const getLeaveTypes = listLeaveTypes;
-const approveLeave = (leaveId: string, _role?: string, _name?: string, responseText?: string) =>
-  acceptLeave(leaveId, responseText);
+const approveLeave = (leaveId: string, ...args: any[]) =>
+  acceptLeave(leaveId, ...args);
 
 // Attendance settings & holidays aliases
 const getSettings = getAttendanceSettings;

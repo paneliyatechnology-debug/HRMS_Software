@@ -483,15 +483,11 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     const empName = approvingLeave.employeeName;
     const leaveType = approvingLeave.leaveType;
     const empId = approvingLeave.employeeId;
+    const note = approvalRemarks.trim() || 'Accepted. Take care.';
 
     setProcessingId(id);
     try {
-      await api.approveLeave(
-        id,
-        user?.role || 'HR',
-        user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
-        approvalRemarks.trim() || 'Approved by HR Administration'
-      );
+      await api.acceptLeave(id, note);
       showToast({
         type: 'success',
         title: 'Leave Approved Successfully',
@@ -503,12 +499,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         employeeName: empName,
         leaveType,
         status: 'Approved',
+        reason: note,
       });
       setApprovingLeave(null);
       setApprovalRemarks('');
       onRefresh();
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id, employeeId: empId, status: 'Approved' } }));
+        window.dispatchEvent(
+          new CustomEvent('hrms_leaves_updated', {
+            detail: { id, employeeId: empId, status: 'Approved', response: note, comments: note },
+          })
+        );
       }
     } catch (err: any) {
       showToast({
@@ -531,30 +532,32 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     const leaveId = rejectingLeave.id;
     const empName = rejectingLeave.employeeName;
     const empId = rejectingLeave.employeeId;
+    const note = rejectionReason.trim() || 'Rejected.';
+
     setProcessingId(leaveId);
     try {
-      await api.rejectLeave(
-        leaveId,
-        user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'HR Administration',
-        rejectionReason || 'Rejected by HR Admin'
-      );
+      await api.rejectLeave(leaveId, note);
       showToast({
         type: 'warning',
         title: 'Leave Request Rejected',
-        message: `${empName}'s leave application was rejected with note: "${rejectionReason}"`,
+        message: `${empName}'s leave application was rejected with note: "${note}"`,
       });
       emitLeaveStatusUpdated({
         id: leaveId,
         employeeId: empId,
         employeeName: empName,
         status: 'Rejected',
-        reason: rejectionReason,
+        reason: note,
       });
       setRejectingLeave(null);
       setRejectionReason('');
       onRefresh();
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: { id: leaveId, employeeId: empId, status: 'Rejected' } }));
+        window.dispatchEvent(
+          new CustomEvent('hrms_leaves_updated', {
+            detail: { id: leaveId, employeeId: empId, status: 'Rejected', response: note, comments: note },
+          })
+        );
       }
     } catch (err: any) {
       showToast({
@@ -880,9 +883,25 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </div>
 
                   {leave.reason && (
-                    <p className="text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-100 italic">
-                      &ldquo;{leave.reason}&rdquo;
-                    </p>
+                    <div className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason</span>
+                      <p className="italic text-slate-800">&ldquo;{leave.reason}&rdquo;</p>
+                    </div>
+                  )}
+
+                  {(leave.response || leave.comments) && (
+                    <div
+                      className={`text-xs p-2.5 rounded-xl border space-y-0.5 ${
+                        leave.status === 'Rejected'
+                          ? 'bg-rose-50/80 border-rose-200/70 text-rose-800'
+                          : 'bg-emerald-50/80 border-emerald-200/70 text-emerald-800'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-wider block">
+                        {leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}
+                      </span>
+                      <p className="font-semibold">&ldquo;{leave.response || leave.comments}&rdquo;</p>
+                    </div>
                   )}
 
                   {portalMode === 'admin' && leave.status === 'Pending' && (
@@ -1048,8 +1067,27 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           <span>{leave.status}</span>
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={leave.reason}>
-                        {leave.reason || '--'}
+                      <td className="py-3 px-4 text-slate-600 max-w-xs">
+                        <div className="space-y-1.5">
+                          <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
+                            <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
+                          </div>
+                          {(leave.response || leave.comments) && (
+                            <div
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                leave.status === 'Rejected'
+                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}
+                              title={`${leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                            >
+                              <span className="font-bold shrink-0">
+                                {leave.status === 'Rejected' ? 'Reject Reason:' : 'Admin Note:'}
+                              </span>
+                              <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Admin 1-Click Action Column */}
@@ -1077,9 +1115,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">
-                              Reviewed ({leave.status})
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-[11px] font-semibold text-slate-500">
+                                Reviewed ({leave.status})
+                              </span>
+                              {(leave.response || leave.comments) && (
+                                <span
+                                  className="text-[10px] text-slate-400 truncate max-w-[150px] italic"
+                                  title={leave.response || leave.comments}
+                                >
+                                  &ldquo;{leave.response || leave.comments}&rdquo;
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                       )}

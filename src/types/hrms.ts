@@ -309,6 +309,7 @@ export interface LeaveRequest {
   hrApproverName?: string;
   hrApprovedAt?: string;
   comments?: string;
+  response?: string;
 }
 
 export interface LeaveBalance {

@@ -377,7 +377,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const { id, empName, leaveType, empId } = approveModalData;
     setProcessingLeaveId(id);
     try {
-      await api.approveLeave(id, user?.role || 'HR', 'HR', 'Approved from Dashboard');
+      await api.acceptLeave(id, 'Accepted. Take care.');
       showToast({
         type: 'success',
         title: 'Approved',
@@ -417,7 +417,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const empId = (rejectModalData as any).empId;
     setProcessingLeaveId(id);
     try {
-      await api.rejectLeave(id, 'HR Administration', rejectReason || 'Operational requirements');
+      await api.rejectLeave(id, rejectReason || 'Rejected.');
       showToast({
         type: 'warning',
         title: 'Rejected',
