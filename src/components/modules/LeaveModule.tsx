@@ -23,6 +23,9 @@ import {
   AlertCircle,
   FileText,
   Sparkles,
+  Edit2,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -77,6 +80,73 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   // Rejection modal / prompt state
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Leave Types Modal State (Admin & HR)
+  const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
+  const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string }>>([]);
+  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
+  const [newLeaveTypeName, setNewLeaveTypeName] = useState('');
+  const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
+  const [editingLeaveTypeName, setEditingLeaveTypeName] = useState('');
+  const [isSubmittingLeaveType, setIsSubmittingLeaveType] = useState(false);
+
+  const loadLeaveTypes = React.useCallback(async () => {
+    setLeaveTypesLoading(true);
+    try {
+      const list = await api.listLeaveTypes();
+      setLeaveTypesList(Array.isArray(list) ? list : []);
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed to load leave types', message: err.message || 'Error' });
+    } finally {
+      setLeaveTypesLoading(false);
+    }
+  }, [showToast]);
+
+  const handleCreateLeaveType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLeaveTypeName.trim()) return;
+    setIsSubmittingLeaveType(true);
+    try {
+      await api.createLeaveType({ name: newLeaveTypeName.trim() });
+      showToast({ type: 'success', title: 'Leave Type Created', message: `"${newLeaveTypeName}" created successfully.` });
+      setNewLeaveTypeName('');
+      loadLeaveTypes();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Creation Failed', message: err.message || 'Could not create leave type' });
+    } finally {
+      setIsSubmittingLeaveType(false);
+    }
+  };
+
+  const handleUpdateLeaveType = async (id: string) => {
+    if (!editingLeaveTypeName.trim()) return;
+    setIsSubmittingLeaveType(true);
+    try {
+      await api.updateLeaveType(id, { name: editingLeaveTypeName.trim() });
+      showToast({ type: 'success', title: 'Leave Type Updated', message: 'Leave type updated successfully.' });
+      setEditingLeaveTypeId(null);
+      setEditingLeaveTypeName('');
+      loadLeaveTypes();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err.message || 'Could not update leave type' });
+    } finally {
+      setIsSubmittingLeaveType(false);
+    }
+  };
+
+  const handleDeleteLeaveType = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this leave type?')) return;
+    setIsSubmittingLeaveType(true);
+    try {
+      await api.deleteLeaveType(id);
+      showToast({ type: 'success', title: 'Leave Type Deleted', message: 'Leave type removed successfully.' });
+      loadLeaveTypes();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Deletion Failed', message: err.message || 'Could not delete leave type' });
+    } finally {
+      setIsSubmittingLeaveType(false);
+    }
+  };
 
   useEffect(() => {
     if (!rejectingLeave && !approvingLeave) return;
@@ -315,6 +385,35 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
+      {/* Top Action Bar for Admin/HR */}
+      {portalMode === 'admin' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Staff Leave Requests</h2>
+            <p className="text-xs text-slate-500">Manage employee leave applications and configured company leave types.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setIsLeaveTypesModalOpen(true);
+                loadLeaveTypes();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+            >
+              <List className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Leave Types</span>
+            </button>
+            <button
+              onClick={onOpenApplyModal}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Apply Leave</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW: PERSONAL LEAVE BALANCES */}
       {/* ========================================================================= */}
@@ -1112,6 +1211,137 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs active:scale-95"
               >
                 {processingId === rejectingLeave.id ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Leave Types Management Modal (Admin / HR) */}
+      {isLeaveTypesModalOpen && (
+        <div
+          onClick={() => setIsLeaveTypesModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default max-h-[90vh] overflow-y-auto space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <List className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Manage Leave Types</h3>
+              </div>
+              <button
+                onClick={() => setIsLeaveTypesModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Add New Leave Type Form */}
+            <form onSubmit={handleCreateLeaveType} className="flex gap-2">
+              <input
+                type="text"
+                value={newLeaveTypeName}
+                onChange={(e) => setNewLeaveTypeName(e.target.value)}
+                placeholder="Enter leave type name (e.g. Maternity Leave)..."
+                className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                required
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingLeaveType || !newLeaveTypeName.trim()}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add</span>
+              </button>
+            </form>
+
+            {/* Leave Types List */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Configured Types</h4>
+              {leaveTypesLoading ? (
+                <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  <span>Loading leave types from server...</span>
+                </div>
+              ) : leaveTypesList.length === 0 ? (
+                <div className="py-6 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+                  No leave types created yet. Add one above.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                  {leaveTypesList.map((lt) => (
+                    <div key={lt.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
+                      {editingLeaveTypeId === lt.id ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingLeaveTypeName}
+                            onChange={(e) => setEditingLeaveTypeName(e.target.value)}
+                            className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-white text-slate-900"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateLeaveType(lt.id)}
+                            disabled={isSubmittingLeaveType}
+                            className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLeaveTypeId(null);
+                              setEditingLeaveTypeName('');
+                            }}
+                            className="px-2 py-1 border border-slate-200 text-slate-600 text-xs rounded-lg hover:bg-slate-100"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-xs text-slate-800">{lt.name}</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLeaveTypeId(lt.id);
+                                setEditingLeaveTypeName(lt.name);
+                              }}
+                              className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLeaveType(lt.id)}
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsLeaveTypesModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Close
               </button>
             </div>
           </div>

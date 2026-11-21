@@ -75,6 +75,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [quotaSummary, setQuotaSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
+  const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
 
   const selectedDates = useMemo(() => getDatesInRange(startDate, endDate), [startDate, endDate]);
   const isMultiDay = selectedDates.length > 1;
@@ -137,11 +138,19 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         const myEmail = user?.email?.toLowerCase() || '';
         const myName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim().toLowerCase();
 
-        const [quotaPayload, rawLeaves] = await Promise.all([
+        const [quotaPayload, rawLeaves, liveLeaveTypes] = await Promise.all([
           fetchLeaveQuotaData(myId),
           api.getLeaves(myId ? { employeeId: myId } : undefined).catch(() => [] as LeaveRequest[]),
+          api.listLeaveTypes().catch(() => []),
         ]);
         if (!active) return;
+
+        if (Array.isArray(liveLeaveTypes) && liveLeaveTypes.length > 0) {
+          setBackendLeaveTypes(liveLeaveTypes);
+          if (liveLeaveTypes[0]?.name) {
+            setLeaveType(liveLeaveTypes[0].name as LeaveType);
+          }
+        }
 
         const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
         const myLeaves = allLeaves.filter((l) => {
@@ -333,25 +342,35 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               onChange={(e) => setLeaveType(e.target.value as LeaveType)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
-              <option value="Casual Leave">
-                {quotaLoading || !quotaSummary
-                  ? 'Casual Leave'
-                  : `Casual Leave (Balance: ${quotaSummary.casual.available}/${quotaSummary.casual.quota} days)`}
-              </option>
-              <option value="Sick Leave">
-                {quotaLoading || !quotaSummary
-                  ? 'Sick Leave'
-                  : `Sick Leave (Balance: ${quotaSummary.sick.available}/${quotaSummary.sick.quota} days)`}
-              </option>
-              <option value="Paid Leave">
-                {quotaLoading || !quotaSummary
-                  ? 'Paid / Annual Leave'
-                  : `Paid / Annual Leave (Balance: ${quotaSummary.paid.available}/${quotaSummary.paid.quota} days)`}
-              </option>
-              <option value="Comp Off">Compensatory Off</option>
-              <option value="Unpaid Leave">Unpaid Leave</option>
-              <option value="Maternity Leave">Maternity Leave</option>
-              <option value="Paternity Leave">Paternity Leave</option>
+              {backendLeaveTypes.length > 0 ? (
+                backendLeaveTypes.map((lt) => (
+                  <option key={lt.id} value={lt.name}>
+                    {lt.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Casual Leave">
+                    {quotaLoading || !quotaSummary
+                      ? 'Casual Leave'
+                      : `Casual Leave (Balance: ${quotaSummary.casual.available}/${quotaSummary.casual.quota} days)`}
+                  </option>
+                  <option value="Sick Leave">
+                    {quotaLoading || !quotaSummary
+                      ? 'Sick Leave'
+                      : `Sick Leave (Balance: ${quotaSummary.sick.available}/${quotaSummary.sick.quota} days)`}
+                  </option>
+                  <option value="Paid Leave">
+                    {quotaLoading || !quotaSummary
+                      ? 'Paid / Annual Leave'
+                      : `Paid / Annual Leave (Balance: ${quotaSummary.paid.available}/${quotaSummary.paid.quota} days)`}
+                  </option>
+                  <option value="Comp Off">Compensatory Off</option>
+                  <option value="Unpaid Leave">Unpaid Leave</option>
+                  <option value="Maternity Leave">Maternity Leave</option>
+                  <option value="Paternity Leave">Paternity Leave</option>
+                </>
+              )}
             </select>
           </div>
 

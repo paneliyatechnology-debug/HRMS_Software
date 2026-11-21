@@ -46,8 +46,6 @@ import {
   validatePhone,
   validateGstin,
   validateName,
-  validatePassword,
-  validatePasswordMatch,
   validateLoginIdentifier,
   cleanPhoneNumber,
   checkDuplicateEmailOrPhone,
@@ -207,10 +205,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const [ownerLastName, setOwnerLastName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
-  const [ownerPassword, setOwnerPassword] = useState('');
-  const [ownerConfirmPassword, setOwnerConfirmPassword] = useState('');
-  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
-  const [showOwnerConfirmPassword, setShowOwnerConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -229,8 +223,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   // Anti-autofill state for login & password fields so browser never auto-detects or pre-fills them
   const [loginIdentifierReadOnly, setLoginIdentifierReadOnly] = useState(true);
   const [loginPasswordReadOnly, setLoginPasswordReadOnly] = useState(true);
-  const [passwordReadOnly, setPasswordReadOnly] = useState(true);
-  const [confirmPasswordReadOnly, setConfirmPasswordReadOnly] = useState(true);
 
   const clearLoginFields = () => {
     setIdentifier('');
@@ -251,11 +243,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setOwnerLastName('');
     setOwnerEmail('');
     setOwnerPhone('');
-    setOwnerPassword('');
-    setOwnerConfirmPassword('');
     setFieldErrors({});
-    setPasswordReadOnly(true);
-    setConfirmPasswordReadOnly(true);
   };
 
   useEffect(() => {
@@ -279,18 +267,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   useEffect(() => {
     if (viewMode === 'signup') {
       clearAllSignupFields();
-      const t1 = setTimeout(() => {
-        setOwnerPassword('');
-        setOwnerConfirmPassword('');
-      }, 50);
-      const t2 = setTimeout(() => {
-        setOwnerPassword('');
-        setOwnerConfirmPassword('');
-      }, 150);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
     }
   }, [viewMode]);
 
@@ -401,24 +377,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       errors.ownerPhone = phoneCheck.error || 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
     }
 
-    // 6. Password validation
-    const passCheck = validatePassword(ownerPassword, 6);
-    if (!passCheck.isValid) {
-      errors.ownerPassword = passCheck.error || 'Password must be at least 6 characters long.';
-    }
-
-    // 7. Password Match validation
-    const matchCheck = validatePasswordMatch(ownerPassword, ownerConfirmPassword);
-    if (!matchCheck.isValid) {
-      errors.ownerConfirmPassword = matchCheck.error || 'Passwords do not match. Please verify your password.';
-    }
-
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
     }
 
-    // 8. Strict Uniqueness Check: 1 Email = 1 Account & 1 Mobile Number = 1 Account
+    // 6. Strict Uniqueness Check: 1 Email = 1 Account & 1 Mobile Number = 1 Account
     const allEmps = await api.getEmployees().catch(() => []);
     const dupCheck = checkDuplicateEmailOrPhone({
       email: ownerEmail,
@@ -456,8 +420,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
         officialEmail: ownerEmail.trim().toLowerCase(),
         phone: phoneCheck.cleanPhone || ownerPhone.trim(),
         mobileNumber: phoneCheck.cleanPhone || ownerPhone.trim(),
-        password: ownerPassword,
-        confirmPassword: ownerConfirmPassword || ownerPassword,
       });
 
       if (!res.success) {
@@ -1357,96 +1319,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-xs text-emerald-900 flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700">
-                          Owner Password <span className="text-red-500">*</span>
-                        </label>
-                        {fieldErrors.ownerPassword && (
-                          <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            {fieldErrors.ownerPassword}
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          id="input-owner-password"
-                          name="company_owner_new_registration_password"
-                          type={showOwnerPassword ? 'text' : 'password'}
-                          required
-                          autoComplete="new-password"
-                          data-lpignore="true"
-                          data-1p-ignore="true"
-                          data-form-type="other"
-                          readOnly={passwordReadOnly}
-                          onFocus={() => setPasswordReadOnly(false)}
-                          value={ownerPassword}
-                          onChange={(e) => {
-                            setOwnerPassword(e.target.value);
-                            clearFieldError('ownerPassword');
-                          }}
-                          placeholder="Min 6 characters"
-                          className={`w-full h-11 pl-9 pr-10 rounded-xl border text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${fieldErrors.ownerPassword
-                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
-                            }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowOwnerPassword(!showOwnerPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-                        >
-                          {showOwnerPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700">
-                          Confirm Password <span className="text-red-500">*</span>
-                        </label>
-                        {fieldErrors.ownerConfirmPassword && (
-                          <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            {fieldErrors.ownerConfirmPassword}
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          id="input-owner-confirm-password"
-                          name="company_owner_new_registration_confirm_password"
-                          type={showOwnerConfirmPassword ? 'text' : 'password'}
-                          required
-                          autoComplete="new-password"
-                          data-lpignore="true"
-                          data-1p-ignore="true"
-                          data-form-type="other"
-                          readOnly={confirmPasswordReadOnly}
-                          onFocus={() => setConfirmPasswordReadOnly(false)}
-                          value={ownerConfirmPassword}
-                          onChange={(e) => {
-                            setOwnerConfirmPassword(e.target.value);
-                            clearFieldError('ownerConfirmPassword');
-                          }}
-                          placeholder="Repeat password"
-                          className={`w-full h-11 pl-9 pr-10 rounded-xl border text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${fieldErrors.ownerConfirmPassword
-                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
-                            }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowOwnerConfirmPassword(!showOwnerConfirmPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-                        >
-                          {showOwnerConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
+                      <p className="font-bold text-emerald-950">Secure Automated Provisioning</p>
+                      <p className="text-[11px] text-emerald-800/90 mt-0.5">Your official account login password will be securely generated and sent directly to your registered email address.</p>
                     </div>
                   </div>
                 </div>

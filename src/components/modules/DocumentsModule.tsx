@@ -89,42 +89,22 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [docs, emps, settings, myComp] = await Promise.all([
+      const [docs, emps] = await Promise.all([
         api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
-        api.getEmployees(),
-        api.getSettings().catch(() => null),
-        api.getMyCompany().catch(() => null),
+        portalMode === 'admin' ? api.getEmployees().catch(() => []) : Promise.resolve([]),
       ]);
       setDocuments(Array.isArray(docs) ? docs : []);
-      setEmployees(Array.isArray(emps) ? emps : []);
-      if (myComp) {
-        setCompanySettings((prev) => ({
-          ...prev,
-          name: myComp.name || prev.name,
-          tagline: myComp.industry || prev.tagline,
-          taxId: myComp.gstin || myComp.taxId || prev.taxId,
-          supportEmail: myComp.email || prev.supportEmail,
-          phone: myComp.phone || prev.phone,
-          address: myComp.address || prev.address,
-        }));
-      } else if (settings?.company) {
-        setCompanySettings((prev) => ({
-          ...prev,
-          name: settings.company.name || prev.name,
-          tagline: settings.company.tagline || prev.tagline,
-          taxId: settings.company.taxId || prev.taxId,
-          supportEmail: settings.company.supportEmail || prev.supportEmail,
-          phone: settings.company.phone || prev.phone,
-          address: settings.company.address || prev.address,
-        }));
+      if (Array.isArray(emps) && emps.length > 0) {
+        setEmployees(emps);
+        if (!selectedEmployeeId) {
+          setSelectedEmployeeId(emps[0].id);
+        }
       }
       if (portalMode === 'employee') {
         setSelectedEmployeeId(myEmpId);
-      } else if (emps.length > 0 && !selectedEmployeeId) {
-        setSelectedEmployeeId(emps[0].id);
       }
     } catch (err) {
-      console.error(err);
+      console.error('[DocumentsModule] load error:', err);
     } finally {
       setLoading(false);
     }
