@@ -23,6 +23,52 @@ import { api } from '../../lib/api';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { ChangeRoleModal } from '../modals/ChangeRoleModal';
 
+function userToEmployee(user: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  avatarUrl?: string | null;
+  role?: string;
+  status?: string;
+  companyId?: string | null;
+  companyName?: string | null;
+}): Employee {
+  const gender = user.gender === 'Male' || user.gender === 'Female' || user.gender === 'Other' ? user.gender : 'Other';
+  return {
+    id: user.id,
+    employeeCode: '',
+    companyId: user.companyId || '',
+    companyName: user.companyName || '',
+    role: (user.role || 'EMPLOYEE') as Employee['role'],
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone || '',
+    avatarUrl: user.avatarUrl || '',
+    gender,
+    dateOfBirth: '',
+    address: user.address || '',
+    emergencyContact: { name: '', relationship: '', phone: '' },
+    joiningDate: '',
+    employmentType: 'Full-time',
+    status: user.status === 'Inactive' ? 'Inactive' : 'Active',
+    departmentId: '',
+    departmentName: '',
+    designationId: '',
+    designationTitle: '',
+    workLocationId: '',
+    workLocationName: '',
+    shift: '',
+    bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
+    education: [],
+  } as Employee;
+}
+
 interface EmployeesModuleProps {
   employees: Employee[];
   departments: Department[];
@@ -44,48 +90,62 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
-  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>([]);
   const [fetchLoading, setFetchLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [mounted, setMounted] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedJoining, setSelectedJoining] = useState('Any');
 
   useEffect(() => {
     setMounted(true);
   }, []);
-  const [search, setSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [selectedJoining, setSelectedJoining] = useState('Any');
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (employees && employees.length > 0) {
-      setLocalEmployees(employees);
-    }
-  }, [employees]);
-
-  // Live backend API fetch
   const loadLiveEmployees = async () => {
     try {
       setFetchLoading(true);
-      const res = await api.getEmployees();
-      if (Array.isArray(res) && res.length > 0) {
-        setLocalEmployees(res);
-      }
+      const res = await api.listUsers({
+        page,
+        limit,
+        search: search.trim() || undefined,
+        status: selectedStatus === 'All' ? undefined : selectedStatus,
+      });
+      const rows = Array.isArray(res?.data) ? res.data.map(userToEmployee) : [];
+      setLocalEmployees(rows);
+      setTotal(Number(res?.total || 0));
+      setTotalPages(Math.max(1, Number(res?.totalPages || 1)));
     } catch (err) {
       console.warn('EmployeesModule live fetch error:', err);
+      setLocalEmployees([]);
+      setTotal(0);
     } finally {
       setFetchLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!employees || employees.length === 0) {
-      loadLiveEmployees();
-    }
-  }, [employees]);
+    const timer = window.setTimeout(() => {
+      void loadLiveEmployees();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [page, limit, search, selectedStatus]);
 
-  // Focus search on '/' key press
+  useEffect(() => {
+    const reload = () => {
+      setPage(1);
+      void loadLiveEmployees();
+    };
+    window.addEventListener('hrms_employees_updated', reload);
+    return () => window.removeEventListener('hrms_employees_updated', reload);
+  }, [limit, search, selectedStatus]);
+
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handleSlashKey = (e: KeyboardEvent) => {
       if (
@@ -155,36 +215,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     if (onRefresh) onRefresh();
   };
 
-  const sourceEmployees = localEmployees.length > 0 ? localEmployees : (employees || []);
-  const query = search.trim().toLowerCase();
-  const filtered = sourceEmployees.filter((emp) => {
-    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
-    const email = (emp.email || '').toLowerCase();
-    const code = (emp.employeeCode || '').toLowerCase();
-    const dept = (emp.departmentName || '').toLowerCase();
-    const desig = (emp.designationTitle || '').toLowerCase();
-    const phone = (emp.phone || '').toLowerCase();
-
-    const matchesSearch =
-      !query ||
-      fullName.includes(query) ||
-      email.includes(query) ||
-      code.includes(query) ||
-      dept.includes(query) ||
-      desig.includes(query) ||
-      phone.includes(query);
-
-    let matchesStatus = true;
-    if (selectedStatus === 'Active') {
-      matchesStatus = (emp.status || '').toLowerCase() === 'active' || (emp.status || '').toLowerCase() === 'probation';
-    } else if (selectedStatus === 'Inactive') {
-      matchesStatus = (emp.status || '').toLowerCase() === 'inactive';
-    } else if (selectedStatus === 'All') {
-      matchesStatus = true;
-    }
-
-    return matchesSearch && matchesStatus;
-  });
+  const filtered = localEmployees;
+  const rangeStart = total === 0 ? 0 : (page - 1) * limit + 1;
+  const rangeEnd = Math.min(page * limit, total);
 
   const toggleSelectAll = () => {
     if (selectedRows.length === filtered.length) {
@@ -340,7 +373,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
         <div className="flex items-baseline gap-2.5">
           <span className="text-xs text-slate-500 font-medium">
-            {filtered.length} {filtered.length === 1 ? 'employee' : 'employees'}
+            {total} {total === 1 ? 'user' : 'users'}
           </span>
         </div>
 
@@ -365,12 +398,18 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
             type="text"
             placeholder="Search name, email, department, role, or ID (Press /)"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full pl-9 pr-9 py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
           />
           {search ? (
             <button
-              onClick={() => setSearch('')}
+              onClick={() => {
+                setSearch('');
+                setPage(1);
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded transition"
               title="Clear search"
             >
@@ -389,7 +428,10 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           <div className="relative">
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setPage(1);
+              }}
               className="appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 focus:outline-none cursor-pointer shadow-2xs"
             >
               <option value="All">All Statuses</option>
@@ -419,7 +461,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden">
         {/* Table info header */}
         <div className="px-4 py-2 border-b border-slate-100 text-xs text-slate-500 font-medium flex items-center justify-between">
-          <span>1–{filtered.length} of {filtered.length}</span>
+          <span>{fetchLoading ? 'Loading users...' : `${rangeStart}–${rangeEnd} of ${total}`}</span>
           <span className="text-[11px] text-slate-400 md:hidden">Tap card to view full profile</span>
         </div>
 
@@ -835,7 +877,14 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         <div className="px-4 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>
-            <select className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer">
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer"
+            >
               <option value="10">10</option>
               <option value="25">25</option>
               <option value="50">50</option>
@@ -844,21 +893,25 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
           <div className="flex items-center gap-3">
             <span>
-              1–{filtered.length} of {filtered.length}
+              {rangeStart}–{rangeEnd} of {total}
             </span>
             <div className="flex items-center gap-1">
               <button
-                disabled
-                className="w-7 h-7 rounded-lg border border-slate-200 text-slate-300 flex items-center justify-center cursor-not-allowed"
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="w-7 h-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center disabled:text-slate-300 disabled:cursor-not-allowed"
               >
                 ‹
               </button>
-              <button className="w-7 h-7 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-                1
+              <button type="button" className="w-7 h-7 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                {page}
               </button>
               <button
-                disabled
-                className="w-7 h-7 rounded-lg border border-slate-200 text-slate-300 flex items-center justify-center cursor-not-allowed"
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                className="w-7 h-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center disabled:text-slate-300 disabled:cursor-not-allowed"
               >
                 ›
               </button>

@@ -168,6 +168,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
+    setIsConnected(false);
+    return;
     // Check if user is authenticated (from context state or cookie)
     const isAuth =
       isAuthenticated ||

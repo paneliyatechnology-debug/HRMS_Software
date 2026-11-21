@@ -14,16 +14,11 @@ function cleanUrl(raw?: string): string {
 }
 
 export function getApiBaseUrl(): string {
-  // 1. Direct synchronous server injection from physical .env file on every request (Priority 1)
-  if (typeof window !== 'undefined' && (window as any).__HRMS_ENV__?.apiUrl) {
-    let clean = cleanUrl((window as any).__HRMS_ENV__.apiUrl);
-    if (clean) {
-      if (!clean.endsWith('/api')) clean = `${clean}/api`;
-      return clean;
-    }
+  // Login cookies belong to the site open in the browser. A direct call to port 4000 is a different site, so the profile request was sent without the login cookie.
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/hrms-api`;
   }
 
-  // 2. Client-side / Build-time process.env from .env (Priority 2)
   const envUrl =
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) ||
@@ -34,8 +29,7 @@ export function getApiBaseUrl(): string {
     return cleanEnv.endsWith('/api') ? cleanEnv : `${cleanEnv}/api`;
   }
 
-  // 3. Fallback only if no environment variable is provided in .env
-  return 'http://localhost:4000/api';
+  return 'http://127.0.0.1:4000/api';
 }
 
 export function getSocketBaseUrl(): string {

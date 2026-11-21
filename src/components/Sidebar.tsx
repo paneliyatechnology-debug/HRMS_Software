@@ -27,6 +27,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Receipt,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllCompanies } from '../lib/companyService';
@@ -39,7 +40,7 @@ interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onSelectSubTab?: (subTab: string) => void;
-  portalMode?: 'employee' | 'admin';
+  portalMode?: 'employee' | 'admin' | 'hr';
   pendingLeavesCount?: number;
   unreadChatCount?: number;
   isCollapsed?: boolean;
@@ -351,6 +352,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`flex-1 overflow-y-auto ${effectiveCollapsed ? 'px-2' : 'px-2.5'
             } py-3 space-y-4 text-sm [scrollbar-width:thin] pb-24 lg:pb-6`}
         >
+          {portalMode === 'hr' ? (
+            <div className="space-y-4">
+              <div className="space-y-0.5">
+                {!effectiveCollapsed && (
+                  <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px]">
+                    HR
+                  </p>
+                )}
+                {navItem('dashboard', 'HR Home', <Home className="w-4 h-4" />)}
+              </div>
+              <div className="space-y-0.5">
+                {effectiveCollapsed ? (
+                  <div className="my-2 border-t border-[#343a40]/20 mx-1" />
+                ) : (
+                  <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
+                    Account
+                  </p>
+                )}
+                {renderProfileNavItem()}
+                {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
+              </div>
+            </div>
+          ) : (
+          <>
           {/* Main workspace section */}
           <div className="space-y-0.5">
             {!effectiveCollapsed && (
@@ -370,6 +395,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {pendingLeavesCount}
                 </span>
               ) : undefined
+            )}
+            {portalMode === 'employee' && (
+              navItem('tasks', 'My Tasks', <ClipboardList className="w-4 h-4" />)
             )}
             {portalMode === 'employee' && (
               navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)
@@ -486,6 +514,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {renderProfileNavItem()}
               {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
+          )}
+          </>
           )}
         </div>
 
