@@ -7,7 +7,7 @@ import { findOrganizationByEmail } from '../lib/companyService';
 import { purgeLocalBusinessData } from '../lib/storageCleanup';
 import { getCookie, setCookie, removeCookie, purgeAuthLocalStorage } from '../lib/cookies';
 
-export type PortalMode = 'admin' | 'employee' | 'hr';
+export type PortalMode = 'admin' | 'employee';
 
 export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
@@ -29,14 +29,13 @@ export const isHrRole = (role?: string): boolean => {
 };
 
 export const determinePortalMode = (role?: string): PortalMode => {
-  if (isHrRole(role)) return 'hr';
   return isUserAdminRole(role) ? 'admin' : 'employee';
 };
 
 export function portalFromPermissions(permissions?: { key: string }[]): PortalMode | null {
   const keys = new Set((permissions || []).map((permission) => permission.key));
   if (keys.has('workspace.admin')) return 'admin';
-  if (keys.has('workspace.hr')) return 'hr';
+  if (keys.has('workspace.hr')) return 'admin';
   if (keys.has('workspace.employee')) return 'employee';
   return null;
 }
@@ -119,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [portalMode, setPortalModeState] = useState<PortalMode>(() => {
     if (typeof window !== 'undefined') {
       const savedMode = getCookie('hrms_portal_mode');
-      if (savedMode === 'admin' || savedMode === 'employee' || savedMode === 'hr') return savedMode;
+      if (savedMode === 'admin' || savedMode === 'employee') return savedMode;
     }
     return 'employee';
   });

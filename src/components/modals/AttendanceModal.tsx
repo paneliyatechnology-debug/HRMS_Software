@@ -266,7 +266,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     setLoading(true);
     try {
       const fullRemarks = remarks || 'Morning shift clock-in';
-      const res = await api.clockIn({ note: fullRemarks });
+      const res = await api.startWork({});
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -299,7 +299,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     setLoading(true);
     try {
       const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
-      const res = await api.clockOut({ note: fullRemarks });
+      const res = await api.stopWork({});
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {

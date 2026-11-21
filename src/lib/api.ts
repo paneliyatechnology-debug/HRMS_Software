@@ -284,16 +284,191 @@ async function registerCompany(data: CompanyRegisterInput) {
   }
 }
 
+function userToEmployee(u: any): any {
+  if (!u) return u;
+  return {
+    ...u,
+    employeeCode: u.employeeCode || `EMP-${(u.id || '').slice(0, 6).toUpperCase()}`,
+    companyId: u.companyId || '',
+    companyName: u.companyName || '',
+    role: u.role || 'EMPLOYEE',
+    firstName: u.firstName || '',
+    lastName: u.lastName || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    avatarUrl: u.avatarUrl || '',
+    gender: u.gender || 'Other',
+    status: u.status === 'Inactive' ? 'Inactive' : 'Active',
+    departmentId: u.departmentId || '',
+    departmentName: u.departmentName || 'General',
+    designationId: u.designationId || '',
+    designationTitle: u.designationTitle || u.role || 'Staff',
+  };
+}
+
 async function getEmployees() {
   try {
-    const res = await listUsers({});
-    return res?.data || res?.users || [];
+    const res = await listUsers({ limit: 100 });
+    const users = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
+    return users.map(userToEmployee);
   } catch {
     return [];
   }
 }
 
-export const api = new Proxy({ registerCompany, login, forgotPassword, resetPassword, getProfile, logout, createUser, listUsers, getEmployees, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
+async function createEmployee(data: any) {
+  return createUser({
+    firstName: data.firstName || '',
+    lastName: data.lastName || '',
+    email: data.email || '',
+    phone: data.phone || undefined,
+    gender: data.gender || undefined,
+    address: data.address || undefined,
+    role: data.role || 'EMPLOYEE',
+    status: data.status || 'Active',
+    companyId: data.companyId || undefined,
+  });
+}
+
+async function deleteEmployee(id: string) {
+  try {
+    const response = await http.delete(`/users/${id}`);
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be deleted.');
+  }
+}
+
+async function deactivateEmployee(id: string) {
+  try {
+    const response = await http.patch(`/users/${id}`, { status: 'Inactive' });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be deactivated.');
+  }
+}
+
+async function activateEmployee(id: string) {
+  try {
+    const response = await http.patch(`/users/${id}`, { status: 'Active' });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be activated.');
+  }
+}
+
+async function getNextEmployeeCode() {
+  return `EMP-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+async function uploadProfilePhoto(file: File) {
+  try {
+    const form = new FormData();
+    form.append('photo', file);
+    const response = await http.post('/users/upload-photo', form);
+    return response.data;
+  } catch {
+    return { url: '' };
+  }
+}
+
+async function getDocuments(userId?: string) {
+  try {
+    const res = await listDocuments(userId ? { userId } : undefined);
+    return Array.isArray(res?.data) ? res.data : Array.isArray(res?.documents) ? res.documents : Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
+}
+
+async function uploadDocumentFile(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
+  if (data instanceof FormData) {
+    const response = await http.post('/documents', data);
+    return response.data;
+  }
+  return createDocument(data);
+}
+
+async function verifyDocument(id: string, status: string) {
+  try {
+    const response = await http.patch(`/documents/${id}`, { status });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be verified.');
+  }
+}
+
+const startWork = clockIn;
+const checkIn = clockIn;
+const stopWork = clockOut;
+const checkOut = clockOut;
+const getWorkStatus = getAttendanceLogic;
+
+async function getWorkHistory(page = 1, limit = 100) {
+  try {
+    const response = await http.get('/attendance', { params: { page, limit } });
+    return response.data;
+  } catch {
+    return [];
+  }
+}
+
+async function getMe() {
+  return getProfile();
+}
+
+async function getMyCompany() {
+  try {
+    const profile = await getProfile();
+    return profile?.company || null;
+  } catch {
+    return null;
+  }
+}
+
+export const api = new Proxy({
+  registerCompany,
+  login,
+  forgotPassword,
+  resetPassword,
+  getProfile,
+  getMe,
+  getMyCompany,
+  logout,
+  createUser,
+  listUsers,
+  getEmployees,
+  createEmployee,
+  deleteEmployee,
+  deactivateEmployee,
+  activateEmployee,
+  getNextEmployeeCode,
+  uploadProfilePhoto,
+  listDocuments,
+  getDocuments,
+  getDocument,
+  createDocument,
+  uploadDocumentFile,
+  updateDocument,
+  verifyDocument,
+  deleteDocument,
+  clockIn,
+  checkIn,
+  clockOut,
+  checkOut,
+  startWork,
+  stopWork,
+  startBreak,
+  endBreak,
+  resumeBreak,
+  getAttendanceLogic,
+  getWorkStatus,
+  getWorkHistory,
+} as Record<string, (...args: any[]) => Promise<any>>, {
   get(target, prop) {
     if (typeof prop !== 'string') return undefined;
     if (!target[prop]) target[prop] = notConnected;
