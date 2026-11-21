@@ -415,10 +415,9 @@ export const Header: React.FC<HeaderProps> = ({
           const isAddStaffActive = isAddEmployeeModalOpen;
           const isHolidaysActive = activeModule === 'calendar' && !isAddEmployeeModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
-              active
-                ? 'bg-[#1b4332] text-white border-[#1b4332]'
-                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+              ? 'bg-[#1b4332] text-white border-[#1b4332]'
+              : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -433,9 +432,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden md:inline">Leave Requests</span>
                 {pendingLeavesCount > 0 && (
                   <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${
-                      isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
-                    }`}
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
+                      }`}
                   >
                     {pendingLeavesCount}
                   </span>
@@ -473,10 +471,9 @@ export const Header: React.FC<HeaderProps> = ({
           const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
           const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
-              active
-                ? 'bg-[#1b4332] text-white border-[#1b4332]'
-                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+              ? 'bg-[#1b4332] text-white border-[#1b4332]'
+              : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">

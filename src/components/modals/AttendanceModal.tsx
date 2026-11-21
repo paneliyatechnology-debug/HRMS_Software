@@ -266,7 +266,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     setLoading(true);
     try {
       const fullRemarks = remarks || 'Morning shift clock-in';
-      const res = await api.startWork({});
+      const res = await api.startWork({ workMode: 'Office', note: fullRemarks });
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -299,7 +299,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     setLoading(true);
     try {
       const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
-      const res = await api.stopWork({});
+      const res = await api.stopWork({ workMode: 'Office', note: fullRemarks });
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -514,18 +514,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       if (selfieMode === 'check_in') {
         const fullRemarks = remarks || 'Morning shift clock-in';
 
-        const res = await api.checkIn(
-          currentEmpId,
-          fullRemarks,
-          {
-            firstName: user.firstName || 'Employee',
-            lastName: user.lastName || '',
-            employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
-            email: user.email,
-            companyId: userCompanyId,
-          },
-          geoData
-        );
+        const res = await api.checkIn({
+          workMode: 'Office',
+          note: fullRemarks,
+        });
 
         if (!res.success) {
           alert(res.message);
@@ -553,15 +545,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         }
       } else if (selfieMode === 'check_out') {
         const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
-        const res = await api.checkOut(
-          currentEmpId,
-          fullRemarks,
-          {
-            email: user.email,
-            employeeCode: (user as any).employeeCode,
-          },
-          geoData
-        );
+        const res = await api.checkOut({
+          workMode: 'Office',
+          note: fullRemarks,
+        });
 
         if (!res.success) {
           alert(res.message);

@@ -2,7 +2,26 @@ import axios from 'axios';
 import { getApiBaseUrl } from './config';
 import { getCookie, setCookie } from './cookies';
 
-export function clearApiCache(_endpointPrefix?: string) { }
+let profileCache: any = null;
+let profileCacheTime = 0;
+let profileInFlight: Promise<any> | null = null;
+
+let companyCache: any = null;
+let companyInFlight: Promise<any> | null = null;
+
+const inFlightDocRequests = new Map<string, Promise<any>>();
+const docCache = new Map<string, { data: any; time: number }>();
+
+export function clearApiCache(endpointPrefix?: string) {
+  if (!endpointPrefix || endpointPrefix.includes('profile')) {
+    profileCache = null;
+    profileCacheTime = 0;
+    companyCache = null;
+  }
+  if (!endpointPrefix || endpointPrefix.includes('document')) {
+    docCache.clear();
+  }
+}
 
 const notConnected = async (..._args: unknown[]) => null;
 
@@ -33,6 +52,13 @@ http.interceptors.request.use((config) => {
     }
     config.data = form;
     config.headers.delete('Content-Type');
+  }
+  if (config.data instanceof FormData) {
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
+    }
   }
   return config;
 });
@@ -93,21 +119,46 @@ async function resetPassword(data: { token?: string; password: string; confirmPa
 }
 
 async function logout() {
+  clearApiCache();
   await http.post('/users/logout');
 }
 
-async function getProfile() {
-  try {
-    const response = await http.get('/users/profile');
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile could not be loaded.');
+async function getProfile(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && profileCache && now - profileCacheTime < 30000) {
+    return profileCache;
   }
+  if (!forceRefresh && profileInFlight) {
+    return profileInFlight;
+  }
+
+  profileInFlight = (async () => {
+    try {
+      const response = await http.get('/users/profile');
+      profileCache = response.data;
+      profileCacheTime = Date.now();
+      if (response.data?.company) {
+        companyCache = response.data.company;
+      }
+      return profileCache;
+    } catch (error) {
+      const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+      throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile could not be loaded.');
+    } finally {
+      profileInFlight = null;
+    }
+  })();
+
+  return profileInFlight;
 }
 
-async function listUsers(params: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
+async function listUsers(params?: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
   try {
+    const portalMode = typeof window !== 'undefined' ? getCookie('hrms_portal_mode') : null;
+    const currentRole = typeof window !== 'undefined' ? getCookie('hrms_current_role') : null;
+    if (portalMode === 'employee' || (currentRole && currentRole.toUpperCase() === 'EMPLOYEE')) {
+      return { data: [], users: [], total: 0 };
+    }
     const response = await http.get('/users', { params });
     return response.data;
   } catch (error) {
@@ -148,14 +199,36 @@ async function createUser(data: {
   }
 }
 
-async function listDocuments(params?: { page?: number; limit?: number; userId?: string; scope?: string; companyId?: string }) {
-  try {
-    const response = await http.get('/documents', { params });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Documents could not be loaded.');
+async function listDocuments(params?: { page?: number; limit?: number; userId?: string; scope?: string; companyId?: string }, forceRefresh = false) {
+  const cacheKey = JSON.stringify(params || {});
+  const now = Date.now();
+
+  if (!forceRefresh) {
+    const cached = docCache.get(cacheKey);
+    if (cached && now - cached.time < 5000) {
+      return cached.data;
+    }
+    const inFlight = inFlightDocRequests.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
   }
+
+  const promise = (async () => {
+    try {
+      const response = await http.get('/documents', { params });
+      docCache.set(cacheKey, { data: response.data, time: Date.now() });
+      return response.data;
+    } catch (error) {
+      const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+      throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Documents could not be loaded.');
+    } finally {
+      inFlightDocRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightDocRequests.set(cacheKey, promise);
+  return promise;
 }
 
 async function getDocument(id: string) {
@@ -175,6 +248,7 @@ async function updateDocument(id: string, data: { title: string; userId?: string
     if (data.userId !== undefined) form.append('userId', data.userId);
     if (data.file) form.append('file', data.file);
     const response = await http.patch(`/documents/${id}`, form);
+    docCache.clear();
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -185,20 +259,28 @@ async function updateDocument(id: string, data: { title: string; userId?: string
 async function deleteDocument(id: string) {
   try {
     const response = await http.delete(`/documents/${id}`);
+    docCache.clear();
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be deleted.');
   }
 }
-async function createDocument(data: { title: string; file: File; userId?: string; companyId?: string }) {
+async function createDocument(data: FormData | { title: string; file: File; userId?: string; companyId?: string; category?: string }) {
   try {
-    const response = await http.post('/documents', {
-      title: data.title,
-      file: data.file,
-      userId: data.userId || undefined,
-      companyId: data.companyId || undefined,
-    });
+    let payload: FormData;
+    if (data instanceof FormData) {
+      payload = data;
+    } else {
+      payload = new FormData();
+      payload.append('title', data.title);
+      payload.append('file', data.file);
+      if (data.userId) payload.append('userId', data.userId);
+      if (data.companyId) payload.append('companyId', data.companyId);
+      if (data.category) payload.append('category', data.category);
+    }
+    const response = await http.post('/documents', payload);
+    docCache.clear();
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -206,18 +288,48 @@ async function createDocument(data: { title: string; file: File; userId?: string
   }
 }
 
-async function clockIn(data?: { workMode?: 'Office' | 'Work From Home'; note?: string }) {
+async function clock(
+  dataOrEmpId?: { workMode?: 'Office' | 'Work From Home' | string; note?: string } | string,
+  maybeNote?: string,
+  ..._rest: unknown[]
+) {
+  let workMode = 'Office';
+  let note = '';
+
+  if (typeof dataOrEmpId === 'string') {
+    if (typeof maybeNote === 'string') {
+      note = maybeNote;
+    }
+  } else if (dataOrEmpId && typeof dataOrEmpId === 'object') {
+    if (dataOrEmpId.workMode) workMode = dataOrEmpId.workMode;
+    if (typeof dataOrEmpId.note === 'string') note = dataOrEmpId.note;
+  }
+
   try {
-    const response = await http.post('/attendance/check-in', {
-      workMode: data?.workMode || undefined,
-      note: data?.note || undefined,
-    });
-    return response.data;
+    const response = await http.post(
+      '/attendance/clock',
+      {
+        workMode: workMode || 'Office',
+        note: note ?? '',
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    const resData = response.data;
+    return {
+      ...resData,
+      success: true,
+      record: resData?.attendance || resData,
+    };
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Clock in failed.');
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance clock action failed.');
   }
 }
+
+const clockIn = clock;
+const clockOut = clock;
 
 async function getAttendanceLogic() {
   try {
@@ -231,7 +343,9 @@ async function getAttendanceLogic() {
 
 async function startBreak(data?: { note?: string }) {
   try {
-    const response = await http.post('/attendance/break/start', { note: data?.note || undefined });
+    const response = await http.post('/attendance/break', { note: data?.note || '' }, {
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => http.post('/attendance/break/start', { note: data?.note || undefined }));
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -241,7 +355,9 @@ async function startBreak(data?: { note?: string }) {
 
 async function endBreak(data?: { note?: string }) {
   try {
-    const response = await http.post('/attendance/break/end', { note: data?.note || undefined });
+    const response = await http.post('/attendance/break', { note: data?.note || '' }, {
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => http.post('/attendance/break/end', { note: data?.note || undefined }));
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -250,18 +366,6 @@ async function endBreak(data?: { note?: string }) {
 }
 
 const resumeBreak = endBreak;
-
-async function clockOut(data?: { note?: string }) {
-  try {
-    const response = await http.post('/attendance/check-out', {
-      note: data?.note || undefined,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Clock out failed.');
-  }
-}
 
 async function registerCompany(data: CompanyRegisterInput) {
   try {
@@ -308,6 +412,11 @@ function userToEmployee(u: any): any {
 
 async function getEmployees() {
   try {
+    const portalMode = typeof window !== 'undefined' ? getCookie('hrms_portal_mode') : null;
+    const currentRole = typeof window !== 'undefined' ? getCookie('hrms_current_role') : null;
+    if (portalMode === 'employee' || (currentRole && currentRole.toUpperCase() === 'EMPLOYEE')) {
+      return [];
+    }
     const res = await listUsers({ limit: 100 });
     const users = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
     return users.map(userToEmployee);
@@ -384,17 +493,14 @@ async function getDocuments(userId?: string) {
   }
 }
 
-async function uploadDocumentFile(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
-  if (data instanceof FormData) {
-    const response = await http.post('/documents', data);
-    return response.data;
-  }
+async function uploadDocumentFile(data: FormData | { title: string; file: File; userId?: string; companyId?: string; category?: string }) {
   return createDocument(data);
 }
 
 async function verifyDocument(id: string, status: string) {
   try {
     const response = await http.patch(`/documents/${id}`, { status });
+    docCache.clear();
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -421,13 +527,27 @@ async function getMe() {
   return getProfile();
 }
 
-async function getMyCompany() {
-  try {
-    const profile = await getProfile();
-    return profile?.company || null;
-  } catch {
-    return null;
+async function getMyCompany(forceRefresh = false) {
+  if (!forceRefresh && companyCache) {
+    return companyCache;
   }
+  if (!forceRefresh && companyInFlight) {
+    return companyInFlight;
+  }
+
+  companyInFlight = (async () => {
+    try {
+      const profile = await getProfile(forceRefresh);
+      companyCache = profile?.company || null;
+      return companyCache;
+    } catch {
+      return null;
+    } finally {
+      companyInFlight = null;
+    }
+  })();
+
+  return companyInFlight;
 }
 
 export const api = new Proxy({
@@ -456,6 +576,7 @@ export const api = new Proxy({
   updateDocument,
   verifyDocument,
   deleteDocument,
+  clock,
   clockIn,
   checkIn,
   clockOut,

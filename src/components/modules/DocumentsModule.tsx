@@ -21,9 +21,63 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getApiBaseUrl } from '../../lib/config';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeeDocument, Employee } from '../../types/hrms';
+
+function normalizeDoc(item: any, employeesList?: Employee[], currentUser?: any): EmployeeDocument {
+  if (!item) return item;
+  const empId = item.userId || item.employeeId || '';
+  const matchedEmp = employeesList?.find((e) => e.id === empId || e.userId === empId || e.employeeCode === empId);
+  const empName =
+    item.employeeName ||
+    (item.user ? `${item.user.firstName || ''} ${item.user.lastName || ''}`.trim() : '') ||
+    (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : '') ||
+    (currentUser && (empId === currentUser.id || empId === currentUser.employeeId)
+      ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+      : '') ||
+    'Employee';
+
+  let fileUrl = item.fileUrl || item.url || item.filePath || '';
+  if (fileUrl && !fileUrl.startsWith('http://') && !fileUrl.startsWith('https://') && !fileUrl.startsWith('blob:')) {
+    const serverOrigin = getApiBaseUrl().replace(/\/api\/?$/, '');
+    fileUrl = `${serverOrigin}/${fileUrl.replace(/^\/+/, '')}`;
+  }
+
+  const rawSize = item.fileSize || item.size;
+  const formattedSize =
+    typeof rawSize === 'number'
+      ? rawSize > 1024 * 1024
+        ? `${(rawSize / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(rawSize / 1024)} KB`
+      : rawSize || '—';
+
+  const rawDate = item.uploadDate || item.createdAt || item.updatedAt;
+  const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString() : 'Recent';
+
+  const status = item.verificationStatus || item.status || 'Pending';
+  const normStatus: 'Verified' | 'Pending' | 'Rejected' =
+    typeof status === 'string' && (status.toLowerCase().includes('verif') || status.toLowerCase() === 'approved')
+      ? 'Verified'
+      : typeof status === 'string' && status.toLowerCase().includes('reject')
+      ? 'Rejected'
+      : 'Pending';
+
+  return {
+    id: item.id || item._id || String(Date.now()),
+    employeeId: empId,
+    employeeName: empName,
+    title: item.title || item.name || 'Untitled Document',
+    category: item.category || 'Other',
+    fileUrl,
+    fileSize: formattedSize,
+    uploadDate: formattedDate,
+    expiryDate: item.expiryDate,
+    verificationStatus: normStatus,
+    verifiedBy: item.verifiedBy,
+  };
+}
 
 interface DocumentsModuleProps {
   portalMode?: 'employee' | 'admin';
@@ -43,6 +97,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const [category, setCategory] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   useEffect(() => {
     if (!isUploadOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -79,23 +134,32 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFetchingRef = useRef(false);
   const { showToast } = useSocket();
 
   useEffect(() => {
+    if (portalMode === 'employee' && !user?.id && !myEmpId) {
+      return;
+    }
     loadData();
-  }, [portalMode, myEmpId]);
+  }, [portalMode, myEmpId, user?.id]);
 
   const loadData = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
     try {
-      const [docs, emps, settings, myComp] = await Promise.all([
-        api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
-        api.getEmployees(),
-        api.getSettings().catch(() => null),
+      const targetUserId = portalMode === 'employee' ? (user?.id || myEmpId) : undefined;
+      const [docs, emps, myComp] = await Promise.all([
+        api.getDocuments(targetUserId),
+        portalMode === 'admin' ? api.getEmployees().catch(() => []) : Promise.resolve([]),
         api.getMyCompany().catch(() => null),
       ]);
-      setDocuments(Array.isArray(docs) ? docs : []);
-      setEmployees(Array.isArray(emps) ? emps : []);
+      const empsList = Array.isArray(emps) ? emps : [];
+      setEmployees(empsList);
+      const rawDocs = Array.isArray(docs) ? docs : [];
+      setDocuments(rawDocs.map((d) => normalizeDoc(d, empsList, user)));
+
       if (myComp) {
         setCompanySettings((prev) => ({
           ...prev,
@@ -106,50 +170,54 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           phone: myComp.phone || prev.phone,
           address: myComp.address || prev.address,
         }));
-      } else if (settings?.company) {
-        setCompanySettings((prev) => ({
-          ...prev,
-          name: settings.company.name || prev.name,
-          tagline: settings.company.tagline || prev.tagline,
-          taxId: settings.company.taxId || prev.taxId,
-          supportEmail: settings.company.supportEmail || prev.supportEmail,
-          phone: settings.company.phone || prev.phone,
-          address: settings.company.address || prev.address,
-        }));
       }
       if (portalMode === 'employee') {
         setSelectedEmployeeId(myEmpId);
-      } else if (emps.length > 0 && !selectedEmployeeId) {
-        setSelectedEmployeeId(emps[0].id);
+      } else if (empsList.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(empsList[0].id);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert('Please select a file to upload');
+      setUploadError('Please select a file to upload.');
       return;
     }
 
     setUploading(true);
+    setUploadError(null);
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('title', docTitle || selectedFile.name);
+      formData.append('title', docTitle.trim() || selectedFile.name);
       formData.append('category', docCategory);
-      formData.append('employeeId', selectedEmployeeId);
 
-      const created = await api.uploadDocumentFile(formData);
-      setDocuments((prev) => [created, ...prev]);
+      // Backend expects title, file, userId, companyId
+      const targetUserId =
+        portalMode === 'admin'
+          ? (selectedEmployeeId || user?.id || '')
+          : (user?.id || myEmpId || '');
+
+      formData.append('userId', targetUserId || '');
+      if (targetUserId) {
+        formData.append('employeeId', targetUserId);
+      }
+
+      const targetCompanyId = user?.companyId || '';
+      formData.append('companyId', targetCompanyId);
+
+      await api.uploadDocumentFile(formData);
 
       showToast({
         title: 'Document Uploaded',
-        message: `"${docTitle || selectedFile.name}" has been securely stored in compliance vault.`,
+        message: `"${docTitle || selectedFile.name}" has been uploaded successfully.`,
         type: 'success',
         module: 'documents',
       });
@@ -157,8 +225,22 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
       setIsUploadOpen(false);
       setDocTitle('');
       setSelectedFile(null);
+      setUploadError(null);
+
+      // Reload official documents list from backend API
+      const freshDocs = await api.getDocuments(targetUserId);
+      const rawDocs = Array.isArray(freshDocs) ? freshDocs : [];
+      setDocuments(rawDocs.map((d) => normalizeDoc(d, employees, user)));
     } catch (err: any) {
-      alert(err.message || 'Failed to upload document');
+      console.error('Document upload error:', err);
+      const errMsg = err?.message || 'Failed to upload document. Please try again.';
+      setUploadError(errMsg);
+      showToast({
+        title: 'Upload Failed',
+        message: errMsg,
+        type: 'error',
+        module: 'documents',
+      });
     } finally {
       setUploading(false);
     }
@@ -183,8 +265,13 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
   const docQ = searchTerm.trim().toLowerCase();
   const filtered = documents.filter((doc) => {
-    if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
-      return false;
+    if (portalMode === 'employee') {
+      const isMine =
+        !doc.employeeId ||
+        doc.employeeId === myEmpId ||
+        doc.employeeId === user?.id ||
+        doc.employeeId === user?.employeeId;
+      if (!isMine) return false;
     }
     const matchesCat = category === 'ALL' || (doc.category || '').toLowerCase() === category.toLowerCase();
     const matchesSearch =
@@ -203,8 +290,11 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted Vault
         </span>
         <button
-          onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+          onClick={() => {
+            setUploadError(null);
+            setIsUploadOpen(true);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1b4332] hover:bg-[#143427] active:bg-[#0f281e] text-white font-semibold text-xs shadow-xs transition active:scale-95 cursor-pointer"
         >
           <UploadCloud className="w-3.5 h-3.5" />
           <span>Upload Document</span>
@@ -456,7 +546,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
             </button>
 
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
                 <UploadCloud className="w-5 h-5" />
               </div>
               <div>
@@ -468,6 +558,13 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                 </p>
               </div>
             </div>
+
+            {uploadError && (
+              <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{uploadError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleFileUpload} className="space-y-4 mt-5">
               {portalMode === 'admin' ? (
@@ -482,7 +579,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                   >
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode || emp.id} - {emp.departmentName || 'General'})
                       </option>
                     ))}
                   </select>
@@ -491,15 +588,15 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Document Title
+                  Document Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Passport Copy or W-4 Form"
+                  placeholder="e.g. Offer letter, Passport Copy or Tax Form"
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
 
@@ -510,7 +607,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                 <select
                   value={docCategory}
                   onChange={(e) => setDocCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-hidden"
                 >
                   <option value="Identity">Identity Document (Passport, National ID)</option>
                   <option value="Tax">Tax Exemption / W-4 Form</option>
@@ -524,7 +621,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               {/* File Dropzone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 transition"
+                className="border-2 border-dashed border-slate-300 hover:border-emerald-600 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 hover:bg-emerald-50/20 transition group"
               >
                 <input
                   ref={fileInputRef}
@@ -534,26 +631,37 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setSelectedFile(e.target.files[0]);
+                      setUploadError(null);
                       if (!docTitle) setDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
                     }
                   }}
                 />
-                <FileCheck className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <FileCheck className="w-8 h-8 text-emerald-600 mx-auto mb-2 group-hover:scale-110 transition" />
                 {selectedFile ? (
-                  <div>
-                    <span className="font-bold text-xs text-slate-900 block">
+                  <div className="space-y-1">
+                    <span className="font-bold text-xs text-slate-900 block truncate max-w-xs mx-auto">
                       {selectedFile.name}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-slate-500 block">
                       {(selectedFile.size / 1024).toFixed(1)} KB — Click to change file
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFile(null);
+                      }}
+                      className="mt-1 text-[11px] font-semibold text-rose-600 hover:underline"
+                    >
+                      Remove file
+                    </button>
                   </div>
                 ) : (
                   <div>
                     <span className="font-bold text-xs text-slate-800 block">
                       Click to choose file or drag and drop
                     </span>
-                    <span className="text-[10px] text-slate-400">PDF, DOC, PNG, JPG up to 10MB</span>
+                    <span className="text-[10px] text-slate-400">PDF, DOC, DOCX, PNG, JPG up to 10MB</span>
                   </div>
                 )}
               </div>
@@ -561,17 +669,30 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsUploadOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-500 hover:bg-slate-100"
+                  onClick={() => {
+                    setIsUploadOpen(false);
+                    setUploadError(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !selectedFile}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md disabled:opacity-50 transition"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[#1b4332] hover:bg-[#143427] text-white shadow-md disabled:opacity-50 transition cursor-pointer flex items-center gap-2"
                 >
-                  {uploading ? 'Uploading to Server...' : 'Confirm Upload'}
+                  {uploading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Uploading to Server...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Confirm Upload</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

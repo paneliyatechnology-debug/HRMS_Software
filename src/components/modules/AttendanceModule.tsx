@@ -895,8 +895,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           active > 0
             ? formatSecondsToHMS(active)
             : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
-            ? sessionWorkedHMS
-            : '00:00:00';
+              ? sessionWorkedHMS
+              : '00:00:00';
         setLiveWorkedHMS(activeStr);
         setLiveBreakWords(formatSecondsToWords(brk));
       } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
@@ -922,7 +922,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.startWork({});
+      const res = await api.startWork({ workMode: 'Office', note: '' });
       performCheckIn({
         id: selfEmployee.id || myEmpId,
         firstName: selfEmployee.firstName,
@@ -970,7 +970,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckOutAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.stopWork({});
+      const res = await api.stopWork({ workMode: 'Office', note: '' });
       const outRes = performCheckOut(selfEmployee.id || myEmpId, {
         remarks: 'Evening clock-out',
       });

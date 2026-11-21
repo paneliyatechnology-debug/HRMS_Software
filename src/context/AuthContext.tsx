@@ -128,6 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const enrichUserData = async (baseUser: any) => {
     if (!baseUser) return baseUser;
     let enriched = { ...baseUser };
+    if (!isUserAdminRole(baseUser.role)) {
+      return enriched;
+    }
     try {
       const backendEmps = await api.getEmployees().catch(() => []);
       const matched = backendEmps.find((e: any) =>
