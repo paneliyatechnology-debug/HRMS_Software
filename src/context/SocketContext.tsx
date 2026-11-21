@@ -42,15 +42,15 @@ const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
   toasts: [],
-  showToast: () => {},
-  removeToast: () => {},
-  emitChatMessage: () => {},
-  emitChatEdit: () => {},
-  emitChatDelete: () => {},
-  emitChatTyping: () => {},
-  emitChatRead: () => {},
-  emitLeaveApplied: () => {},
-  emitLeaveStatusUpdated: () => {},
+  showToast: () => { },
+  removeToast: () => { },
+  emitChatMessage: () => { },
+  emitChatEdit: () => { },
+  emitChatDelete: () => { },
+  emitChatTyping: () => { },
+  emitChatRead: () => { },
+  emitLeaveApplied: () => { },
+  emitLeaveStatusUpdated: () => { },
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -116,7 +116,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const localBc = new BroadcastChannel('hrms_realtime_sync');
         localBc.postMessage({ type: 'HRMS_LEAVE_APPLIED', payload: leaveData });
         localBc.close();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. WebSocket gateway emit to backend
@@ -145,7 +145,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const localBc = new BroadcastChannel('hrms_realtime_sync');
         localBc.postMessage({ type: 'HRMS_LEAVE_STATUS_UPDATED', payload });
         localBc.close();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. WebSocket gateway emit to backend
@@ -325,7 +325,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             module: 'leaves',
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     };
 
     s.on('leave_applied', handleIncomingLeaveRequest);
@@ -356,7 +356,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             module: 'leaves',
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     };
 
     s.on('leave_status_updated', handleIncomingLeaveStatus);
@@ -431,7 +431,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       String(currentRole || '').toUpperCase(),
     )
       ? 'company-admin'
-      : user?.employeeId || currentUserId;
+      : (user?.employeeId || currentUserId || undefined);
 
     s.on('chat_message_received', (incomingMessage: any) => {
       receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);
@@ -525,26 +525,24 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto pl-3 pr-2.5 py-2.5 rounded-xl bg-white/60 backdrop-blur-xl shadow-[0_8px_24px_-6px_rgba(6,45,31,0.18)] border border-white/70 ring-1 ring-black/5 border-l-4 animate-in slide-in-from-top-3 transition-all duration-200 flex items-start gap-2.5 ${
-                isSuccess
-                  ? 'border-l-emerald-600'
-                  : isWarning
+              className={`pointer-events-auto pl-3 pr-2.5 py-2.5 rounded-xl bg-white/60 backdrop-blur-xl shadow-[0_8px_24px_-6px_rgba(6,45,31,0.18)] border border-white/70 ring-1 ring-black/5 border-l-4 animate-in slide-in-from-top-3 transition-all duration-200 flex items-start gap-2.5 ${isSuccess
+                ? 'border-l-emerald-600'
+                : isWarning
                   ? 'border-l-amber-500'
                   : isError
-                  ? 'border-l-rose-600'
-                  : 'border-l-emerald-600'
-              }`}
+                    ? 'border-l-rose-600'
+                    : 'border-l-emerald-600'
+                }`}
             >
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                  isSuccess
-                    ? 'bg-emerald-500/15 text-emerald-700'
-                    : isWarning
+                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isSuccess
+                  ? 'bg-emerald-500/15 text-emerald-700'
+                  : isWarning
                     ? 'bg-amber-500/15 text-amber-700'
                     : isError
-                    ? 'bg-rose-500/15 text-rose-700'
-                    : 'bg-emerald-500/15 text-emerald-700'
-                }`}
+                      ? 'bg-rose-500/15 text-rose-700'
+                      : 'bg-emerald-500/15 text-emerald-700'
+                  }`}
               >
                 {isSuccess ? (
                   <CheckCircle2 className="w-4 h-4" />

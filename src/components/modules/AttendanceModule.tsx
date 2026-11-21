@@ -588,10 +588,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         isOnBreak: session.status === 'ON_BREAK',
         activeSeconds: workSeconds,
         breakSeconds,
+        breakDurationMinutes: Math.round(breakSeconds / 60),
+        workingHours: Number((workSeconds / 3600).toFixed(2)),
+        overtimeHours: 0,
         formattedTotalBreak: session.formattedTotalBreak || formatSecondsToWords(breakSeconds),
         durationFormatted: session.durationFormatted || formatSecondsToHMS(workSeconds),
         createdAt: session.startTime,
-      } as AttendanceRecord);
+      } as unknown as AttendanceRecord);
     });
 
     // 3. Ensure today's live record is present with most current ticking/punch state

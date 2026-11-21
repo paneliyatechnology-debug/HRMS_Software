@@ -66,7 +66,12 @@ function userToEmployee(user: {
     bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
     taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
     education: [],
-  } as Employee;
+    previousExperience: [],
+    skills: [],
+    salary: { basic: 0, allowances: 0, deductions: 0, net: 0 },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as unknown as Employee;
 }
 
 interface EmployeesModuleProps {
