@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -263,10 +263,25 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   // Dedicated state for authoritative work status response (/api/attendance/work/status)
   const [workStatusData, setWorkStatusData] = useState<any>(null);
+  const [attendanceSummaryData, setAttendanceSummaryData] = useState<any | null>(null);
+  const [attendanceCalendarData, setAttendanceCalendarData] = useState<any | null>(null);
   const [historySessions, setHistorySessions] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const isFetchingWorkStatusRef = React.useRef(false);
+
+  const fetchAttendanceSummaryAndCalendar = useCallback(async () => {
+    try {
+      const [sumRes, calRes] = await Promise.all([
+        api.getAttendanceSummary().catch(() => null),
+        api.getAttendanceCalendar().catch(() => null),
+      ]);
+      if (sumRes) setAttendanceSummaryData(sumRes);
+      if (calRes) setAttendanceCalendarData(calRes);
+    } catch (err) {
+      console.warn('[AttendanceModule] Could not load attendance summary/calendar:', err);
+    }
+  }, []);
 
   const fetchWorkStatus = useCallback(async () => {
     if (isFetchingWorkStatusRef.current) return;
@@ -297,21 +312,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   }, [isEmployeeView]);
 
-  // Sync logged in employee's work status from backend on mount only if not already loaded by WorkSessionContext, and on punch updates
+  const fetchWorkStatusRef = useRef(fetchWorkStatus);
+  fetchWorkStatusRef.current = fetchWorkStatus;
+  const loadWorkHistoryRef = useRef(loadWorkHistory);
+  loadWorkHistoryRef.current = loadWorkHistory;
+  const fetchSummaryCalRef = useRef(fetchAttendanceSummaryAndCalendar);
+  fetchSummaryCalRef.current = fetchAttendanceSummaryAndCalendar;
+
+  // Sync logged in employee's work status from backend on mount, and on real punch updates
   useEffect(() => {
-    if (!todaySummary && !activeSession && !lastCompletedSession) {
-      fetchWorkStatus();
-    }
-    loadWorkHistory();
+    fetchWorkStatusRef.current();
+    loadWorkHistoryRef.current();
+    fetchSummaryCalRef.current();
+
     const handleUpdate = () => {
-      fetchWorkStatus();
-      loadWorkHistory();
+      fetchWorkStatusRef.current();
+      loadWorkHistoryRef.current();
+      fetchSummaryCalRef.current();
     };
     window.addEventListener('hrms_work_status_updated', handleUpdate);
     return () => {
       window.removeEventListener('hrms_work_status_updated', handleUpdate);
     };
-  }, [fetchWorkStatus, loadWorkHistory, todaySummary, activeSession, lastCompletedSession]);
+  }, []);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1156,18 +1179,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
-  const holidaysList = [
-    { date: '02-Oct-2026', name: 'Mahatma Gandhi Jayanti', day: 'Friday', type: 'National Holiday' },
-    { date: '20-Oct-2026', name: 'Maha Navami', day: 'Tuesday', type: 'Festival' },
-    { date: '21-Oct-2026', name: 'Dussehra / Vijaya Dashami', day: 'Wednesday', type: 'Gazetted Holiday' },
-    { date: '29-Oct-2026', name: 'Karwa Chauth', day: 'Thursday', type: 'Restricted Holiday' },
-    { date: '08-Nov-2026', name: 'Dhanteras', day: 'Sunday', type: 'Festival' },
-    { date: '09-Nov-2026', name: 'Diwali / Lakshmi Puja', day: 'Monday', type: 'Public Holiday' },
-    { date: '10-Nov-2026', name: 'Gujarati New Year / Bestu Varas', day: 'Tuesday', type: 'Public Holiday' },
-    { date: '11-Nov-2026', name: 'Bhai Dooj', day: 'Wednesday', type: 'Restricted Holiday' },
-    { date: '25-Dec-2026', name: 'Christmas Day', day: 'Friday', type: 'Public Holiday' },
-  ];
 
   return (
     <div className="space-y-5 w-full select-none animate-in fade-in">
