@@ -87,14 +87,19 @@ http.interceptors.request.use((config) => {
     return config;
   }
 
-  const contentType = (config.headers && typeof (config.headers as any).get === 'function')
-    ? (config.headers as any).get('Content-Type')
-    : (config.headers as any)?.['Content-Type'];
+  const getHeader = (name: string): string | undefined => {
+    if (!config.headers) return undefined;
+    if (typeof (config.headers as any).get === 'function') {
+      return (config.headers as any).get(name) || (config.headers as any).get(name.toLowerCase());
+    }
+    return (config.headers as any)[name] || (config.headers as any)[name.toLowerCase()];
+  };
 
-  const isExplicitJson = typeof contentType === 'string' && contentType.includes('application/json');
+  const contentType = getHeader('Content-Type');
+  const isExplicitJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
 
   const data = config.data;
-  if (!isExplicitJson && data && typeof data === 'object') {
+  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
     const form = new FormData();
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (value == null || value === '') continue;
@@ -774,12 +779,23 @@ function backendLeaveTypeToFrontend(lt: any) {
   };
 }
 
-// 31. POST /leave-types (Create leave type)
-async function createLeaveType(data: { name: string }) {
+// 31. POST /leave-types (Create leave type - Admin/HR only)
+async function createLeaveType(dataOrName: { name: string } | string) {
+  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
   try {
-    const response = await http.post('/leave-types', { name: data.name }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await http.post(
+      '/leave-types',
+      { name: name.trim() },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
     clearApiCache('/leave-types');
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
@@ -789,7 +805,7 @@ async function createLeaveType(data: { name: string }) {
   }
 }
 
-// 32. GET /leave-types (List leave types)
+// 32. GET /leave-types (List leave types - Admin/HR)
 async function listLeaveTypes() {
   try {
     const data = await deduplicatedGet('/leave-types');
@@ -806,12 +822,36 @@ async function listLeaveTypes() {
   }
 }
 
-// 33. PATCH /leave-types/:leaveTypeId (Edit leave type)
-async function updateLeaveType(leaveTypeId: string, data: { name: string }) {
+// 33. PUT / PATCH /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
+async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string } | string) {
+  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
   try {
-    const response = await http.patch(`/leave-types/${leaveTypeId}`, { name: data.name }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    let response;
+    try {
+      response = await http.put(
+        `/leave-types/${leaveTypeId}`,
+        { name: name.trim() },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (putErr: any) {
+      if (putErr?.response?.status === 404 || putErr?.response?.status === 405) {
+        response = await http.patch(
+          `/leave-types/${leaveTypeId}`,
+          { name: name.trim() },
+          {
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      } else {
+        throw putErr;
+      }
+    }
     clearApiCache('/leave-types');
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
@@ -821,7 +861,7 @@ async function updateLeaveType(leaveTypeId: string, data: { name: string }) {
   }
 }
 
-// 34. DELETE /leave-types/:leaveTypeId (Delete leave type)
+// 34. DELETE /leave-types/:leaveTypeId (Delete leave type - Admin/HR)
 async function deleteLeaveType(leaveTypeId: string) {
   try {
     const response = await http.delete(`/leave-types/${leaveTypeId}`);

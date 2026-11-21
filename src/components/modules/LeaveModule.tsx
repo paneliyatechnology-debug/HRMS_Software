@@ -81,6 +81,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Role permissions check (Admin & HR only)
+  const userRole = (user?.role || '').trim().toUpperCase();
+  const isAdminOrHr = ['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(userRole) || portalMode === 'admin';
+
   // Leave Types Modal State (Admin & HR)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
   const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string }>>([]);
@@ -102,15 +106,44 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
   }, [showToast]);
 
+  useEffect(() => {
+    if (isLeaveTypesModalOpen) {
+      loadLeaveTypes();
+    }
+  }, [isLeaveTypesModalOpen, loadLeaveTypes]);
+
+  useEffect(() => {
+    if (!isLeaveTypesModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLeaveTypesModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLeaveTypesModalOpen]);
+
   const handleCreateLeaveType = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLeaveTypeName.trim()) return;
+    if (!isAdminOrHr) {
+      showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can configure leave types.' });
+      return;
+    }
+    const nameToAdd = newLeaveTypeName.trim();
+    if (!nameToAdd) {
+      showToast({ type: 'warning', title: 'Name Required', message: 'Please enter a leave type name.' });
+      return;
+    }
     setIsSubmittingLeaveType(true);
     try {
-      await api.createLeaveType({ name: newLeaveTypeName.trim() });
-      showToast({ type: 'success', title: 'Leave Type Created', message: `"${newLeaveTypeName}" created successfully.` });
+      const created = await api.createLeaveType({ name: nameToAdd });
+      showToast({
+        type: 'success',
+        title: 'Leave Type Created',
+        message: `"${created?.name || nameToAdd}" created successfully.`,
+      });
       setNewLeaveTypeName('');
-      loadLeaveTypes();
+      await loadLeaveTypes();
     } catch (err: any) {
       showToast({ type: 'error', title: 'Creation Failed', message: err.message || 'Could not create leave type' });
     } finally {
@@ -119,14 +152,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   };
 
   const handleUpdateLeaveType = async (id: string) => {
-    if (!editingLeaveTypeName.trim()) return;
+    if (!isAdminOrHr) {
+      showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can update leave types.' });
+      return;
+    }
+    const nameToUpdate = editingLeaveTypeName.trim();
+    if (!nameToUpdate) return;
     setIsSubmittingLeaveType(true);
     try {
-      await api.updateLeaveType(id, { name: editingLeaveTypeName.trim() });
+      await api.updateLeaveType(id, { name: nameToUpdate });
       showToast({ type: 'success', title: 'Leave Type Updated', message: 'Leave type updated successfully.' });
       setEditingLeaveTypeId(null);
       setEditingLeaveTypeName('');
-      loadLeaveTypes();
+      await loadLeaveTypes();
     } catch (err: any) {
       showToast({ type: 'error', title: 'Update Failed', message: err.message || 'Could not update leave type' });
     } finally {
@@ -135,12 +173,16 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   };
 
   const handleDeleteLeaveType = async (id: string) => {
+    if (!isAdminOrHr) {
+      showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can delete leave types.' });
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this leave type?')) return;
     setIsSubmittingLeaveType(true);
     try {
       await api.deleteLeaveType(id);
       showToast({ type: 'success', title: 'Leave Type Deleted', message: 'Leave type removed successfully.' });
-      loadLeaveTypes();
+      await loadLeaveTypes();
     } catch (err: any) {
       showToast({ type: 'error', title: 'Deletion Failed', message: err.message || 'Could not delete leave type' });
     } finally {
@@ -1239,6 +1281,14 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               </button>
             </div>
 
+            {/* Role restriction banner for non-admin/hr */}
+            {!isAdminOrHr && (
+              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Only Administrator and HR accounts have permission to configure company leave types.</span>
+              </div>
+            )}
+
             {/* Add New Leave Type Form */}
             <form onSubmit={handleCreateLeaveType} className="flex gap-2">
               <input
@@ -1246,16 +1296,26 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 value={newLeaveTypeName}
                 onChange={(e) => setNewLeaveTypeName(e.target.value)}
                 placeholder="Enter leave type name (e.g. Maternity Leave)..."
-                className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                disabled={isSubmittingLeaveType || !isAdminOrHr}
+                className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 required
               />
               <button
                 type="submit"
-                disabled={isSubmittingLeaveType || !newLeaveTypeName.trim()}
-                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                disabled={isSubmittingLeaveType || !newLeaveTypeName.trim() || !isAdminOrHr}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed transition-all active:scale-95"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
+                {isSubmittingLeaveType ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adding...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </>
+                )}
               </button>
             </form>
 
