@@ -138,14 +138,9 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
               <Shield className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                  Change Role: {employee.firstName} {employee.lastName}
-                </h3>
-                <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
-                  #{employee.employeeCode}
-                </span>
-              </div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                Change Role: {employee.firstName} {employee.lastName}
+              </h3>
               <p className="text-xs text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
                 <span>Current Role:</span>
                 <span className={`inline-flex items-center gap-1 font-semibold ${currentRoleDef.textColor}`}>

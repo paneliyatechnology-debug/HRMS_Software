@@ -687,7 +687,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         {/* 2-Column Responsive Layout */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* Left Navigation Sidebar */}
-          <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+          <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-4 self-start z-10 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
             <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
               Account Menu
             </div>
@@ -1021,36 +1021,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-            {companyData.name || 'Admin Workspace'}
+      {/* Top Save Notification if present */}
+      {savedMessage && (
+        <div className="flex justify-end pb-2">
+          <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
+            <Check className="w-3.5 h-3.5" /> All Changes Saved
           </span>
         </div>
-
-        <div className="flex items-center gap-3">
-          {savedMessage && (
-            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
-              <Check className="w-3.5 h-3.5" /> All Changes Saved
-            </span>
-          )}
-
-          <button
-            onClick={handleAdminSave}
-            disabled={loading}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <Check className="w-4 h-4" />
-            <span>{loading ? 'Saving Settings...' : 'Save Settings'}</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Navigation Sidebar */}
-        <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+        <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-4 self-start z-10 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
           <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
             Configuration Sections
           </div>

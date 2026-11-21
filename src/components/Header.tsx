@@ -393,9 +393,9 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onScrollToTop}
                 title="Click to scroll to top"
-                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-[10px] bg-[#f8f9fa] hover:bg-[#e9ecef] border border-[#dee2e6] hover:border-[#ced4da] shadow-2xs transition-all active:scale-95 cursor-pointer text-left group"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-[10px] bg-[#f8f9fa] hover:bg-[#e9ecef] transition-all active:scale-95 cursor-pointer text-left group"
               >
-                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 border border-[#b7e4c7] transition-colors">
+                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 transition-colors">
                   {resolvedPageIcon}
                 </span>
                 <span className="hrms-header-page-title text-xs sm:text-sm font-semibold tracking-tight text-[#0f172a] truncate max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-[280px] md:max-w-[360px]">
@@ -415,10 +415,10 @@ export const Header: React.FC<HeaderProps> = ({
           const isAddStaffActive = isAddEmployeeModalOpen;
           const isHolidaysActive = activeModule === 'calendar' && !isAddEmployeeModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs shadow-2xs transition-all cursor-pointer shrink-0 ${
               active
-                ? 'bg-[#1b4332] text-white border-[#1b4332]'
-                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+                ? 'bg-[#1b4332] text-white'
+                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332]'
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -473,10 +473,10 @@ export const Header: React.FC<HeaderProps> = ({
           const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
           const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs shadow-2xs transition-all cursor-pointer shrink-0 ${
               active
-                ? 'bg-[#1b4332] text-white border-[#1b4332]'
-                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+                ? 'bg-[#1b4332] text-white'
+                : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332]'
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">

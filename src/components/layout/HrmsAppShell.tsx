@@ -97,6 +97,7 @@ const ChatModule = dynamic(() => import('../modules/ChatModule').then((m) => m.C
 const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) => m.ReportsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
 import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
@@ -1001,14 +1002,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             )}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'profile' && (
-              <div className="space-y-5 w-full">
-                <EmployeeProfileModal
-                  variant="page"
-                  employee={myProfileEmployee}
-                  isOpen={true}
-                  onRefresh={loadData}
-                />
-              </div>
+              <ProfileModule onNavigateSettings={() => navigateToModule('settings')} />
             )}
             {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>

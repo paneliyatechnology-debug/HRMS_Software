@@ -1580,14 +1580,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Bell className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                      Send Notice
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
-                      Direct Notice
-                    </span>
-                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Send Notice
+                  </h3>
                   <p className="text-xs text-slate-500 mt-0.5 truncate">
                     To: <strong className="text-slate-700">{noticeTargetEmpDashboard.firstName} {noticeTargetEmpDashboard.lastName}</strong> ({noticeTargetEmpDashboard.employeeCode} • {noticeTargetEmpDashboard.departmentName || 'Staff'})
                   </p>

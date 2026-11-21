@@ -313,6 +313,20 @@ async function listUsers(params?: { page?: number; limit?: number; search?: stri
 // 9. GET /users/profile (My profile)
 async function getProfile() {
   try {
+    if (typeof window !== 'undefined') {
+      try {
+        const token = getCookie('accessToken') || getCookie('hrms_auth_token') || getCookie('bearerToken') || '';
+        const res = await axios.get('/api/users/profile', {
+          withCredentials: true,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.data && res.data.user) {
+          return res.data;
+        }
+      } catch (_) {
+        // Fallback to proxy deduplicated GET
+      }
+    }
     return await deduplicatedGet('/users/profile');
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;

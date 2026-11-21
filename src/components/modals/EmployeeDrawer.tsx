@@ -341,12 +341,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <UserPlus className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">Add New Employee</h3>
-                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 truncate max-w-[140px]">
-                  {adminCompanyName}
-                </span>
-              </div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                Add New Employee
+              </h3>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 {step === 1 ? 'Step 1 of 2: Personal information & credentials' : 'Step 2 of 2: Monthly salary structure & deductions'}
               </p>
@@ -887,9 +884,6 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       Take-Home Salary Breakdown
                     </span>
                   </div>
-                  <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    Live Calculation
-                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
