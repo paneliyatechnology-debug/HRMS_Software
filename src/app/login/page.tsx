@@ -17,8 +17,8 @@ export default function DirectLoginPage() {
 
   if (isLoading || isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      <div className="h-screen w-full bg-[#FFFDF7] flex items-center justify-center">
+        <div className="w-8 h-8 border-[3px] border-black border-t-[#FFE600] rounded-full animate-spin" />
       </div>
     );
   }

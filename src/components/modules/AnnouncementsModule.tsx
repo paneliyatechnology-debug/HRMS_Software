@@ -207,8 +207,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           <button
             onClick={() => setFilterAudience('All')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'All'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             All Notices ({announcements.length})
@@ -216,8 +216,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           <button
             onClick={() => setFilterAudience('Company')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Company'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Company-Wide ({announcements.filter((a) => a.targetAudience === 'All').length})
@@ -225,8 +225,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           <button
             onClick={() => setFilterAudience('Personal')}
             className={`px-3 py-1.5 rounded-lg transition-colors ${filterAudience === 'Personal'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             Personal Circulars ({announcements.filter((a) => a.targetAudience === 'Individual').length})
@@ -255,27 +255,27 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
               <div
                 key={anc.id}
                 className={`p-5 rounded-2xl bg-white border shadow-xs space-y-3 transition-colors ${isPersonalToMe
-                    ? 'border-emerald-300 ring-2 ring-emerald-50 bg-emerald-50/20'
-                    : 'border-slate-200'
+                  ? 'border-emerald-300 ring-2 ring-emerald-50 bg-emerald-50/20'
+                  : 'border-slate-200'
                   }`}
               >
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${anc.priority === 'Urgent'
-                          ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
-                          : anc.priority === 'High'
-                            ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                            : anc.priority === 'Medium'
-                              ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
+                        : anc.priority === 'High'
+                          ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                          : anc.priority === 'Medium'
+                            ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}
                     >
                       {anc.priority} Priority
                     </span>
 
                     {anc.targetAudience === 'Individual' ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
                         <User className="w-3 h-3" />
                         <span>
                           {isPersonalToMe
@@ -284,220 +284,221 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                         </span>
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        Company Broadcast (All Staff)
-                      </span>
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Company Broadcast (All Staff)
+                        </span>
                     )}
-                  </div>
+                      </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" /> Published {anc.publishDate}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" /> Published {anc.publishDate}
+                        </span>
+
+                        {portalMode === 'admin' && (
+                          <button
+                            id={`btn-delete-notice-${anc.id}`}
+                            onClick={() => handleDeleteNotice(anc.id, anc.title)}
+                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 transition-colors"
+                            title="Delete notice"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                </div>
+
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {anc.title}
+                  </h3>
+
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                    {anc.content}
+                  </p>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      Author: <strong className="text-slate-700">{anc.authorName}</strong>
                     </span>
-
-                    {portalMode === 'admin' && (
-                      <button
-                        id={`btn-delete-notice-${anc.id}`}
-                        onClick={() => handleDeleteNotice(anc.id, anc.title)}
-                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Delete notice"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <span className="font-semibold text-slate-500">
+                      Audience: {anc.targetAudience}
+                    </span>
                   </div>
                 </div>
-
-                <h3 className="text-base font-bold text-slate-900 leading-snug">
-                  {anc.title}
-                </h3>
-
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
-                  {anc.content}
-                </p>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                  <span>
-                    Author: <strong className="text-slate-700">{anc.authorName}</strong>
-                  </span>
-                  <span className="font-semibold text-slate-500">
-                    Audience: {anc.targetAudience}
-                  </span>
-                </div>
-              </div>
-            );
+                );
           })
         )}
-      </div>
+              </div>
 
-      {/* Modern In-App Send Notice / Broadcast Modal */}
-      {mounted && modalOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          id="publish-notice-modal"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setModalOpen(false);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
-                  <Megaphone className="w-5 h-5 stroke-[2.2]" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                      Send New Notice
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
-                      Official
-                    </span>
+      {/* Modern In-App Send Notice / Broadcast Modal */ }
+            {
+              mounted && modalOpen && typeof document !== 'undefined' && createPortal(
+                <div
+                  id="publish-notice-modal"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setModalOpen(false);
+                  }}
+                  className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+                  >
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
+                          <Megaphone className="w-5 h-5 stroke-[2.2]" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                              Send New Notice
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+                              Official
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Broadcast corporate circular or target specific employee
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setModalOpen(false)}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handlePublishNotice} className="mt-4 space-y-4 text-xs">
+                      {/* Audience selection */}
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                          Target Recipient
+                        </label>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setAudienceType('All')}
+                            className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'All'
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              }`}
+                          >
+                            <Users className="w-4 h-4" />
+                            <span>Broadcast to All Staff</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAudienceType('Individual')}
+                            className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Individual'
+                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              }`}
+                          >
+                            <UserCheck className="w-4 h-4" />
+                            <span>Specific Employee</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* If Individual: select employee */}
+                      {audienceType === 'Individual' && (
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                            Select Target Employee *
+                          </label>
+                          <select
+                            id="select-notice-employee"
+                            value={targetEmployeeId}
+                            onChange={(e) => setTargetEmployeeId(e.target.value)}
+                            className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
+                          >
+                            {employees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.firstName} {emp.lastName} ({emp.employeeCode} • {emp.departmentName || 'General'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Title */}
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                          Notice Subject / Title *
+                        </label>
+                        <input
+                          id="input-bulletin-title"
+                          type="text"
+                          required
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="e.g. Mandatory System Maintenance / Holiday Policy Update..."
+                          className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400"
+                        />
+                      </div>
+
+                      {/* Priority */}
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                          Urgency / Priority Level
+                        </label>
+                        <select
+                          id="select-bulletin-priority"
+                          value={priority}
+                          onChange={(e) => setPriority(e.target.value as any)}
+                          className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
+                        >
+                          <option value="Low">Low Priority (General Notice)</option>
+                          <option value="Medium">Medium Priority (Standard Notice)</option>
+                          <option value="High">High Priority (Action Required)</option>
+                          <option value="Urgent">Urgent Notice (Immediate Attention)</option>
+                        </select>
+                      </div>
+
+                      {/* Content */}
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                          Notice Body &amp; Instructions *
+                        </label>
+                        <textarea
+                          id="textarea-bulletin-content"
+                          rows={4}
+                          required
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                          placeholder="Write the full notice announcement instructions here..."
+                          className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
+                        />
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setModalOpen(false)}
+                          className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          id="btn-publish-bulletin"
+                          type="submit"
+                          disabled={submitting}
+                          className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{submitting ? 'Publishing Notice...' : 'Send Notice'}</span>
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Broadcast corporate circular or target specific employee
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePublishNotice} className="mt-4 space-y-4 text-xs">
-              {/* Audience selection */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                  Target Recipient
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setAudienceType('All')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'All'
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>Broadcast to All Staff</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAudienceType('Individual')}
-                    className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold text-center transition-all flex items-center justify-center gap-2 cursor-pointer ${audienceType === 'Individual'
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span>Specific Employee</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* If Individual: select employee */}
-              {audienceType === 'Individual' && (
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                    Select Target Employee *
-                  </label>
-                  <select
-                    id="select-notice-employee"
-                    value={targetEmployeeId}
-                    onChange={(e) => setTargetEmployeeId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
-                  >
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} ({emp.employeeCode} • {emp.departmentName || 'General'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                </div>,
+                document.body
               )}
-
-              {/* Title */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                  Notice Subject / Title *
-                </label>
-                <input
-                  id="input-bulletin-title"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Mandatory System Maintenance / Holiday Policy Update..."
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                  Urgency / Priority Level
-                </label>
-                <select
-                  id="select-bulletin-priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer"
-                >
-                  <option value="Low">🟢 Low Priority (General Notice)</option>
-                  <option value="Medium">🔵 Medium Priority (Standard Notice)</option>
-                  <option value="High">🟠 High Priority (Action Required)</option>
-                  <option value="Urgent">🔴 Urgent Notice (Immediate Attention)</option>
-                </select>
-              </div>
-
-              {/* Content */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                  Notice Body &amp; Instructions *
-                </label>
-                <textarea
-                  id="textarea-bulletin-content"
-                  rows={4}
-                  required
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write the full notice announcement instructions here..."
-                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="btn-publish-bulletin"
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{submitting ? 'Publishing Notice...' : 'Send Notice'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
+            </div>
   );
 };
