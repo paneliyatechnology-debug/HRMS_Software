@@ -139,13 +139,24 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
     setUploading(true);
     try {
       const formData = new FormData();
+      formData.append('title', (docTitle || selectedFile.name).trim());
+      formData.append('userId', selectedEmployeeId || (portalMode === 'employee' ? myEmpId : '') || '');
+      formData.append('companyId', user?.companyId || '');
       formData.append('file', selectedFile);
-      formData.append('title', docTitle || selectedFile.name);
-      formData.append('category', docCategory);
-      formData.append('employeeId', selectedEmployeeId);
 
-      const created = await api.uploadDocumentFile(formData);
-      setDocuments((prev) => [created, ...prev]);
+      const created = await api.createDocument(formData);
+      try {
+        const fresh = await api.getDocuments(portalMode === 'employee' ? myEmpId : undefined);
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          setDocuments(fresh);
+        } else if (created && created.id) {
+          setDocuments((prev) => [created, ...prev]);
+        }
+      } catch {
+        if (created && created.id) {
+          setDocuments((prev) => [created, ...prev]);
+        }
+      }
 
       showToast({
         title: 'Document Uploaded',
@@ -203,11 +214,12 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted Vault
         </span>
         <button
+          id="btn-add-document"
           onClick={() => setIsUploadOpen(true)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 cursor-pointer"
         >
           <UploadCloud className="w-3.5 h-3.5" />
-          <span>Upload Document</span>
+          <span>Add Document</span>
         </button>
       </div>
 
@@ -461,7 +473,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">
-                  Upload Compliance Document
+                  Add Document
                 </h3>
                 <p className="text-xs text-slate-500">
                   Select file (PDF, Word, Images up to 10MB)

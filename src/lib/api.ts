@@ -13,11 +13,23 @@ export const http = axios.create({
 http.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
   if (typeof window !== 'undefined') {
-    const token = getCookie('hrms_auth_token') || getCookie('bearerToken');
+    const token = getCookie('hrms_auth_token') || getCookie('bearerToken') || getCookie('accessToken');
     if (token && !config.headers.Authorization) {
       config.headers.set('Authorization', `Bearer ${token}`);
     }
   }
+
+  // If request data is FormData, remove manual Content-Type header so the browser/axios
+  // automatically calculates multipart/form-data with the correct boundary
+  if (config.data instanceof FormData) {
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
+    }
+    return config;
+  }
+
   const contentType = (config.headers && typeof (config.headers as any).get === 'function')
     ? (config.headers as any).get('Content-Type')
     : (config.headers as any)?.['Content-Type'];
@@ -25,14 +37,18 @@ http.interceptors.request.use((config) => {
   const isExplicitJson = typeof contentType === 'string' && contentType.includes('application/json');
 
   const data = config.data;
-  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
+  if (!isExplicitJson && data && typeof data === 'object') {
     const form = new FormData();
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (value == null || value === '') continue;
       form.append(key, value instanceof Blob ? value : String(value));
     }
     config.data = form;
-    config.headers.delete('Content-Type');
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
+    }
   }
   return config;
 });
@@ -191,15 +207,41 @@ async function deleteDocument(id: string) {
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be deleted.');
   }
 }
-async function createDocument(data: { title: string; file: File; userId?: string; companyId?: string }) {
+function backendDocToEmployeeDocument(d: any) {
+  if (!d) return null;
+  const userName = d.userName || (d.user ? `${d.user.firstName || ''} ${d.user.lastName || ''}`.trim() : '') || 'Company Document';
+  return {
+    id: d.id || `doc-${Date.now()}`,
+    employeeId: d.userId || d.employeeId || '',
+    employeeName: userName,
+    title: d.title || d.name || 'Untitled Document',
+    category: d.category || 'Other',
+    fileUrl: d.fileUrl || d.url || (d.path ? `${getApiBaseUrl().replace(/\/api$/, '')}/${String(d.path).replace(/^\/+/, '')}` : '#'),
+    fileSize: d.fileSize || (d.size ? `${(Number(d.size) / 1024).toFixed(1)} KB` : 'N/A'),
+    uploadDate: d.uploadDate || (d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+    verificationStatus: (d.verificationStatus || d.status || 'Verified'),
+    verifiedBy: d.verifiedBy || undefined,
+  };
+}
+
+async function createDocument(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
   try {
-    const response = await http.post('/documents', {
-      title: data.title,
-      file: data.file,
-      userId: data.userId || undefined,
-      companyId: data.companyId || undefined,
-    });
-    return response.data;
+    let form: FormData;
+    if (data instanceof FormData) {
+      form = data;
+    } else {
+      form = new FormData();
+      form.append('title', data.title || '');
+      form.append('userId', data.userId || '');
+      form.append('companyId', data.companyId || '');
+      if (data.file) {
+        form.append('file', data.file);
+      }
+    }
+    const response = await http.post('/documents', form);
+    const result = response.data;
+    const docData = result?.document || result?.data || result;
+    return backendDocToEmployeeDocument(docData) || docData;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be uploaded.');
@@ -378,17 +420,14 @@ async function uploadProfilePhoto(file: File) {
 async function getDocuments(userId?: string) {
   try {
     const res = await listDocuments(userId ? { userId } : undefined);
-    return Array.isArray(res?.data) ? res.data : Array.isArray(res?.documents) ? res.documents : Array.isArray(res) ? res : [];
+    const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res?.documents) ? res.documents : Array.isArray(res) ? res : [];
+    return raw.map(backendDocToEmployeeDocument).filter(Boolean);
   } catch {
     return [];
   }
 }
 
 async function uploadDocumentFile(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
-  if (data instanceof FormData) {
-    const response = await http.post('/documents', data);
-    return response.data;
-  }
   return createDocument(data);
 }
 
