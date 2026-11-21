@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const enrichUserData = async (baseUser: any) => {
     if (!baseUser) return baseUser;
     let enriched = { ...baseUser };
-    if (!isUserAdminRole(baseUser.role)) {
+    if (enriched.id && (enriched.companyId || enriched.role === 'ADMIN')) {
       return enriched;
     }
     try {

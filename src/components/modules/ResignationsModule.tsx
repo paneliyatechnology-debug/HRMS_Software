@@ -712,81 +712,91 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: File Resignation on Behalf of Employee (Admin)                     */}
       {/* ========================================================================= */}
       {isSubmitOpen && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setIsSubmitOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <LogOut className="w-5 h-5 text-emerald-600" />
-                File Employee Resignation
-              </h3>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">File Employee Resignation</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Initiate exit notice and clearance workflow</p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsSubmitOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitResignation} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
-                <select
-                  value={resigningEmpId}
-                  onChange={(e) => setResigningEmpId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName || 'General'})
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleSubmitResignation} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Select Employee *</label>
+                  <select
+                    value={resigningEmpId}
+                    onChange={(e) => setResigningEmpId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName || 'General'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Notice Period (Days) *</label>
+                  <select
+                    value={noticeDays}
+                    onChange={(e) => setNoticeDays(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  >
+                    <option value={15}>15 Days (Accelerated)</option>
+                    <option value={30}>30 Days (Standard Notice)</option>
+                    <option value={45}>45 Days</option>
+                    <option value={60}>60 Days (Senior Executive)</option>
+                    <option value={90}>90 Days</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Exit Reason *</label>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="State reason for resignation (career advancement, relocation, further studies...)"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notice Period (Days)</label>
-                <select
-                  value={noticeDays}
-                  onChange={(e) => setNoticeDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  <option value={15}>15 Days (Accelerated)</option>
-                  <option value={30}>30 Days (Standard Notice)</option>
-                  <option value={45}>45 Days</option>
-                  <option value={60}>60 Days (Senior Executive)</option>
-                  <option value={90}>90 Days</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Exit Reason *</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="State reason for resignation (career advancement, relocation, further studies...)"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSubmitOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !reason.trim()}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? 'Submitting...' : 'Confirm & File Resignation'}
                 </button>
@@ -800,81 +810,91 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       {/* MODAL: Printable Relieving & Experience Certificate                       */}
       {/* ========================================================================= */}
       {relievingLetterItem && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setRelievingLetterItem(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Building className="w-5 h-5 text-emerald-600" />
-                <span className="font-bold text-slate-900 text-base">Service & Relieving Certificate</span>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Service & Relieving Certificate</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{relievingLetterItem.employeeName} ({relievingLetterItem.employeeCode})</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Print Letter</span>
+                  <span>Print</span>
                 </button>
                 <button
                   onClick={() => setRelievingLetterItem(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Official Certificate Format */}
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-4 leading-relaxed font-serif">
-              <div className="text-center pb-3 border-b border-slate-200">
-                <h4 className="font-black text-slate-900 text-base tracking-wide font-sans">
-                  {(user?.companyName || 'Organization').toUpperCase()}
-                </h4>
-                <p className="text-[10px] text-slate-500 font-sans">
-                  Official Service Experience & Relieving Record
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Official Certificate Format */}
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-4 leading-relaxed font-serif">
+                <div className="text-center pb-3 border-b border-slate-200">
+                  <h4 className="font-black text-slate-900 text-base tracking-wide font-sans">
+                    {(user?.companyName || 'Organization').toUpperCase()}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-sans">
+                    Official Service Experience & Relieving Record
+                  </p>
+                </div>
+
+                <div className="flex justify-between font-sans text-[11px] font-semibold text-slate-500">
+                  <span>Ref: REL/{relievingLetterItem.employeeCode}/2026</span>
+                  <span>Date: {relievingLetterItem.lastWorkingDay}</span>
+                </div>
+
+                <h5 className="font-bold text-slate-900 text-sm text-center font-sans uppercase underline tracking-wider pt-2">
+                  TO WHOMSOEVER IT MAY CONCERN
+                </h5>
+
+                <p>
+                  This is to certify that <strong>{relievingLetterItem.employeeName}</strong> (Employee ID:{' '}
+                  <strong>{relievingLetterItem.employeeCode}</strong>) was employed with{' '}
+                  <strong>{user?.companyName || 'the organization'}</strong> in the department of{' '}
+                  <strong>{relievingLetterItem.departmentName || 'Engineering & Operations'}</strong>.
                 </p>
-              </div>
 
-              <div className="flex justify-between font-sans text-[11px] font-semibold text-slate-500">
-                <span>Ref: REL/{relievingLetterItem.employeeCode}/2026</span>
-                <span>Date: {relievingLetterItem.lastWorkingDay}</span>
-              </div>
+                <p>
+                  {relievingLetterItem.employeeName} tendered resignation on{' '}
+                  <strong>{relievingLetterItem.resignationDate}</strong> and has been formally relieved of all duties
+                  and responsibilities with effect from the close of business hours on{' '}
+                  <strong>{relievingLetterItem.lastWorkingDay}</strong> after successfully fulfilling all departmental
+                  handover, IT equipment return, and financial settlements.
+                </p>
 
-              <h5 className="font-bold text-slate-900 text-sm text-center font-sans uppercase underline tracking-wider pt-2">
-                TO WHOMSOEVER IT MAY CONCERN
-              </h5>
+                <p>
+                  During the tenure with {user?.companyName || 'the organization'}, conduct and professional dedication were found to be
+                  exemplary. We wish {relievingLetterItem.employeeName} every success in all future professional
+                  endeavors.
+                </p>
 
-              <p>
-                This is to certify that <strong>{relievingLetterItem.employeeName}</strong> (Employee ID:{' '}
-                <strong>{relievingLetterItem.employeeCode}</strong>) was employed with{' '}
-                <strong>{user?.companyName || 'the organization'}</strong> in the department of{' '}
-                <strong>{relievingLetterItem.departmentName || 'Engineering & Operations'}</strong>.
-              </p>
-
-              <p>
-                {relievingLetterItem.employeeName} tendered resignation on{' '}
-                <strong>{relievingLetterItem.resignationDate}</strong> and has been formally relieved of all duties
-                and responsibilities with effect from the close of business hours on{' '}
-                <strong>{relievingLetterItem.lastWorkingDay}</strong> after successfully fulfilling all departmental
-                handover, IT equipment return, and financial settlements.
-              </p>
-
-              <p>
-                During the tenure with {user?.companyName || 'the organization'}, conduct and professional dedication were found to be
-                exemplary. We wish {relievingLetterItem.employeeName} every success in all future professional
-                endeavors.
-              </p>
-
-              <div className="pt-6 font-sans text-xs">
-                <p className="font-bold text-slate-900">For {user?.companyName || 'the organization'}</p>
-                <div className="mt-8">
-                  <p className="font-bold text-slate-800">Authorized Signatory</p>
-                  <p className="text-slate-500 text-[11px]">Human Resources & Operations</p>
+                <div className="pt-6 font-sans text-xs">
+                  <p className="font-bold text-slate-900">For {user?.companyName || 'the organization'}</p>
+                  <div className="mt-8">
+                    <p className="font-bold text-slate-800">Authorized Signatory</p>
+                    <p className="text-slate-500 text-[11px]">Human Resources & Operations</p>
+                  </div>
                 </div>
               </div>
             </div>

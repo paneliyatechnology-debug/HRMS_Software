@@ -815,39 +815,46 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCreateJobModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-                  <Briefcase className="w-4 h-4" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                  <Briefcase className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Publish New Job Opening</h3>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Publish New Job Opening</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Define position details &amp; requirements</p>
+                </div>
               </div>
               <button
                 onClick={() => setCreateJobModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateJob} className="space-y-3.5">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Job Title *
-                </label>
-                <input
-                  id="input-job-title"
-                  type="text"
-                  required
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="e.g. Senior AI Engineer"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                />
-              </div>
+            <form onSubmit={handleCreateJob} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-3.5 text-xs flex-1">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Job Title *
+                  </label>
+                  <input
+                    id="input-job-title"
+                    type="text"
+                    required
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    placeholder="e.g. Senior AI Engineer"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -931,11 +938,13 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              </div>
+
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setCreateJobModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -943,7 +952,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-submit-create-job"
                   type="submit"
                   disabled={jobSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {jobSubmitting ? 'Publishing...' : 'Publish Opening'}
                 </button>
@@ -960,126 +969,131 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setAddCandidateModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-                  <UserPlus className="w-4 h-4" />
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Add Candidate to Pipeline</h3>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Add Candidate to Pipeline</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Register a new applicant into recruitment stages</p>
+                </div>
               </div>
               <button
                 onClick={() => setAddCandidateModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddCandidate} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Target Job Opening
-                </label>
-                <select
-                  value={candJobId}
-                  onChange={(e) => setCandJobId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                >
-                  {jobs.map((j) => (
-                    <option key={j.id} value={j.id}>
-                      {j.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Full Name *
-                </label>
-                <input
-                  id="input-cand-fullname"
-                  type="text"
-                  required
-                  value={candFullName}
-                  onChange={(e) => setCandFullName(e.target.value)}
-                  placeholder="e.g. Lucas Scott"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleAddCandidate} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Email *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Target Job Opening *
+                  </label>
+                  <select
+                    value={candJobId}
+                    onChange={(e) => setCandJobId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  >
+                    {jobs.map((j) => (
+                      <option key={j.id} value={j.id}>
+                        {j.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Full Name *
+                  </label>
                   <input
-                    id="input-cand-email"
-                    type="email"
+                    id="input-cand-fullname"
+                    type="text"
                     required
-                    value={candEmail}
-                    onChange={(e) => setCandEmail(e.target.value)}
-                    placeholder="candidate@example.com"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
+                    value={candFullName}
+                    onChange={(e) => setCandFullName(e.target.value)}
+                    placeholder="e.g. Lucas Scott"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Email *</label>
+                    <input
+                      id="input-cand-email"
+                      type="email"
+                      required
+                      value={candEmail}
+                      onChange={(e) => setCandEmail(e.target.value)}
+                      placeholder="candidate@example.com"
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Phone</label>
+                    <input
+                      id="input-cand-phone"
+                      type="text"
+                      value={candPhone}
+                      onChange={(e) => setCandPhone(e.target.value)}
+                      placeholder="+91 98765 00000"
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Experience (Years)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={candExperience}
+                      onChange={(e) => setCandExperience(Number(e.target.value))}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Current Company
+                    </label>
+                    <input
+                      type="text"
+                      value={candCurrentCompany}
+                      onChange={(e) => setCandCurrentCompany(e.target.value)}
+                      placeholder="e.g. Acme Corp"
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Phone</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Skills</label>
                   <input
-                    id="input-cand-phone"
                     type="text"
-                    value={candPhone}
-                    onChange={(e) => setCandPhone(e.target.value)}
-                    placeholder="+91 98765 00000"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
+                    value={candSkills}
+                    onChange={(e) => setCandSkills(e.target.value)}
+                    placeholder="Comma-separated (e.g. React, NestJS, TypeScript)"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Experience (Years)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={candExperience}
-                    onChange={(e) => setCandExperience(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Current Company
-                  </label>
-                  <input
-                    type="text"
-                    value={candCurrentCompany}
-                    onChange={(e) => setCandCurrentCompany(e.target.value)}
-                    placeholder="e.g. Acme Corp"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Skills</label>
-                <input
-                  type="text"
-                  value={candSkills}
-                  onChange={(e) => setCandSkills(e.target.value)}
-                  placeholder="Comma-separated (e.g. React, NestJS, TypeScript)"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setAddCandidateModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1087,7 +1101,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-submit-add-candidate"
                   type="submit"
                   disabled={candSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {candSubmitting ? 'Adding...' : 'Add to Pipeline'}
                 </button>
@@ -1104,70 +1118,80 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setInterviewModalCand(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Schedule Interview Round</h3>
-                <p className="text-xs text-slate-500">Candidate: {interviewModalCand.fullName}</p>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Schedule Interview Round</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Candidate: {interviewModalCand.fullName}</p>
+                </div>
               </div>
               <button
                 onClick={() => setInterviewModalCand(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleScheduleInterview} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Interview Round
-                </label>
-                <input
-                  id="input-interview-round"
-                  type="text"
-                  required
-                  value={interviewRound}
-                  onChange={(e) => setInterviewRound(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                />
+            <form onSubmit={handleScheduleInterview} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Interview Round *
+                  </label>
+                  <input
+                    id="input-interview-round"
+                    type="text"
+                    required
+                    value={interviewRound}
+                    onChange={(e) => setInterviewRound(e.target.value)}
+                    placeholder="e.g., Technical Round 1"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Interviewer Name & Role *
+                  </label>
+                  <input
+                    id="input-interviewer-name"
+                    type="text"
+                    required
+                    value={interviewerName}
+                    onChange={(e) => setInterviewerName(e.target.value)}
+                    placeholder="e.g., Jane Doe (Tech Lead)"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                    Scheduled Date & Time *
+                  </label>
+                  <input
+                    id="input-interview-time"
+                    type="text"
+                    required
+                    value={interviewScheduledAt}
+                    onChange={(e) => setInterviewScheduledAt(e.target.value)}
+                    placeholder="e.g., 2026-11-25 10:30 AM"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Interviewer Name & Role
-                </label>
-                <input
-                  id="input-interviewer-name"
-                  type="text"
-                  required
-                  value={interviewerName}
-                  onChange={(e) => setInterviewerName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Scheduled Date & Time
-                </label>
-                <input
-                  id="input-interview-time"
-                  type="text"
-                  required
-                  value={interviewScheduledAt}
-                  onChange={(e) => setInterviewScheduledAt(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setInterviewModalCand(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1175,7 +1199,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   id="btn-confirm-schedule-interview"
                   type="submit"
                   disabled={interviewSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {interviewSubmitting ? 'Booking...' : 'Confirm Schedule'}
                 </button>
@@ -1184,8 +1208,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           </div>
         </div>
       )}
-
-      {/* Bulk Candidate Import Modal (Frontend SheetJS Excel/CSV) */}
+                        {/* Bulk Candidate Import Modal (Frontend SheetJS Excel/CSV) */}
       <BulkCandidateImportModal
         isOpen={importCandidatesModalOpen}
         onClose={() => setImportCandidatesModalOpen(false)}

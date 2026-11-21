@@ -142,40 +142,40 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#081c15]/75 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl border border-[#ced4da] shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden cursor-default transition-all my-auto"
       >
         {/* Modal Header */}
-        <div className="px-4 sm:px-5 py-3.5 bg-white border-b border-[#dee2e6] flex items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:p-5 bg-white border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               {kind === 'image' ? (
-                <ImageIcon className="w-4 h-4" />
+                <ImageIcon className="w-5 h-5" />
               ) : kind === 'audio' ? (
-                <Mic className="w-4 h-4" />
+                <Mic className="w-5 h-5" />
               ) : (
-                <FileText className="w-4 h-4" />
+                <FileText className="w-5 h-5" />
               )}
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-[#212529] truncate" title={attachment.name}>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate" title={attachment.name}>
                 {attachment.name}
               </h3>
-              <p className="text-[11px] text-[#6c757d]">
+              <p className="text-xs text-slate-500">
                 {formatLabel} &middot; {attachment.size}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {kind === 'image' && resolvedUrl && (
               <button
                 type="button"
                 onClick={() => setZoomed((z) => !z)}
-                className="p-2 rounded-lg text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc] transition-colors cursor-pointer"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 title={zoomed ? 'Fit to screen' : 'Zoom in'}
               >
                 {zoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
@@ -186,7 +186,7 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
               <button
                 type="button"
                 onClick={() => openAttachmentInNewTab(attachment)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#495057] bg-[#f8f9fa] border border-[#dee2e6] hover:bg-[#e9ecef] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
                 title="Open in new tab"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -199,7 +199,7 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
                 type="button"
                 onClick={handleDownload}
                 disabled={downloading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#2d6a4f] hover:bg-[#1b4332] transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
                 title="Download file"
               >
                 {downloading ? (
@@ -214,10 +214,10 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-[#6c757d] hover:text-[#212529] hover:bg-[#f8f9fa] transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               title="Close preview"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -299,11 +299,11 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
                   In-browser preview is not available for {formatLabel} files. Download the file to open it on your device.
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-2 pt-2">
+              <div className="flex items-center justify-center gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => openAttachmentInNewTab(attachment)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-[#495057] bg-[#f8f9fa] border border-[#dee2e6] hover:bg-[#e9ecef] transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Open in New Tab</span>
@@ -312,7 +312,7 @@ export const ChatAttachmentPreviewModal: React.FC<ChatAttachmentPreviewModalProp
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#2d6a4f] hover:bg-[#1b4332] transition-colors cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   {downloading ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

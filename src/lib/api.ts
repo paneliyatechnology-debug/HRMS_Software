@@ -188,11 +188,22 @@ export interface CreateUserInput {
   role?: string;
   status?: string;
   companyId?: string;
+  password?: string;
+  salary?: {
+    basic?: number;
+    hra?: number;
+    allowances?: number;
+    bonus?: number;
+    pf?: number;
+    tax?: number;
+    gross?: number;
+    net?: number;
+  };
 }
 
 async function createUser(data: CreateUserInput) {
   try {
-    const response = await http.post('/users', {
+    const payload: any = {
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,
@@ -203,7 +214,11 @@ async function createUser(data: CreateUserInput) {
       role: data.role || undefined,
       status: data.status || undefined,
       companyId: data.companyId || undefined,
-    });
+    };
+    if (data.password) payload.password = data.password;
+    if (data.salary) payload.salary = data.salary;
+
+    const response = await http.post('/users', payload);
     clearApiCache('/users');
     return response.data;
   } catch (error) {
@@ -1228,6 +1243,8 @@ async function createEmployee(data: any) {
     role: data.role || 'EMPLOYEE',
     status: data.status || 'Active',
     companyId: data.companyId || undefined,
+    password: data.password || undefined,
+    salary: data.salary || undefined,
   });
 }
 

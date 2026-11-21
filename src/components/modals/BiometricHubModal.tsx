@@ -161,28 +161,28 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/80 my-auto animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col overflow-hidden cursor-default transition-all"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <Cpu className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-slate-900 text-base sm:text-lg">
+                <h3 className="font-bold text-slate-900 text-base sm:text-lg truncate">
                   Physical Biometric Hardware Hub
                 </h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-black uppercase">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-black uppercase shrink-0">
                   Multi-Company Ready
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate mt-0.5">
                 Connect eSSL, ZKTeco, Realtime, Mantra & Matrix devices for{' '}
                 <strong className="text-slate-700">{currentCompanyName}</strong>
               </p>
@@ -190,14 +190,14 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1.5 pt-3 pb-2 border-b border-slate-100 overflow-x-auto text-xs font-bold">
+        <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-xs font-bold bg-white shrink-0">
           <button
             onClick={() => setActiveTab('devices')}
             className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
@@ -260,7 +260,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
         </div>
 
         {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto py-3 text-xs">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 text-xs">
           {/* TAB 1: DEVICES LIST */}
           {activeTab === 'devices' && (
             <div className="space-y-4">
@@ -806,15 +806,15 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+        <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0 text-xs">
           <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-            <Building className="w-3.5 h-3.5" />
-            <span>Active Tenant: <strong>{currentCompanyName}</strong></span>
+            <Building className="w-3.5 h-3.5 text-slate-400" />
+            <span>Active Tenant: <strong className="text-slate-700">{currentCompanyName}</strong></span>
           </div>
 
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
           >
             Done
           </button>

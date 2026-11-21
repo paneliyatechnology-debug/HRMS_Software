@@ -467,17 +467,20 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
     try {
       if (targetModule === 'dashboard') {
+        const needEmployees = employeesRef.current.length === 0;
         const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
           api.getDashboardStats().catch(() => null),
-          api.getEmployees().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
           api.getLeaves().catch(() => []),
           api.getAttendance().catch(() => []),
           portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
         ]);
 
-        const scopedEmps = scopeEmployees(employeesData);
-        setEmployees(scopedEmps);
-        setLiveEmployees(scopedEmps);
+        const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
+        if (needEmployees) {
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
 
         const scopedLvs = scopeLeaves(leavesData, scopedEmps);
         setLeaves(scopedLvs);
@@ -522,26 +525,32 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setAttendance(scopedAtt);
         setLiveAttendanceRecords(scopedAtt);
       } else if (targetModule === 'leaves') {
+        const needEmployees = employeesRef.current.length === 0;
         const [leavesData, employeesData, leaveTypesData] = await Promise.all([
           api.getLeaves().catch(() => []),
-          api.getEmployees().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
           api.listLeaveTypes(activeCompanyId ? { companyId: activeCompanyId } : undefined).catch(() => []),
         ]);
-        const scopedEmps = scopeEmployees(employeesData);
-        setEmployees(scopedEmps);
-        setLiveEmployees(scopedEmps);
+        const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
+        if (needEmployees) {
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
         const scopedLvs = scopeLeaves(leavesData, scopedEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
         setLeaveTypes(Array.isArray(leaveTypesData) ? leaveTypesData : []);
       } else if (targetModule === 'payroll' || targetModule === 'payslips') {
+        const needEmployees = employeesRef.current.length === 0;
         const [payrollData, employeesData] = await Promise.all([
           api.getPayroll().catch(() => []),
-          api.getEmployees().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
         ]);
-        const scopedEmps = scopeEmployees(employeesData);
-        setEmployees(scopedEmps);
-        setLiveEmployees(scopedEmps);
+        const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
+        if (needEmployees) {
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
         const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
         const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
         const scopedPayroll = rawPayroll.filter(

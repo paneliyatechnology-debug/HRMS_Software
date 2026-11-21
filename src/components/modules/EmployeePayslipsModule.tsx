@@ -403,32 +403,42 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       {/* DETAILED PRINTABLE PAYSLIP MODAL */}
       {/* ========================================================================= */}
       {selectedPayslip && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto [scrollbar-width:thin]">
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200/80 relative animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col overflow-hidden cursor-default transition-all"
+          >
             {/* Modal Actions Header (Hidden when printing) */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 print:hidden">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-extrabold text-slate-900 text-base">
-                  Employee Salary Slip â€¢ {formatMonthName(selectedPayslip.payrollMonth)}
-                </h3>
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white print:hidden">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Employee Salary Slip • {formatMonthName(selectedPayslip.payrollMonth)}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Official payslip document
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
                   <Printer className="w-4 h-4 stroke-[2.2]" />
                   <span>Print / Download PDF</span>
                 </button>
                 <button
                   onClick={() => setSelectedPayslip(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -436,7 +446,8 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             </div>
 
             {/* PRINTABLE SLIP CONTENT */}
-            <div id="printable-payslip" className="mt-4 p-6 sm:p-8 rounded-2xl border-2 border-slate-200 bg-white space-y-6">
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto [scrollbar-width:thin]">
+              <div id="printable-payslip" className="p-6 sm:p-8 rounded-2xl border border-slate-200 bg-white space-y-6">
               {/* Company Branding */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b-2 border-slate-200">
                 <div>
@@ -623,6 +634,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                   </span>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>

@@ -1446,62 +1446,70 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           MODAL: ADD HOLIDAY
           ========================================================================= */}
       {mounted && isAddHolidayOpen && typeof document !== 'undefined' && createPortal(
-        <div onClick={(e) => {
-          if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
-        }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/55 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
+          >
             {/* Modal Header */}
-            <div className="p-5 bg-[#1b4332] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="p-1.5 rounded-full bg-white/15 text-[#95d5b2]">
-                  <Star className="w-4 h-4 fill-[#95d5b2]" />
-                </span>
-                <div>
-                  <h3 className="font-bold text-sm text-white">Add Company Holiday</h3>
-                  <p className="text-[11px] text-[#d8f3dc]">Corporate schedule roster synchronization</p>
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Star className="w-5 h-5 text-indigo-600 fill-indigo-100" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Add Company Holiday
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Corporate schedule roster synchronization
+                  </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddHolidayOpen(false)}
-                className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateHoliday} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleCreateHoliday} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-[#343a40] mb-1.5">Holiday Name *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Holiday Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g., Diwali / Deepawali Festival"
                   value={holidayName}
                   onChange={(e) => setHolidayName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] focus:bg-white focus:outline-hidden focus:border-[#2d6a4f] text-[#212529] font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-[#343a40] mb-1.5">Calendar Date *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Calendar Date *</label>
                   <input
                     type="date"
                     required
                     value={holidayDate}
                     onChange={(e) => setHolidayDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] focus:bg-white focus:outline-hidden focus:border-[#2d6a4f] text-[#212529] font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-[#343a40] mb-1.5">Holiday Classification</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Classification</label>
                   <select
                     value={holidayType}
                     onChange={(e) => setHolidayType(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] focus:bg-white focus:border-[#2d6a4f] text-[#212529] font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                   >
                     <option value="Public">Public / Gazetted</option>
                     <option value="Optional">Optional / Floating</option>
@@ -1511,27 +1519,27 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-[#343a40] mb-1.5">Description / Remarks</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description / Remarks</label>
                 <input
                   type="text"
                   placeholder="e.g., Annual Festival of Lights Celebration"
                   value={holidayDescription}
                   onChange={(e) => setHolidayDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] focus:bg-white focus:border-[#2d6a4f] text-[#212529] font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-[#e9ecef]">
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddHolidayOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-[#dee2e6] text-[#495057] font-bold hover:bg-[#f8f9fa] cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold shadow-xs active:scale-95 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
                 >
                   Add Holiday
                 </button>
@@ -1549,9 +1557,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !isDeletingHoliday) setDeletingHoliday(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/80 space-y-4 my-auto">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5" />
@@ -1566,12 +1574,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               Are you sure you want to remove <strong className="text-slate-900">{deletingHoliday.name}</strong> from the company calendar? This will delete the holiday from the backend.
             </p>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 disabled={isDeletingHoliday}
                 onClick={() => setDeletingHoliday(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1579,7 +1587,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 type="button"
                 disabled={isDeletingHoliday}
                 onClick={handleConfirmDeleteHoliday}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-95"
               >
                 {isDeletingHoliday ? 'Deleting...' : 'Confirm Remove'}
               </button>
@@ -1597,23 +1605,23 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/55 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
           >
             {/* Modal Header */}
-            <div className="p-5 bg-[#1b4332] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-white/15 text-[#95d5b2]">
-                  <CalendarDays className="w-5 h-5 text-[#95d5b2]" />
-                </span>
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <CalendarDays className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                     Corporate Weekend Schedule
                   </h3>
-                  <p className="text-[11px] text-[#d8f3dc]">
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
                     Configure official weekly off days for company calendar &amp; attendance
                   </p>
                 </div>
@@ -1622,17 +1630,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 type="button"
                 disabled={isSavingWeekend}
                 onClick={() => setIsWeekendModalOpen(false)}
-                className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 sm:p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               {/* Day selection */}
               <div>
-                <label className="block text-xs font-bold text-[#212529] mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
                   Weekly Non-Working Days (Off Days)
                 </label>
 
@@ -1663,16 +1671,18 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                             }
                           }
                         }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
-                          ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
-                          : 'bg-[#f8f9fa] text-[#495057] border-[#dee2e6] hover:border-[#adb5bd] hover:bg-white'
-                          }`}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
                       >
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#95d5b2]" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
                         <span>{d.label}</span>
                         <span
-                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-[#d8f3dc]' : 'bg-[#e9ecef] text-[#6c757d]'
-                            }`}
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}
                         >
                           {isSelected ? 'Off' : 'Work'}
                         </span>
@@ -1684,11 +1694,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
               {/* Saturday Rule Selector (if Saturday is selected) */}
               {editingWeekendDays.includes(6) && (
-                <div className="pt-3 border-t border-[#e9ecef] space-y-2 animate-in fade-in">
-                  <label className="block text-xs font-bold text-[#212529]">
+                <div className="pt-3 border-t border-slate-100 space-y-2 animate-in fade-in">
+                  <label className="block text-xs font-semibold text-slate-700">
                     Saturday Operational Schedule
                   </label>
-                  <p className="text-[11px] text-[#6c757d]">
+                  <p className="text-[11px] text-slate-500">
                     Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
@@ -1702,22 +1712,23 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         <div
                           key={opt.id}
                           onClick={() => setEditingSatRule(opt.id as any)}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all ${isAct
-                            ? 'border-[#1b4332] bg-[#d8f3dc]/35 ring-1 ring-[#1b4332]'
-                            : 'border-[#dee2e6] bg-[#f8f9fa] hover:border-[#adb5bd]'
-                            }`}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                            isAct
+                              ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500 shadow-2xs'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#212529]">{opt.title}</span>
+                            <span className="text-xs font-bold text-slate-800">{opt.title}</span>
                             <input
                               type="radio"
                               name="calendarSatRule"
                               checked={isAct}
                               onChange={() => { }}
-                              className="text-[#1b4332] focus:ring-[#2d6a4f]"
+                              className="text-indigo-600 focus:ring-indigo-500"
                             />
                           </div>
-                          <p className="text-[11px] text-[#6c757d] mt-1 leading-snug">{opt.desc}</p>
+                          <p className="text-[11px] text-slate-500 mt-1 leading-snug">{opt.desc}</p>
                         </div>
                       );
                     })}
@@ -1726,42 +1737,42 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               )}
 
               {/* Real-time Summary Box */}
-              <div className="p-3.5 rounded-xl bg-[#d8f3dc]/40 border border-[#95d5b2] text-[#1b4332] text-xs">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+              <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-indigo-950 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-indigo-900">
+                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
                   <span>Preview Configuration:</span>
                 </div>
-                <p className="mt-1 font-semibold text-sm text-[#081c15]">
+                <p className="mt-1 font-bold text-xs text-indigo-950">
                   {getWeekendPolicyDescription({
                     weekendDays: editingWeekendDays,
                     saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
                   })}
                 </p>
-                <p className="text-[11px] text-[#2d6a4f] mt-0.5">
+                <p className="text-[11px] text-indigo-700/80 mt-0.5">
                   Unselected days will be treated as operational business days in calendar statistics and attendance records.
                 </p>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#e9ecef]">
-                <button
-                  type="button"
-                  disabled={isSavingWeekend}
-                  onClick={() => setIsWeekendModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-[#dee2e6] text-[#495057] font-bold text-xs hover:bg-[#f8f9fa] cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isSavingWeekend}
-                  onClick={handleSaveWeekendPolicy}
-                  className="px-5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
-                </button>
-              </div>
+            {/* Action Buttons */}
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                disabled={isSavingWeekend}
+                onClick={() => setIsWeekendModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingWeekend}
+                onClick={handleSaveWeekendPolicy}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition"
+              >
+                <Check className="w-4 h-4" />
+                <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
+              </button>
             </div>
           </div>
         </div>,

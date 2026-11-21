@@ -497,41 +497,41 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
       onClick={(e) => {
         if (e.target === e.currentTarget && !isImporting) onClose();
       }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] flex flex-col"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
       >
         {/* Modal Header */}
-        <div className="p-5 sm:p-6 bg-[#1b4332] text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/15 text-[#95d5b2] border border-white/10 flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="w-6 h-6 text-[#95d5b2]" />
+        <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-[#d8f3dc]">
-                  Candidate Pipeline
-                </span>
-                <span className="text-[11px] text-[#b7e4c7] font-medium">
-                  {step === 'upload' ? 'Step 1: Upload & Map Columns' : 'Step 2: Review & Validate Candidates'}
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                  Bulk Candidate Import
+                </h3>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                  {step === 'upload' ? 'Step 1: Upload & Map' : 'Step 2: Review & Validate'}
                 </span>
               </div>
-              <h2 className="text-base sm:text-lg font-black text-white tracking-tight mt-0.5">
-                Bulk Candidate Import
-              </h2>
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                Upload Excel (.xlsx, .xls) or CSV files to quickly onboard candidates into recruitment pipeline.
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleDownloadSample}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-[#d8f3dc] hover:text-white text-xs font-bold border border-white/15 transition cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
               title="Download Sample Excel Spreadsheet Template"
             >
-              <Download className="w-3.5 h-3.5 text-[#95d5b2]" />
+              <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Sample Template</span>
             </button>
 
@@ -539,7 +539,7 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
               type="button"
               disabled={isImporting}
               onClick={onClose}
-              className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1046,13 +1046,13 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 sm:p-5 bg-[#f8f9fa] border-t border-[#dee2e6] flex items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:p-5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
           <div>
             {step === 'preview' && (
               <button
                 type="button"
                 onClick={() => setStep('upload')}
-                className="px-3.5 py-2 rounded-xl border border-[#dee2e6] text-xs font-bold text-[#495057] hover:bg-white transition flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-white transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back to Mapping</span>
@@ -1060,12 +1060,12 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               disabled={isImporting}
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-[#495057] hover:bg-white border border-[#dee2e6] transition cursor-pointer disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
@@ -1075,7 +1075,7 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
                 type="button"
                 disabled={!file || rawHeaders.length === 0 || isParsing}
                 onClick={handleProceedToPreview}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] active:scale-95 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>Proceed to Review</span>
                 <ArrowRight className="w-4 h-4" />
@@ -1085,7 +1085,7 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
                 type="button"
                 disabled={summaryCounts.selected === 0 || isImporting}
                 onClick={handleConfirmImport}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] active:scale-95 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isImporting ? (
                   <>

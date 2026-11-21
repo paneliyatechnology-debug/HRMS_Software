@@ -500,131 +500,141 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsUploadOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default my-auto max-h-[92vh] overflow-y-auto">
-            <button
-              onClick={() => setIsUploadOpen(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <UploadCloud className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Add Document
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Select file (PDF, Word, Images up to 10MB)
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <UploadCloud className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  Add Document
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Select file (PDF, Word, Images up to 10MB)
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsUploadOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleFileUpload} className="space-y-4 mt-5">
-              {portalMode === 'admin' ? (
+            <form onSubmit={handleFileUpload} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                {portalMode === 'admin' ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Employee
+                    </label>
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    >
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Employee
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Document Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Passport Copy or W-4 Form"
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Document Category
                   </label>
                   <select
-                    value={selectedEmployeeId}
-                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                    value={docCategory}
+                    onChange={(e) => setDocCategory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   >
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
-                      </option>
-                    ))}
+                    <option value="Identity">Identity Document (Passport, National ID)</option>
+                    <option value="Tax">Tax Exemption / W-4 Form</option>
+                    <option value="Offer Letter">Signed Offer &amp; Employment Agreement</option>
+                    <option value="Education">Degree &amp; Academic Certificates</option>
+                    <option value="Medical">Medical Clearance &amp; Health Insurance</option>
+                    <option value="Other">Other Miscellaneous Document</option>
                   </select>
                 </div>
-              ) : null}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Document Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Passport Copy or W-4 Form"
-                  value={docTitle}
-                  onChange={(e) => setDocTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Document Category
-                </label>
-                <select
-                  value={docCategory}
-                  onChange={(e) => setDocCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                {/* File Dropzone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 hover:bg-indigo-50/20 transition-all"
                 >
-                  <option value="Identity">Identity Document (Passport, National ID)</option>
-                  <option value="Tax">Tax Exemption / W-4 Form</option>
-                  <option value="Offer Letter">Signed Offer & Employment Agreement</option>
-                  <option value="Education">Degree & Academic Certificates</option>
-                  <option value="Medical">Medical Clearance & Health Insurance</option>
-                  <option value="Other">Other Miscellaneous Document</option>
-                </select>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSelectedFile(e.target.files[0]);
+                        if (!docTitle) setDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
+                      }
+                    }}
+                  />
+                  <FileCheck className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+                  {selectedFile ? (
+                    <div>
+                      <span className="font-bold text-xs text-slate-900 block">
+                        {selectedFile.name}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {(selectedFile.size / 1024).toFixed(1)} KB — Click to change file
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">
+                        Click to choose file or drag and drop
+                      </span>
+                      <span className="text-[10px] text-slate-400">PDF, DOC, PNG, JPG up to 10MB</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* File Dropzone */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 transition"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setSelectedFile(e.target.files[0]);
-                      if (!docTitle) setDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
-                    }
-                  }}
-                />
-                <FileCheck className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                {selectedFile ? (
-                  <div>
-                    <span className="font-bold text-xs text-slate-900 block">
-                      {selectedFile.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      {(selectedFile.size / 1024).toFixed(1)} KB — Click to change file
-                    </span>
-                  </div>
-                ) : (
-                  <div>
-                    <span className="font-bold text-xs text-slate-800 block">
-                      Click to choose file or drag and drop
-                    </span>
-                    <span className="text-[10px] text-slate-400">PDF, DOC, PNG, JPG up to 10MB</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
+              {/* Footer */}
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-500 hover:bg-slate-100"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !selectedFile}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md disabled:opacity-50 transition"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {uploading ? 'Uploading to Server...' : 'Confirm Upload'}
                 </button>
