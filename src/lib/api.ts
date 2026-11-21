@@ -78,6 +78,16 @@ async function forgotPassword(email: string) {
   }
 }
 
+async function resetPassword(data: { token: string; password: string; confirmPassword?: string }) {
+  try {
+    const response = await http.post('/users/reset-password', data);
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to reset password.');
+  }
+}
+
 async function logout() {
   await http.post('/users/logout');
 }
@@ -270,7 +280,7 @@ async function registerCompany(data: CompanyRegisterInput) {
   }
 }
 
-export const api = new Proxy({ registerCompany, login, forgotPassword, getProfile, logout, createUser, listUsers, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
+export const api = new Proxy({ registerCompany, login, forgotPassword, resetPassword, getProfile, logout, createUser, listUsers, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
   get(target, prop) {
     if (typeof prop !== 'string') return undefined;
     if (!target[prop]) target[prop] = notConnected;
