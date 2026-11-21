@@ -267,6 +267,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [jobs, setJobs] = useState<JobOpening[]>([]);
@@ -521,9 +522,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setAttendance(scopedAtt);
         setLiveAttendanceRecords(scopedAtt);
       } else if (targetModule === 'leaves') {
-        const [leavesData, employeesData] = await Promise.all([
+        const [leavesData, employeesData, leaveTypesData] = await Promise.all([
           api.getLeaves().catch(() => []),
           api.getEmployees().catch(() => []),
+          api.listLeaveTypes(activeCompanyId ? { companyId: activeCompanyId } : undefined).catch(() => []),
         ]);
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
@@ -531,6 +533,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedLvs = scopeLeaves(leavesData, scopedEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
+        setLeaveTypes(Array.isArray(leaveTypesData) ? leaveTypesData : []);
       } else if (targetModule === 'payroll' || targetModule === 'payslips') {
         const [payrollData, employeesData] = await Promise.all([
           api.getPayroll().catch(() => []),
@@ -689,10 +692,18 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     };
 
+    const handleLeaveTypesUpdate = () => {
+      api.listLeaveTypes().then((types) => {
+        if (Array.isArray(types)) setLeaveTypes(types);
+      }).catch(() => {});
+    };
+
     window.addEventListener('hrms_leaves_updated', handleRefreshEvent);
+    window.addEventListener('hrms_leave_types_updated', handleLeaveTypesUpdate);
 
     return () => {
       window.removeEventListener('hrms_leaves_updated', handleRefreshEvent);
+      window.removeEventListener('hrms_leave_types_updated', handleLeaveTypesUpdate);
     };
   }, [isAuthenticated, scopeLeaves]);
 
@@ -903,6 +914,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             {activeModule === 'leaves' && (
               <LeaveModule
                 leaves={leaves}
+                leaveTypes={leaveTypes}
                 onOpenApplyModal={() => setLeaveModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
@@ -1030,6 +1042,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           isOpen={leaveModalOpen}
           onClose={() => setLeaveModalOpen(false)}
           onRefresh={loadData}
+          availableLeaveTypes={leaveTypes}
         />
       )}
 

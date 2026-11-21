@@ -772,11 +772,11 @@ async function correctAttendance(attendanceId: string, data: {
 function backendLeaveTypeToFrontend(lt: any) {
   if (!lt) return lt;
   return {
-    id: lt.id || `lt-${Date.now()}`,
-    name: lt.name || '',
+    id: lt.id || lt._id || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: lt.name || lt.title || lt.leaveType || '',
     companyId: lt.companyId || '',
     createdAt: lt.createdAt || '',
-    daysAllowed: lt.daysAllowed !== undefined ? Number(lt.daysAllowed) : (lt.quota !== undefined ? Number(lt.quota) : 12),
+    daysAllowed: lt.daysAllowed !== undefined ? Number(lt.daysAllowed) : (lt.quota !== undefined ? Number(lt.quota) : (lt.days !== undefined ? Number(lt.days) : 0)),
     code: lt.code || '',
     color: lt.color || '',
     isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
@@ -809,19 +809,42 @@ async function createLeaveType(dataOrName: { name: string } | string) {
   }
 }
 
-// 32. GET /leave-types (List leave types - Admin/HR)
-async function listLeaveTypes() {
+// 32. GET /leave-types (List leave types - Admin/HR/Employee)
+async function listLeaveTypes(params?: { companyId?: string }) {
   try {
-    const data = await deduplicatedGet('/leave-types');
+    let data: any;
+    if (params?.companyId) {
+      try {
+        data = await deduplicatedGet('/leave-types', { params: { companyId: params.companyId } });
+      } catch (_) {}
+    }
+    if (!data || (Array.isArray(data) && data.length === 0) || (data?.data && Array.isArray(data.data) && data.data.length === 0)) {
+      try {
+        const fallbackData = await deduplicatedGet('/leave-types');
+        if (
+          fallbackData &&
+          ((Array.isArray(fallbackData) && fallbackData.length > 0) ||
+            (Array.isArray(fallbackData?.data) && fallbackData.data.length > 0) ||
+            (Array.isArray(fallbackData?.leaveTypes) && fallbackData.leaveTypes.length > 0))
+        ) {
+          data = fallbackData;
+        } else if (!data) {
+          data = fallbackData;
+        }
+      } catch (_) {}
+    }
     const rawList = Array.isArray(data)
       ? data
       : Array.isArray(data?.leaveTypes)
       ? data.leaveTypes
       : Array.isArray(data?.data)
       ? data.data
+      : Array.isArray(data?.items)
+      ? data.items
       : [];
     return rawList.map(backendLeaveTypeToFrontend);
-  } catch {
+  } catch (error) {
+    console.error('Failed to list leave types:', error);
     return [];
   }
 }
