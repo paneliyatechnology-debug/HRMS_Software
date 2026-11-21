@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiBaseUrl } from './config';
+import { getCookie, setCookie } from './cookies';
 
 export function clearApiCache(_endpointPrefix?: string) { }
 
@@ -11,6 +12,12 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  if (typeof window !== 'undefined') {
+    const token = getCookie('hrms_auth_token') || getCookie('bearerToken');
+    if (token && !config.headers.Authorization) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
   const data = config.data;
   if (data && typeof data === 'object' && !(data instanceof FormData)) {
     const form = new FormData();
@@ -40,7 +47,13 @@ type CompanyRegisterInput = {
 async function login(email: string, password: string) {
   try {
     const response = await http.post('/users/login', { email, password });
-    return response.data;
+    const data = response.data;
+    const token = data?.token || data?.accessToken || (data && typeof data === 'object' && 'token' in data ? (data as any).token : null);
+    if (token && typeof window !== 'undefined') {
+      setCookie('hrms_auth_token', token);
+      setCookie('bearerToken', token);
+    }
+    return data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Email or password is incorrect.');

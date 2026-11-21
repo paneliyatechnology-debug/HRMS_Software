@@ -280,6 +280,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(identifier.trim(), password);
       if (res && res.user) {
+        const token = res.token || res.accessToken || res.data?.token || res.data?.accessToken;
+        if (token) {
+          setCookie('hrms_auth_token', token);
+          setCookie('bearerToken', token);
+        }
         const profile = await api.getProfile();
         const userRole = profile?.user?.role || res.user.role || org.role || 'EMPLOYEE';
         const permissions = profile?.permissions || [];
@@ -326,6 +331,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(emailOrPhone.trim(), password);
       if (res && res.user) {
+        const token = res.token || res.accessToken || res.data?.token || res.data?.accessToken;
+        if (token) {
+          setCookie('hrms_auth_token', token);
+          setCookie('bearerToken', token);
+        }
         const userRole = res.user.role || org.role || 'ADMIN';
         if (!isUserAdminRole(userRole)) {
           return { success: false, message: 'Access denied: You are registered as an Employee. Please use the Staff Employee Login tab.' };
@@ -369,6 +379,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(codeOrEmail.trim(), passwordOrPin);
       if (res && res.user) {
+        const token = res.token || res.accessToken || res.data?.token || res.data?.accessToken;
+        if (token) {
+          setCookie('hrms_auth_token', token);
+          setCookie('bearerToken', token);
+        }
         const userRole = res.user.role || org.role || 'EMPLOYEE';
         const targetPortal = determinePortalMode(userRole);
         const enriched = await enrichUserData({
