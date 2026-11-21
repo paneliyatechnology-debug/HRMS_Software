@@ -1660,3 +1660,91 @@ button[class*="hover:bg-blue-50"]:hover:not(:disabled) {
   button[style*="linear-gradient"][style*="#1b4332"]) * {
   color: #ffffff !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* PROFESSIONAL ENTERPRISE DROPDOWN & SELECT SYSTEM                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Universal Clean Modern Select */
+select:not([multiple]) {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%232d6a4f' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 1rem 1rem !important;
+  padding-left: 0.875rem !important;
+  padding-right: 2.25rem !important;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  transition: border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Avoid duplicate chevron icon if the container already has an absolute SVG icon */
+.relative:has(> svg.pointer-events-none) > select,
+.relative:has(> .pointer-events-none > svg) > select {
+  background-image: none !important;
+}
+
+/* Hover State */
+select:not([multiple]):hover:not(:disabled) {
+  border-color: #94a3b8;
+  background-color: #f8fafc;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%231b4332' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+}
+
+/* Focus State - Soft Emerald Ring (keep downward chevron) */
+select:not([multiple]):focus {
+  outline: none !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23059669' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+}
+
+/* Disabled Select */
+select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* 2. Options List Popover Styling */
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 10px 14px;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #f1f5f9 !important;
+}
+
+select option:checked {
+  background-color: #d8f3dc !important;
+  color: #1b4332 !important;
+  font-weight: 700;
+}
+
+/* 3. Floating Dropdown Menu & Popups Styling */
+.dropdown-menu,
+[role="menu"],
+[data-radix-popper-content-wrapper] > div,
+.custom-dropdown-panel {
+  border-radius: 1rem !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden;
+}

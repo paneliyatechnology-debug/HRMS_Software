@@ -38,6 +38,7 @@ export interface WorkSessionContextType {
   currentBreak: any | null;
   lastCompletedSession: any | null;
   todaySummary: any | null;
+  todaySessions: any[];
   serverTime: string | null;
   actionLoading: boolean;
   initialLoading: boolean;
@@ -64,6 +65,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [currentBreak, setCurrentBreak] = useState<any | null>(null);
   const [lastCompletedSession, setLastCompletedSession] = useState<any | null>(null);
   const [todaySummary, setTodaySummary] = useState<any | null>(null);
+  const [todaySessions, setTodaySessions] = useState<any[]>([]);
   const [serverTime, setServerTime] = useState<string | null>(null);
 
   const [actionLoading, setActionLoading] = useState(false);
@@ -95,71 +97,22 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     statusRef.current = status;
   }, [status]);
 
-  const applyAttendanceLogic = (data: any) => {
-    const logic = data?.logic;
-    if (!logic) return;
-    const punches = Array.isArray(data.punches) ? data.punches : [];
-    const attendance = data.attendance;
-    const onBreak = Boolean(logic.onBreak || logic.next === 'break-end');
-    let resolved: WorkPunchStatus = 'not_started';
-    if (onBreak) resolved = 'on_break';
-    else if (logic.next === 'check-out') resolved = 'working';
-    else if (punches.some((punch: { type?: string }) => punch.type === 'OUT')) resolved = 'completed';
-
-    setStatus(resolved);
-    statusRef.current = resolved;
-    anchorTimeRef.current = Date.now();
-    clockRef.current = null;
-
-    const closedWork = Number(logic.totalMinutes || 0) * 60;
-    const closedBreak = Number(logic.breakMinutes || 0) * 60;
-    const latest = (type: string) => {
-      for (let index = punches.length - 1; index >= 0; index -= 1) {
-        if (punches[index]?.type === type) return punches[index].punchedAt as string;
-      }
-      return null;
-    };
-    const openStart = resolved === 'working' ? latest('BREAK_END') || latest('IN') : null;
-    const breakStart = resolved === 'on_break' ? latest('BREAK_START') : null;
-    const extraWork = openStart ? Math.max(0, Math.floor((Date.now() - new Date(openStart).getTime()) / 1000)) : 0;
-    const extraBreak = breakStart ? Math.max(0, Math.floor((Date.now() - new Date(breakStart).getTime()) / 1000)) : 0;
-    const worked = closedWork + (Number.isFinite(extraWork) ? extraWork : 0);
-    const brk = closedBreak + (Number.isFinite(extraBreak) ? extraBreak : 0);
-
-    baseWorkedRef.current = worked;
-    baseBreakRef.current = brk;
-    setElapsedSeconds(worked);
-    setBreakSeconds(brk);
-    setLiveWorkedHMS(formatSecondsToHMS(worked));
-    setLiveBreakWords(formatSecondsToWords(brk));
-    setLiveBreakHMS(formatSecondsToHMS(brk));
-
-    const firstIn = punches.find((punch: { type?: string }) => punch.type === 'IN')?.punchedAt || attendance?.checkInAt || null;
-    setActiveSession(resolved === 'working' || resolved === 'on_break' ? { status: onBreak ? 'ON_BREAK' : 'WORKING', startTime: firstIn, isOnBreak: onBreak } : null);
-    setCurrentBreak(onBreak ? { startTime: breakStart } : null);
-    setLastCompletedSession(resolved === 'completed' ? { startTime: attendance?.checkInAt, endTime: attendance?.checkOutAt, durationSeconds: closedWork, totalBreakSeconds: closedBreak } : null);
-    setTodaySummary({
-      totalSecondsWorked: closedWork,
-      totalBreakSecondsToday: closedBreak,
-      totalDurationFormatted: logic.totalHours,
-      totalBreakFormatted: formatSecondsToWords(closedBreak),
-      totalSessionsToday: punches.filter((punch: { type?: string }) => punch.type === 'IN').length,
-    });
-  };
-
   /**
    * Authoritative backend status synchronizer
    */
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
+    // Admins viewing in admin portal mode do not have personal shift tracking console
+    const rawRole = (user?.role || '').trim().toUpperCase();
+    const isStrictAdmin = (rawRole === 'SUPER_ADMIN' || rawRole === 'ADMIN' || rawRole === 'HR' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
+    if (isStrictAdmin) {
+      setInitialLoading(false);
+      return;
+    }
     isFetchingRef.current = true;
     try {
       const data: any = await api.getWorkStatus();
-      if (!data) {
-        const logic = await api.getAttendanceLogic();
-        applyAttendanceLogic(logic);
-        return;
-      }
+      if (!data) return;
 
       setServerTime(data.serverTime || null);
       syncServerClock(data.serverTime);
@@ -167,6 +120,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setCurrentBreak(data.currentBreak || null);
       setLastCompletedSession(data.lastCompletedSession || null);
       setTodaySummary(data.todaySummary || null);
+      setTodaySessions(Array.isArray(data.todaySessions) ? data.todaySessions : []);
 
       const hasActive = Boolean(
         data.hasActiveSession ||
@@ -429,7 +383,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const checkIn = useCallback(async (): Promise<boolean> => {
     setActionLoading(true);
     try {
-      const res = await api.clockIn({ note: 'Work shift start' });
+      const res = await api.startWork({});
 
       // Fast optimistic UI update
       setStatus('working');
@@ -468,20 +422,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
-      const message = String(err?.message || '');
-      if (/already clocked in/i.test(message)) {
-        await refresh();
-        showToast({
-          title: 'Shift Already Running',
-          message: 'You are already clocked in. Clock out when the shift ends.',
-          type: 'info',
-        });
-        return true;
-      }
       console.error('[WorkSessionContext] Check-in error:', err);
       showToast({
         title: 'Clock-In Failed',
-        message: message || 'Could not start shift. Please try again.',
+        message: err.message || 'Could not start shift. Please try again.',
         type: 'error',
       });
       return false;
@@ -609,7 +553,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     setActionLoading(true);
     try {
-      const res = await api.clockOut({ note: 'Shift clock-out' });
+      const res = await api.stopWork({});
 
       setStatus('completed');
       statusRef.current = 'completed';
@@ -656,6 +600,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         currentBreak,
         lastCompletedSession,
         todaySummary,
+        todaySessions,
         serverTime,
         actionLoading,
         initialLoading,

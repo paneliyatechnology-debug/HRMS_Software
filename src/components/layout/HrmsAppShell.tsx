@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../Sidebar';
 import { Header } from '../Header';
 import { DashboardView } from '../DashboardView';
-import { HrWorkspace } from '../modules/HrWorkspace';
 import dynamic from 'next/dynamic';
 
 const ModuleLoadingSkeleton = () => (
@@ -23,7 +22,6 @@ const AttendanceModule = dynamic(() => import('../modules/AttendanceModule').the
 const LeaveModule = dynamic(() => import('../modules/LeaveModule').then((m) => m.LeaveModule), { loading: () => <ModuleLoadingSkeleton /> });
 const PayrollModule = dynamic(() => import('../modules/PayrollModule').then((m) => m.PayrollModule), { loading: () => <ModuleLoadingSkeleton /> });
 const EmployeePayslipsModule = dynamic(() => import('../modules/EmployeePayslipsModule').then((m) => m.EmployeePayslipsModule), { loading: () => <ModuleLoadingSkeleton /> });
-const TasksModule = dynamic(() => import('../modules/TasksModule').then((m) => m.TasksModule), { loading: () => <ModuleLoadingSkeleton /> });
 const RecruitmentModule = dynamic(() => import('../modules/RecruitmentModule').then((m) => m.RecruitmentModule), { loading: () => <ModuleLoadingSkeleton /> });
 const PerformanceModule = dynamic(() => import('../modules/PerformanceModule').then((m) => m.PerformanceModule), { loading: () => <ModuleLoadingSkeleton /> });
 const OrganizationModule = dynamic(() => import('../modules/OrganizationModule').then((m) => m.OrganizationModule), { loading: () => <ModuleLoadingSkeleton /> });
@@ -40,7 +38,7 @@ import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
-const EmployeeDrawer = dynamic(() => import('../modals/EmployeeDrawer').then((m) => m.EmployeeDrawer), { ssr: false });
+import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
 const GlobalSearchModal = dynamic(() => import('../modals/GlobalSearchModal').then((m) => m.GlobalSearchModal), { ssr: false });
 const MobileConnectModal = dynamic(() => import('../modals/MobileConnectModal').then((m) => m.MobileConnectModal), { ssr: false });
@@ -54,7 +52,7 @@ import {
 import { setLiveEmployees } from '../../lib/employeeService';
 import { setLiveLeaves } from '../../lib/leaveService';
 import { purgeLocalBusinessData } from '../../lib/storageCleanup';
-import { useAuth, portalFromPermissions } from '../../context/AuthContext';
+import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import { getRouteForModule, parseRoutePath } from '../../lib/routes';
@@ -101,6 +99,61 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrolledPageTitle, setScrolledPageTitle] = useState('');
+  const mainScrollRef = useRef<HTMLElement>(null);
+
+  const handleScrollToTop = useCallback(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Listen to main scroll container to trigger header live clock <-> page title morph
+  useEffect(() => {
+    const mainEl = mainScrollRef.current;
+    if (!mainEl) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollTop = mainEl.scrollTop;
+          const nextScrolled = scrollTop > 35;
+          setIsScrolled(nextScrolled);
+
+          if (nextScrolled) {
+            const headingEl = mainEl.querySelector('h1, .hrms-page-title');
+            if (headingEl) {
+              const text = headingEl.textContent?.trim();
+              if (text) {
+                setScrolledPageTitle(text);
+              }
+            }
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    mainEl.addEventListener('scroll', handleScroll, { passive: true });
+    // Run once on initial layout or change
+    handleScroll();
+
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeModule, subTab]);
+
+  // Reset scroll and header title on page / sub-tab navigation
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+    setIsScrolled(false);
+    setScrolledPageTitle('');
+  }, [activeModule, subTab]);
 
   // Synchronize route with activeModule and support backward-compatible query redirection
   useEffect(() => {
@@ -168,78 +221,24 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Chat integration state
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
-  const mainScrollRef = useRef<HTMLElement>(null);
-
-  const activeCompanyId = user?.companyId || currentCompany?.id || '';
-  const activeCompanyCode = (user as any)?.companyCode || currentCompany?.code || '';
-
-  const myProfileEmployee = useMemo(() => {
-    return employees.find((e) =>
-      (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
-      (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
-      ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
-      (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
-    ) || (user ? {
-      id: user.employeeId || user.id || 'emp-self',
-      employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
-      firstName: user.firstName || 'Employee',
-      lastName: user.lastName || '',
-      email: user.email || '',
-      phone: (user as any)?.phone || '',
-      avatarUrl: user.avatarUrl || '',
-      gender: 'Other',
-      dateOfBirth: '1995-01-01',
-      address: '',
-      departmentId: '',
-      departmentName: 'General',
-      designationId: '',
-      designationName: 'Staff Member',
-      joiningDate: '2024-01-01',
-      role: (user.role as any) || 'EMPLOYEE',
-      status: 'Active',
-      companyId: user.companyId || activeCompanyId || '',
-      companyName: currentCompany?.name || 'My Company',
-    } as unknown as Employee : null);
-  }, [employees, user, activeCompanyId, currentCompany]);
   const [targetChatEmployeeId, setTargetChatEmployeeId] = useState<string | null>(null);
 
   const pendingLeavesCount = leaves.filter((l) => l.status === 'Pending').length;
-  const modulePortal = portalMode === 'hr' ? 'employee' : portalMode;
 
-  // Stay on the open page. Only move away after the session permissions are known.
+  // Strict role guard: prevent employees from accessing admin-only views or portal
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !Array.isArray(user?.permissions)) return;
-
-    const allowedPortal = portalFromPermissions(user.permissions);
-    if (!allowedPortal) {
-      if (portalMode !== 'employee') {
-        setPortalMode('employee');
-        return;
-      }
-      if (!['profile', 'settings'].includes(activeModule)) {
-        navigateToModule('profile');
-      }
+    const isAdmin = isUserAdminRole(user?.role);
+    if (!isAdmin && portalMode === 'admin') {
+      setPortalMode('employee');
       return;
     }
 
-    if (portalMode !== allowedPortal) {
-      setPortalMode(allowedPortal);
-      return;
-    }
-
-    if (allowedPortal === 'hr') {
-      const allowedInHr = ['dashboard', 'profile', 'settings'];
-      if (!allowedInHr.includes(activeModule)) navigateToModule('dashboard');
-      return;
-    }
-
-    if (allowedPortal === 'employee') {
+    if (portalMode === 'employee') {
       const allowedInEmployee = [
         'dashboard',
         'calendar',
         'attendance',
         'leaves',
-        'tasks',
         'payslips',
         'resignations',
         'organization',
@@ -249,9 +248,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         'settings',
         'profile',
       ];
-      if (!allowedInEmployee.includes(activeModule)) navigateToModule('dashboard');
+      if (!allowedInEmployee.includes(activeModule)) {
+        navigateToModule('dashboard');
+      }
     }
-  }, [isLoading, isAuthenticated, portalMode, activeModule, user?.permissions, setPortalMode]);
+  }, [portalMode, activeModule, user?.role, setPortalMode]);
 
   // Chat unread count synchronization
   useEffect(() => {
@@ -288,6 +289,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     employeesRef.current = employees;
   }, [employees]);
 
+  const activeCompanyId = user?.companyId || currentCompany?.id || '';
+  const activeCompanyCode = (user as any)?.companyCode || currentCompany?.code || '';
+
   // Helpers for multi-tenant company isolation
   const scopeEmployees = useCallback((rawEmps: Employee[]): Employee[] => {
     const seenEmpIds = new Set<string>();
@@ -316,8 +320,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [activeCompanyId, activeCompanyCode]);
 
   const scopeLeaves = useCallback((rawLeaves: LeaveRequest[], scopedEmps: Employee[]): LeaveRequest[] => {
+    if (!Array.isArray(rawLeaves)) return [];
+    if (scopedEmps.length === 0) return rawLeaves;
     const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
-    return (Array.isArray(rawLeaves) ? rawLeaves : [])
+    return rawLeaves
       .filter(
         (l) =>
           scopedEmpIds.has(l.employeeId) ||
@@ -389,7 +395,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Page-Wise Data Loader: strictly calls ONLY the APIs needed by that module
   const loadDataForModule = useCallback(async (targetModule: string) => {
-    if (portalMode === 'hr') return;
     if (isFetchingDataRef.current[targetModule]) {
       pendingReloadRef.current[targetModule] = true;
       return;
@@ -498,14 +503,23 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
         setDesignations(Array.isArray(designationsData) ? designationsData : []);
       } else if (targetModule === 'calendar') {
-        const [attendanceData, leavesData] = await Promise.all([
+        const needEmployees = employeesRef.current.length === 0;
+        const [attendanceData, leavesData, employeesData] = await Promise.all([
           api.getAttendance().catch(() => []),
           api.getLeaves().catch(() => []),
+          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
         ]);
-        const scopedAtt = scopeAttendance(attendanceData, employeesRef.current);
+        if (needEmployees && Array.isArray(employeesData) && employeesData.length > 0) {
+          const scopedEmps = scopeEmployees(employeesData);
+          setEmployees(scopedEmps);
+          setLiveEmployees(scopedEmps);
+        }
+        const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
+        const scopedAtt = scopeAttendance(attendanceData, activeEmps);
         setAttendance(scopedAtt);
-        const scopedLvs = scopeLeaves(leavesData, employeesRef.current);
+        const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
+        setLiveLeaves(scopedLvs);
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
         const employeesData = await api.getEmployees().catch(() => []);
         const scopedEmps = scopeEmployees(employeesData);
@@ -632,58 +646,58 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   };
 
-  const handleOpenMyProfile = () => {
-    const myEmp = employees.find((e) =>
-      (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
-      (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
-      ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
-      (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
+  const myProfileEmployee = React.useMemo<Employee | null>(() => {
+    if (!user) return null;
+    const myEmp = employees.find(
+      (e) =>
+        (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
+        (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
+        ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
+        (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
     );
-    if (myEmp) {
-      setSelectedEmployee(myEmp);
-    } else if (user) {
-      setSelectedEmployee({
-        id: user.employeeId || user.id || 'emp-self',
-        employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
-        firstName: user.firstName || 'Employee',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        phone: (user as any)?.phone || '',
-        avatarUrl: user.avatarUrl || '',
-        gender: 'Other',
-        dateOfBirth: '1995-01-01',
-        address: '',
-        emergencyContact: { name: '', relationship: '', phone: '' },
-        joiningDate: '2026-01-01',
-        employmentType: 'Full-time',
-        status: 'Active',
-        departmentId: (user as any)?.departmentId || 'dept-1',
-        departmentName: (user as any)?.departmentName || 'General',
-        designationId: (user as any)?.designationId || 'des-1',
-        designationTitle: (user as any)?.designationTitle || 'Staff',
-        reportingManagerId: '',
-        reportingManagerName: '—',
-        workLocationId: 'loc-1',
-        workLocationName: 'Corporate HQ',
-        shift: 'General Shift (09:00 AM – 06:00 PM)',
-        bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
-        taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
-        education: [],
-        previousExperience: [],
-        skills: [],
-        salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-      });
-    }
-  };
+    if (myEmp) return myEmp;
 
-  // Open profile modal if visiting /profile
-  useEffect(() => {
-    if (activeModule === 'profile') {
-      handleOpenMyProfile();
-    }
-  }, [activeModule]);
+    return {
+      id: user.employeeId || user.id || '',
+      employeeCode: (user as any)?.employeeCode || '',
+      companyId: user.companyId || '',
+      companyName: user.companyName || currentCompany?.name || '',
+      role: user.role,
+      firstName: user.firstName || 'Employee',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      phone: (user as any)?.phone || '',
+      avatarUrl: user.avatarUrl || '',
+      gender: 'Other',
+      dateOfBirth: '',
+      address: '',
+      emergencyContact: { name: '', relationship: '', phone: '' },
+      joiningDate: '',
+      employmentType: 'Full-time',
+      status: 'Active',
+      departmentId: (user as any)?.departmentId || '',
+      departmentName: (user as any)?.departmentName || '',
+      designationId: (user as any)?.designationId || '',
+      designationTitle: (user as any)?.designationTitle || '',
+      reportingManagerId: '',
+      reportingManagerName: '',
+      workLocationId: '',
+      workLocationName: '',
+      shift: '',
+      bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+      taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
+      education: [],
+      previousExperience: [],
+      skills: [],
+      salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+      createdAt: '',
+      updatedAt: '',
+    };
+  }, [employees, user, currentCompany]);
+
+  const handleOpenMyProfile = () => {
+    navigateToModule('profile');
+  };
 
   // Redirect to login if user is not authenticated (performed inside useEffect to avoid updating Router during render)
   useEffect(() => {
@@ -694,17 +708,17 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <span className="text-xs font-semibold text-slate-700">
-          {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
+          {isLoading ? 'Loading Myown HRMS...' : 'Redirecting to login...'}
         </span>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-full bg-slate-50 text-slate-900 flex font-sans antialiased overflow-hidden relative">
+    <div className="hrms-app-shell h-screen w-full bg-[#e9ecef] text-[#212529] flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar
@@ -718,6 +732,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         pendingLeavesCount={pendingLeavesCount}
         unreadChatCount={unreadChatCount}
         company={currentCompany}
+        onOpenProfile={handleOpenMyProfile}
       />
 
       {/* Right Content Area */}
@@ -736,9 +751,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onSelectEmployee={setSelectedEmployee}
           employees={employees}
           portalMode={portalMode}
+          activeModule={activeModule}
+          activeSubTab={subTab}
+          isAddEmployeeModalOpen={addEmployeeModalOpen}
+          isLeaveModalOpen={leaveModalOpen}
           pendingLeavesCount={pendingLeavesCount}
           unreadChatCount={unreadChatCount}
           company={currentCompany}
+          isScrolled={isScrolled}
+          pageTitle={scrolledPageTitle}
+          onScrollToTop={handleScrollToTop}
         />
 
         <main
@@ -753,200 +775,161 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' ? 'flex-1 min-h-0 flex flex-col' : ''
               }`}
           >
-            {activeModule === 'dashboard' && portalMode === 'hr' && <HrWorkspace />}
+            {activeModule === 'dashboard' && (
+              <DashboardView
+                stats={stats}
+                employees={employees}
+                leaves={leaves}
+                attendance={attendance}
+                onNavigateModule={navigateToModule}
+                onOpenClockModal={() => setClockModalOpen(true)}
+                onOpenLeaveModal={() => setLeaveModalOpen(true)}
+                onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+                onSelectEmployee={setSelectedEmployee}
+                onRefreshData={loadData}
+                onOpenChatWithEmployee={(empId) => {
+                  setTargetChatEmployeeId(empId);
+                  navigateToModule('chat');
+                }}
+                portalMode={portalMode}
+              />
+            )}
 
-            {activeModule === 'dashboard' && portalMode !== 'hr' && (
-        <DashboardView
-          stats={stats}
-          employees={employees}
-          leaves={leaves}
-          attendance={attendance}
-          onNavigateModule={navigateToModule}
-          onOpenClockModal={() => setClockModalOpen(true)}
-          onOpenLeaveModal={() => setLeaveModalOpen(true)}
-          onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
-          onSelectEmployee={setSelectedEmployee}
-          onRefreshData={loadData}
-          onOpenChatWithEmployee={(empId) => {
-            setTargetChatEmployeeId(empId);
-            navigateToModule('chat');
-          }}
-          portalMode={portalMode}
-        />
-      )}
+            {activeModule === 'calendar' && (
+              <CalendarModule
+                attendance={attendance}
+                leaves={leaves}
+                onOpenLeaveModal={() => setLeaveModalOpen(true)}
+                onOpenClockModal={() => setClockModalOpen(true)}
+                portalMode={portalMode}
+              />
+            )}
 
-      {activeModule === 'calendar' && (
-        <CalendarModule
-          attendance={attendance}
-          leaves={leaves}
-          onOpenLeaveModal={() => setLeaveModalOpen(true)}
-          onOpenClockModal={() => setClockModalOpen(true)}
-          portalMode={modulePortal}
-        />
-      )}
+            {activeModule === 'employees' && (
+              <EmployeesModule
+                employees={employees}
+                departments={departments}
+                onSelectEmployee={setSelectedEmployee}
+                onOpenAddModal={() => setAddEmployeeModalOpen(true)}
+                onRefresh={loadData}
+                onOpenChatWithEmployee={(empId) => {
+                  setTargetChatEmployeeId(empId);
+                  navigateToModule('chat');
+                }}
+                portalMode={portalMode}
+              />
+            )}
 
-      {activeModule === 'employees' && (
-        <EmployeesModule
-          employees={employees}
-          departments={departments}
-          onSelectEmployee={setSelectedEmployee}
-          onOpenAddModal={() => setAddEmployeeModalOpen(true)}
-          onRefresh={loadData}
-          onOpenChatWithEmployee={(empId) => {
-            setTargetChatEmployeeId(empId);
-            navigateToModule('chat');
-          }}
-          portalMode={modulePortal}
-        />
-      )}
+            {activeModule === 'attendance' && (
+              <AttendanceModule
+                records={attendance}
+                employees={employees}
+                initialTab={
+                  portalMode === 'admin'
+                    ? 'today'
+                    : subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
+                      ? (subTab as any)
+                      : 'today'
+                }
+                onOpenPunchModal={() => setClockModalOpen(true)}
+                onRefresh={loadData}
+                portalMode={portalMode}
+              />
+            )}
 
-      {activeModule === 'attendance' && (
-        <AttendanceModule
-          records={attendance}
-          employees={employees}
-          initialTab={
-            portalMode === 'admin'
-              ? 'today'
-              : subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
-                ? (subTab as any)
-                : 'today'
-          }
-          onOpenPunchModal={() => setClockModalOpen(true)}
-          onRefresh={loadData}
-          portalMode={modulePortal}
-        />
-      )}
+            {activeModule === 'leaves' && (
+              <LeaveModule
+                leaves={leaves}
+                onOpenApplyModal={() => setLeaveModalOpen(true)}
+                onRefresh={loadData}
+                portalMode={portalMode}
+              />
+            )}
 
-      {activeModule === 'tasks' && <TasksModule />}
+            {(activeModule === 'payroll' || activeModule === 'payslips') && (
+              portalMode === 'employee' ? (
+                <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
+              ) : (
+                <PayrollModule
+                  payrollRecords={payroll}
+                  onRefresh={loadData}
+                />
+              )
+            )}
 
-      {activeModule === 'leaves' && (
-        <LeaveModule
-          leaves={leaves}
-          onOpenApplyModal={() => setLeaveModalOpen(true)}
-          onRefresh={loadData}
-          portalMode={modulePortal}
-        />
-      )}
+            {activeModule === 'recruitment' && (
+              <RecruitmentModule
+                jobs={jobs}
+                candidates={candidates}
+                departments={departments}
+                onRefresh={loadData}
+                onImportCandidates={(newCands) => {
+                  setCandidates((prev) => [...prev, ...newCands]);
+                }}
+              />
+            )}
 
-      {(activeModule === 'payroll' || activeModule === 'payslips') && (
-        portalMode === 'employee' ? (
-          <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
-        ) : (
-          <PayrollModule
-            payrollRecords={payroll}
-            onRefresh={loadData}
-          />
-        )
-      )}
+            {activeModule === 'performance' && (
+              <PerformanceModule
+                reviews={[]}
+                onRefresh={loadData}
+              />
+            )}
 
-      {activeModule === 'recruitment' && (
-        <RecruitmentModule
-          jobs={jobs}
-          candidates={candidates}
-          departments={departments}
-          onRefresh={loadData}
-        />
-      )}
+            {activeModule === 'organization' && (
+              <OrganizationModule
+                departments={departments}
+                designations={designations}
+                locations={locations}
+                initialTab={(subTab as any) === 'designations' ? 'designations' : 'departments'}
+                onRefresh={loadData}
+                portalMode={portalMode}
+                employees={employees}
+                company={currentCompany}
+              />
+            )}
 
-      {activeModule === 'performance' && (
-        <PerformanceModule
-          reviews={[]}
-          onRefresh={loadData}
-        />
-      )}
+            {activeModule === 'training' && (
+              <TrainingModule
+                programs={[]}
+                onRefresh={loadData}
+              />
+            )}
 
-      {activeModule === 'organization' && (
-        <OrganizationModule
-          departments={departments}
-          designations={designations}
-          locations={locations}
-          initialTab={(subTab as any) === 'designations' ? 'designations' : 'departments'}
-          onRefresh={loadData}
-          portalMode={modulePortal}
-          employees={employees}
-          company={currentCompany}
-        />
-      )}
+            {activeModule === 'documents' && (
+              <DocumentsModule
+                portalMode={portalMode}
+                currentEmployeeId={user?.employeeId || user?.id}
+              />
+            )}
 
-      {activeModule === 'training' && (
-        <TrainingModule
-          programs={[]}
-          onRefresh={loadData}
-        />
-      )}
-
-      {activeModule === 'documents' && (
-        <DocumentsModule
-          portalMode={modulePortal}
-          currentEmployeeId={user?.employeeId || user?.id}
-        />
-      )}
-
-      {activeModule === 'assets' && <AssetsModule />}
-      {activeModule === 'resignations' && <ResignationsModule portalMode={modulePortal} />}
-      {activeModule === 'announcements' && (
-        <AnnouncementsModule employees={employees} portalMode={modulePortal} />
-      )}
-      {activeModule === 'chat' && (
-        <ChatModule
-          employees={employees}
-          initialEmployeeId={targetChatEmployeeId}
-          onClearInitialEmployee={() => setTargetChatEmployeeId(null)}
-          portalMode={modulePortal}
-        />
-      )}
-      {activeModule === 'reports' && (
-        <ReportsModule
-          company={currentCompany}
-          employees={employees}
-          departments={departments}
-          attendance={attendance}
-          payroll={payroll}
-          leaves={leaves}
-          stats={stats}
-        />
-      )}
-      {activeModule === 'audit-logs' && <AuditLogsModule />}
+            {activeModule === 'assets' && <AssetsModule />}
+            {activeModule === 'resignations' && <ResignationsModule portalMode={portalMode} />}
+            {activeModule === 'announcements' && (
+              <AnnouncementsModule employees={employees} portalMode={portalMode} />
+            )}
+            {activeModule === 'chat' && (
+              <ChatModule
+                employees={employees}
+                initialEmployeeId={targetChatEmployeeId}
+                onClearInitialEmployee={() => setTargetChatEmployeeId(null)}
+                portalMode={portalMode}
+              />
+            )}
+            {activeModule === 'reports' && (
+              <ReportsModule
+                company={currentCompany}
+                employees={employees}
+                departments={departments}
+                attendance={attendance}
+                payroll={payroll}
+                leaves={leaves}
+                stats={stats}
+              />
+            )}
+            {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'profile' && (
               <div className="space-y-5 w-full">
-                <section className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <div className="flex items-center gap-4">
-                    {user?.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover border border-slate-200" />
-                    ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-lg font-bold text-emerald-800">
-                        {(user?.firstName?.[0] || 'U').toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">{user?.role || 'User'}</p>
-                      <h2 className="mt-1 text-lg font-bold text-slate-900">
-                        {user?.firstName} {user?.lastName}
-                      </h2>
-                      <p className="text-sm text-slate-500">{user?.email}</p>
-                    </div>
-                  </div>
-                  <dl className="mt-5 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                    <div><dt className="text-xs text-slate-400">Phone</dt><dd>{user?.phone || '—'}</dd></div>
-                    <div><dt className="text-xs text-slate-400">Gender</dt><dd>{user?.gender || '—'}</dd></div>
-                    <div className="sm:col-span-2"><dt className="text-xs text-slate-400">Address</dt><dd>{user?.address || '—'}</dd></div>
-                  </dl>
-                  {user?.role === 'ADMIN' && user.companyProfile && (
-                    <div className="mt-5 border-t border-slate-100 pt-5">
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Company</h3>
-                      <p className="mt-2 text-base font-bold text-slate-900">{user.companyProfile.name}</p>
-                      <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                        <div><dt className="text-xs text-slate-400">Email</dt><dd>{user.companyProfile.email}</dd></div>
-                        <div><dt className="text-xs text-slate-400">Phone</dt><dd>{user.companyProfile.phone || '—'}</dd></div>
-                        <div><dt className="text-xs text-slate-400">GST number</dt><dd>{user.companyProfile.gstNumber || '—'}</dd></div>
-                        <div><dt className="text-xs text-slate-400">Industry</dt><dd>{user.companyProfile.industrySector || '—'}</dd></div>
-                        <div><dt className="text-xs text-slate-400">City</dt><dd>{user.companyProfile.city || '—'}</dd></div>
-                        <div><dt className="text-xs text-slate-400">State</dt><dd>{user.companyProfile.state || '—'}</dd></div>
-                        <div className="sm:col-span-2"><dt className="text-xs text-slate-400">Address</dt><dd>{user.companyProfile.address || '—'}</dd></div>
-                      </dl>
-                    </div>
-                  )}
-                </section>
                 <EmployeeProfileModal
                   variant="page"
                   employee={myProfileEmployee}
@@ -955,89 +938,76 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 />
               </div>
             )}
-            {activeModule === 'settings' && (
-              <SettingsModule portalMode={portalMode === 'hr' ? 'employee' : portalMode} />
-            )}
+            {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
         </main>
 
-    <MobileBottomNav
-      activeModule={activeModule}
-      setActiveModule={navigateToModule}
-      onOpenClockModal={() => setClockModalOpen(true)}
-      onOpenSidebar={() => setSidebarOpen(true)}
-      portalMode={portalMode}
-      pendingLeavesCount={pendingLeavesCount}
-      unreadChatCount={unreadChatCount}
-      punchStatus={checkEmployeePunchEligibility(user?.employeeId || user?.id || '')?.status}
-    />
-      </div >
+        <MobileBottomNav
+          activeModule={activeModule}
+          setActiveModule={navigateToModule}
+          onOpenClockModal={() => setClockModalOpen(true)}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          portalMode={portalMode}
+          pendingLeavesCount={pendingLeavesCount}
+          unreadChatCount={unreadChatCount}
+          punchStatus={checkEmployeePunchEligibility(user?.employeeId || user?.id || '')?.status}
+        />
+      </div>
 
-    { clockModalOpen && (
-      <AttendanceModal
-        isOpen={clockModalOpen}
-        onClose={() => setClockModalOpen(false)}
-        onRefresh={loadData}
-      />
-    )
-}
+      {clockModalOpen && (
+        <AttendanceModal
+          isOpen={clockModalOpen}
+          onClose={() => setClockModalOpen(false)}
+          onRefresh={loadData}
+        />
+      )}
 
-{
-  leaveModalOpen && (
-    <LeaveModal
-      isOpen={leaveModalOpen}
-      onClose={() => setLeaveModalOpen(false)}
-      onRefresh={loadData}
-    />
-  )
-}
+      {leaveModalOpen && (
+        <LeaveModal
+          isOpen={leaveModalOpen}
+          onClose={() => setLeaveModalOpen(false)}
+          onRefresh={loadData}
+        />
+      )}
 
-{
-  addEmployeeModalOpen && (
-    <EmployeeDrawer
-      isOpen={addEmployeeModalOpen}
-      onClose={() => setAddEmployeeModalOpen(false)}
-      onRefresh={loadData}
-      departments={departments}
-      designations={designations}
-      employees={employees}
-    />
-  )
-}
+      {addEmployeeModalOpen && (
+        <EmployeeDrawer
+          isOpen={addEmployeeModalOpen}
+          onClose={() => setAddEmployeeModalOpen(false)}
+          onRefresh={loadData}
+          departments={departments}
+          designations={designations}
+          employees={employees}
+        />
+      )}
 
-{
-  Boolean(selectedEmployee) && (
-    <EmployeeProfileModal
-      employee={selectedEmployee}
-      isOpen={Boolean(selectedEmployee)}
-      onClose={() => setSelectedEmployee(null)}
-      onRefresh={loadData}
-    />
-  )
-}
+      {Boolean(selectedEmployee) && (
+        <EmployeeProfileModal
+          employee={selectedEmployee}
+          isOpen={Boolean(selectedEmployee)}
+          onClose={() => setSelectedEmployee(null)}
+          onRefresh={loadData}
+        />
+      )}
 
-{
-  searchModalOpen && (
-    <GlobalSearchModal
-      isOpen={searchModalOpen}
-      onClose={() => setSearchModalOpen(false)}
-      employees={employees}
-      onSelectEmployee={setSelectedEmployee}
-      onNavigateModule={navigateToModule}
-      portalMode={portalMode}
-    />
-  )
-}
+      {searchModalOpen && (
+        <GlobalSearchModal
+          isOpen={searchModalOpen}
+          onClose={() => setSearchModalOpen(false)}
+          employees={employees}
+          onSelectEmployee={setSelectedEmployee}
+          onNavigateModule={navigateToModule}
+          portalMode={portalMode}
+        />
+      )}
 
-{
-  mobileModalOpen && (
-    <MobileConnectModal
-      isOpen={mobileModalOpen}
-      onClose={() => setMobileModalOpen(false)}
-    />
-  )
-}
-    </div >
+      {mobileModalOpen && (
+        <MobileConnectModal
+          isOpen={mobileModalOpen}
+          onClose={() => setMobileModalOpen(false)}
+        />
+      )}
+    </div>
   );
 }
 

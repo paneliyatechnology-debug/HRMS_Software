@@ -18,7 +18,7 @@ interface MobileBottomNavProps {
   setActiveModule: (m: string) => void;
   onOpenClockModal: () => void;
   onOpenSidebar: () => void;
-  portalMode?: 'employee' | 'admin' | 'hr';
+  portalMode?: 'employee' | 'admin';
   pendingLeavesCount?: number;
   unreadChatCount?: number;
   punchStatus?: 'not_started' | 'working' | 'on_break' | 'completed';
@@ -56,8 +56,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Home</span>
       </button>
 
-      {portalMode !== 'hr' && (
-      <>
       {/* 2. Attendance Tab */}
       <button
         id="btn-mobile-nav-attendance"
@@ -137,8 +135,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Leaves</span>
       </button>
-      </>
-      )}
 
       {/* 5. More / Menu Drawer Trigger */}
       <button

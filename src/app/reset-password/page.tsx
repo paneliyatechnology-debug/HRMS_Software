@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import React, { Suspense } from 'react';
@@ -16,3 +17,6 @@ export default function DirectResetPasswordPage() {
     </Suspense>
   );
 }
+=======
+export { default } from '../set-password/page';
+>>>>>>> 8778032cb496482620ae0988c1a6b2b435b75d9d
