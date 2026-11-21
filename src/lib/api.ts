@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getApiBaseUrl } from './config';
 
-export function clearApiCache(_endpointPrefix?: string) {}
+export function clearApiCache(_endpointPrefix?: string) { }
 
 const notConnected = async (..._args: unknown[]) => null;
 

@@ -177,7 +177,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     if (!isAuth) {
       if (socket) {
-        socket.disconnect();
+        (socket as any).disconnect();
         setSocket(null);
         setIsConnected(false);
       }
@@ -415,7 +415,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     // Listen on BroadcastChannel for multi-tab sync
     if (bc) {
-      bc.onmessage = (event) => {
+      (bc as any).onmessage = (event: any) => {
         if (!event?.data) return;
         const { type, payload } = event.data;
         if (type === 'HRMS_LEAVE_APPLIED') {
