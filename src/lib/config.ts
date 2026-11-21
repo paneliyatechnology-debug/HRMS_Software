@@ -14,11 +14,13 @@ function cleanUrl(raw?: string): string {
 }
 
 export function getApiBaseUrl(): string {
-  // Login cookies belong to the site open in the browser. A direct call to port 4000 is a different site, so the profile request was sent without the login cookie.
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/hrms-api`;
+  // 1. Direct synchronous server injection from physical .env file on every request (Priority 1)
+  if (typeof window !== 'undefined' && (window as any).__HRMS_ENV__?.apiUrl) {
+    const clean = cleanUrl((window as any).__HRMS_ENV__.apiUrl);
+    if (clean) return clean.endsWith('/api') ? clean : `${clean}/api`;
   }
 
+  // 2. Explicit process.env.NEXT_PUBLIC_API_URL / NEXT_PUBLIC_BACKEND_URL from .env
   const envUrl =
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) ||
