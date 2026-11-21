@@ -49,25 +49,10 @@ export function clearApiCache(endpointPrefix?: string) {
       responseCache.delete(key);
     }
   }
-<<<<<<< HEAD
-  const contentType = (config.headers && typeof (config.headers as any).get === 'function')
-    ? (config.headers as any).get('Content-Type')
-    : (config.headers as any)?.['Content-Type'];
-
-  const isExplicitJson = typeof contentType === 'string' && contentType.includes('application/json');
-
-  const data = config.data;
-  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
-    const form = new FormData();
-    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      if (value == null || value === '') continue;
-      form.append(key, value instanceof Blob ? value : String(value));
-=======
   // Drop in-flight GETs too, so a refresh after create does not reuse a request that started before the employee existed.
   for (const key of inFlightGetRequests.keys()) {
     if (key.includes(endpointPrefix)) {
       inFlightGetRequests.delete(key);
->>>>>>> 8778032cb496482620ae0988c1a6b2b435b75d9d
     }
   }
 }
@@ -284,7 +269,40 @@ export const api = {
         headers['Authorization'] = `Bearer ${data.token}`;
       }
 
-      // 1. Try /auth/set-password
+      // 1. Try actual backend endpoint /users/reset-password (http://192.168.1.107:4000/api/users/reset-password)
+      try {
+        const form = new FormData();
+        if (data.token) form.append('token', data.token);
+        if (data.email) form.append('email', data.email);
+        if (data.userId) form.append('userId', data.userId);
+        form.append('password', data.password);
+        form.append('confirmPassword', data.confirmPassword || data.password);
+
+        const resReal = await fetch(`${getApiBase()}/users/reset-password`, {
+          method: 'POST',
+          body: form,
+        });
+
+        const text = await resReal.text();
+        if (text.includes('invalid or has expired')) {
+          throw new Error('This reset link is invalid or has expired.');
+        }
+        if (text.includes('Passwords do not match')) {
+          throw new Error('Passwords do not match.');
+        }
+        if (text.includes('Password must be at least 6 characters')) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+        if (resReal.ok) {
+          return { success: true, message: 'Password updated successfully' };
+        }
+      } catch (realErr: any) {
+        if (realErr.message && (realErr.message.includes('expired') || realErr.message.includes('match') || realErr.message.includes('characters'))) {
+          throw realErr;
+        }
+      }
+
+      // 2. Try /auth/set-password
       const res = await fetch(`${getApiBase()}/auth/set-password`, {
         method: 'POST',
         headers,
@@ -327,6 +345,26 @@ export const api = {
       else if (Array.isArray(errData?.message)) message = errData.message.join(', ');
       else if (typeof errData?.error === 'string') message = errData.error;
       throw new Error(message);
+    } catch (err: any) {
+      throw err;
+    }
+  },
+
+  async forgotPassword(email: string) {
+    try {
+      const res = await fetch(`${getApiBase()}/users/forgot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        return await res.json().catch(() => ({ message: 'A password form link was sent to your email.' }));
+      }
+      const err = await res.json().catch(() => ({}));
+      const message = err?.message || 'Failed to send password reset link.';
+      throw new Error(Array.isArray(message) ? message.join(' ') : message);
     } catch (err: any) {
       throw err;
     }
@@ -1627,243 +1665,3 @@ export const api = {
 
 };
 
-<<<<<<< HEAD
-async function login(email: string, password: string) {
-  try {
-    const response = await http.post('/users/login', { email, password });
-    const data = response.data;
-    const token = data?.token || data?.accessToken || (data && typeof data === 'object' && 'token' in data ? (data as any).token : null);
-    if (token && typeof window !== 'undefined') {
-      setCookie('hrms_auth_token', token);
-      setCookie('bearerToken', token);
-    }
-    return data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Email or password is incorrect.');
-  }
-}
-
-async function forgotPassword(email: string) {
-  try {
-    const response = await http.post('/users/forgot', { email }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send password reset link.');
-  }
-}
-
-async function resetPassword(data: { token: string; password: string; confirmPassword?: string }) {
-  try {
-    const response = await http.post('/users/reset-password', data);
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to reset password.');
-  }
-}
-
-async function logout() {
-  await http.post('/users/logout');
-}
-
-async function getProfile() {
-  try {
-    const response = await http.get('/users/profile');
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile could not be loaded.');
-  }
-}
-
-async function listUsers(params: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
-  try {
-    const response = await http.get('/users', { params });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Users could not be loaded.');
-  }
-}
-
-async function createUser(data: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  gender?: string;
-  address?: string;
-  photo?: File | null;
-  role?: string;
-  status?: string;
-  companyId?: string;
-}) {
-  try {
-    const response = await http.post('/users', {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone || undefined,
-      gender: data.gender || undefined,
-      address: data.address || undefined,
-      photo: data.photo || undefined,
-      role: data.role || undefined,
-      status: data.status || undefined,
-      companyId: data.companyId || undefined,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'User could not be created.');
-  }
-}
-
-async function listDocuments(params?: { page?: number; limit?: number; userId?: string; scope?: string; companyId?: string }) {
-  try {
-    const response = await http.get('/documents', { params });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Documents could not be loaded.');
-  }
-}
-
-async function getDocument(id: string) {
-  try {
-    const response = await http.get(`/documents/${id}`);
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be loaded.');
-  }
-}
-
-async function updateDocument(id: string, data: { title: string; userId?: string; file?: File | null }) {
-  try {
-    const form = new FormData();
-    form.append('title', data.title);
-    if (data.userId !== undefined) form.append('userId', data.userId);
-    if (data.file) form.append('file', data.file);
-    const response = await http.patch(`/documents/${id}`, form);
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be updated.');
-  }
-}
-
-async function deleteDocument(id: string) {
-  try {
-    const response = await http.delete(`/documents/${id}`);
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be deleted.');
-  }
-}
-async function createDocument(data: { title: string; file: File; userId?: string; companyId?: string }) {
-  try {
-    const response = await http.post('/documents', {
-      title: data.title,
-      file: data.file,
-      userId: data.userId || undefined,
-      companyId: data.companyId || undefined,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be uploaded.');
-  }
-}
-
-async function clockIn(data?: { workMode?: 'Office' | 'Work From Home'; note?: string }) {
-  try {
-    const response = await http.post('/attendance/check-in', {
-      workMode: data?.workMode || undefined,
-      note: data?.note || undefined,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Clock in failed.');
-  }
-}
-
-async function getAttendanceLogic() {
-  try {
-    const response = await http.get('/attendance/logic');
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance status could not be loaded.');
-  }
-}
-
-async function startBreak(data?: { note?: string }) {
-  try {
-    const response = await http.post('/attendance/break/start', { note: data?.note || undefined });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Break could not be started.');
-  }
-}
-
-async function endBreak(data?: { note?: string }) {
-  try {
-    const response = await http.post('/attendance/break/end', { note: data?.note || undefined });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Break could not be ended.');
-  }
-}
-
-const resumeBreak = endBreak;
-
-async function clockOut(data?: { note?: string }) {
-  try {
-    const response = await http.post('/attendance/check-out', {
-      note: data?.note || undefined,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Clock out failed.');
-  }
-}
-
-async function registerCompany(data: CompanyRegisterInput) {
-  try {
-    const response = await http.post('/companies/register', {
-      companyName: data.companyName,
-      email: data.email,
-      phone: data.phone || undefined,
-      gstNumber: data.gstNumber || undefined,
-      industrySector: data.industrySector || undefined,
-      state: data.state || undefined,
-      city: data.city || undefined,
-      address: data.address || undefined,
-      firstName: data.firstName,
-      lastName: data.lastName,
-    });
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Company registration failed.');
-  }
-}
-
-export const api = new Proxy({ registerCompany, login, forgotPassword, resetPassword, getProfile, logout, createUser, listUsers, listDocuments, getDocument, createDocument, updateDocument, deleteDocument, clockIn, clockOut, startBreak, endBreak, resumeBreak, getAttendanceLogic } as Record<string, (...args: any[]) => Promise<any>>, {
-  get(target, prop) {
-    if (typeof prop !== 'string') return undefined;
-    if (!target[prop]) target[prop] = notConnected;
-    return target[prop];
-  },
-});
-=======
->>>>>>> 8778032cb496482620ae0988c1a6b2b435b75d9d
