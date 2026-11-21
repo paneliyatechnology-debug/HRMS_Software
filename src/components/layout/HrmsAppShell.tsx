@@ -8,10 +8,73 @@ import { DashboardView } from '../DashboardView';
 import dynamic from 'next/dynamic';
 
 const ModuleLoadingSkeleton = () => (
-  <div className="w-full min-h-[350px] flex items-center justify-center p-8 text-slate-400">
-    <div className="flex flex-col items-center gap-3">
-      <div className="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">Loading module...</span>
+  <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6 animate-pulse" role="status" aria-label="Loading content">
+    {/* Header / Title Bar Skeleton */}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+      <div className="space-y-2">
+        <div className="h-7 w-44 sm:w-60 bg-slate-200/80 rounded-xl" />
+        <div className="h-4 w-28 sm:w-40 bg-slate-100 rounded-lg" />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <div className="h-9 w-24 sm:w-28 bg-slate-100 rounded-xl" />
+        <div className="h-9 w-28 sm:w-32 bg-emerald-100/70 rounded-xl" />
+      </div>
+    </div>
+
+    {/* Metric / Stat Cards Grid Skeleton */}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <div className="h-3.5 w-20 bg-slate-100 rounded-md" />
+            <div className="w-8 h-8 rounded-xl bg-slate-100" />
+          </div>
+          <div className="h-7 w-16 sm:w-20 bg-slate-200/90 rounded-lg" />
+          <div className="h-3 w-28 bg-slate-100/80 rounded-md" />
+        </div>
+      ))}
+    </div>
+
+    {/* Search & Filter Toolbar Skeleton */}
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+      <div className="h-10 w-full sm:w-72 bg-slate-100 rounded-xl" />
+      <div className="flex items-center gap-2">
+        <div className="h-10 w-24 bg-slate-100 rounded-xl" />
+        <div className="h-10 w-28 bg-slate-100 rounded-xl" />
+      </div>
+    </div>
+
+    {/* Main Data Table / List Skeleton */}
+    <div className="rounded-2xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
+      {/* Table Header Bar */}
+      <div className="h-12 bg-slate-50/80 border-b border-slate-200/80 px-4 sm:px-6 flex items-center gap-4 sm:gap-6">
+        <div className="h-4 w-5 bg-slate-200/80 rounded" />
+        <div className="h-4 w-32 bg-slate-200/80 rounded" />
+        <div className="h-4 w-24 bg-slate-200/80 rounded hidden sm:block" />
+        <div className="h-4 w-28 bg-slate-200/80 rounded hidden md:block" />
+        <div className="h-4 w-20 bg-slate-200/80 rounded hidden lg:block" />
+        <div className="h-4 w-16 bg-slate-200/80 rounded ml-auto" />
+      </div>
+
+      {/* Table Rows Skeleton */}
+      <div className="divide-y divide-slate-100">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="py-3.5 px-4 sm:px-6 flex items-center gap-4 sm:gap-6">
+            <div className="w-9 h-9 rounded-xl bg-slate-200/80 shrink-0" />
+            <div className="space-y-1.5 flex-1 min-w-0">
+              <div className="h-4 w-36 sm:w-48 bg-slate-200/90 rounded-md" />
+              <div className="h-3 w-24 sm:w-32 bg-slate-100 rounded-md" />
+            </div>
+            <div className="h-6 w-20 bg-slate-100 rounded-full hidden sm:block shrink-0" />
+            <div className="h-4 w-24 bg-slate-100 rounded-md hidden md:block shrink-0" />
+            <div className="h-4 w-20 bg-slate-100 rounded-md hidden lg:block shrink-0" />
+            <div className="h-7 w-16 bg-slate-100 rounded-lg ml-auto shrink-0" />
+          </div>
+        ))}
+      </div>
     </div>
   </div>
 );
