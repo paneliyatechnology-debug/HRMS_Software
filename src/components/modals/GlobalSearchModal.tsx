@@ -11,7 +11,7 @@ interface GlobalSearchModalProps {
   employees: Employee[];
   onSelectEmployee: (emp: Employee) => void;
   onNavigateModule: (moduleName: string) => void;
-  portalMode?: 'employee' | 'admin' | 'hr';
+  portalMode?: 'employee' | 'admin';
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
@@ -31,17 +31,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const q = query.trim().toLowerCase();
 
   const allModules = [
-    { id: 'dashboard', name: portalMode === 'hr' ? 'HR Home' : 'Dashboard Overview & Analytics', icon: Briefcase, allowed: true },
+    { id: 'dashboard', name: 'Dashboard Overview & Analytics', icon: Briefcase, allowed: true },
     { id: 'employees', name: 'Staff Directory & Employee Profiles', icon: User, allowed: portalMode === 'admin' },
-    { id: 'attendance', name: 'Attendance & Punch Clock', icon: Calendar, allowed: portalMode !== 'hr' },
-    { id: 'leaves', name: 'Leave Applications & Balances', icon: Calendar, allowed: portalMode !== 'hr' },
-    { id: 'payroll', name: 'Payroll & Payslips', icon: Briefcase, allowed: portalMode !== 'hr' },
-    { id: 'documents', name: 'Employee Documents & Vault', icon: FileText, allowed: portalMode !== 'hr' },
-    { id: 'chat', name: 'Team Messenger & Chat', icon: Briefcase, allowed: portalMode !== 'hr' },
+    { id: 'attendance', name: 'Attendance & Punch Clock', icon: Calendar, allowed: true },
+    { id: 'leaves', name: 'Leave Applications & Balances', icon: Calendar, allowed: true },
+    { id: 'payroll', name: 'Payroll & Payslips', icon: Briefcase, allowed: true },
+    { id: 'documents', name: 'Employee Documents & Vault', icon: FileText, allowed: true },
+    { id: 'chat', name: 'Team Messenger & Chat', icon: Briefcase, allowed: true },
     { id: 'organization', name: 'Organization Hierarchy & Departments', icon: Building, allowed: portalMode === 'admin' },
     { id: 'recruitment', name: 'Recruitment & Job Openings', icon: User, allowed: portalMode === 'admin' },
     { id: 'assets', name: 'Hardware & IT Assets Inventory', icon: Briefcase, allowed: portalMode === 'admin' },
-    { id: 'announcements', name: 'Company Announcements & Notices', icon: FileText, allowed: portalMode !== 'hr' },
+    { id: 'announcements', name: 'Company Announcements & Notices', icon: FileText, allowed: true },
     { id: 'reports', name: 'Reports & Analytics', icon: Briefcase, allowed: portalMode === 'admin' },
     { id: 'audit-logs', name: 'Security & Compliance Audit Trail', icon: FileText, allowed: portalMode === 'admin' },
     { id: 'settings', name: 'System & Company Settings', icon: Building, allowed: true },
@@ -51,7 +51,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     .filter((m) => m.allowed)
     .filter((m) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
 
-  const matchedEmployees = portalMode === 'hr' ? [] : q
+  const matchedEmployees = q
     ? employees.filter((e) => {
       const name = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
       const dept = (e.departmentName || '').toLowerCase();

@@ -61,8 +61,6 @@ export interface User {
   employeeId?: string;
   employeeCode?: string;
   phone?: string;
-  gender?: string | null;
-  address?: string | null;
   departmentName?: string;
   designationTitle?: string;
   avatarUrl?: string;
@@ -70,20 +68,6 @@ export interface User {
   companyCode?: string;
   companyName?: string;
   workStatus?: string;
-  permissions?: { key: string; label: string }[];
-  companyProfile?: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string | null;
-    gstNumber: string | null;
-    industrySector: string | null;
-    industryId: string | null;
-    state: string | null;
-    city: string | null;
-    address: string | null;
-    status: string;
-  } | null;
 }
 
 export interface Department {
