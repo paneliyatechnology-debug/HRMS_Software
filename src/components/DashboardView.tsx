@@ -793,7 +793,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                          {/* Static Eye/EyeOff View Mode Toggle */}
+                          <button
+                            onClick={() => handleDashboardOpenApproveModal(leave)}
+                            disabled={isProcessing}
+                            className="btn-primary text-xs py-1.5 px-3"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
+                            disabled={isProcessing}
+                            className="btn-danger text-xs py-1.5 px-3"
+                          >
+                            Reject
+                          </button>
+                          {/* Static Eye/EyeOff View Mode Toggle (Placed at the last) */}
                           <button
                             type="button"
                             onClick={() => toggleDashboardLeaveRowView(leave.id)}
@@ -809,20 +823,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             ) : (
                               <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
                             )}
-                          </button>
-                          <button
-                            onClick={() => handleDashboardOpenApproveModal(leave)}
-                            disabled={isProcessing}
-                            className="btn-primary text-xs py-1.5 px-3"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
-                            disabled={isProcessing}
-                            className="btn-danger text-xs py-1.5 px-3"
-                          >
-                            Reject
                           </button>
                         </div>
                       </div>

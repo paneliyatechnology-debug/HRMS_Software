@@ -1166,7 +1166,30 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Action Column with Eye Toggle */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Static Eye/EyeOff View Mode Toggle */}
+                          {portalMode === 'admin' && leave.status === 'Pending' && (
+                            <>
+                              <button
+                                onClick={() => handleOpenApproveModal(leave)}
+                                disabled={isProcessing}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                title="Approve Request"
+                              >
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenRejectModal(leave)}
+                                disabled={isProcessing}
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                title="Reject Request"
+                              >
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
+                          {/* Static Eye/EyeOff View Mode Toggle (Placed at the last) */}
                           <button
                             type="button"
                             onClick={() => toggleRowView(leave.id)}
@@ -1183,45 +1206,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
                             )}
                           </button>
-
-                          {portalMode === 'admin' && (
-                            leave.status === 'Pending' ? (
-                              <>
-                                <button
-                                  onClick={() => handleOpenApproveModal(leave)}
-                                  disabled={isProcessing}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                  title="Approve Request"
-                                >
-                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                  <span>Approve</span>
-                                </button>
-                                <button
-                                  onClick={() => handleOpenRejectModal(leave)}
-                                  disabled={isProcessing}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                  title="Reject Request"
-                                >
-                                  <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                                  <span>Reject</span>
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-end">
-                                <span className="text-[11px] font-semibold text-slate-500">
-                                  Reviewed ({leave.status})
-                                </span>
-                                {rowDetailed && (leave.response || leave.comments) && (
-                                  <span
-                                    className="text-[10px] text-slate-400 truncate max-w-[150px] italic"
-                                    title={leave.response || leave.comments}
-                                  >
-                                    &ldquo;{leave.response || leave.comments}&rdquo;
-                                  </span>
-                                )}
-                              </div>
-                            )
-                          )}
                         </div>
                       </td>
                     </tr>
