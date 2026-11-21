@@ -40,6 +40,8 @@ import {
   BarChart3,
   Megaphone,
   Zap,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -345,6 +347,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Leave processing state for admin
   const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
+  const [dashboardLeaveRowView, setDashboardLeaveRowView] = useState<Record<string, boolean>>({});
+  const toggleDashboardLeaveRowView = (id: string) => {
+    setDashboardLeaveRowView((prev) => ({
+      ...prev,
+      [id]: prev[id] !== undefined ? !prev[id] : false,
+    }));
+  };
   const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
   const [approveModalData, setApproveModalData] = useState<{
     id: string;
@@ -755,6 +764,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="space-y-1">
                   {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
                     const isProcessing = processingLeaveId === leave.id;
+                    const isDetailed = dashboardLeaveRowView[leave.id] !== false;
                     return (
                       <div
                         key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
@@ -771,13 +781,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <span className="text-xs text-[#6c757d] font-mono">
                               {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
                             </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                              Pending
+                            </span>
                           </div>
-                          <p className="text-xs text-[#6c757d]">
-                            Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
-                          </p>
+                          {isDetailed && (
+                            <p className="text-xs text-[#6c757d]">
+                              Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                          {/* Static Eye/EyeOff View Mode Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => toggleDashboardLeaveRowView(leave.id)}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                              isDetailed
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                            }`}
+                            title={isDetailed ? 'Switch to Compact View (Eye Off)' : 'Switch to Detailed View (Eye On)'}
+                          >
+                            {isDetailed ? (
+                              <Eye className="w-3.5 h-3.5 stroke-[2.2]" />
+                            ) : (
+                              <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
+                            )}
+                          </button>
                           <button
                             onClick={() => handleDashboardOpenApproveModal(leave)}
                             disabled={isProcessing}

@@ -27,6 +27,8 @@ import {
   Trash2,
   Loader2,
   Sun,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -75,6 +77,30 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
+
+  // View Mode state (Eye toggle on/off: Detailed vs Compact)
+  const [rowViewOverrides, setRowViewOverrides] = useState<Record<string, boolean>>({});
+  const [globalViewMode, setGlobalViewMode] = useState<boolean>(true);
+
+  const isRowDetailed = (id: string) => {
+    if (rowViewOverrides[id] !== undefined) {
+      return rowViewOverrides[id];
+    }
+    return globalViewMode;
+  };
+
+  const toggleRowView = (id: string) => {
+    setRowViewOverrides((prev) => ({
+      ...prev,
+      [id]: !isRowDetailed(id),
+    }));
+  };
+
+  const toggleAllViewMode = () => {
+    const nextMode = !globalViewMode;
+    setGlobalViewMode(nextMode);
+    setRowViewOverrides({});
+  };
 
   // Approval modal state
   const [approvingLeave, setApprovingLeave] = useState<LeaveRequest | null>(null);
@@ -805,8 +831,22 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </div>
 
           <button
+            type="button"
+            onClick={toggleAllViewMode}
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border font-semibold text-xs shadow-xs transition-all cursor-pointer ${
+              globalViewMode
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+            }`}
+            title={globalViewMode ? 'Detailed Mode ON (Click to toggle all to Compact)' : 'Compact Mode ON (Click to toggle all to Detailed)'}
+          >
+            {globalViewMode ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
+            <span className="hidden sm:inline">View Mode: {globalViewMode ? 'Detailed' : 'Compact'}</span>
+          </button>
+
+          <button
             onClick={exportCSV}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-semibold text-xs shadow-xs cursor-pointer"
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -838,32 +878,50 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           ) : (
             paginatedLeaves.map((leave) => {
               const isProcessing = processingId === leave.id;
+              const rowDetailed = isRowDetailed(leave.id);
               return (
                 <div key={leave.id} className="p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                        {leave.employeeName?.[0] || 'E'}
-                      </div>
+                      {rowDetailed && (
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
+                          {leave.employeeName?.[0] || 'E'}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-slate-900 truncate">{leave.employeeName}</p>
-                        <p className="text-[10px] text-slate-400">{leave.departmentName || 'General'}</p>
+                        {rowDetailed && <p className="text-[10px] text-slate-400">{leave.departmentName || 'General'}</p>}
                       </div>
                     </div>
 
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${leave.status === 'Approved'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : leave.status === 'Pending'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${leave.status === 'Approved'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : leave.status === 'Pending'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}
+                      >
+                        {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
+                        {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
+                        {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
+                        <span>{leave.status}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleRowView(leave.id)}
+                        className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${
+                          rowDetailed
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
                         }`}
-                    >
-                      {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
-                      {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
-                      {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
-                      <span>{leave.status}</span>
-                    </span>
+                        title={rowDetailed ? 'View Details: ON (Click to Compact)' : 'View Details: OFF (Click to Show All Details)'}
+                      >
+                        {rowDetailed ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
@@ -877,19 +935,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       <span className="text-[10px] text-slate-400 font-medium block">Type & Duration</span>
                       <span className="font-semibold text-indigo-700 text-[11px] flex items-center gap-1 flex-wrap">
                         <span>{leave.leaveType}</span>
-                        <span>({leave.daysCount}d • {leave.isHalfDay ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st') : 'Full Day'})</span>
+                        <span>({leave.daysCount}d{rowDetailed ? (leave.isHalfDay ? ` • ${leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st'}` : ' • Full Day') : ''})</span>
                       </span>
                     </div>
                   </div>
 
-                  {leave.reason && (
+                  {rowDetailed && leave.reason && (
                     <div className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason</span>
                       <p className="italic text-slate-800">&ldquo;{leave.reason}&rdquo;</p>
                     </div>
                   )}
 
-                  {(leave.response || leave.comments) && (
+                  {rowDetailed && (leave.response || leave.comments) && (
                     <div
                       className={`text-xs p-2.5 rounded-xl border space-y-0.5 ${
                         leave.status === 'Rejected'
@@ -942,16 +1000,16 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 <th className="py-3 px-4 font-bold">TYPE</th>
                 <th className="py-3 px-4 font-bold">STATUS</th>
                 <th className="py-3 px-4 font-bold">REASON</th>
-                {portalMode === 'admin' && (
-                  <th className="py-3 px-4 font-bold text-right">ADMIN ACTION</th>
-                )}
+                <th className="py-3 px-4 font-bold text-right">
+                  {portalMode === 'admin' ? 'ADMIN ACTION' : 'VIEW'}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {displayedLeaves.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={portalMode === 'admin' ? 8 : 7}
+                    colSpan={8}
                     className="py-12 text-center text-slate-500 font-medium"
                   >
                     No leave applications matching your search or filter.
@@ -960,72 +1018,81 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               ) : (
                 paginatedLeaves.map((leave) => {
                   const isProcessing = processingId === leave.id;
+                  const rowDetailed = isRowDetailed(leave.id);
                   return (
                     <tr key={leave.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4 font-bold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                            {leave.employeeName?.[0] || 'E'}
+                        {rowDetailed ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
+                              {leave.employeeName?.[0] || 'E'}
+                            </div>
+                            <span>{leave.employeeName}</span>
                           </div>
+                        ) : (
                           <span>{leave.employeeName}</span>
-                        </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-slate-600 font-medium">
-                        {leave.departmentName || '--'}
+                        {rowDetailed ? (leave.departmentName || '--') : '--'}
                       </td>
                       <td className="py-3 px-4 text-slate-700">
                         <div className="font-semibold text-slate-900">
                           {leave.startDate}{' '}
                           {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}
                         </div>
-                        {Array.isArray(leave.days) && leave.days.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {leave.days.map((d, idx) => {
-                              const portion = d.portion || 'Full Day';
-                              const pLower = portion.toLowerCase();
-                              const isHalf = pLower.includes('half') || pLower.includes('first') || pLower.includes('second');
-                              return (
-                                <span
-                                  key={idx}
-                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                                    isHalf
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  }`}
-                                  title={`${d.date}: ${portion}`}
-                                >
-                                  {leave.days && leave.days.length > 1 ? `${d.date}: ` : ''}{portion}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {leave.dayBreakdown.map((d, idx) => {
-                              const isHalf = d.session !== 'FULL_DAY';
-                              const label = d.session === 'FIRST_HALF' ? 'First Half' : d.session === 'SECOND_HALF' ? 'Second Half' : 'Full Day';
-                              return (
-                                <span
-                                  key={idx}
-                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                                    isHalf
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  }`}
-                                >
-                                  {leave.dayBreakdown && leave.dayBreakdown.length > 1 ? `${d.date}: ` : ''}{label}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : leave.isHalfDay ? (
-                          <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                            {leave.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half'}
-                          </span>
-                        ) : (
-                          <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            Full Day
-                          </span>
+                        {rowDetailed && (
+                          <>
+                            {Array.isArray(leave.days) && leave.days.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {leave.days.map((d, idx) => {
+                                  const portion = d.portion || 'Full Day';
+                                  const pLower = portion.toLowerCase();
+                                  const isHalf = pLower.includes('half') || pLower.includes('first') || pLower.includes('second');
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                        isHalf
+                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      }`}
+                                      title={`${d.date}: ${portion}`}
+                                    >
+                                      {leave.days && leave.days.length > 1 ? `${d.date}: ` : ''}{portion}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {leave.dayBreakdown.map((d, idx) => {
+                                  const isHalf = d.session !== 'FULL_DAY';
+                                  const label = d.session === 'FIRST_HALF' ? 'First Half' : d.session === 'SECOND_HALF' ? 'Second Half' : 'Full Day';
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                        isHalf
+                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      }`}
+                                    >
+                                      {leave.dayBreakdown && leave.dayBreakdown.length > 1 ? `${d.date}: ` : ''}{label}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : leave.isHalfDay ? (
+                              <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                {leave.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half'}
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                Full Day
+                              </span>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">
@@ -1033,19 +1100,21 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           <span className="font-bold text-slate-900 text-xs">
                             {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
                           </span>
-                          {leave.isHalfDay ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-900 border border-amber-200">
-                              <Sun className="w-3 h-3 text-amber-600 shrink-0" />
-                              <span>
-                                {leave.daysCount === 0.5
-                                  ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day (2nd)' : 'Half Day (1st)')
-                                  : 'Includes Half Day'}
+                          {rowDetailed && (
+                            leave.isHalfDay ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-900 border border-amber-200">
+                                <Sun className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>
+                                  {leave.daysCount === 0.5
+                                    ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day (2nd)' : 'Half Day (1st)')
+                                    : 'Includes Half Day'}
+                                </span>
                               </span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100/70 text-emerald-900 border border-emerald-200">
-                              Full Day
-                            </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100/70 text-emerald-900 border border-emerald-200">
+                                Full Day
+                              </span>
+                            )
                           )}
                         </div>
                       </td>
@@ -1068,69 +1137,93 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs">
-                        <div className="space-y-1.5">
-                          <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
-                            <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
-                          </div>
-                          {(leave.response || leave.comments) && (
-                            <div
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                                leave.status === 'Rejected'
-                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              }`}
-                              title={`${leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
-                            >
-                              <span className="font-bold shrink-0">
-                                {leave.status === 'Rejected' ? 'Reject Reason:' : 'Admin Note:'}
-                              </span>
-                              <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                        {rowDetailed ? (
+                          <div className="space-y-1.5">
+                            <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
+                              <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
                             </div>
+                            {(leave.response || leave.comments) && (
+                              <div
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                  leave.status === 'Rejected'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                }`}
+                                title={`${leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                              >
+                                <span className="font-bold shrink-0">
+                                  {leave.status === 'Rejected' ? 'Reject Reason:' : 'Admin Note:'}
+                                </span>
+                                <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-medium">--</span>
+                        )}
+                      </td>
+
+                      {/* Action Column with Eye Toggle */}
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Static Eye/EyeOff View Mode Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => toggleRowView(leave.id)}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                              rowDetailed
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                            }`}
+                            title={rowDetailed ? 'Switch to Compact View (Eye Off)' : 'Switch to Detailed View (Eye On)'}
+                          >
+                            {rowDetailed ? (
+                              <Eye className="w-3.5 h-3.5 stroke-[2.2]" />
+                            ) : (
+                              <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
+                            )}
+                          </button>
+
+                          {portalMode === 'admin' && (
+                            leave.status === 'Pending' ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenApproveModal(leave)}
+                                  disabled={isProcessing}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                  title="Approve Request"
+                                >
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Approve</span>
+                                </button>
+                                <button
+                                  onClick={() => handleOpenRejectModal(leave)}
+                                  disabled={isProcessing}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                  title="Reject Request"
+                                >
+                                  <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Reject</span>
+                                </button>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-end">
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  Reviewed ({leave.status})
+                                </span>
+                                {rowDetailed && (leave.response || leave.comments) && (
+                                  <span
+                                    className="text-[10px] text-slate-400 truncate max-w-[150px] italic"
+                                    title={leave.response || leave.comments}
+                                  >
+                                    &ldquo;{leave.response || leave.comments}&rdquo;
+                                  </span>
+                                )}
+                              </div>
+                            )
                           )}
                         </div>
                       </td>
-
-                      {/* Admin 1-Click Action Column */}
-                      {portalMode === 'admin' && (
-                        <td className="py-3 px-4 text-right">
-                          {leave.status === 'Pending' ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleOpenApproveModal(leave)}
-                                disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                title="Approve Request"
-                              >
-                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Approve</span>
-                              </button>
-                              <button
-                                onClick={() => handleOpenRejectModal(leave)}
-                                disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-                                title="Reject Request"
-                              >
-                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Reject</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-end">
-                              <span className="text-[11px] font-semibold text-slate-500">
-                                Reviewed ({leave.status})
-                              </span>
-                              {(leave.response || leave.comments) && (
-                                <span
-                                  className="text-[10px] text-slate-400 truncate max-w-[150px] italic"
-                                  title={leave.response || leave.comments}
-                                >
-                                  &ldquo;{leave.response || leave.comments}&rdquo;
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      )}
                     </tr>
                   );
                 })
