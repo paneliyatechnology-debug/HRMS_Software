@@ -234,133 +234,145 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
       {/* Modal: Rate Performance Review */}
       {ratingModalReview && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setRatingModalReview(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                Appraisal Rating: {ratingModalReview.employeeName}
-              </h3>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Star className="w-5 h-5 fill-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Appraisal Rating: {ratingModalReview.employeeName}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Submit performance appraisal evaluation</p>
+                </div>
+              </div>
               <button
                 onClick={() => setRatingModalReview(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleRateSubmit} className="mt-4 space-y-3.5 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-semibold text-slate-700">Submitting Evaluation As:</span>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setRateRole('MANAGER')}
-                    className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
-                      rateRole === 'MANAGER' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'
-                    }`}
-                  >
-                    Manager Feedback
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRateRole('EMPLOYEE')}
-                    className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
-                      rateRole === 'EMPLOYEE' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'
-                    }`}
-                  >
-                    Self Appraisal
-                  </button>
+            <form onSubmit={handleRateSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <span className="font-semibold text-slate-700">Submitting Evaluation As:</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRateRole('MANAGER')}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                        rateRole === 'MANAGER' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      Manager Feedback
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRateRole('EMPLOYEE')}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                        rateRole === 'EMPLOYEE' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      Self Appraisal
+                    </button>
+                  </div>
                 </div>
+
+                {rateRole === 'MANAGER' ? (
+                  <>
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1.5 text-slate-700">
+                        <span>Manager Rating Score (1.0 - 5.0):</span>
+                        <span className="font-bold text-amber-700 text-sm">{managerScore} / 5.0</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={5}
+                        step={0.1}
+                        value={managerScore}
+                        onChange={(e) => setManagerScore(Number(e.target.value))}
+                        className="w-full accent-amber-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">Qualitative Manager Feedback</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Feedback on key deliverables, technical leadership, and team collaboration..."
+                        value={managerFeedback}
+                        onChange={(e) => setManagerFeedback(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">Appraisal & Promotion Recommendation</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Promotion to Lead Software Engineer + 15% merit increment"
+                        value={appraisalReco}
+                        onChange={(e) => setAppraisalReco(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="flex justify-between font-semibold mb-1.5 text-slate-700">
+                        <span>Self-Assessment Score (1.0 - 5.0):</span>
+                        <span className="font-bold text-blue-700 text-sm">{selfScore} / 5.0</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={5}
+                        step={0.1}
+                        value={selfScore}
+                        onChange={(e) => setSelfScore(Number(e.target.value))}
+                        className="w-full accent-blue-600 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">Self-Assessment Remarks</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Summarize your major achievements, sprint milestones, and personal development goals..."
+                        value={selfComments}
+                        onChange={(e) => setSelfComments(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
-              {rateRole === 'MANAGER' ? (
-                <>
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1 text-slate-700">
-                      <span>Manager Rating Score (1.0 - 5.0):</span>
-                      <span className="font-semibold text-amber-700 text-sm">{managerScore} / 5.0</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={5}
-                      step={0.1}
-                      value={managerScore}
-                      onChange={(e) => setManagerScore(Number(e.target.value))}
-                      className="w-full accent-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Qualitative Manager Feedback</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Feedback on key deliverables, technical leadership, and team collaboration..."
-                      value={managerFeedback}
-                      onChange={(e) => setManagerFeedback(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Appraisal & Promotion Recommendation</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Promotion to Lead Software Engineer + 15% merit increment"
-                      value={appraisalReco}
-                      onChange={(e) => setAppraisalReco(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <div className="flex justify-between font-semibold mb-1 text-slate-700">
-                      <span>Self-Assessment Score (1.0 - 5.0):</span>
-                      <span className="font-semibold text-blue-700 text-sm">{selfScore} / 5.0</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={5}
-                      step={0.1}
-                      value={selfScore}
-                      onChange={(e) => setSelfScore(Number(e.target.value))}
-                      className="w-full accent-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Self-Assessment Remarks</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Summarize your major achievements, sprint milestones, and personal development goals..."
-                      value={selfComments}
-                      onChange={(e) => setSelfComments(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setRatingModalReview(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Submit Rating
                 </button>

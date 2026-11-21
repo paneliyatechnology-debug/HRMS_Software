@@ -874,29 +874,43 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmp(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">Remove Employee?</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Staff roster modification</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Remove Employee?</h3>
-                <p className="text-xs text-slate-500">Staff roster modification</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setRemovingEmp(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to remove <strong className="text-slate-900">{removingEmp.firstName} {removingEmp.lastName}</strong> ({removingEmp.employeeCode}) from the company staff roster?
-            </p>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Are you sure you want to remove <strong className="text-slate-900">{removingEmp.firstName} {removingEmp.lastName}</strong> ({removingEmp.employeeCode}) from the company staff roster?
+              </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-remove-emp"
                 type="button"
                 onClick={() => setRemovingEmp(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -905,7 +919,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 type="button"
                 onClick={handleConfirmRemoveEmployee}
                 disabled={removeLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {removeLoading ? 'Removing...' : 'Confirm Remove'}
               </button>
@@ -922,35 +936,35 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmp(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                   <Bell className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                       Send Notice
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
                       Direct Notice
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
                     To: <strong className="text-slate-700">{noticeTargetEmp.firstName} {noticeTargetEmp.lastName}</strong> ({noticeTargetEmp.employeeCode} • {noticeTargetEmp.departmentName || 'Staff'})
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setNoticeTargetEmp(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1003,12 +1017,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-send-notice"
                 type="button"
                 onClick={() => setNoticeTargetEmp(null)}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1017,7 +1031,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 type="button"
                 onClick={handleConfirmSendNotice}
                 disabled={noticeLoading}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{noticeLoading ? 'Sending...' : 'Send Notice'}</span>

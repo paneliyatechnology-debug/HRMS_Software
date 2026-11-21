@@ -1045,61 +1045,66 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setApprovingLeave(null);
           }}
-          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  <Check className="w-4 h-4 stroke-[3]" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Approve Leave Application
-                </h3>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">
+                    Approve Leave Application
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Confirm manager approval
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setApprovingLeave(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                 title="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4 text-xs">
               <p className="text-slate-600 leading-relaxed">
                 Are you sure you want to approve the leave application for{' '}
                 <strong className="text-slate-900">{approvingLeave.employeeName}</strong>?
               </p>
 
               {/* Leave Details Summary Box */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-500">Leave Type:</span>
                   <span className="font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
                     {approvingLeave.leaveType}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-500">Duration:</span>
                   <span className="font-bold text-slate-800">
                     {approvingLeave.startDate} to {approvingLeave.endDate} ({approvingLeave.daysCount} {approvingLeave.daysCount === 1 ? 'day' : 'days'})
                   </span>
                 </div>
                 {approvingLeave.departmentName && (
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-500">Department:</span>
                     <span className="font-medium text-slate-700">{approvingLeave.departmentName}</span>
                   </div>
                 )}
                 {approvingLeave.reason && (
-                  <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
-                    <span className="font-semibold text-slate-500 block mb-0.5">Reason:</span>
-                    <p className="text-slate-700 italic bg-white p-2 rounded-lg border border-slate-100">
+                  <div className="pt-2 border-t border-slate-200/60 text-xs">
+                    <span className="font-semibold text-slate-500 block mb-1">Reason:</span>
+                    <p className="text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-100">
                       &ldquo;{approvingLeave.reason}&rdquo;
                     </p>
                   </div>
@@ -1107,24 +1112,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Approval Remarks (Optional):
                 </label>
                 <input
                   type="text"
                   value={approvalRemarks}
                   onChange={(e) => setApprovalRemarks(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
                   placeholder="e.g. Approved by HR Administration"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setApprovingLeave(null)}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1132,7 +1137,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 type="button"
                 onClick={handleConfirmApprove}
                 disabled={processingId === approvingLeave.id}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-95 transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
               >
                 {processingId === approvingLeave.id ? (
                   <>
@@ -1141,7 +1146,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </>
                 ) : (
                   <>
-                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <Check className="w-4 h-4 stroke-[2.5]" />
                     <span>Confirm Approve</span>
                   </>
                 )}
@@ -1153,62 +1158,73 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
       {/* Rejection Modal Dialog */}
       {rejectingLeave && (
-        <div onClick={(e) => {
-          if (e.target === e.currentTarget) setRejectingLeave(null);
-        }}
-          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRejectingLeave(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-                  <X className="w-4 h-4 stroke-[3]" />
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                  <X className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Reject Leave Application
-                </h3>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">
+                    Reject Leave Application
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Decline employee request
+                  </p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setRejectingLeave(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-2 text-xs">
-              <p className="text-slate-600">
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
                 You are about to reject the leave application for{' '}
                 <strong className="text-slate-900">{rejectingLeave.employeeName}</strong> (
                 {rejectingLeave.leaveType}, {rejectingLeave.daysCount} days).
               </p>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Rejection Remarks (Shared with employee):
                 </label>
                 <textarea
                   rows={3}
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
                   placeholder="Enter detailed reason for rejection..."
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
+                type="button"
                 onClick={() => setRejectingLeave(null)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleConfirmReject}
                 disabled={processingId === rejectingLeave.id}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs active:scale-95"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
               >
                 {processingId === rejectingLeave.id ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
@@ -1220,48 +1236,56 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       {isLeaveTypesModalOpen && (
         <div
           onClick={() => setIsLeaveTypesModalOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default max-h-[90vh] overflow-y-auto space-y-4"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <List className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-900">Manage Leave Types</h3>
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <List className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">Manage Leave Types</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Configure company leave categories
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsLeaveTypesModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Add New Leave Type Form */}
-            <form onSubmit={handleCreateLeaveType} className="flex gap-2">
-              <input
-                type="text"
-                value={newLeaveTypeName}
-                onChange={(e) => setNewLeaveTypeName(e.target.value)}
-                placeholder="Enter leave type name (e.g. Maternity Leave)..."
-                className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                required
-              />
-              <button
-                type="submit"
-                disabled={isSubmittingLeaveType || !newLeaveTypeName.trim()}
-                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add</span>
-              </button>
-            </form>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
+              {/* Add New Leave Type Form */}
+              <form onSubmit={handleCreateLeaveType} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newLeaveTypeName}
+                  onChange={(e) => setNewLeaveTypeName(e.target.value)}
+                  placeholder="Enter leave type name (e.g. Maternity Leave)..."
+                  className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingLeaveType || !newLeaveTypeName.trim()}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add</span>
+                </button>
+              </form>
 
-            {/* Leave Types List */}
-            <div className="space-y-2 pt-2">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Configured Types</h4>
+              {/* Leave Types List */}
+              <div className="space-y-2 pt-1">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Configured Types</h4>
               {leaveTypesLoading ? (
                 <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
@@ -1335,11 +1359,13 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               )}
             </div>
 
-            <div className="pt-2 border-t border-slate-100 flex justify-end">
+            </div>
+
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setIsLeaveTypesModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Close
               </button>

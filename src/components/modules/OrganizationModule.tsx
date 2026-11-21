@@ -1409,90 +1409,92 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           id="add-department-modal"
           onClick={(e) => { if (e.target === e.currentTarget) setAddDeptModalOpen(false); }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
-                  <Building2 className="w-4 h-4" />
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Add New Department</h3>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Add New Department</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Create organizational division</p>
+                </div>
               </div>
-              <button onClick={() => setAddDeptModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => setAddDeptModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCreateDepartment} className="p-6 space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Department Name *</label>
-                  {deptErrors.deptName && (
-                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                      <AlertCircle className="w-3 h-3 shrink-0" />
-                      {deptErrors.deptName}
-                    </span>
-                  )}
-                </div>
-                <input id="input-dept-name" type="text" required value={deptName}
-                  onChange={(e) => {
-                    setDeptName(e.target.value);
-                    if (deptErrors.deptName) {
-                      setDeptErrors((p) => { const c = { ...p }; delete c.deptName; return c; });
-                    }
-                  }}
-                  placeholder="e.g. Artificial Intelligence"
-                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${deptErrors.deptName
-                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                    }`} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateDepartment} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Code *</label>
-                    {deptErrors.deptCode && (
+                    <label className="text-xs font-bold text-slate-700">Department Name *</label>
+                    {deptErrors.deptName && (
                       <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
                         <AlertCircle className="w-3 h-3 shrink-0" />
-                        {deptErrors.deptCode}
+                        {deptErrors.deptName}
                       </span>
                     )}
                   </div>
-                  <input id="input-dept-code" type="text" required value={deptCode}
+                  <input id="input-dept-name" type="text" required value={deptName}
                     onChange={(e) => {
-                      setDeptCode(e.target.value);
-                      if (deptErrors.deptCode) {
-                        setDeptErrors((p) => { const c = { ...p }; delete c.deptCode; return c; });
+                      setDeptName(e.target.value);
+                      if (deptErrors.deptName) {
+                        setDeptErrors((p) => { const c = { ...p }; delete c.deptName; return c; });
                       }
                     }}
-                    placeholder="e.g. AI"
-                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${deptErrors.deptCode
+                    placeholder="e.g. Artificial Intelligence"
+                    className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white focus:outline-none transition ${deptErrors.deptName
                       ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
                       }`} />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700">Code *</label>
+                      {deptErrors.deptCode && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {deptErrors.deptCode}
+                        </span>
+                      )}
+                    </div>
+                    <input id="input-dept-code" type="text" required value={deptCode}
+                      onChange={(e) => {
+                        setDeptCode(e.target.value);
+                        if (deptErrors.deptCode) {
+                          setDeptErrors((p) => { const c = { ...p }; delete c.deptCode; return c; });
+                        }
+                      }}
+                      placeholder="e.g. AI"
+                      className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white focus:outline-none transition ${deptErrors.deptCode
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
+                        }`} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Dept. Head</label>
+                    <input id="input-dept-head" type="text" value={deptHeadName} onChange={(e) => setDeptHeadName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 transition" />
+                  </div>
+                </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Dept. Head</label>
-                  <input id="input-dept-head" type="text" value={deptHeadName} onChange={(e) => setDeptHeadName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 transition" />
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Description</label>
+                  <textarea id="input-dept-desc" rows={2} value={deptDescription} onChange={(e) => setDeptDescription(e.target.value)}
+                    placeholder="Brief summary of department focus..."
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 transition resize-none" />
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Description</label>
-                <textarea id="input-dept-desc" rows={2} value={deptDescription} onChange={(e) => setDeptDescription(e.target.value)}
-                  placeholder="Brief summary of department focus..."
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 transition resize-none" />
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button type="button" onClick={() => setAddDeptModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer">
                   Cancel
                 </button>
                 <button id="btn-submit-add-dept" type="submit" disabled={deptSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm disabled:opacity-50 transition active:scale-95 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50">
                   {deptSubmitting ? 'Creating…' : 'Create Department'}
                 </button>
               </div>
@@ -1508,92 +1510,94 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           id="add-designation-modal"
           onClick={(e) => { if (e.target === e.currentTarget) setAddDesModalOpen(false); }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
-                  <Briefcase className="w-4 h-4" />
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Briefcase className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Add New Designation</h3>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Add New Designation</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Define job role and salary tier</p>
+                </div>
               </div>
-              <button onClick={() => setAddDesModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => setAddDesModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCreateDesignation} className="p-6 space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Designation Title *</label>
-                  {desErrors.desTitle && (
-                    <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                      <AlertCircle className="w-3 h-3 shrink-0" />
-                      {desErrors.desTitle}
-                    </span>
-                  )}
-                </div>
-                <input id="input-des-title" type="text" required value={desTitle}
-                  onChange={(e) => {
-                    setDesTitle(e.target.value);
-                    if (desErrors.desTitle) {
-                      setDesErrors((p) => { const c = { ...p }; delete c.desTitle; return c; });
-                    }
-                  }}
-                  placeholder="e.g. Senior Staff Engineer"
-                  className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${desErrors.desTitle
-                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
-                    }`} />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Department</label>
-                <select id="select-des-dept" value={desDeptId} onChange={(e) => setDesDeptId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 transition">
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateDesignation} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Min Salary (Annual)</label>
-                    {desErrors.desMinSalary && (
+                    <label className="text-xs font-bold text-slate-700">Designation Title *</label>
+                    {desErrors.desTitle && (
                       <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
                         <AlertCircle className="w-3 h-3 shrink-0" />
-                        {desErrors.desMinSalary}
+                        {desErrors.desTitle}
                       </span>
                     )}
                   </div>
-                  <input id="input-des-min-salary" type="number" value={desMinSalary}
+                  <input id="input-des-title" type="text" required value={desTitle}
                     onChange={(e) => {
-                      setDesMinSalary(Number(e.target.value));
-                      if (desErrors.desMinSalary) {
-                        setDesErrors((p) => { const c = { ...p }; delete c.desMinSalary; return c; });
+                      setDesTitle(e.target.value);
+                      if (desErrors.desTitle) {
+                        setDesErrors((p) => { const c = { ...p }; delete c.desTitle; return c; });
                       }
                     }}
-                    className={`w-full px-3 py-2.5 text-xs rounded-xl border bg-slate-50 focus:outline-none transition ${desErrors.desMinSalary
+                    placeholder="e.g. Senior Staff Engineer"
+                    className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white focus:outline-none transition ${desErrors.desTitle
                       ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500'
+                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
                       }`} />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Max Salary (Annual)</label>
-                  <input id="input-des-max-salary" type="number" value={desMaxSalary} onChange={(e) => setDesMaxSalary(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 transition" />
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Department</label>
+                  <select id="select-des-dept" value={desDeptId} onChange={(e) => setDesDeptId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 transition">
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700">Min Salary (Annual)</label>
+                      {desErrors.desMinSalary && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {desErrors.desMinSalary}
+                        </span>
+                      )}
+                    </div>
+                    <input id="input-des-min-salary" type="number" value={desMinSalary}
+                      onChange={(e) => {
+                        setDesMinSalary(Number(e.target.value));
+                        if (desErrors.desMinSalary) {
+                          setDesErrors((p) => { const c = { ...p }; delete c.desMinSalary; return c; });
+                        }
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white focus:outline-none transition ${desErrors.desMinSalary
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
+                        }`} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Max Salary (Annual)</label>
+                    <input id="input-des-max-salary" type="number" value={desMaxSalary} onChange={(e) => setDesMaxSalary(Number(e.target.value))}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 transition" />
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button type="button" onClick={() => setAddDesModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer">
                   Cancel
                 </button>
                 <button id="btn-submit-add-des" type="submit" disabled={desSubmitting}
-                  className="px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm disabled:opacity-50 transition active:scale-95 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}>
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50">
                   {desSubmitting ? 'Saving…' : 'Add Designation'}
                 </button>
               </div>
@@ -1611,29 +1615,23 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !assignSubmitting) setIsAssignEmpModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 max-h-[92vh] flex flex-col"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
             {/* Modal Header */}
-            <div
-              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
-              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
-            >
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-                >
-                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                     Add Employee
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
                     Select department, employee and role
                   </p>
                 </div>
@@ -1641,7 +1639,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAssignEmpModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1764,20 +1762,19 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               })()}
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAssignEmpModalOpen(false)}
                   disabled={assignSubmitting}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={assignSubmitting || !assignEmployeeId || !assignDeptId}
-                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{assignSubmitting ? 'Adding...' : 'Add Employee'}</span>
@@ -1795,32 +1792,26 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !addMemberSubmitting) setIsAddMemberModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div
-              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0"
-              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
-            >
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-                >
-                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <UserPlus className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Add Member to Designation</h3>
-                  <p className="text-[11px] text-slate-500">Assign employees to a specific designation title</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Add Member to Designation</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Assign employees to a specific designation title</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddMemberModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1897,15 +1888,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   type="button"
                   onClick={() => setIsAddMemberModalOpen(false)}
                   disabled={addMemberSubmitting}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={addMemberSubmitting || addMemberUserIds.length === 0}
-                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{addMemberSubmitting ? 'Assigning...' : `Assign Member (${addMemberUserIds.length})`}</span>
@@ -1923,32 +1913,26 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !editMemberSubmitting) setEditingMember(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div
-              className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-              style={{ background: 'linear-gradient(135deg, #f8f9fa, #f8f9fa)' }}
-            >
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-                >
-                  <Edit2 className="w-4 h-4" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Edit2 className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Edit Member Designation</h3>
-                  <p className="text-[11px] text-slate-500">Update designation, department and status</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Edit Member Designation</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Update designation, department and status</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingMember(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2017,20 +2001,19 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingMember(null)}
                   disabled={editMemberSubmitting}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editMemberSubmitting}
-                  className="px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>{editMemberSubmitting ? 'Saving...' : 'Save Changes'}</span>
@@ -2048,32 +2031,43 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !removeMemberSubmitting) setRemovingMember(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <UserMinus className="w-5 h-5 stroke-[2.5]" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <UserMinus className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">Remove Member</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Remove from designation</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Remove Member</h3>
-                <p className="text-[11px] text-slate-500">Remove from designation</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setRemovingMember(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to remove <strong className="text-slate-900">{removingMember.member.fullName}</strong> ({removingMember.member.employeeCode}) from this designation?
-            </p>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Are you sure you want to remove <strong className="text-slate-900">{removingMember.member.fullName}</strong> ({removingMember.member.employeeCode}) from this designation?
+              </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setRemovingMember(null)}
                 disabled={removeMemberSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -2081,7 +2075,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 type="button"
                 onClick={handleConfirmRemoveMember}
                 disabled={removeMemberSubmitting}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {removeMemberSubmitting ? 'Removing...' : 'Confirm Remove'}
               </button>
@@ -2092,28 +2086,37 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
       {/* ── Edit Organization Modal for Admin ── */}
       {isEditCompanyOpen && (
-        <div onClick={(e) => {
-          if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
-        }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto [scrollbar-width:thin] p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-900">Edit Organization Profile</h3>
+            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col cursor-default transition-all my-auto"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Edit Organization Profile</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">Manage legal entity details</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEditCompanyOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCompany} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveCompany} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-3.5 text-xs flex-1 [scrollbar-width:thin]">
               <div>
                 <label className="block font-bold text-slate-800 mb-1">Company Legal Name *</label>
                 <input
@@ -2228,18 +2231,20 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              </div>
+
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEditCompanyOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingCompany}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   {savingCompany ? 'Saving...' : 'Save Organization Profile'}
                 </button>

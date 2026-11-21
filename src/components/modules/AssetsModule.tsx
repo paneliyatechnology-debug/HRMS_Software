@@ -325,21 +325,33 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Register New Asset */}
       {isRegisterOpen && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setIsRegisterOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <HardDrive className="w-5 h-5 text-blue-600" />
-                Register Company Asset
-              </h3>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                  <HardDrive className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Register Company Asset
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Add hardware or equipment to company inventory
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsRegisterOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -424,17 +436,17 @@ export const AssetsModule: React.FC = () => {
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsRegisterOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Register Asset
                 </button>
@@ -446,60 +458,74 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Assign Asset */}
       {assignModalAsset && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setAssignModalAsset(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-blue-600" />
-                Assign Asset to Employee
-              </h3>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                  <UserCheck className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Assign Asset to Employee
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Allocate inventory item to staff member
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setAssignModalAsset(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAssignSubmit} className="mt-4 space-y-4 text-xs">
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                <p className="font-bold text-slate-900">{assignModalAsset.name}</p>
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                  {assignModalAsset.assetCode} • SN: {assignModalAsset.serialNumber}
-                </p>
+            <form onSubmit={handleAssignSubmit} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <p className="font-bold text-slate-900">{assignModalAsset.name}</p>
+                  <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    {assignModalAsset.assetCode} • SN: {assignModalAsset.serialNumber}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Select Employee</label>
+                  <select
+                    value={assignEmployeeId}
+                    onChange={(e) => setAssignEmployeeId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
-                <select
-                  value={assignEmployeeId}
-                  onChange={(e) => setAssignEmployeeId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setAssignModalAsset(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Confirm Allocation
                 </button>
@@ -511,59 +537,73 @@ export const AssetsModule: React.FC = () => {
 
       {/* Modal: Process Return */}
       {returnModalAsset && (
-        <div onClick={(e) => {
+        <div
+          onClick={(e) => {
             if (e.target === e.currentTarget) setReturnModalAsset(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-blue-600" />
-                Process Hardware Return
-              </h3>
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                  <RotateCcw className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Process Hardware Return
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    De-allocate and return to inventory
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setReturnModalAsset(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleReturnSubmit} className="mt-4 space-y-4 text-xs">
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                <p className="font-bold text-slate-900">{returnModalAsset.name}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Assigned to: <span className="font-semibold">{returnModalAsset.assignedToEmployeeName}</span>
-                </p>
+            <form onSubmit={handleReturnSubmit} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <p className="font-bold text-slate-900">{returnModalAsset.name}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Assigned to: <span className="font-semibold text-slate-700">{returnModalAsset.assignedToEmployeeName}</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Return Inspection Condition</label>
+                  <select
+                    value={returnCondition}
+                    onChange={(e) => setReturnCondition(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="Excellent">Excellent (No defects)</option>
+                    <option value="Good">Good (Normal wear)</option>
+                    <option value="Fair">Fair (Scratching / usable)</option>
+                    <option value="Damaged">Damaged (Requires IT servicing)</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Return Inspection Condition</label>
-                <select
-                  value={returnCondition}
-                  onChange={(e) => setReturnCondition(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  <option value="Excellent">Excellent (No defects)</option>
-                  <option value="Good">Good (Normal wear)</option>
-                  <option value="Fair">Fair (Scratching / usable)</option>
-                  <option value="Damaged">Damaged (Requires IT servicing)</option>
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setReturnModalAsset(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Confirm Return to IT
                 </button>

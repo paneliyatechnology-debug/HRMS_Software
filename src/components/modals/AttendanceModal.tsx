@@ -623,15 +623,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onClick={(e) => {
         if (e.target === e.currentTarget) handleModalClose();
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 my-auto"
       >
         <button
           onClick={handleModalClose}
-          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-none hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -640,10 +640,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         {selfieMode !== 'idle' ? (
           <div className="space-y-4 pt-1 animate-in fade-in">
             <div className="text-center pb-1">
-              <div className="w-11 h-11 rounded-none bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
                 <Camera className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
                 {selfieMode === 'check_in' ? 'Clock-In Verification Selfie' : 'Clock-Out Verification Selfie'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -652,7 +652,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             </div>
 
             {/* Camera Viewport or Captured Preview */}
-            <div className="relative w-full aspect-4/3 rounded-none overflow-hidden bg-slate-900 border-2 border-slate-800 shadow-inner flex items-center justify-center">
+            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex items-center justify-center">
               {capturedPhoto ? (
                 <div className="relative w-full h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -661,7 +661,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     alt="Attendance Verification Selfie"
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none bg-emerald-500 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-md">
+                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-md">
                     <Check className="w-3 h-3 stroke-[3]" />
                     <span>PHOTO VERIFIED</span>
                   </div>
@@ -685,7 +685,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Live Status Badge */}
                   {cameraReady && (
-                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-none bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
+                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                       <span>LIVE CAMERA READY</span>
                     </div>
@@ -694,7 +694,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Face outline guide */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed animate-pulse flex items-end justify-center pb-2">
-                      <span className="text-[10px] font-bold text-white/90 bg-black/50 px-2.5 py-0.5 rounded-none">
+                      <span className="text-[10px] font-bold text-white/90 bg-black/50 px-2.5 py-0.5 rounded-full">
                         Align Face Here
                       </span>
                     </div>
@@ -735,7 +735,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={startCamera}
-                          className="px-4 py-2 rounded-none bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
                         >
                           Retry Camera
                         </button>
@@ -759,7 +759,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                               stopCameraStream();
                             }
                           }}
-                          className="px-4 py-2 rounded-none bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition cursor-pointer"
                         >
                           Use Digital ID Verification
                         </button>
@@ -777,7 +777,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   type="button"
                   onClick={handleCaptureSelfie}
                   disabled={!cameraReady || cameraStarting || Boolean(cameraError)}
-                  className="w-full py-3.5 rounded-none bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!cameraReady ? (
                     <>
@@ -787,7 +787,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Camera className="w-4 h-4" />
-                      <span>Take Live Selfie & Punch Attendance</span>
+                      <span>Take Live Selfie &amp; Punch Attendance</span>
                     </>
                   )}
                 </button>
@@ -797,7 +797,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={handleRetakeSelfie}
                     disabled={loading}
-                    className="py-2.5 px-3 rounded-none border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Retake Selfie</span>
@@ -806,7 +806,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={handleConfirmPunch}
                     disabled={loading}
-                    className="py-2.5 px-3 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer disabled:opacity-50"
+                    className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -831,7 +831,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   setSelfieMode('idle');
                   setCapturedPhoto(null);
                 }}
-                className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Back to Punch Clock
               </button>
@@ -841,12 +841,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           /* ---------------- VIEW B: MAIN PUNCH CLOCK SCREEN ---------------- */
           <>
             <div className="text-center pt-1 pb-3">
-              <div className="w-12 h-12 rounded-none bg-slate-100 text-slate-900 mx-auto flex items-center justify-center mb-2.5">
-                <Clock className="w-6 h-6 text-slate-700" />
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2.5">
+                <Clock className="w-5 h-5 text-indigo-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Shift timing & attendance tracking
+                Shift timing &amp; attendance tracking
               </p>
             </div>
 
@@ -971,14 +971,14 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Work from office - morning shift"
-                      className="w-full px-3 py-2 text-xs rounded-none border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
                     />
                   </div>
 
                   <button
                     onClick={handleInitiateCheckIn}
                     disabled={loading}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>
@@ -993,7 +993,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   <button
                     onClick={handleTakeBreak}
                     disabled={loading}
-                    className="py-3 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                    className="py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                   >
                     <Coffee className="w-4 h-4 shrink-0" />
                     <span className="truncate">{loading ? 'Starting Break...' : 'Take Break'}</span>
@@ -1001,7 +1001,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   <button
                     onClick={handleInitiateCheckOut}
                     disabled={loading}
-                    className="py-3 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     <Square className="w-3.5 h-3.5 fill-current shrink-0" />
                     <span className="truncate">{loading ? 'Clocking Out...' : 'Clock Out'}</span>
@@ -1015,7 +1015,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <button
                       onClick={handleResumeWork}
                       disabled={loading}
-                      className="py-3 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
+                      className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-xs active:scale-95"
                     >
                       <Play className="w-4 h-4 fill-current shrink-0" />
                       <span className="truncate">{loading ? 'Resuming...' : 'Resume Work'}</span>
@@ -1024,13 +1024,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       type="button"
                       disabled={true}
                       title="Clock out is blocked while on break. Please click 'Resume Work' first."
-                      className="py-3 px-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
+                      className="py-2.5 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">Clock Out (Blocked)</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-amber-800 font-medium bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-200 flex items-center justify-center gap-1.5">
+                  <p className="text-[11px] text-amber-800 font-medium bg-amber-50 py-1.5 px-3 rounded-xl border border-amber-200 flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>Clock-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.</span>
                   </p>
@@ -1057,14 +1057,14 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Post-break / afternoon session clock-in"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
                     />
                   </div>
 
                   <button
                     onClick={handleInitiateCheckIn}
                     disabled={loading}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all cursor-pointer shadow-xs disabled:opacity-40"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>{loading ? 'Clocking In...' : 'Clock In Again'}</span>
@@ -1074,7 +1074,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
               <button
                 onClick={handleModalClose}
-                className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Close
               </button>

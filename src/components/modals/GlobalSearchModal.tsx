@@ -75,15 +75,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer"
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-modal-zoom"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all max-h-[85vh] flex flex-col"
       >
         {/* Search Input Bar */}
-        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-          <Search className="w-5 h-5 text-[#343a40] shrink-0" />
+        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-white shrink-0">
+          <Search className="w-5 h-5 text-indigo-600 shrink-0" />
           <input
             type="text"
             autoFocus
@@ -177,7 +177,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         </div>
                       )}
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-[#343a40] transition-colors">
+                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                           {emp.firstName} {emp.lastName}
                         </p>
                         <p className="text-[11px] text-slate-400">
@@ -198,7 +198,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
           <span>Search staff by name, code, department or role</span>
           <span>Paneliya HRMS</span>
         </div>

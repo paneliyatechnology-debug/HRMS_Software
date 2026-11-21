@@ -171,31 +171,33 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
       aria-modal="true"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto animate-in zoom-in-95 duration-200">
-        {/* Top Header Banner */}
-        <div className="bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] px-6 py-5 text-white relative">
+      <div className="relative w-full max-w-xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+        {/* Top Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">Book a Personalized Demo</h2>
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                See how MyOwn HRMS automates attendance &amp; payroll
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleReset}
-            className="absolute top-4 right-4 p-2 rounded-xl text-emerald-100 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
-
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-[#d8f3dc] text-[11px] font-bold border border-emerald-400/20 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#d8f3dc]" />
-            <span>Interactive 1-on-1 Walkthrough</span>
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight">Book a Personalized Demo</h2>
-          <p className="text-xs sm:text-sm text-emerald-100/90 mt-1 max-w-md font-medium">
-            See how MyOwn HRMS automates your attendance, payroll, and workforce in a 20-minute tailored session.
-          </p>
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 max-h-[78vh] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className="p-5 sm:p-6 flex-1 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
           {successData ? (
             /* ══════════════════════════════════════════════════════════════
                SUCCESS CONFIRMATION SCREEN
@@ -251,7 +253,7 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                 >
                   Close &amp; Return to Home
                 </button>
@@ -432,16 +434,16 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 rounded-xl bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] hover:from-[#2d6a4f] hover:to-[#1b4332] text-white font-bold text-xs shadow-md hover:shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-[#d8f3dc]" />
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-100" />
                       <span>Reserving Your Demo Slot...</span>
                     </>
                   ) : (
                     <>
-                      <CalendarDays className="w-4 h-4 text-[#d8f3dc]" />
+                      <CalendarDays className="w-4 h-4 text-emerald-100" />
                       <span>Confirm &amp; Schedule Live Demo</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>

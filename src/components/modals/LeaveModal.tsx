@@ -299,27 +299,27 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default animate-modal-zoom max-h-[92vh] overflow-y-auto"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default animate-in fade-in zoom-in-95 my-auto max-h-[90vh] overflow-y-auto"
       >
         <button
           onClick={onClose}
-          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100 pr-8">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-bold text-slate-900">Apply for Leave</h3>
-            <p className="text-xs text-slate-500">
-              Submit your request for manager & HR review
+            <p className="text-xs text-slate-500 mt-0.5">
+              Submit your request for manager &amp; HR review
             </p>
           </div>
         </div>
@@ -593,11 +593,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
             />
           </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -605,7 +605,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               id="btn-submit-leave"
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               {loading
                 ? 'Submitting...'

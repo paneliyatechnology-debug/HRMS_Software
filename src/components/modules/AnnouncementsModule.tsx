@@ -327,41 +327,42 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setModalOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                   <Megaphone className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                       Send New Notice
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
                       Official
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
                     Broadcast corporate circular or target specific employee
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handlePublishNotice} className="mt-4 space-y-4 text-xs">
+            <form onSubmit={handlePublishNotice} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
               {/* Audience selection */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1.5 text-xs">
@@ -464,12 +465,14 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                 />
               </div>
 
+              </div>
+
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -477,7 +480,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   id="btn-publish-bulletin"
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{submitting ? 'Publishing Notice...' : 'Send Notice'}</span>

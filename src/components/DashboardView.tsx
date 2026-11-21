@@ -1279,29 +1279,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCheckOutModalOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Square className="w-5 h-5 fill-current" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Square className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Clock Out for Today?</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Attendance shift finalization</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Clock Out for Today?</h3>
-                <p className="text-xs text-slate-500">Attendance shift finalization</p>
-              </div>
+              <button
+                onClick={() => setCheckOutModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="p-4 sm:p-6 overflow-y-auto text-xs sm:text-sm text-slate-600 leading-relaxed flex-1">
               Once clocked out, today’s work shift is locked and finalized. You will not be able to punch in again until tomorrow.
-            </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-checkout"
                 type="button"
                 onClick={() => setCheckOutModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1310,7 +1321,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={executeCheckOut}
                 disabled={actionLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? 'Finalizing...' : 'Confirm Clock Out'}
               </button>
@@ -1327,47 +1338,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setApproveModalData(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  <Check className="w-4 h-4 stroke-[3]" />
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Approve Leave Application
-                </h3>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Approve Leave Application</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{approveModalData.empName}</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setApproveModalData(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                title="Close"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
               <p className="text-slate-600 leading-relaxed">
                 Are you sure you want to approve the leave application for{' '}
                 <strong className="text-slate-900 font-semibold">{approveModalData.empName}</strong>?
               </p>
 
               {/* Leave Details Box */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-500">Leave Type:</span>
-                  <span className="font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  <span className="font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-md">
                     {approveModalData.leaveType}
                   </span>
                 </div>
                 {approveModalData.startDate && (
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-500">Duration:</span>
                     <span className="font-bold text-slate-800">
                       {approveModalData.startDate} {approveModalData.endDate && approveModalData.endDate !== approveModalData.startDate ? `to ${approveModalData.endDate}` : ''} ({approveModalData.daysCount || 1}d)
@@ -1375,9 +1386,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 )}
                 {approveModalData.reason && (
-                  <div className="pt-1.5 border-t border-slate-200/60 text-[11px]">
-                    <span className="font-semibold text-slate-500 block mb-0.5">Reason:</span>
-                    <p className="text-slate-700 italic bg-white p-2 rounded-lg border border-slate-100">
+                  <div className="pt-2 border-t border-slate-200/60 text-xs">
+                    <span className="font-semibold text-slate-500 block mb-1">Reason:</span>
+                    <p className="text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-100">
                       &ldquo;{approveModalData.reason}&rdquo;
                     </p>
                   </div>
@@ -1385,12 +1396,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-approve-leave"
                 type="button"
                 onClick={() => setApproveModalData(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1399,7 +1410,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={executeApproveLeave}
                 disabled={processingLeaveId === approveModalData.id}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
                 {processingLeaveId === approveModalData.id ? (
                   <>
@@ -1408,7 +1419,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </>
                 ) : (
                   <>
-                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <Check className="w-4 h-4 stroke-[2.5]" />
                     <span>Confirm Approve</span>
                   </>
                 )}
@@ -1426,41 +1437,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRejectModalData(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">
-                Reject Leave Request ({rejectModalData.empName})
-              </h3>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <X className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Reject Leave Request</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{rejectModalData.empName}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setRejectModalData(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Rejection Reason (Shared with Employee)
-              </label>
-              <textarea
-                id="reject-reason-input"
-                rows={3}
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Enter rejection reason..."
-                className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-              />
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  Rejection Reason (Shared with Employee) *
+                </label>
+                <textarea
+                  id="reject-reason-input"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-reject-leave"
                 type="button"
                 onClick={() => setRejectModalData(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1469,7 +1491,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={executeRejectLeave}
                 disabled={processingLeaveId === rejectModalData.id}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {processingLeaveId === rejectModalData.id ? 'Saving...' : 'Confirm Reject'}
               </button>
@@ -1486,29 +1508,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmpDashboard(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Remove Employee?</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Staff roster modification</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Remove Employee?</h3>
-                <p className="text-xs text-slate-500">Staff roster modification</p>
-              </div>
+              <button
+                onClick={() => setRemovingEmpDashboard(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="p-4 sm:p-6 overflow-y-auto text-xs sm:text-sm text-slate-600 leading-relaxed flex-1">
               Are you sure you want to remove <strong className="text-slate-900">{removingEmpDashboard.firstName} {removingEmpDashboard.lastName}</strong> ({removingEmpDashboard.employeeCode}) from the staff roster?
-            </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-dash-remove-emp"
                 type="button"
                 onClick={() => setRemovingEmpDashboard(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1517,7 +1550,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={handleConfirmRemoveEmpDashboard}
                 disabled={removeEmpLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {removeEmpLoading ? 'Removing...' : 'Confirm Remove'}
               </button>
@@ -1534,43 +1567,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmpDashboard(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs shrink-0">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                   <Bell className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                       Send Notice
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
                       Direct Notice
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">
                     To: <strong className="text-slate-700">{noticeTargetEmpDashboard.firstName} {noticeTargetEmpDashboard.lastName}</strong> ({noticeTargetEmpDashboard.employeeCode} • {noticeTargetEmpDashboard.departmentName || 'Staff'})
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setNoticeTargetEmpDashboard(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-4 text-xs">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
               <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                   Notice Subject / Title *
                 </label>
                 <input
@@ -1579,19 +1612,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   value={dashNoticeTitle}
                   onChange={(e) => setDashNoticeTitle(e.target.value)}
                   placeholder="e.g. Schedule Update, Urgent Task, HR Note..."
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                   Urgency / Priority Level
                 </label>
                 <select
                   id="select-dash-notice-priority"
                   value={dashNoticePriority}
                   onChange={(e) => setDashNoticePriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium cursor-pointer"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="Low">Low Priority (General Notice)</option>
                   <option value="Medium">Medium Priority (Standard Notice)</option>
@@ -1601,7 +1634,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                   Notice Content *
                 </label>
                 <textarea
@@ -1610,17 +1643,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   value={dashNoticeContent}
                   onChange={(e) => setDashNoticeContent(e.target.value)}
                   placeholder="Type the message for the employee..."
-                  className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium placeholder:text-slate-400 resize-none leading-relaxed"
+                  className="w-full p-3.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none leading-relaxed"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-dash-send-notice"
                 type="button"
                 onClick={() => setNoticeTargetEmpDashboard(null)}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1629,9 +1662,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="button"
                 onClick={handleConfirmSendNoticeDashboard}
                 disabled={dashNoticeLoading}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-[#2d6a4f] hover:bg-[#1b4332] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
                 <span>{dashNoticeLoading ? 'Sending...' : 'Send Notice'}</span>
               </button>
             </div>
