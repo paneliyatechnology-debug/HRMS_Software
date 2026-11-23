@@ -371,7 +371,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         </div>
 
-        {/* Visual Punch Timeline */}
+        {/* Visual Punch Logs - Clean Chronological List View */}
         {displayList.length === 0 ? (
           <div className="py-6 text-center space-y-1.5">
             <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center mx-auto">
@@ -383,38 +383,83 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+            {/* Desktop / Tablet List Table */}
+            <div className="hidden sm:block overflow-x-auto w-full">
+              <table className="w-full text-left text-xs min-w-[560px]">
+                <thead className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 px-3.5 w-12 text-center">#</th>
+                    <th className="py-2.5 px-3.5">Action</th>
+                    <th className="py-2.5 px-3.5">Punch Time</th>
+                    <th className="py-2.5 px-3.5">Date</th>
+                    <th className="py-2.5 px-3.5">Activity Description</th>
+                    <th className="py-2.5 px-3.5 text-right">Audit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {displayList.map((p: any, idx: number) => {
+                    const badge = getPunchTypeBadge(p.type);
+                    const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
+                    const iso = p.punchedAt || p.time;
+                    const fullDateStr = iso && typeof iso === 'string' && iso.includes('T')
+                      ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : (titleDate || 'Today');
+                    const desc = badge.title || (p.type === 'IN' ? 'Clock In / Work Started' : p.type === 'OUT' ? 'Clock Out / Work Ended' : p.type === 'BREAK' ? 'Break Interval Started' : 'Active Work Resumed');
+
+                    return (
+                      <tr key={p.id || `punch-list-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-400">
+                          #{idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${badge.color}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 text-xs">
+                          {timeStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-500 font-mono text-[11px]">
+                          {fullDateStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-700 text-xs">
+                          {desc}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            Logged
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Vertical List View */}
+            <div className="sm:hidden divide-y divide-slate-100">
               {displayList.map((p: any, idx: number) => {
                 const badge = getPunchTypeBadge(p.type);
                 const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
-                const iso = p.punchedAt || p.time;
-                const fullDateStr = iso && typeof iso === 'string' && iso.includes('T')
-                  ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-                  : '';
+                const desc = badge.title || (p.type === 'IN' ? 'Clock In' : p.type === 'OUT' ? 'Clock Out' : p.type === 'BREAK' ? 'Break' : 'Resumed');
+
                 return (
-                  <div
-                    key={p.id || `punch-card-${idx}`}
-                    className="relative bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition-all flex items-start gap-2.5"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center font-mono font-bold text-xs text-slate-600 shrink-0 mt-0.5">
-                      #{idx + 1}
+                  <div key={p.id || `punch-m-list-${idx}`} className="py-2.5 px-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-bold text-slate-400 text-xs shrink-0">#{idx + 1}</span>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${badge.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                        {badge.label}
+                      </span>
+                      <span className="text-xs text-slate-800 font-medium truncate">{desc}</span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${badge.color}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
-                          {badge.label}
-                        </span>
-                        <span className="font-mono font-bold text-xs text-slate-900">
-                          {timeStr}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400 mt-1">
-                        <span className="truncate">{badge.title || (p.type === 'IN' ? 'Check In' : p.type === 'OUT' ? 'Check Out' : p.type === 'BREAK' ? 'Break' : 'Activity')}</span>
-                        {fullDateStr && <span className="font-mono shrink-0">{fullDateStr}</span>}
-                      </div>
-                    </div>
+                    <span className="font-mono font-bold text-xs text-slate-900 shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                      {timeStr}
+                    </span>
                   </div>
                 );
               })}
