@@ -22,7 +22,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { Employee, Department, Designation } from '../../types/hrms';
+import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -78,6 +78,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     email: '',
     phone: '',
     gender: 'Male' as const,
+    role: 'EMPLOYEE' as Role,
     address: '',
     avatarUrl: '',
   });
@@ -258,6 +259,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
         gender: formData.gender,
+        role: formData.role || 'EMPLOYEE',
         address: formData.address.trim(),
         ...(formData.avatarUrl ? { avatarUrl: formData.avatarUrl } : {}),
         salary: {
@@ -677,6 +679,27 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     <option value="Other">Other</option>
                   </select>
                 </div>
+              </div>
+
+              {/* System Access Role */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  System Access Role
+                </label>
+                <select
+                  id="select-employee-role"
+                  value={formData.role}
+                  onChange={(e) => updateField('role', e.target.value as Role)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="EMPLOYEE">Employee (Standard Staff)</option>
+                  <option value="MANAGER">Manager (Team Oversight &amp; Approvals)</option>
+                  <option value="HR">HR (Human Resources)</option>
+                  <option value="ADMIN">Admin (Workspace Administrator)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Determines modules, approval permissions, and system access level.
+                </p>
               </div>
 
               {/* Residential Address */}

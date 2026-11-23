@@ -1400,6 +1400,59 @@ async function sendGroupChat(groupId: string, payload: { text: string }) {
   }
 }
 
+async function getResignations() {
+  try {
+    const res = await http.get('/resignations');
+    const rows = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+    return rows.filter((row: any) => row && row.id);
+  } catch (error) {
+    const data = axios.isAxiosError(error) ? error.response?.data : undefined;
+    const message = data && typeof data === 'object' ? data.message : undefined;
+    const text = Array.isArray(message) ? message.join(' ') : message || (axios.isAxiosError(error) ? error.message : '');
+    throw new Error(text || 'Failed to load resignations.');
+  }
+}
+
+async function submitResignation(payload: { employeeId?: string; reason: string; noticePeriodDays?: number }) {
+  try {
+    const res = await http.post('/resignations', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not file resignation.');
+  }
+}
+
+async function assignResignationNotice(id: string, noticePeriodDays: number) {
+  try {
+    const res = await http.patch(`/resignations/${id}/notice`, { noticePeriodDays }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not assign notice period.');
+  }
+}
+
+async function approveResignation(id: string, actorName?: string) {
+  try {
+    const res = await http.post(`/resignations/${id}/approve`, { actorName }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not approve resignation.');
+  }
+}
+
+async function updateResignationClearance(id: string, payload: { clearance: Record<string, boolean>; actorName?: string }) {
+  try {
+    const res = await http.patch(`/resignations/${id}/clearance`, payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not update clearance.');
+  }
+}
+
 async function createAnnouncement(payload: {
   title: string;
   content: string;
@@ -2585,6 +2638,11 @@ export const api = new Proxy({
   listGroupChat,
   sendGroupChat,
   listDirectChats,
+  getResignations,
+  submitResignation,
+  assignResignationNotice,
+  approveResignation,
+  updateResignationClearance,
   createAnnouncement,
   getAnnouncements,
   deleteAnnouncement,

@@ -548,6 +548,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const role = String(user.role).trim().toUpperCase();
     if (['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN'].includes(role)) return true;
 
+    if (role === 'MANAGER') {
+      if (action === 'APPROVE_LEAVES') return true;
+      if (action === 'VIEW_TEAM_REPORTS') return true;
+      if (action === 'MANAGE_TASKS') return true;
+    }
+
     switch (action) {
       case 'MANAGE_EMPLOYEES':
       case 'PROCESS_PAYROLL':

@@ -53,6 +53,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   }, []);
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedRole, setSelectedRole] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
@@ -164,6 +165,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
     const dept = (emp.departmentName || '').toLowerCase();
     const desig = (emp.designationTitle || '').toLowerCase();
     const phone = (emp.phone || '').toLowerCase();
+    const role = (emp.role || '').toLowerCase();
 
     const matchesSearch =
       !query ||
@@ -172,7 +174,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       code.includes(query) ||
       dept.includes(query) ||
       desig.includes(query) ||
-      phone.includes(query);
+      phone.includes(query) ||
+      role.includes(query);
 
     let matchesStatus = true;
     if (selectedStatus === 'Active') {
@@ -183,7 +186,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
       matchesStatus = true;
     }
 
-    return matchesSearch && matchesStatus;
+    let matchesRole = true;
+    if (selectedRole !== 'All') {
+      matchesRole = (emp.role || 'EMPLOYEE').toUpperCase() === selectedRole.toUpperCase();
+    }
+
+    return matchesSearch && matchesStatus && matchesRole;
   });
 
   const toggleSelectAll = () => {
@@ -395,6 +403,22 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               <option value="All">All Statuses</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Role filter dropdown */}
+          <div className="relative">
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="appearance-none pl-3 pr-7 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 focus:outline-none cursor-pointer shadow-2xs"
+            >
+              <option value="All">All Roles</option>
+              <option value="ADMIN">Admin</option>
+              <option value="HR">HR</option>
+              <option value="MANAGER">Manager</option>
+              <option value="EMPLOYEE">Employee</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>

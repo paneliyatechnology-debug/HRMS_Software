@@ -7,6 +7,7 @@ import {
   Crown,
   Users,
   User,
+  Briefcase,
   Check,
   AlertCircle,
   Loader2,
@@ -69,6 +70,8 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
         return <Shield className={className} />;
       case 'Users':
         return <Users className={className} />;
+      case 'Briefcase':
+        return <Briefcase className={className} />;
       default:
         return <User className={className} />;
     }
@@ -191,7 +194,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {ASSIGNABLE_ROLE_DEFINITIONS.map((def) => {
                 const isSelected = selectedRole === def.role;
                 const isCurrent = (employee.role || 'EMPLOYEE') === def.role;

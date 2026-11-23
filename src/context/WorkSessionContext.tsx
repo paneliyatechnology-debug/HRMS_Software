@@ -41,6 +41,7 @@ export interface WorkSessionContextType {
   serverTime: string | null;
   actionLoading: boolean;
   initialLoading: boolean;
+  punchBlockMessage: string | null;
   checkIn: (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }) => Promise<boolean>;
   takeBreak: () => Promise<boolean>;
   resumeWork: () => Promise<boolean>;
@@ -68,6 +69,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const [actionLoading, setActionLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [punchBlockMessage, setPunchBlockMessage] = useState<string | null>(null);
 
   // Precision anchor refs so timers never drift or jump during re-renders or backgrounding
   const statusRef = useRef<WorkPunchStatus>('not_started');
@@ -76,6 +78,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const anchorTimeRef = useRef<number>(Date.now());
   const clockRef = useRef<any>(null);
   const isFetchingRef = useRef<boolean>(false);
+  const punchBlockRef = useRef<string | null>(null);
 
   const publishClock = (clock: any, nowMs: number = Date.now()) => {
     const live = computeShiftClock(clock, nowMs);
@@ -98,6 +101,9 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const applyAttendanceLogic = (data: any) => {
     const logic = data?.logic;
     if (!logic) return;
+    const reason = logic.blocked ? String(logic.blockedReason || 'Clock in is not allowed today.') : null;
+    punchBlockRef.current = reason;
+    setPunchBlockMessage(reason);
     const punches = Array.isArray(data.punches) ? data.punches : [];
     const attendance = data.attendance;
     const onBreak = Boolean(logic.onBreak || logic.next === 'break-end');
@@ -156,6 +162,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     isFetchingRef.current = true;
     try {
       const data: any = await api.getWorkStatus();
+      if (data?.logic) {
+        applyAttendanceLogic(data);
+        return;
+      }
+      punchBlockRef.current = null;
+      setPunchBlockMessage(null);
       if (!data) {
         const logic = await api.getAttendanceLogic();
         applyAttendanceLogic(logic);
@@ -434,9 +446,17 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const checkIn = useCallback(async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
     setActionLoading(true);
     try {
+      if (punchBlockRef.current) {
+        showToast({
+          title: 'Clock closed',
+          message: punchBlockRef.current,
+          type: 'warning',
+        });
+        return false;
+      }
       const res = await api.clockIn({
         workMode: options?.workMode || 'Office',
-        note: options?.note ?? '',
+        note: options?.note ?? 'Work shift start',
       });
 
       const isClockOutAction = res?.action === 'clock-out';
@@ -704,6 +724,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         serverTime,
         actionLoading,
         initialLoading,
+        punchBlockMessage,
         checkIn,
         takeBreak,
         resumeWork,
