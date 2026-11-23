@@ -1055,9 +1055,9 @@ async function getApiRoot() {
    ========================================================================== */
 
 // 42. POST /departments (Create department)
-async function createDepartment(payload: { name: string }) {
+async function createDepartment(payload: { name: string; [key: string]: any }) {
   try {
-    const res = await http.post('/departments', payload, {
+    const res = await http.post('/departments', { name: payload.name?.trim() }, {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/departments');
@@ -1071,7 +1071,26 @@ async function createDepartment(payload: { name: string }) {
 // 43. GET /departments (List departments)
 async function listDepartments() {
   try {
-    return await deduplicatedGet('/departments');
+    const res = await deduplicatedGet('/departments');
+    const raw = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.departments)
+      ? res.departments
+      : Array.isArray(res?.items)
+      ? res.items
+      : [];
+    return raw.map((d: any) => ({
+      ...d,
+      id: d.id || d._id,
+      name: d.name || 'Unnamed Department',
+      code: d.code || (d.name ? d.name.slice(0, 3).toUpperCase() : 'DEP'),
+      employeeCount: typeof d.employeeCount === 'number' ? d.employeeCount : (d._count?.employees || d.employees?.length || 0),
+      headName: d.headName || d.head?.name || '',
+      description: d.description || '',
+      createdAt: d.createdAt || new Date().toISOString(),
+    }));
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list departments.');
@@ -1079,9 +1098,9 @@ async function listDepartments() {
 }
 
 // 44. PATCH /departments/:departmentId (Edit department)
-async function editDepartment(departmentId: string, payload: { name: string }) {
+async function editDepartment(departmentId: string, payload: { name: string; [key: string]: any }) {
   try {
-    const res = await http.patch(`/departments/${departmentId}`, payload, {
+    const res = await http.patch(`/departments/${departmentId}`, { name: payload.name?.trim() }, {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/departments');

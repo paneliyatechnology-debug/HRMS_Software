@@ -218,10 +218,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     let isActive = activeModule === id;
     if (id === 'organization') {
-      if (subTab === 'departments') {
-        isActive = activeModule === 'organization' && activeSubTab === 'departments';
+      if (subTab) {
+        isActive = activeModule === 'organization' && activeSubTab === subTab;
       } else {
-        isActive = activeModule === 'organization' && activeSubTab !== 'departments';
+        isActive = activeModule === 'organization';
       }
     }
 
