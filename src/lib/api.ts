@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getApiBaseUrl } from './config';
 import { getCookie, setCookie } from './cookies';
-import { LeaveRequest, AttendanceRecord } from '../types/hrms';
+import { LeaveRequest, AttendanceRecord, LeaveDayBreakdown, LeaveDaySession } from '../types/hrms';
 
 export const http = axios.create({
   withCredentials: true,
@@ -87,14 +87,19 @@ http.interceptors.request.use((config) => {
     return config;
   }
 
-  const contentType = (config.headers && typeof (config.headers as any).get === 'function')
-    ? (config.headers as any).get('Content-Type')
-    : (config.headers as any)?.['Content-Type'];
+  const getHeader = (name: string): string | undefined => {
+    if (!config.headers) return undefined;
+    if (typeof (config.headers as any).get === 'function') {
+      return (config.headers as any).get(name) || (config.headers as any).get(name.toLowerCase());
+    }
+    return (config.headers as any)[name] || (config.headers as any)[name.toLowerCase()];
+  };
 
-  const isExplicitJson = typeof contentType === 'string' && contentType.includes('application/json');
+  const contentType = getHeader('Content-Type');
+  const isExplicitJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
 
   const data = config.data;
-  if (!isExplicitJson && data && typeof data === 'object') {
+  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
     const form = new FormData();
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (value == null || value === '') continue;
@@ -300,9 +305,36 @@ async function refreshToken() {
   }
 }
 
+function isEmployeeSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const portalMode = getCookie('hrms_portal_mode');
+    if (portalMode === 'employee') return true;
+    const currentRole = getCookie('hrms_current_role');
+    if (currentRole && currentRole.toUpperCase() === 'EMPLOYEE') return true;
+    const userCookie = getCookie('hrms_auth_user');
+    if (userCookie) {
+      const parsed = JSON.parse(userCookie);
+      if (parsed?.role && parsed.role.toUpperCase() === 'EMPLOYEE') return true;
+    }
+    const token = getCookie('hrms_auth_token') || getCookie('bearerToken') || getCookie('accessToken');
+    if (token && token.includes('.')) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload?.role && payload.role.toUpperCase() === 'EMPLOYEE') return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
 // 8. GET /users (List users - Admin)
 async function listUsers(params?: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
   try {
+    if (isEmployeeSession()) {
+      return { data: [], users: [], total: 0 };
+    }
     return await deduplicatedGet('/users', { params });
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -313,20 +345,6 @@ async function listUsers(params?: { page?: number; limit?: number; search?: stri
 // 9. GET /users/profile (My profile)
 async function getProfile() {
   try {
-    if (typeof window !== 'undefined') {
-      try {
-        const token = getCookie('accessToken') || getCookie('hrms_auth_token') || getCookie('bearerToken') || '';
-        const res = await axios.get('/api/users/profile', {
-          withCredentials: true,
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.data && res.data.user) {
-          return res.data;
-        }
-      } catch (_) {
-        // Fallback to proxy deduplicated GET
-      }
-    }
     return await deduplicatedGet('/users/profile');
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -817,19 +835,34 @@ async function correctAttendance(attendanceId: string, data: {
 function backendLeaveTypeToFrontend(lt: any) {
   if (!lt) return lt;
   return {
-    id: lt.id || `lt-${Date.now()}`,
-    name: lt.name || '',
+    id: lt.id || lt._id || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: lt.name || lt.title || lt.leaveType || '',
     companyId: lt.companyId || '',
     createdAt: lt.createdAt || '',
+    daysAllowed: lt.daysAllowed !== undefined ? Number(lt.daysAllowed) : (lt.quota !== undefined ? Number(lt.quota) : (lt.days !== undefined ? Number(lt.days) : 0)),
+    code: lt.code || '',
+    color: lt.color || '',
+    isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
   };
 }
 
-// 31. POST /leave-types (Create leave type)
-async function createLeaveType(data: { name: string }) {
+// 31. POST /leave-types (Create leave type - Admin/HR only)
+async function createLeaveType(dataOrName: { name: string } | string) {
+  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
   try {
-    const response = await http.post('/leave-types', { name: data.name }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await http.post(
+      '/leave-types',
+      { name: name.trim() },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
     clearApiCache('/leave-types');
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
@@ -839,29 +872,76 @@ async function createLeaveType(data: { name: string }) {
   }
 }
 
-// 32. GET /leave-types (List leave types)
-async function listLeaveTypes() {
+// 32. GET /leave-types (List leave types - Admin/HR/Employee)
+async function listLeaveTypes(params?: { companyId?: string }) {
   try {
-    const data = await deduplicatedGet('/leave-types');
+    let data: any;
+    if (params?.companyId) {
+      try {
+        data = await deduplicatedGet('/leave-types', { params: { companyId: params.companyId } });
+      } catch (_) {}
+    }
+    if (!data || (Array.isArray(data) && data.length === 0) || (data?.data && Array.isArray(data.data) && data.data.length === 0)) {
+      try {
+        const fallbackData = await deduplicatedGet('/leave-types');
+        if (
+          fallbackData &&
+          ((Array.isArray(fallbackData) && fallbackData.length > 0) ||
+            (Array.isArray(fallbackData?.data) && fallbackData.data.length > 0) ||
+            (Array.isArray(fallbackData?.leaveTypes) && fallbackData.leaveTypes.length > 0))
+        ) {
+          data = fallbackData;
+        } else if (!data) {
+          data = fallbackData;
+        }
+      } catch (_) {}
+    }
     const rawList = Array.isArray(data)
       ? data
       : Array.isArray(data?.leaveTypes)
       ? data.leaveTypes
       : Array.isArray(data?.data)
       ? data.data
+      : Array.isArray(data?.items)
+      ? data.items
       : [];
     return rawList.map(backendLeaveTypeToFrontend);
-  } catch {
+  } catch (error) {
+    console.error('Failed to list leave types:', error);
     return [];
   }
 }
 
-// 33. PATCH /leave-types/:leaveTypeId (Edit leave type)
-async function updateLeaveType(leaveTypeId: string, data: { name: string }) {
+// 33. PATCH / PUT /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
+async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string } | string) {
+  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
   try {
-    const response = await http.patch(`/leave-types/${leaveTypeId}`, { name: data.name }, {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    let response;
+    try {
+      response = await http.patch(
+        `/leave-types/${leaveTypeId}`,
+        { name: name.trim() },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (patchErr: any) {
+      if (patchErr?.response?.status === 404 || patchErr?.response?.status === 405) {
+        response = await http.put(
+          `/leave-types/${leaveTypeId}`,
+          { name: name.trim() },
+          {
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      } else {
+        throw patchErr;
+      }
+    }
     clearApiCache('/leave-types');
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
@@ -871,7 +951,7 @@ async function updateLeaveType(leaveTypeId: string, data: { name: string }) {
   }
 }
 
-// 34. DELETE /leave-types/:leaveTypeId (Delete leave type)
+// 34. DELETE /leave-types/:leaveTypeId (Delete leave type - Admin/HR)
 async function deleteLeaveType(leaveTypeId: string) {
   try {
     const response = await http.delete(`/leave-types/${leaveTypeId}`);
@@ -890,31 +970,59 @@ async function deleteLeaveType(leaveTypeId: string) {
 function backendLeaveToFrontend(l: any): LeaveRequest {
   if (!l) return l;
   const userName = l.userName || (l.user ? `${l.user.firstName || ''} ${l.user.lastName || ''}`.trim() : '') || l.employeeName || 'Staff Member';
-  const daysList = Array.isArray(l.days) ? l.days : [];
+  const daysList: Array<{ date: string; portion?: string }> = Array.isArray(l.days) ? l.days : [];
   let startDate = l.startDate || '';
   let endDate = l.endDate || '';
-  let daysCount = l.daysCount || (daysList.length > 0 ? daysList.length : 1);
+  let daysCount = typeof l.daysCount === 'number' ? l.daysCount : (daysList.length > 0 ? daysList.length : 1);
+
+  const dayBreakdown: LeaveDayBreakdown[] = daysList.map((d: any) => {
+    const portion = d.portion || (d.isHalfDay ? (d.halfDaySession || 'First Half') : 'Full Day');
+    const pLower = String(portion).toLowerCase();
+    const isFirstHalf = pLower.includes('first') || portion === 'SESSION_1' || portion === 'FIRST_HALF';
+    const isSecondHalf = pLower.includes('second') || portion === 'SESSION_2' || portion === 'SECOND_HALF';
+    const isHalf = isFirstHalf || isSecondHalf || pLower.includes('half');
+    const session: LeaveDaySession = isFirstHalf ? 'FIRST_HALF' : isSecondHalf ? 'SECOND_HALF' : 'FULL_DAY';
+    return {
+      date: d.date,
+      session,
+      duration: isHalf ? 0.5 : 1,
+    };
+  });
 
   if (daysList.length > 0) {
-    const dates = daysList.map((d: any) => d.date).sort();
-    if (!startDate) startDate = dates[0];
-    if (!endDate) endDate = dates[dates.length - 1];
-    let computedCount = 0;
-    daysList.forEach((d: any) => {
-      if (d.portion === 'First Half' || d.portion === 'Second Half' || d.portion === 'Half Day') {
-        computedCount += 0.5;
-      } else {
-        computedCount += 1;
-      }
-    });
+    const dates = daysList.map((d: any) => d.date).filter(Boolean).sort();
+    if (!startDate && dates.length > 0) startDate = dates[0];
+    if (!endDate && dates.length > 0) endDate = dates[dates.length - 1];
+    const computedCount = dayBreakdown.reduce((sum, item) => sum + item.duration, 0);
     if (computedCount > 0) daysCount = computedCount;
   }
+
+  const hasHalfDays = dayBreakdown.some((d) => d.session !== 'FULL_DAY') || Boolean(l.isHalfDay);
+  const nonFullSession = dayBreakdown.find((d) => d.session !== 'FULL_DAY')?.session;
+  const firstHalfSession: 'FIRST_HALF' | 'SECOND_HALF' =
+    nonFullSession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : nonFullSession === 'FIRST_HALF'
+      ? 'FIRST_HALF'
+      : l.halfDaySession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : 'FIRST_HALF';
 
   let status: 'Pending' | 'Approved' | 'Rejected' = 'Pending';
   const rawStatus = (l.status || '').toUpperCase();
   if (rawStatus === 'ACCEPTED' || rawStatus === 'APPROVED') status = 'Approved';
   else if (rawStatus === 'REJECTED') status = 'Rejected';
   else status = 'Pending';
+
+  const adminResponse =
+    l.response ||
+    l.adminResponse ||
+    l.comments ||
+    l.rejectionReason ||
+    l.rejectionRemarks ||
+    l.approvalRemarks ||
+    l.remarks ||
+    '';
 
   return {
     id: l.id || `leave-${Date.now()}`,
@@ -924,12 +1032,16 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
     leaveType: l.leaveType || 'Casual Leave',
     startDate: startDate || new Date().toISOString().split('T')[0],
     endDate: endDate || startDate || new Date().toISOString().split('T')[0],
-    daysCount: daysCount,
-    isHalfDay: daysList.some((d: any) => d.portion && d.portion !== 'Full Day'),
+    daysCount: Number(daysCount.toFixed(2)),
+    isHalfDay: hasHalfDays,
+    halfDaySession: hasHalfDays ? firstHalfSession : undefined,
+    dayBreakdown: dayBreakdown.length > 0 ? dayBreakdown : undefined,
+    days: daysList,
     reason: l.reason || '',
     status: status,
     appliedDate: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : (l.appliedDate || new Date().toISOString().split('T')[0]),
-    comments: l.response || l.comments || '',
+    comments: adminResponse,
+    response: adminResponse,
   };
 }
 
@@ -941,7 +1053,9 @@ export interface ApplyLeaveInput {
   days?: Array<{ date: string; portion: string }>;
   startDate?: string;
   endDate?: string;
-  dayBreakdown?: Array<{ date: string; session: string }>;
+  isHalfDay?: boolean;
+  halfDaySession?: string;
+  dayBreakdown?: Array<{ date: string; session: string; duration?: number }>;
 }
 
 async function applyLeave(data: ApplyLeaveInput) {
@@ -949,22 +1063,37 @@ async function applyLeave(data: ApplyLeaveInput) {
     let daysArray = data.days;
     if (!daysArray || daysArray.length === 0) {
       if (Array.isArray(data.dayBreakdown) && data.dayBreakdown.length > 0) {
-        daysArray = data.dayBreakdown.map((d) => ({
-          date: d.date,
-          portion: d.session === 'SESSION_1' ? 'First Half' : d.session === 'SESSION_2' ? 'Second Half' : 'Full Day',
-        }));
+        daysArray = data.dayBreakdown.map((d) => {
+          const s = String(d.session || '').toUpperCase();
+          const isFirst = s === 'FIRST_HALF' || s === 'SESSION_1' || s.includes('FIRST');
+          const isSecond = s === 'SECOND_HALF' || s === 'SESSION_2' || s.includes('SECOND');
+          const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
+          return {
+            date: d.date,
+            portion,
+          };
+        });
       } else if (data.startDate && data.endDate) {
         const start = new Date(data.startDate);
         const end = new Date(data.endDate);
         daysArray = [];
         for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+          const dateStr = dt.toISOString().split('T')[0];
+          let portion = 'Full Day';
+          if (data.isHalfDay) {
+            portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+          }
           daysArray.push({
-            date: dt.toISOString().split('T')[0],
-            portion: 'Full Day',
+            date: dateStr,
+            portion,
           });
         }
       } else if (data.startDate) {
-        daysArray = [{ date: data.startDate, portion: 'Full Day' }];
+        let portion = 'Full Day';
+        if (data.isHalfDay) {
+          portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+        }
+        daysArray = [{ date: data.startDate, portion }];
       } else {
         daysArray = [];
       }
@@ -1017,10 +1146,17 @@ async function getLeave(leaveId: string) {
 }
 
 // 38. POST /leaves/:leaveId/accept (Accept leave)
-async function acceptLeave(leaveId: string, responseText?: string) {
+async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[]) {
   try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Accepted. Take care.';
+
     const response = await http.post(`/leaves/${leaveId}/accept`, {
-      response: responseText || 'Accepted. Take care.',
+      response: finalResponse,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1033,10 +1169,17 @@ async function acceptLeave(leaveId: string, responseText?: string) {
 }
 
 // 39. POST /leaves/:leaveId/reject (Reject leave)
-async function rejectLeave(leaveId: string, responseText?: string) {
+async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[]) {
   try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Rejected.';
+
     const response = await http.post(`/leaves/${leaveId}/reject`, {
-      response: responseText || 'Rejected.',
+      response: finalResponse,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -2200,6 +2343,9 @@ function canListUsers() {
 async function getEmployees() {
   if (!canListUsers()) return [];
   try {
+    if (isEmployeeSession()) {
+      return [];
+    }
     const res = await listUsers({ limit: 100 });
     const users = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
     return users.map(userToEmployee);
@@ -2324,8 +2470,8 @@ async function getAttendance(params?: any) {
 // Leave aliases
 const getLeaves = listLeaves;
 const getLeaveTypes = listLeaveTypes;
-const approveLeave = (leaveId: string, _role?: string, _name?: string, responseText?: string) =>
-  acceptLeave(leaveId, responseText);
+const approveLeave = (leaveId: string, ...args: any[]) =>
+  acceptLeave(leaveId, ...args);
 
 // Attendance settings & holidays aliases
 const getSettings = getAttendanceSettings;

@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
 
 export type EmployeeStatus =
   | 'Active'
@@ -26,7 +26,8 @@ export type LeaveType =
   | 'Unpaid Leave'
   | 'Comp Off'
   | 'Maternity Leave'
-  | 'Paternity Leave';
+  | 'Paternity Leave'
+  | (string & {});
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
@@ -298,6 +299,7 @@ export interface LeaveRequest {
   isHalfDay: boolean;
   halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
   dayBreakdown?: LeaveDayBreakdown[];
+  days?: Array<{ date: string; portion?: string }>;
   reason: string;
   status: LeaveStatus;
   appliedDate: string;
@@ -308,6 +310,7 @@ export interface LeaveRequest {
   hrApproverName?: string;
   hrApprovedAt?: string;
   comments?: string;
+  response?: string;
 }
 
 export interface LeaveBalance {

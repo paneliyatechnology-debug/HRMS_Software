@@ -341,9 +341,14 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                   <Megaphone className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                    Send New Notice
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                      Send New Notice
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                      Official
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 truncate mt-0.5">
                     Broadcast corporate circular or target specific employee
                   </p>

@@ -22,7 +22,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { Employee, Department, Designation } from '../../types/hrms';
+import { Employee, Department, Designation, Role } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -78,6 +78,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     email: '',
     phone: '',
     gender: 'Male' as const,
+    role: 'EMPLOYEE' as Role,
     address: '',
     avatarUrl: '',
   });
@@ -258,6 +259,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
         gender: formData.gender,
+        role: formData.role || 'EMPLOYEE',
         address: formData.address.trim(),
         ...(formData.avatarUrl ? { avatarUrl: formData.avatarUrl } : {}),
         salary: {
@@ -341,9 +343,12 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
               <UserPlus className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                Add New Employee
-              </h3>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Add New Employee</h3>
+                <span className="text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 truncate max-w-[140px]">
+                  {adminCompanyName}
+                </span>
+              </div>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 {step === 1 ? 'Step 1 of 2: Personal information & credentials' : 'Step 2 of 2: Monthly salary structure & deductions'}
               </p>
@@ -676,6 +681,27 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                 </div>
               </div>
 
+              {/* System Access Role */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  System Access Role
+                </label>
+                <select
+                  id="select-employee-role"
+                  value={formData.role}
+                  onChange={(e) => updateField('role', e.target.value as Role)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="EMPLOYEE">Employee (Standard Staff)</option>
+                  <option value="MANAGER">Manager (Team Oversight &amp; Approvals)</option>
+                  <option value="HR">HR (Human Resources)</option>
+                  <option value="ADMIN">Admin (Workspace Administrator)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Determines modules, approval permissions, and system access level.
+                </p>
+              </div>
+
               {/* Residential Address */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -884,6 +910,9 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                       Take-Home Salary Breakdown
                     </span>
                   </div>
+                  <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    Live Calculation
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">

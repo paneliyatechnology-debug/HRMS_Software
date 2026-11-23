@@ -174,9 +174,14 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
               <Cpu className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-bold text-slate-900 text-base sm:text-lg truncate">
-                Physical Biometric Hardware Hub
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-base sm:text-lg truncate">
+                  Physical Biometric Hardware Hub
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-black uppercase shrink-0">
+                  Multi-Company Ready
+                </span>
+              </div>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 Connect eSSL, ZKTeco, Realtime, Mantra & Matrix devices for{' '}
                 <strong className="text-slate-700">{currentCompanyName}</strong>

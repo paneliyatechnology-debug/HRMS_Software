@@ -286,9 +286,14 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
                 <Camera className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                  Punch &amp; Device Verification Audit
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                    Punch &amp; Device Verification Audit
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                    HR Admin
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 truncate mt-0.5">
                   {empName} ({empCode}) • {deptName} • Date: {record.date}
                 </p>

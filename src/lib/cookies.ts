@@ -6,8 +6,6 @@
 export const AUTH_COOKIE_KEYS = [
   'hrms_auth_token',
   'bearerToken',
-  'accessToken',
-  'refreshToken',
   'hrms_is_authenticated',
   'hrms_auth_user',
   'hrms_current_role',

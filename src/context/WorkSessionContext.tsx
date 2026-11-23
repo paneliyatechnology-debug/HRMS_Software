@@ -41,11 +41,15 @@ export interface WorkSessionContextType {
   serverTime: string | null;
   actionLoading: boolean;
   initialLoading: boolean;
+<<<<<<< HEAD
   punchBlockMessage: string | null;
   checkIn: () => Promise<boolean>;
+=======
+  checkIn: (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }) => Promise<boolean>;
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
   takeBreak: () => Promise<boolean>;
   resumeWork: () => Promise<boolean>;
-  checkOut: () => Promise<boolean>;
+  checkOut: (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -109,8 +113,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const onBreak = Boolean(logic.onBreak || logic.next === 'break-end');
     let resolved: WorkPunchStatus = 'not_started';
     if (onBreak) resolved = 'on_break';
-    else if (logic.next === 'check-out') resolved = 'working';
-    else if (punches.some((punch: { type?: string }) => punch.type === 'OUT')) resolved = 'completed';
+    else if (logic.next === 'check-out' || logic.next === 'clock-out') resolved = 'working';
+    else if (punches.some((punch: { type?: string }) => punch.type === 'OUT' || punch.type === 'CLOCK_OUT' || punch.type === 'clock-out')) resolved = 'completed';
 
     setStatus(resolved);
     statusRef.current = resolved;
@@ -140,16 +144,17 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setLiveBreakWords(formatSecondsToWords(brk));
     setLiveBreakHMS(formatSecondsToHMS(brk));
 
-    const firstIn = punches.find((punch: { type?: string }) => punch.type === 'IN')?.punchedAt || attendance?.checkInAt || null;
+    const firstIn = punches.find((punch: { type?: string }) => punch.type === 'IN' || punch.type === 'CLOCK_IN' || punch.type === 'clock-in')?.punchedAt || attendance?.checkInAt || null;
+    const lastOut = punches.slice().reverse().find((punch: { type?: string }) => punch.type === 'OUT' || punch.type === 'CLOCK_OUT' || punch.type === 'clock-out')?.punchedAt || attendance?.checkOutAt || null;
     setActiveSession(resolved === 'working' || resolved === 'on_break' ? { status: onBreak ? 'ON_BREAK' : 'WORKING', startTime: firstIn, isOnBreak: onBreak } : null);
     setCurrentBreak(onBreak ? { startTime: breakStart } : null);
-    setLastCompletedSession(resolved === 'completed' ? { startTime: attendance?.checkInAt, endTime: attendance?.checkOutAt, durationSeconds: closedWork, totalBreakSeconds: closedBreak } : null);
+    setLastCompletedSession(resolved === 'completed' ? { startTime: firstIn, endTime: lastOut, durationSeconds: closedWork, totalBreakSeconds: closedBreak } : null);
     setTodaySummary({
       totalSecondsWorked: closedWork,
       totalBreakSecondsToday: closedBreak,
-      totalDurationFormatted: logic.totalHours,
+      totalDurationFormatted: logic.totalHours || formatSecondsToHMS(closedWork),
       totalBreakFormatted: formatSecondsToWords(closedBreak),
-      totalSessionsToday: punches.filter((punch: { type?: string }) => punch.type === 'IN').length,
+      totalSessionsToday: punches.filter((punch: { type?: string }) => punch.type === 'IN' || punch.type === 'CLOCK_IN' || punch.type === 'clock-in').length,
     });
   };
 
@@ -172,6 +177,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         applyAttendanceLogic(logic);
         return;
       }
+      if (data?.logic) {
+        applyAttendanceLogic(data);
+        return;
+      }
 
       setServerTime(data.serverTime || null);
       syncServerClock(data.serverTime);
@@ -182,18 +191,18 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const hasActive = Boolean(
         data.hasActiveSession ||
-          (data.activeSession && data.activeSession.status !== 'COMPLETED')
+        (data.activeSession && data.activeSession.status !== 'COMPLETED')
       );
       const isOnBrk = Boolean(
         data.isOnBreak ||
-          data.activeSession?.isOnBreak ||
-          data.activeSession?.status === 'ON_BREAK'
+        data.activeSession?.isOnBreak ||
+        data.activeSession?.status === 'ON_BREAK'
       );
       const isDone =
         !hasActive &&
         Boolean(
           data.lastCompletedSession ||
-            (data.todaySummary && data.todaySummary.totalSessionsToday > 0)
+          (data.todaySummary && data.todaySummary.totalSessionsToday > 0)
         );
 
       let resolved: WorkPunchStatus = 'not_started';
@@ -258,12 +267,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
           const openBreakStartTime = isOnBrk
             ? data.currentBreak?.startTime ||
-              data.currentBreak?.startBreak ||
-              data.activeSession.currentBreak?.startTime ||
-              data.activeSession.openBreakStartTime ||
-              data.activeSession.lastBreakTimestamp ||
-              data.serverTime ||
-              new Date().toISOString()
+            data.currentBreak?.startBreak ||
+            data.activeSession.currentBreak?.startTime ||
+            data.activeSession.openBreakStartTime ||
+            data.activeSession.lastBreakTimestamp ||
+            data.serverTime ||
+            new Date().toISOString()
             : null;
 
           activeClock = {
@@ -438,9 +447,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   /**
    * Action 1: Check In (Start Work)
    */
-  const checkIn = useCallback(async (): Promise<boolean> => {
+  const checkIn = useCallback(async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
     setActionLoading(true);
     try {
+<<<<<<< HEAD
       if (punchBlockRef.current) {
         showToast({
           title: 'Clock closed',
@@ -450,16 +460,30 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return false;
       }
       const res = await api.clockIn({ note: 'Work shift start' });
+=======
+      const res = await api.clockIn({
+        workMode: options?.workMode || 'Office',
+        note: options?.note ?? '',
+      });
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
 
-      // Fast optimistic UI update
-      setStatus('working');
-      statusRef.current = 'working';
-      baseWorkedRef.current = 0;
-      baseBreakRef.current = 0;
-      anchorTimeRef.current = Date.now();
-      setElapsedSeconds(0);
-      setLiveWorkedHMS('00:00:00');
-      setLiveBreakWords('0s');
+      const isClockOutAction = res?.action === 'clock-out';
+      if (isClockOutAction) {
+        setStatus('completed');
+        statusRef.current = 'completed';
+      } else {
+        // Fast optimistic UI update
+        setStatus('working');
+        statusRef.current = 'working';
+        baseWorkedRef.current = 0;
+        baseBreakRef.current = 0;
+        anchorTimeRef.current = Date.now();
+        setElapsedSeconds(0);
+        setBreakSeconds(0);
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+        setLiveBreakHMS('00:00:00');
+      }
 
       // Sync backend state
       await refresh();
@@ -467,23 +491,27 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Update local memory record for today's logs
       const empId = user?.employeeId || user?.id || '';
       if (empId) {
-        performCheckIn({
-          id: empId,
-          firstName: user?.firstName || 'Employee',
-          lastName: user?.lastName || '',
-          employeeCode: (user as any)?.employeeCode || '',
-          departmentName: (user as any)?.departmentName || 'General Staff',
-          companyId: user?.companyId,
-          remarks: 'Work shift start',
-        });
+        if (isClockOutAction) {
+          performCheckOut(empId, { remarks: options?.note || 'Shift clock-out' });
+        } else {
+          performCheckIn({
+            id: empId,
+            firstName: user?.firstName || 'Employee',
+            lastName: user?.lastName || '',
+            employeeCode: (user as any)?.employeeCode || '',
+            departmentName: (user as any)?.departmentName || 'General Staff',
+            companyId: user?.companyId,
+            remarks: options?.note || 'Work shift start',
+          });
+        }
       }
 
       window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));
       window.dispatchEvent(new CustomEvent('hrms_attendance_updated'));
 
       showToast({
-        title: 'Shift Started',
-        message: res?.message || 'Clock-in successful. Your work timer is now running!',
+        title: isClockOutAction ? 'Shift Completed' : 'Shift Started',
+        message: res?.message || (isClockOutAction ? 'Clock out saved.' : 'Clock-in successful. Your work timer is now running!'),
         type: 'success',
       });
       return true;
@@ -618,7 +646,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   /**
    * Action 4: Check Out (End Day)
    */
-  const checkOut = useCallback(async (): Promise<boolean> => {
+  const checkOut = useCallback(async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
     if (statusRef.current === 'on_break') {
       showToast({
         title: 'Clock-Out Blocked',
@@ -629,24 +657,45 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     setActionLoading(true);
     try {
-      const res = await api.clockOut({ note: 'Shift clock-out' });
+      const res = await api.clockOut({
+        workMode: options?.workMode || 'Office',
+        note: options?.note ?? '',
+      });
 
-      setStatus('completed');
-      statusRef.current = 'completed';
+      const isClockInAction = res?.action === 'clock-in';
+      if (isClockInAction) {
+        setStatus('working');
+        statusRef.current = 'working';
+      } else {
+        setStatus('completed');
+        statusRef.current = 'completed';
+      }
 
       await refresh();
 
       const empId = user?.employeeId || user?.id || '';
       if (empId) {
-        performCheckOut(empId, { remarks: 'Shift clock-out' });
+        if (isClockInAction) {
+          performCheckIn({
+            id: empId,
+            firstName: user?.firstName || 'Employee',
+            lastName: user?.lastName || '',
+            employeeCode: (user as any)?.employeeCode || '',
+            departmentName: (user as any)?.departmentName || 'General Staff',
+            companyId: user?.companyId,
+            remarks: options?.note || 'Work shift start',
+          });
+        } else {
+          performCheckOut(empId, { remarks: options?.note || 'Shift clock-out' });
+        }
       }
 
       window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));
       window.dispatchEvent(new CustomEvent('hrms_attendance_updated'));
 
       showToast({
-        title: 'Shift Completed',
-        message: res?.message || 'Clocked out successfully. Have a great day!',
+        title: isClockInAction ? 'Shift Started' : 'Shift Completed',
+        message: res?.message || (isClockInAction ? 'Clock in saved.' : 'Clock out saved.'),
         type: 'success',
       });
       return true;

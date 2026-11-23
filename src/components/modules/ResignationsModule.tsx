@@ -80,11 +80,25 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   const loadData = async () => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const [resData, empData] = await Promise.all([api.getResignations(), api.getEmployees()]);
       setResignations(Array.isArray(resData) ? resData.filter((row) => row && row.id) : []);
       setEmployees(empData || []);
+=======
+      const [resData, empData] = await Promise.all([
+        (api as any).getResignations ? (api as any).getResignations().catch(() => []) : Promise.resolve([]),
+        api.getEmployees().catch(() => []),
+      ]);
+      const validRes = Array.isArray(resData)
+        ? resData.filter(Boolean)
+        : Array.isArray((resData as any)?.data)
+        ? (resData as any).data.filter(Boolean)
+        : [];
+      setResignations(validRes);
+      setEmployees(Array.isArray(empData) ? empData.filter(Boolean) : []);
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
       if (empData && empData.length > 0 && !resigningEmpId) {
-        setResigningEmpId(user.employeeId || empData[0].id);
+        setResigningEmpId(user.employeeId || empData[0]?.id);
       }
     } catch (err: any) {
       showToast({
@@ -107,12 +121,18 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
     (e) =>
       e &&
       (e.id === currentEmpId ||
+<<<<<<< HEAD
       e.employeeCode === currentEmpId ||
       (user?.email && e.email?.toLowerCase() === user.email.toLowerCase()))
+=======
+        e.employeeCode === currentEmpId ||
+        (user.email && e.email?.toLowerCase() === user.email.toLowerCase()))
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
   );
   const effectiveEmpId = currentEmp?.id || currentEmpId;
 
   // Filter resignation for employee view
+<<<<<<< HEAD
   const myResignation = resignations.find(
     (r) =>
       r &&
@@ -121,6 +141,18 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
       r.employeeCode === (currentEmp?.employeeCode || (user as any)?.employeeCode) ||
       (r.employeeName && user?.firstName && r.employeeName.toLowerCase().includes(user.firstName.toLowerCase())))
   );
+=======
+  const myResignation = Array.isArray(resignations)
+    ? resignations.find(
+        (r) =>
+          r &&
+          (r.employeeId === effectiveEmpId ||
+            r.employeeId === currentEmpId ||
+            r.employeeCode === (currentEmp?.employeeCode || (user as any).employeeCode) ||
+            (r.employeeName && user.firstName && r.employeeName.toLowerCase().includes(user.firstName.toLowerCase())))
+      )
+    : null;
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
 
   // Calculate projected last working day
   const calculateLastWorkingDay = (days: number) => {
@@ -151,7 +183,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
         noticePeriodDays: Number(noticeDays) || 30,
       });
 
-      setResignations((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
+      if (created && typeof created === 'object' && created.id) {
+        setResignations((prev) => [created, ...(Array.isArray(prev) ? prev.filter((r) => r && r.id !== created.id) : [])]);
+      }
       showToast({
         type: 'success',
         title: 'Resignation Submitted',
@@ -235,8 +269,14 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   };
 
   // Filtered resignations for Admin view
+<<<<<<< HEAD
   const filteredResignations = resignations.filter((res) => {
     if (!res?.id) return false;
+=======
+  const validResignations = Array.isArray(resignations) ? resignations.filter(Boolean) : [];
+  const filteredResignations = validResignations.filter((res) => {
+    if (!res) return false;
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
     if (filterTab === 'pending' && res.status === 'Completed') return false;
     if (filterTab === 'completed' && res.status !== 'Completed') return false;
     if (searchQuery.trim()) {
@@ -250,8 +290,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
     return true;
   });
 
+<<<<<<< HEAD
   const pendingCount = resignations.filter((r) => r?.id && r.status !== 'Completed').length;
   const completedCount = resignations.filter((r) => r?.status === 'Completed').length;
+=======
+  const pendingCount = validResignations.filter((r) => r && r.status !== 'Completed').length;
+  const completedCount = validResignations.filter((r) => r && r.status === 'Completed').length;
+>>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">

@@ -308,6 +308,10 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>Official Razorpay Payment Gateway (Test Mode)</span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Choose Your Paneliya HRMS Plan
           </h2>

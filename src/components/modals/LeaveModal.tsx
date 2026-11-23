@@ -6,17 +6,13 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { LeaveType, LeaveRequest, LeaveDaySession, LeaveDayBreakdown } from '../../types/hrms';
-import {
-  fetchLeaveQuotaData,
-  resolveLeaveQuotaSummary,
-  ResolvedLeaveQuotaSummary,
-} from '../../lib/leaveQuotaUtils';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface LeaveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  availableLeaveTypes?: Array<{ id: string; name: string }>;
 }
 
 const getTodayDate = () => {
@@ -60,10 +56,12 @@ const formatDateChip = (dateStr: string): string => {
   });
 };
 
-export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh }) => {
+export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh, availableLeaveTypes }) => {
   const { user } = useAuth();
   const { emitLeaveApplied, showToast } = useSocket();
-  const [leaveType, setLeaveType] = useState<LeaveType>('Casual Leave');
+  const [leaveType, setLeaveType] = useState<LeaveType>(
+    (availableLeaveTypes && availableLeaveTypes[0]?.name ? availableLeaveTypes[0].name : '') as LeaveType
+  );
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [isHalfDay, setIsHalfDay] = useState(false);
@@ -73,9 +71,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [quotaSummary, setQuotaSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
-  const [quotaLoading, setQuotaLoading] = useState(false);
-  const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
+  const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>(availableLeaveTypes || []);
 
   const selectedDates = useMemo(() => getDatesInRange(startDate, endDate), [startDate, endDate]);
   const isMultiDay = selectedDates.length > 1;
@@ -122,7 +119,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     const today = getTodayDate();
     setStartDate(today);
     setEndDate(today);
-    setLeaveType('Casual Leave');
     setIsHalfDay(false);
     setHalfDaySession('FIRST_HALF');
     setDaySessions({});
@@ -131,49 +127,50 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setError('');
 
     let active = true;
-    const loadDynamicBalances = async () => {
-      setQuotaLoading(true);
+    const fetchLeaveTypesOnly = async () => {
+      setLeaveTypesLoading(true);
       try {
-        const myId = user?.employeeId || user?.id || '';
-        const myEmail = user?.email?.toLowerCase() || '';
-        const myName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim().toLowerCase();
-
-        const [quotaPayload, rawLeaves, liveLeaveTypes] = await Promise.all([
-          fetchLeaveQuotaData(myId),
-          api.getLeaves(myId ? { employeeId: myId } : undefined).catch(() => [] as LeaveRequest[]),
-          api.listLeaveTypes().catch(() => []),
-        ]);
+        const userCompId = user?.companyId;
+        const liveLeaveTypes = await api.listLeaveTypes(userCompId ? { companyId: userCompId } : undefined).catch(() => []);
         if (!active) return;
 
-        if (Array.isArray(liveLeaveTypes) && liveLeaveTypes.length > 0) {
-          setBackendLeaveTypes(liveLeaveTypes);
-          if (liveLeaveTypes[0]?.name) {
-            setLeaveType(liveLeaveTypes[0].name as LeaveType);
+        const candidates =
+          Array.isArray(liveLeaveTypes) && liveLeaveTypes.length > 0
+            ? liveLeaveTypes
+            : Array.isArray(availableLeaveTypes) && availableLeaveTypes.length > 0
+            ? availableLeaveTypes
+            : [];
+
+        if (candidates.length > 0) {
+          const seen = new Set<string>();
+          const uniqueList = candidates.filter((lt: any) => {
+            const key = (lt.name || '').trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setBackendLeaveTypes(uniqueList);
+          if (uniqueList[0]?.name) {
+            setLeaveType(uniqueList[0].name as LeaveType);
           }
+        } else {
+          setBackendLeaveTypes([]);
+          setLeaveType('' as LeaveType);
         }
-
-        const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
-        const myLeaves = allLeaves.filter((l) => {
-          if (myId && l.employeeId === myId) return true;
-          if (myEmail && (l as any).employeeEmail?.toLowerCase() === myEmail) return true;
-          if (myName && l.employeeName?.toLowerCase() === myName) return true;
-          return false;
-        });
-
-        setQuotaSummary(
-          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, myLeaves)
-        );
       } catch (_) {
-        if (active) setQuotaSummary(null);
+        if (active) {
+          setBackendLeaveTypes([]);
+          setLeaveType('' as LeaveType);
+        }
       } finally {
-        if (active) setQuotaLoading(false);
+        if (active) setLeaveTypesLoading(false);
       }
     };
-    loadDynamicBalances();
+    fetchLeaveTypesOnly();
     return () => {
       active = false;
     };
-  }, [isOpen, user]);
+  }, [isOpen, availableLeaveTypes, user?.companyId]);
 
   const clearFieldError = (f: string) => {
     setFieldErrors((prev) => {
@@ -215,6 +212,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     e.preventDefault();
     const errors: Record<string, string> = {};
 
+    if (!leaveType) {
+      errors.leaveType = 'Please select a valid leave category.';
+    }
     if (!reason.trim()) {
       errors.reason = 'Please provide a valid reason for leave.';
     }
@@ -246,6 +246,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       const firstHalfDayEntry = dayBreakdown.find((d) => d.session !== 'FULL_DAY');
       const hasAnyHalfDay = Boolean(firstHalfDayEntry);
 
+      const formattedDays = dayBreakdown.map((d) => {
+        const sessionUpper = String(d.session || '').toUpperCase();
+        const isFirst = sessionUpper === 'FIRST_HALF' || sessionUpper.includes('FIRST');
+        const isSecond = sessionUpper === 'SECOND_HALF' || sessionUpper.includes('SECOND');
+        const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
+        return {
+          date: d.date,
+          portion,
+        };
+      });
+
       const leavePayload = {
         userId: targetUserId,
         employeeId: user.employeeId || targetUserId,
@@ -259,7 +270,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         ...(hasAnyHalfDay && firstHalfDayEntry && firstHalfDayEntry.session !== 'FULL_DAY'
           ? { halfDaySession: firstHalfDayEntry.session }
           : {}),
-        ...(hasAnyHalfDay ? { dayBreakdown } : {}),
+        dayBreakdown,
+        days: formattedDays,
         reason: reason.trim(),
       };
 
@@ -341,37 +353,26 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as LeaveType)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              required
             >
-              {backendLeaveTypes.length > 0 ? (
+              {leaveTypesLoading && backendLeaveTypes.length === 0 ? (
+                <option value="" disabled>Loading company leave types...</option>
+              ) : backendLeaveTypes.length > 0 ? (
                 backendLeaveTypes.map((lt) => (
                   <option key={lt.id} value={lt.name}>
                     {lt.name}
                   </option>
                 ))
               ) : (
-                <>
-                  <option value="Casual Leave">
-                    {quotaLoading || !quotaSummary
-                      ? 'Casual Leave'
-                      : `Casual Leave (Balance: ${quotaSummary.casual.available}/${quotaSummary.casual.quota} days)`}
-                  </option>
-                  <option value="Sick Leave">
-                    {quotaLoading || !quotaSummary
-                      ? 'Sick Leave'
-                      : `Sick Leave (Balance: ${quotaSummary.sick.available}/${quotaSummary.sick.quota} days)`}
-                  </option>
-                  <option value="Paid Leave">
-                    {quotaLoading || !quotaSummary
-                      ? 'Paid / Annual Leave'
-                      : `Paid / Annual Leave (Balance: ${quotaSummary.paid.available}/${quotaSummary.paid.quota} days)`}
-                  </option>
-                  <option value="Comp Off">Compensatory Off</option>
-                  <option value="Unpaid Leave">Unpaid Leave</option>
-                  <option value="Maternity Leave">Maternity Leave</option>
-                  <option value="Paternity Leave">Paternity Leave</option>
-                </>
+                <option value="" disabled>No leave types configured by company</option>
               )}
             </select>
+            {fieldErrors.leaveType && (
+              <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                {fieldErrors.leaveType}
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

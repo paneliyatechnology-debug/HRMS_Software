@@ -510,9 +510,14 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                Bulk Candidate Import
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                  Bulk Candidate Import
+                </h3>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                  {step === 'upload' ? 'Step 1: Upload & Map' : 'Step 2: Review & Validate'}
+                </span>
+              </div>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 Upload Excel (.xlsx, .xls) or CSV files to quickly onboard candidates into recruitment pipeline.
               </p>

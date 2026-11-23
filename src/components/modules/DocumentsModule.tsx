@@ -83,8 +83,11 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const { showToast } = useSocket();
 
   useEffect(() => {
+    if (portalMode === 'employee' && !user?.id && !myEmpId) {
+      return;
+    }
     loadData();
-  }, [portalMode, myEmpId]);
+  }, [portalMode, myEmpId, user?.id]);
 
   const loadData = async () => {
     setLoading(true);
@@ -191,8 +194,15 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
   const docQ = searchTerm.trim().toLowerCase();
   const filtered = documents.filter((doc: any) => {
-    if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
-      return false;
+    if (portalMode === 'employee') {
+      const isMine =
+        !doc.employeeId ||
+        doc.employeeId === myEmpId ||
+        doc.userId === myEmpId ||
+        doc.employeeId === user?.id ||
+        doc.userId === user?.id ||
+        doc.employeeId === user?.employeeId;
+      if (!isMine) return false;
     }
     const catLower = category.toLowerCase();
     const matchesCat =

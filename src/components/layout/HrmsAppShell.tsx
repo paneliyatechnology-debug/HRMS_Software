@@ -99,7 +99,7 @@ const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) 
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
-import { getActiveChatConversation } from '../../lib/chatService';
+import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } from '../../lib/chatService';
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
@@ -270,6 +270,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [jobs, setJobs] = useState<JobOpening[]>([]);
@@ -555,9 +556,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLiveAttendanceRecords(scopedAtt);
       } else if (targetModule === 'leaves') {
         const needEmployees = employeesRef.current.length === 0;
-        const [leavesData, employeesData] = await Promise.all([
+        const [leavesData, employeesData, leaveTypesData] = await Promise.all([
           api.getLeaves().catch(() => []),
           needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
+          api.listLeaveTypes(activeCompanyId ? { companyId: activeCompanyId } : undefined).catch(() => []),
         ]);
         const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
         if (needEmployees) {
@@ -567,6 +569,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedLvs = scopeLeaves(leavesData, scopedEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
+        setLeaveTypes(Array.isArray(leaveTypesData) ? leaveTypesData : []);
       } else if (targetModule === 'payroll' || targetModule === 'payslips') {
         const needEmployees = employeesRef.current.length === 0;
         const [payrollData, employeesData] = await Promise.all([
@@ -729,10 +732,18 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     };
 
+    const handleLeaveTypesUpdate = () => {
+      api.listLeaveTypes().then((types) => {
+        if (Array.isArray(types)) setLeaveTypes(types);
+      }).catch(() => {});
+    };
+
     window.addEventListener('hrms_leaves_updated', handleRefreshEvent);
+    window.addEventListener('hrms_leave_types_updated', handleLeaveTypesUpdate);
 
     return () => {
       window.removeEventListener('hrms_leaves_updated', handleRefreshEvent);
+      window.removeEventListener('hrms_leave_types_updated', handleLeaveTypesUpdate);
     };
   }, [isAuthenticated, scopeLeaves]);
 
@@ -943,6 +954,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             {activeModule === 'leaves' && (
               <LeaveModule
                 leaves={leaves}
+                leaveTypes={leaveTypes}
                 onOpenApplyModal={() => setLeaveModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
@@ -1041,7 +1053,14 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             )}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'profile' && (
-              <ProfileModule onNavigateSettings={() => navigateToModule('settings')} />
+              <div className="space-y-5 w-full">
+                <EmployeeProfileModal
+                  variant="page"
+                  employee={myProfileEmployee}
+                  isOpen={true}
+                  onRefresh={loadData}
+                />
+              </div>
             )}
             {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
@@ -1072,6 +1091,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           isOpen={leaveModalOpen}
           onClose={() => setLeaveModalOpen(false)}
           onRefresh={loadData}
+          availableLeaveTypes={leaveTypes}
         />
       )}
 

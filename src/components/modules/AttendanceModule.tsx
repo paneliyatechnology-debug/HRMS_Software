@@ -96,6 +96,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     todaySummary,
     liveWorkedHMS: sessionWorkedHMS,
     liveBreakWords: sessionBreakWords,
+    liveBreakHMS: sessionBreakHMS,
     activeSession,
     lastCompletedSession,
   } = useWorkSession();
@@ -918,8 +919,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           active > 0
             ? formatSecondsToHMS(active)
             : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
-            ? sessionWorkedHMS
-            : '00:00:00';
+              ? sessionWorkedHMS
+              : '00:00:00';
         setLiveWorkedHMS(activeStr);
         setLiveBreakWords(formatSecondsToWords(brk));
       } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
@@ -945,7 +946,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.startWork({});
+      const res = await api.startWork({ workMode: 'Office', note: '' });
       performCheckIn({
         id: selfEmployee.id || myEmpId,
         firstName: selfEmployee.firstName,
@@ -993,7 +994,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckOutAction = async () => {
     setActionLoading(true);
     try {
-      const res = await api.stopWork({});
+      const res = await api.stopWork({ workMode: 'Office', note: '' });
       const outRes = performCheckOut(selfEmployee.id || myEmpId, {
         remarks: 'Evening clock-out',
       });
@@ -1233,7 +1234,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         ) : null}
 
         {/* Right: Compact Daily Shift Console fitted into top-right header area */}
-        {isEmployeeView && resolvedTab === 'today' && (
+        {resolvedTab === 'today' && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
             <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
           </div>
