@@ -153,7 +153,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     setFormDescription('');
     setFormPriority('MEDIUM');
     setFormStatus('TODO');
-    setFormAssigneeId(employees[0]?.id || user?.id || '');
+    setFormAssigneeId('');
     setFormTeamId(teams[0]?.id || '');
     setFormStartDate(new Date().toISOString().split('T')[0]);
     setFormEndDate('');
@@ -189,6 +189,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
 
   // Team Leader presence check for task submission (Prevents 400 Bad Request)
   const selectedFormTeam = teams.find((t) => String(t.id) === String(formTeamId));
+  const assigneeOptions = (Array.isArray(selectedFormTeam?.members) ? selectedFormTeam.members : []).filter(
+    (member: any) => String(member.status || 'Active') === 'Active',
+  );
   const teamHasLeader = selectedFormTeam
     ? Boolean(
         selectedFormTeam.leader ||
@@ -196,14 +199,34 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         selectedFormTeam.leaderUserId ||
         selectedFormTeam.teamLeaderId ||
         selectedFormTeam.leadId ||
-        (Array.isArray(selectedFormTeam.members) && selectedFormTeam.members.some((m: any) => m.isLeader || m.role === 'LEADER'))
+        (Array.isArray(selectedFormTeam.members) && selectedFormTeam.members.some((m: any) => m.isLeader || m.role === 'LEADER' || m.role === 'MANAGER'))
       )
     : true;
+
+  useEffect(() => {
+    if (!assigneeOptions.length) return;
+    if (!assigneeOptions.some((member: any) => member.id === formAssigneeId)) {
+      setFormAssigneeId(assigneeOptions[0].id);
+    }
+  }, [formTeamId, formAssigneeId, assigneeOptions]);
+
+  const assigneeReady = () => {
+    if (!formTeamId || !formAssigneeId || !assigneeOptions.some((member: any) => member.id === formAssigneeId)) {
+      showToast?.({
+        type: 'warning',
+        title: 'Team member required',
+        message: 'Choose a person who is already on this team.',
+      });
+      return false;
+    }
+    return true;
+  };
 
   // Submit Create Task (calls POST /tasks)
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
+    if (!assigneeReady()) return;
 
     if (selectedFormTeam && !teamHasLeader) {
       showToast?.({
@@ -249,6 +272,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTaskData || !formTitle.trim()) return;
+    if (!assigneeReady()) return;
 
     if (selectedFormTeam && !teamHasLeader) {
       showToast?.({
@@ -776,10 +800,10 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                       onChange={(e) => setFormAssigneeId(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
                     >
-                      <option value="">Unassigned</option>
-                      {employees.map((emp) => (
+                      <option value="">Select a team member</option>
+                      {assigneeOptions.map((emp: any) => (
                         <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.departmentName || 'Staff'})
+                          {emp.firstName} {emp.lastName}
                         </option>
                       ))}
                     </select>

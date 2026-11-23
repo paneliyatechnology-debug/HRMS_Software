@@ -532,10 +532,11 @@ async function deleteDocument(id: string) {
    MODULE 4: ATTENDANCE (14 ENDPOINTS)
    ========================================================================== */
 
-// 17. POST /attendance/clock (Clock in or out)
-async function clock(data?: { workMode?: string; note?: string }) {
+// 17. POST /attendance/clock (Clock in, clock out, break in, break out)
+async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string }) {
   try {
     const payload = {
+      flag: data?.flag,
       workMode: data?.workMode || 'Office',
       note: data?.note || '',
     };
@@ -547,23 +548,6 @@ async function clock(data?: { workMode?: string; note?: string }) {
   } catch (error) {
     const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance clock action failed.');
-  }
-}
-
-// 18. POST /attendance/break (Break in or out)
-async function toggleBreak(data?: { note?: string }) {
-  try {
-    const payload = {
-      note: data?.note || 'Break',
-    };
-    const response = await http.post('/attendance/break', payload, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    clearApiCache('/attendance');
-    return response.data;
-  } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance break action failed.');
   }
 }
 
@@ -740,6 +724,9 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
     if (outPunch && outPunch.punchedAt) {
       checkOut = new Date(outPunch.punchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     }
+  } else {
+    if (a.checkInAt) checkIn = new Date(a.checkInAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (a.checkOutAt) checkOut = new Date(a.checkOutAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   }
 
   let status: 'Present' | 'Absent' | 'Late' | 'Half Day' | 'On Leave' = 'Present';
@@ -760,11 +747,17 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
     checkIn: checkIn || '--:--',
     checkOut: checkOut || undefined,
     breakDurationMinutes: a.breakDurationMinutes || a.breakMinutes || 0,
-    workingHours: a.workingHours || a.workHours || 0,
+    workingHours: a.workingHours || a.workHours || Number(a.totalMinutes || 0) / 60,
     overtimeHours: a.overtimeHours || 0,
     status: status,
     remarks: a.note || a.remarks || '',
     createdAt: a.createdAt || new Date().toISOString(),
+    punches,
+    checkInAt: a.checkInAt || null,
+    checkOutAt: a.checkOutAt || null,
+    totalMinutes: Number(a.totalMinutes || 0),
+    totalHours: a.totalHours || '',
+    missingPunch: Boolean(a.missingPunch),
   };
 }
 
@@ -1771,6 +1764,43 @@ async function deleteTeam(teamId: string) {
    MODULE 11: TASKS (5 ENDPOINTS)
    ========================================================================== */
 
+function toApiTaskStatus(status?: string) {
+  const text = String(status || '').trim().toLowerCase().replace(/_/g, ' ');
+  if (!text) return undefined;
+  if (text === 'todo' || text === 'to do' || text === 'pending') return 'Pending';
+  if (text === 'in progress' || text === 'in review') return 'In Progress';
+  if (text === 'completed' || text === 'done') return 'Done';
+  return status;
+}
+
+function toApiTaskPriority(priority?: string) {
+  const text = String(priority || '').trim().toLowerCase();
+  if (!text) return undefined;
+  if (text === 'low') return 'Low';
+  if (text === 'medium') return 'Medium';
+  if (text === 'high' || text === 'urgent') return 'High';
+  return priority;
+}
+
+function fromApiTask(task: any) {
+  if (!task || typeof task !== 'object') return task;
+  const status = String(task.status || '');
+  const priority = String(task.priority || '');
+  return {
+    ...task,
+    status: status === 'Pending' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : status === 'Done' ? 'COMPLETED' : status,
+    priority: priority === 'Low' ? 'LOW' : priority === 'Medium' ? 'MEDIUM' : priority === 'High' ? 'HIGH' : priority,
+  };
+}
+
+function taskPayload(payload: Record<string, unknown>) {
+  return {
+    ...payload,
+    status: payload.status == null ? undefined : toApiTaskStatus(String(payload.status)),
+    priority: payload.priority == null ? undefined : toApiTaskPriority(String(payload.priority)),
+  };
+}
+
 // 54. POST /tasks (Create task)
 async function createTask(payload: {
   teamId?: string;
@@ -1783,7 +1813,7 @@ async function createTask(payload: {
   dueDate?: string;
 }) {
   try {
-    const res = await http.post('/tasks', payload, {
+    const res = await http.post('/tasks', taskPayload(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/tasks');
@@ -1797,7 +1827,10 @@ async function createTask(payload: {
 // 55. GET /tasks (List tasks)
 async function listTasks(params?: any) {
   try {
-    return await deduplicatedGet('/tasks', { params });
+    const res = await deduplicatedGet('/tasks', { params });
+    if (Array.isArray(res)) return res.map(fromApiTask);
+    if (Array.isArray(res?.data)) return { ...res, data: res.data.map(fromApiTask) };
+    return res;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list tasks.');
@@ -1807,7 +1840,7 @@ async function listTasks(params?: any) {
 // 56. GET /tasks/:taskId (Get task)
 async function getTask(taskId: string) {
   try {
-    return await deduplicatedGet(`/tasks/${taskId}`);
+    return fromApiTask(await deduplicatedGet(`/tasks/${taskId}`));
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get task.');
@@ -1817,7 +1850,7 @@ async function getTask(taskId: string) {
 // 57. PATCH /tasks/:taskId (Edit task)
 async function editTask(taskId: string, payload: any) {
   try {
-    const res = await http.patch(`/tasks/${taskId}`, payload, {
+    const res = await http.patch(`/tasks/${taskId}`, taskPayload(payload), {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/tasks');
@@ -2546,15 +2579,16 @@ async function verifyDocument(id: string, status: string) {
 }
 
 // Attendance aliases mapping directly to collection endpoints
-const clockIn = clock;
-const checkIn = clock;
-const clockOut = clock;
-const checkOut = clock;
-const startWork = clock;
-const stopWork = clock;
-const startBreak = toggleBreak;
-const endBreak = toggleBreak;
-const resumeBreak = toggleBreak;
+const clockIn = (data?: { workMode?: string; note?: string }) => clock({ flag: 'clock-in', ...data });
+const checkIn = clockIn;
+const clockOut = (data?: { workMode?: string; note?: string }) => clock({ flag: 'clock-out', ...data });
+const checkOut = clockOut;
+const startWork = clockIn;
+const stopWork = clockOut;
+const startBreak = (data?: { note?: string }) => clock({ flag: 'break-in', note: data?.note });
+const endBreak = (data?: { note?: string }) => clock({ flag: 'break-out', note: data?.note });
+const resumeBreak = endBreak;
+const toggleBreak = startBreak;
 const getWorkStatus = getAttendanceLogic;
 
 async function getWorkHistory(page = 1, limit = 100) {

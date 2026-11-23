@@ -30,19 +30,26 @@ function serverNow(): number {
 export function parseTimeStringToTimestamp(timeStr?: string, dateStr?: string, createdAt?: string): number {
   if (timeStr && typeof timeStr === 'string') {
     try {
-      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-      if (match) {
-        let hours = parseInt(match[1], 10);
-        const mins = parseInt(match[2], 10);
-        const secs = match[3] ? parseInt(match[3], 10) : 0;
-        const ampm = match[4]?.toUpperCase();
-        if (ampm === 'PM' && hours < 12) hours += 12;
-        if (ampm === 'AM' && hours === 12) hours = 0;
+      const str = timeStr.trim();
+      if (str && str !== '—' && str !== '--:--') {
+        if (str.includes('T') || (str.includes('-') && str.includes(':'))) {
+          const isoTs = new Date(str).getTime();
+          if (!isNaN(isoTs) && isoTs > 0) return isoTs;
+        }
+        const match = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const mins = parseInt(match[2], 10);
+          const secs = match[3] ? parseInt(match[3], 10) : 0;
+          const ampm = match[4]?.toUpperCase();
+          if (ampm === 'PM' && hours < 12) hours += 12;
+          if (ampm === 'AM' && hours === 12) hours = 0;
 
-        const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
-        base.setHours(hours, mins, secs, 0);
-        const ts = base.getTime();
-        if (!isNaN(ts)) return ts;
+          const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+          base.setHours(hours, mins, secs, 0);
+          const ts = base.getTime();
+          if (!isNaN(ts)) return ts;
+        }
       }
     } catch {}
   }
@@ -52,7 +59,7 @@ export function parseTimeStringToTimestamp(timeStr?: string, dateStr?: string, c
     if (!isNaN(t) && t > 0) return t;
   }
 
-  return Date.now();
+  return 0;
 }
 
 export function setLiveAttendanceRecords(records: AttendanceRecord[]): void {
@@ -238,52 +245,79 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
   const sharedClock = computeShiftClock(record);
   if (sharedClock) return sharedClock.worked;
 
-  const isCheckedOut = Boolean(record.isCompleted || (record.checkOut && record.checkOut.trim() !== ''));
+  const isCheckedOut = Boolean(
+    record.isCompleted ||
+    (record.checkOut && record.checkOut.trim() !== '' && record.checkOut !== '—') ||
+    (record as any).status === 'Completed'
+  );
   const isOnBreak = Boolean(record.isOnBreak);
+  const breakSecs = getLiveBreakSeconds(record);
 
-  // 1. If Checked Out: Timer STOPPED, return finalized total worked time
+  // 1. If Checked Out: Timer STOPPED, return finalized net worked time
   if (isCheckedOut) {
-    if (record.activeSeconds && record.activeSeconds > 0) {
-      return record.activeSeconds;
-    }
-    if (record.checkIn && record.checkOut) {
-      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date);
+    if (record.checkIn && record.checkOut && record.checkIn !== '—' && record.checkOut !== '—') {
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
       const outTs = parseTimeStringToTimestamp(record.checkOut, record.date);
-      const diffSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
-      const breakSecs = getLiveBreakSeconds(record);
-      const actualSecs = Math.max(0, diffSecs - breakSecs);
-      return actualSecs;
+      if (inTs > 0 && outTs > 0 && outTs >= inTs) {
+        const grossSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        const netSecs = Math.max(0, grossSecs - breakSecs);
+        if (record.activeSeconds && record.activeSeconds > 0) {
+          if (record.activeSeconds >= grossSecs - 60) {
+            return netSecs;
+          }
+          return Math.min(record.activeSeconds, netSecs);
+        }
+        return netSecs;
+      }
+    }
+
+    if (record.activeSeconds && record.activeSeconds > 0) {
+      return Math.max(0, record.activeSeconds - breakSecs);
     }
     if (record.workingHours && record.workingHours > 0) {
-      return Math.round(record.workingHours * 3600);
+      return Math.max(0, Math.round(record.workingHours * 3600) - breakSecs);
     }
-    return record.activeSeconds || 0;
+    return 0;
   }
 
-  // 2. If On Break: Timer PAUSED / STOPPED, return frozen accumulated active seconds
+  // 2. If On Break: Timer PAUSED / STOPPED, return frozen net active seconds
   if (isOnBreak) {
-    if (record.activeSeconds && record.activeSeconds > 0) {
-      return record.activeSeconds;
-    }
-    if (record.checkIn) {
-      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date);
+    if (record.checkIn && record.checkIn !== '—') {
+      const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
       const breakStart = record.lastBreakTimestamp || Date.now();
-      const diffSecs = Math.max(0, Math.floor((breakStart - inTs) / 1000));
-      return Math.max(0, diffSecs - (record.breakSeconds || 0));
+      if (inTs > 0 && breakStart >= inTs) {
+        const elapsedToBreak = Math.max(0, Math.floor((breakStart - inTs) / 1000));
+        const netSecs = Math.max(0, elapsedToBreak - breakSecs);
+        if (record.activeSeconds && record.activeSeconds > 0) {
+          if (record.activeSeconds >= elapsedToBreak - 60) {
+            return netSecs;
+          }
+          return Math.min(record.activeSeconds, netSecs);
+        }
+        return netSecs;
+      }
     }
-    return record.activeSeconds || 0;
+    if (record.activeSeconds && record.activeSeconds > 0) {
+      return Math.max(0, record.activeSeconds - breakSecs);
+    }
+    return 0;
   }
 
   // 3. If Checked In & working: Timer CALCULATING LIVE & TICKING
-  if (record.checkIn) {
+  if (record.checkIn && record.checkIn !== '—') {
+    const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
+    if (inTs > 0) {
+      const totalElapsed = Math.max(0, Math.floor((Date.now() - inTs) / 1000));
+      return Math.max(0, totalElapsed - breakSecs);
+    }
     if (!record.lastActiveTimestamp) {
-      record.lastActiveTimestamp = parseTimeStringToTimestamp(record.checkIn, record.date);
+      record.lastActiveTimestamp = Date.now();
     }
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastActiveTimestamp) / 1000));
-    return (record.activeSeconds || 0) + elapsed;
+    return Math.max(0, (record.activeSeconds || 0) + elapsed - breakSecs);
   }
 
-  return record.activeSeconds || 0;
+  return Math.max(0, (record.activeSeconds || 0) - breakSecs);
 }
 
 /**
@@ -836,17 +870,32 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
     const isCompleted = hasCheckOut;
     const isReCheckIn = (existing.isCompleted || Boolean(existing.checkOut)) && !hasCheckOut;
 
+    const bSecs =
+      backendRec.breakSeconds ||
+      backendRec.totalBreakSeconds ||
+      (backendRec.breakDurationMinutes ? backendRec.breakDurationMinutes * 60 : 0) ||
+      (backendRec.formattedTotalBreak ? parseBreakTimeToSeconds(backendRec.formattedTotalBreak) : 0) ||
+      existing.breakSeconds ||
+      0;
+    const bMins = Math.round(bSecs / 60);
+    const formattedTotalBreak = backendRec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : existing.formattedTotalBreak);
+
     let activeSec = 0;
     if (hasCheckOut) {
-      if (existing.activeSeconds && existing.activeSeconds > 0) {
-        activeSec = existing.activeSeconds;
-      } else if (backendRec.checkIn && backendRec.checkOut) {
-        const inTs = parseTimeStringToTimestamp(backendRec.checkIn, today);
-        const outTs = parseTimeStringToTimestamp(backendRec.checkOut, today);
-        const breakSecs = (backendRec.breakDurationMinutes || 0) * 60;
-        activeSec = Math.max(0, Math.floor((outTs - inTs) / 1000) - breakSecs);
-      } else if (backendRec.workingHours && backendRec.workingHours > 0) {
-        activeSec = Math.round(backendRec.workingHours * 3600);
+      const inCheck = backendRec.checkIn || existing.checkIn;
+      const outCheck = backendRec.checkOut || existing.checkOut;
+      if (inCheck && outCheck) {
+        const inTs = parseTimeStringToTimestamp(inCheck, today, existing.createdAt);
+        const outTs = parseTimeStringToTimestamp(outCheck, today);
+        if (inTs > 0 && outTs > 0 && outTs >= inTs) {
+          const grossSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
+          activeSec = Math.max(0, grossSecs - bSecs);
+        }
+      }
+      if (activeSec === 0 && existing.activeSeconds && existing.activeSeconds > 0) {
+        activeSec = Math.max(0, existing.activeSeconds - bSecs);
+      } else if (activeSec === 0 && backendRec.workingHours && backendRec.workingHours > 0) {
+        activeSec = Math.max(0, Math.round(backendRec.workingHours * 3600) - bSecs);
       }
     } else if (isReCheckIn || backendRec.activeSeconds === 0) {
       activeSec = typeof backendRec.activeSeconds === 'number' ? backendRec.activeSeconds : 0;
@@ -864,16 +913,6 @@ export function updateLocalRecordFromBackend(backendRec: any): AttendanceRecord 
           : (isReCheckIn
               ? nowTs
               : (backendRec.lastActiveTimestamp || existing.lastActiveTimestamp || nowTs)));
-
-    const bSecs =
-      backendRec.breakSeconds ||
-      backendRec.totalBreakSeconds ||
-      (backendRec.breakDurationMinutes ? backendRec.breakDurationMinutes * 60 : 0) ||
-      (backendRec.formattedTotalBreak ? parseBreakTimeToSeconds(backendRec.formattedTotalBreak) : 0) ||
-      existing.breakSeconds ||
-      0;
-    const bMins = Math.round(bSecs / 60);
-    const formattedTotalBreak = backendRec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : existing.formattedTotalBreak);
 
     updated = {
       ...existing,
@@ -1086,12 +1125,26 @@ export function parseWorkSessionToRecord(session: any, empList: Employee[] = [])
     session.todaySummary?.totalBreakFormatted ||
     (breakSeconds > 0 ? formatSecondsToWords(breakSeconds) : undefined);
 
-  const activeSeconds =
+  let activeSeconds =
     session.durationSeconds ||
     session.elapsedSeconds ||
     session.activeSeconds ||
     session.todaySummary?.totalSecondsWorked ||
     (session.workingHours ? session.workingHours * 3600 : 0);
+
+  if (isCompleted && startDate && endDate) {
+    const grossSecs = Math.max(0, Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / 1000));
+    if (grossSecs > 0) {
+      const netSecs = Math.max(0, grossSecs - breakSeconds);
+      if (activeSeconds >= grossSecs - 60) {
+        activeSeconds = netSecs;
+      } else if (activeSeconds > breakSeconds) {
+        activeSeconds = Math.max(0, activeSeconds - breakSeconds);
+      }
+    }
+  } else if (isCompleted && breakSeconds > 0 && activeSeconds >= breakSeconds) {
+    activeSeconds = Math.max(0, activeSeconds - breakSeconds);
+  }
   const workingHours = activeSeconds > 0 ? Number((activeSeconds / 3600).toFixed(2)) : 0;
   const officeLoc = session.officeLocationName || session.officeLocation?.name || session.officeName || '';
   const devInfo = session.deviceInfo || session.device?.deviceType || (typeof session.device === 'string' ? session.device : '');
@@ -1122,7 +1175,7 @@ export function parseWorkSessionToRecord(session: any, empList: Employee[] = [])
     deviceInfo: devInfo,
     ipAddress: ip,
     officeLocationName: officeLoc,
-    durationFormatted: session.todaySummary?.totalDurationFormatted || session.durationFormatted || session.formattedElapsed,
+    durationFormatted: formatSecondsToHMS(activeSeconds),
     punches: [
       {
         id: `p-${rawId}-in`,
@@ -1268,8 +1321,18 @@ export function extractRecordsFromWorkStatus(response: any, empList: Employee[] 
     const rawOut = outP?.punchedAt || outP?.time || outP?.timestamp || att?.checkOutAt || att?.checkOut;
     const totalMins = Number(logic?.totalMinutes || att?.totalWorkMinutes || 0);
     const breakMins = Number(logic?.breakMinutes || att?.totalBreakMinutes || 0);
-    const activeSec = totalMins * 60;
     const brkSec = breakMins * 60;
+    let activeSec = totalMins * 60;
+    if (rawIn && rawOut) {
+      const inTs = new Date(rawIn).getTime();
+      const outTs = new Date(rawOut).getTime();
+      if (!isNaN(inTs) && !isNaN(outTs) && outTs >= inTs) {
+        const grossSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        activeSec = Math.max(0, grossSecs - brkSec);
+      }
+    } else if (activeSec >= brkSec && brkSec > 0) {
+      activeSec = Math.max(0, activeSec - brkSec);
+    }
     const onBrk = Boolean(logic?.onBreak || logic?.next === 'break-end');
     const isAct = Boolean(onBrk || logic?.next === 'check-out' || logic?.next === 'clock-out');
     const isDone = Boolean(!isAct && (outP || logic?.next === 'check-in' || logic?.next === 'clock-in' || att?.checkOutAt));
@@ -1284,7 +1347,7 @@ export function extractRecordsFromWorkStatus(response: any, empList: Employee[] 
       checkIn: rawIn ? (new Date(rawIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—',
       checkOut: isAct ? undefined : (rawOut ? new Date(rawOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined),
       breakDurationMinutes: breakMins,
-      workingHours: Number((totalMins / 60).toFixed(2)),
+      workingHours: Number((activeSec / 3600).toFixed(2)),
       overtimeHours: 0,
       status: isDone ? 'Completed' : onBrk ? 'On Break' : isAct ? 'Working' : 'Present',
       createdAt: rawIn || new Date().toISOString(),
@@ -1292,7 +1355,7 @@ export function extractRecordsFromWorkStatus(response: any, empList: Employee[] 
       breakSeconds: brkSec,
       totalBreakSeconds: brkSec,
       formattedTotalBreak: logic?.breakHours && logic.breakHours !== '00:00:00' ? logic.breakHours : formatSecondsToWords(brkSec),
-      durationFormatted: logic?.totalHours && logic.totalHours !== '00:00:00' ? logic.totalHours : formatSecondsToHMS(activeSec),
+      durationFormatted: formatSecondsToHMS(activeSec),
       isOnBreak: onBrk,
       isCompleted: isDone,
       punches: punchesList,

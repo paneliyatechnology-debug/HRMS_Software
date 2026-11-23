@@ -1056,89 +1056,70 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, sessionPunches, sessionAttendanceLogic]);
 
   // Helper to reliably extract and format break time for any attendance record
+  const secondsFromPunches = (rec: AttendanceRecord) => {
+    const punches = Array.isArray((rec as any).punches) ? (rec as any).punches : [];
+    const at = (punch: any) => new Date(punch.punchedAt || punch.at || punch.time || 0).getTime();
+    let work = 0;
+    let brk = 0;
+    let open: number | null = null;
+    let breakOpen: number | null = null;
+    const now = Date.now();
+    for (const punch of punches) {
+      const type = String(punch.type || '');
+      const time = at(punch);
+      if (!Number.isFinite(time)) continue;
+      if (type === 'BREAK_END') {
+        if (breakOpen) brk += Math.max(0, time - breakOpen);
+        open = time;
+        breakOpen = null;
+      } else if (type === 'IN') {
+        open = time;
+        breakOpen = null;
+      } else if (type === 'BREAK_START' && open) {
+        work += Math.max(0, time - open);
+        breakOpen = time;
+        open = null;
+      } else if (type === 'OUT' && open) {
+        work += Math.max(0, time - open);
+        open = null;
+      }
+    }
+    if (open) work += Math.max(0, now - open);
+    if (breakOpen) brk += Math.max(0, now - breakOpen);
+    if (!punches.length) {
+      work = Number((rec as any).totalMinutes || 0) * 60000;
+    }
+    return { work: Math.floor(work / 1000), breakSeconds: Math.floor(brk / 1000) };
+  };
+
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
+    const mine = isMyAttendanceRecord(rec);
     const anyRec = rec as any;
-    if (anyRec.sessionStartTime && anyRec.isLive) {
+    if (mine && anyRec.sessionStartTime && anyRec.isLive) {
       return formatSecondsToWords(getLiveBreakSeconds(rec));
     }
-    if (anyRec.formattedTotalBreak && anyRec.formattedTotalBreak !== '0s') {
-      return anyRec.formattedTotalBreak;
+    if (mine && sessionBreakWords && sessionBreakWords !== '0s' && rec.date === getTodayDateString()) {
+      return sessionBreakWords;
     }
-    if (anyRec.totalBreakFormatted && anyRec.totalBreakFormatted !== '0s') {
-      return anyRec.totalBreakFormatted;
-    }
-    if (anyRec.todaySummary?.totalBreakFormatted && anyRec.todaySummary.totalBreakFormatted !== '0s') {
-      return anyRec.todaySummary.totalBreakFormatted;
-    }
-    const isToday = rec.date === getTodayDateString();
-    if (isToday) {
-      if (workStatusData?.todaySummary?.totalBreakFormatted && workStatusData.todaySummary.totalBreakFormatted !== '0s') {
-        return workStatusData.todaySummary.totalBreakFormatted;
-      }
-      if (todaySummary?.totalBreakFormatted && todaySummary.totalBreakFormatted !== '0s') {
-        return todaySummary.totalBreakFormatted;
-      }
-      if (workStatusData?.formattedTotalBreak && workStatusData.formattedTotalBreak !== '0s' && workStatusData.formattedTotalBreak !== '00h 00m 00s') {
-        return workStatusData.formattedTotalBreak;
-      }
-      if (todaySummary?.totalBreakSecondsToday && todaySummary.totalBreakSecondsToday > 0) {
-        return formatSecondsToWords(todaySummary.totalBreakSecondsToday);
-      }
-      if (sessionBreakWords && sessionBreakWords !== '0s') {
-        return sessionBreakWords;
-      }
-      if (liveBreakWords && liveBreakWords !== '0s') {
-        return liveBreakWords;
-      }
-    }
-    const breakSecs = getLiveBreakSeconds(rec);
-    if (breakSecs > 0) {
-      return formatSecondsToWords(breakSecs);
-    }
-    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) {
-      return `${rec.breakDurationMinutes}m`;
-    }
+    const fromPunches = secondsFromPunches(rec).breakSeconds;
+    if (fromPunches > 0) return formatSecondsToWords(fromPunches);
+    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) return `${rec.breakDurationMinutes}m`;
     return '00h 00m 00s';
   };
 
-  // Helper to reliably extract and format active worked duration
   const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
-    const anyRec = rec as any;
-    if (anyRec.sessionStartTime && anyRec.isLive) {
-      return formatSecondsToHMS(getLiveActiveSeconds(rec));
-    }
+    const mine = isMyAttendanceRecord(rec);
     const isToday = rec.date === getTodayDateString();
-    const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
-
-    if (isWorking) {
-      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
-        return sessionWorkedHMS;
-      }
-      if (liveWorkedHMS && liveWorkedHMS !== '00:00:00') {
-        return liveWorkedHMS;
-      }
-    }
-    if (anyRec.durationFormatted && anyRec.durationFormatted !== '00:00:00' && anyRec.durationFormatted !== '00h 00m 00s') {
-      return anyRec.durationFormatted;
-    }
-    if (anyRec.todaySummary?.totalDurationFormatted) {
-      return anyRec.todaySummary.totalDurationFormatted;
-    }
-    if (isToday) {
-      if (workStatusData?.todaySummary?.totalDurationFormatted) {
-        return workStatusData.todaySummary.totalDurationFormatted;
-      }
-      if (workStatusData?.lastCompletedSession?.durationFormatted) {
-        return workStatusData.lastCompletedSession.durationFormatted;
-      }
-      if (todaySummary?.totalDurationFormatted) {
-        return todaySummary.totalDurationFormatted;
-      }
+    if (mine && isToday && sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+      return sessionWorkedHMS;
     }
     const liveSecs = getLiveActiveSeconds(rec);
-    if (liveSecs > 0) {
-      return formatSecondsToHMS(liveSecs);
-    }
+    if (liveSecs > 0) return formatSecondsToHMS(liveSecs);
+
+    const seconds = secondsFromPunches(rec).work;
+    if (seconds > 0) return formatSecondsToHMS(seconds);
+    const hours = String((rec as any).totalHours || '');
+    if (hours && hours !== '00:00') return hours.length === 5 ? `${hours}:00` : hours;
     return '00:00:00';
   };
 
@@ -1431,9 +1412,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       visibleEmployees.forEach((emp) => {
         const rec = getEmpTodayRecord(emp);
-        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
         const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
         const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -1459,7 +1440,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
 
         const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-        const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
+        const activeWorkedStr = rec ? getRecordActiveWorkedDisplay(rec) : '00:00:00';
         const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
 
         const statusStr = rec
@@ -1597,9 +1578,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         const todayRecords = isEmployeeView
           ? mergedRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
           : mergedRecords.filter((r) => r.date === todayDate);
-        const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
-        const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
-        const completedCount = todayRecords.filter((r) => r.isCompleted).length;
+        const isRecDone = (r: AttendanceRecord) =>
+          Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== '' && r.checkOut !== '—') || (r as any).status === 'Completed');
+        const isRecBreak = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && r.isOnBreak);
+        const isRecWorking = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && !r.isOnBreak && ((r.checkIn && r.checkIn !== '—') || (r as any).clock?.isLive));
+
+        const workingCount = todayRecords.filter(isRecWorking).length;
+        const onBreakCount = todayRecords.filter(isRecBreak).length;
+        const completedCount = todayRecords.filter(isRecDone).length;
 
         return (
           <div className="space-y-4">
@@ -2035,9 +2023,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     ) : (
                       visibleEmployees.map((emp) => {
                         const rec = getEmpTodayRecord(emp);
-                        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
                         const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                         const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -2104,7 +2092,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <div>
                                 <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
                                 <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                                  {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                                  {rec ? getRecordActiveWorkedDisplay(rec) : '—'}
                                 </span>
                               </div>
                             </div>
@@ -2186,9 +2174,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         ) : (
                           visibleEmployees.map((emp) => {
                             const rec = getEmpTodayRecord(emp);
-                            const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                            const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                            const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                            const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
                             const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                             const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -2239,7 +2227,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                                     {rec ? (
                                       <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                        {formatSecondsToHMS(liveSecs)}
+                                        {getRecordActiveWorkedDisplay(rec)}
                                       </span>
                                     ) : (
                                       <span className="text-slate-400">—</span>

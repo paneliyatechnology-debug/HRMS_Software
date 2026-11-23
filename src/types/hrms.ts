@@ -259,6 +259,11 @@ export interface AttendanceRecord {
   isOnBreak?: boolean;
   isCompleted?: boolean;
   lastActiveTimestamp?: number;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  totalMinutes?: number;
+  totalHours?: string;
+  missingPunch?: boolean;
   lastBreakTimestamp?: number;
   lastCheckOutTimestamp?: number;
   punches?: AttendancePunchLog[];

@@ -930,9 +930,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     ) : (
                       employees.map((emp, index) => {
                         const todayRec = getTodayRecordForEmployee(emp.id);
-                        const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                        const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
-                        const isDone = todayRec && todayRec.isCompleted;
+                        const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
+                        const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
+                        const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');
 
                         const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
                         const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
