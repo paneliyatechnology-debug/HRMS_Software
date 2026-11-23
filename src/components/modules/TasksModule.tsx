@@ -42,6 +42,7 @@ export interface TaskItem {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
   startDate?: string;
   dueDate?: string;
+  endDate?: string;
   teamId?: string;
   assigneeId?: string;
   assignee?: {
@@ -108,7 +109,8 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
   const [formStatus, setFormStatus] = useState('TODO');
   const [formAssigneeId, setFormAssigneeId] = useState('');
   const [formTeamId, setFormTeamId] = useState('');
-  const [formDueDate, setFormDueDate] = useState('');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formEndDate, setFormEndDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch Tasks
@@ -151,7 +153,8 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     setFormStatus('TODO');
     setFormAssigneeId(employees[0]?.id || user?.id || '');
     setFormTeamId(teams[0]?.id || '');
-    setFormDueDate('');
+    setFormStartDate(new Date().toISOString().split('T')[0]);
+    setFormEndDate('');
     setCreateModalOpen(true);
   };
 
@@ -164,7 +167,8 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     setFormStatus(task.status || 'TODO');
     setFormAssigneeId(task.assigneeId || (task.assignee as any)?.id || '');
     setFormTeamId(task.teamId || (task.team as any)?.id || '');
-    setFormDueDate(task.dueDate ? task.dueDate.split('T')[0] : '');
+    setFormStartDate(task.startDate ? task.startDate.split('T')[0] : '');
+    setFormEndDate(task.endDate ? task.endDate.split('T')[0] : (task.dueDate ? task.dueDate.split('T')[0] : ''));
   };
 
   // Open View Modal (calls GET /tasks/:id)
@@ -194,7 +198,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         status: formStatus,
         assigneeId: formAssigneeId || undefined,
         teamId: formTeamId || undefined,
-        dueDate: formDueDate || undefined,
+        startDate: formStartDate || undefined,
+        dueDate: formEndDate || undefined,
+        endDate: formEndDate || undefined,
       });
       showToast?.({
         type: 'success',
@@ -227,7 +233,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         status: formStatus,
         assigneeId: formAssigneeId || undefined,
         teamId: formTeamId || undefined,
-        dueDate: formDueDate || undefined,
+        startDate: formStartDate || undefined,
+        dueDate: formEndDate || undefined,
+        endDate: formEndDate || undefined,
       });
       showToast?.({
         type: 'success',
@@ -463,7 +471,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Priority</th>
                   <th className="py-3 px-4">Assignee</th>
-                  <th className="py-3 px-4">Due Date</th>
+                  <th className="py-3 px-4">Timeline</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -524,13 +532,23 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-500 font-medium">
-                        {task.dueDate ? (
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                        {(task.startDate || task.endDate || task.dueDate) ? (
+                          <div className="flex flex-col gap-0.5 text-[11px]">
+                            {task.startDate && (
+                              <div className="flex items-center gap-1 text-slate-600">
+                                <span className="text-[10px] text-slate-400 font-bold">Start:</span>
+                                <span>{new Date(task.startDate).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {(task.endDate || task.dueDate) && (
+                              <div className="flex items-center gap-1 text-slate-500">
+                                <span className="text-[10px] text-slate-400 font-bold">End:</span>
+                                <span>{new Date(task.endDate || task.dueDate!).toLocaleDateString()}</span>
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">No deadline</span>
+                          <span className="text-slate-400 text-[11px]">No timeline</span>
                         )}
                       </td>
 
@@ -720,16 +738,30 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formDueDate}
-                    onChange={(e) => setFormDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition text-slate-700"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Starting Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formStartDate}
+                      onChange={(e) => setFormStartDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition text-slate-700 text-xs font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Ending Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formEndDate}
+                      min={formStartDate || undefined}
+                      onChange={(e) => setFormEndDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition text-slate-700 text-xs font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -821,15 +853,15 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
 
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Due Date</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starting Date</span>
                       <p className="font-medium text-slate-700 mt-0.5">
-                        {viewTaskData?.dueDate ? new Date(viewTaskData.dueDate).toLocaleDateString() : 'None'}
+                        {viewTaskData?.startDate ? new Date(viewTaskData.startDate).toLocaleDateString() : 'Not Set'}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Team</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ending Date</span>
                       <p className="font-medium text-slate-700 mt-0.5">
-                        {viewTaskData?.team?.name || 'Unassigned'}
+                        {(viewTaskData?.endDate || viewTaskData?.dueDate) ? new Date(viewTaskData.endDate || viewTaskData.dueDate!).toLocaleDateString() : 'Not Set'}
                       </p>
                     </div>
                   </div>
