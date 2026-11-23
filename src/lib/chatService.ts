@@ -40,6 +40,10 @@ export function setActiveChatConversation(conversationId: string): void {
   activeOpenConversationId = conversationId || '';
 }
 
+export function getActiveChatConversation(): string {
+  return activeOpenConversationId;
+}
+
 export function getAllConversations(): ChatConversation[] {
   return liveConversations;
 }

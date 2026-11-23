@@ -34,7 +34,6 @@ import {
   getAllConversations,
   getAllMessagesMap,
   getMessagesForConversation,
-  incomingUnreadCount,
   sendChatMessage,
   editChatMessage,
   deleteChatMessage,
@@ -47,6 +46,7 @@ import {
   ADMIN_USER_ID,
   ADMIN_NAME,
 } from '../../lib/chatService';
+import { clearChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 import { api } from '../../lib/api';
 import {
   prepareChatAttachmentFromFile,
@@ -99,6 +99,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [groupName, setGroupName] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
   const [previewAttachment, setPreviewAttachment] = useState<ChatAttachment | null>(null);
@@ -250,33 +251,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         if (!cancelled) showToast({ title: 'Chat', message: err?.message || 'Could not load chat.', type: 'error', module: 'chat' });
       });
     loadChats();
-    const timer = window.setInterval(loadChats, 4000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, [myStaffId]);
-
-  useEffect(() => {
-    if (!myStaffId && teamMode) return;
-    const timer = window.setInterval(() => {
-      api.listDirectChats()
-        .then((res: { data?: Array<{ userId: string; lastMessage?: string; lastMessageAt?: string }> }) => {
-          const rows = Array.isArray(res?.data) ? res.data : [];
-          setConversations((prev) => prev.map((conv) => {
-            const row = rows.find((item) => item.userId === staffEmployeeId(conv.id));
-            if (!row || row.lastMessage === conv.lastMessage) return conv;
-            return {
-              ...conv,
-              lastMessage: row.lastMessage || '',
-              lastMessageTimestamp: row.lastMessageAt || conv.lastMessageTimestamp,
-            };
-          }));
-        })
-        .catch(() => undefined);
-    }, 2000);
-    return () => window.clearInterval(timer);
-  }, [teamMode, myStaffId]);
 
   // Handle initial targeted employee chat from directory or dashboard
   useEffect(() => {
@@ -325,9 +303,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     api.markChatRead(conversationId).catch(() => { });
   };
 
+  useEffect(() => subscribeChatUnread(setUnreadMap), []);
+
   useEffect(() => {
     setGroupPanel(false);
     setActiveChatConversation(activeConversationId);
+    if (activeConversationId) clearChatUnread(activeConversationId);
   }, [activeConversationId]);
 
   useEffect(() => () => setActiveChatConversation(''), []);
@@ -398,10 +379,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           .catch(() => undefined);
       };
       load();
-      const timer = window.setInterval(load, 2000);
       return () => {
         cancelled = true;
-        window.clearInterval(timer);
       };
     }
     const msgs = getMessagesForConversation(activeConversationId);
@@ -410,7 +389,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (msgs.some((msg) => msg.senderId !== currentUserId)) {
       notifyMessagesRead(activeConversationId);
     }
-  }, [activeConversationId, currentUserId, isConnected]);
+  }, [activeConversationId, currentUserId]);
 
   // Listen to message updates
   useEffect(() => {
@@ -426,6 +405,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       )));
       if (conversationId !== activeConversationId) return;
       setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, conversationId)]));
+      if (row.senderId !== myStaffId) api.listDirectChat(otherId).catch(() => undefined);
     };
     window.addEventListener('hrms_direct_chat_message', onMessage);
     const onRead = (event: Event) => {
@@ -1111,7 +1091,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             filteredConversations.map((conv) => {
               const other = getOtherParticipantInfo(conv);
               const isActive = conv.id === activeConversationId;
-              const unread = incomingUnreadCount(conv.id, currentUserId);
+              const unread = unreadMap[conv.id] || 0;
 
               return (
                 <button
@@ -1120,6 +1100,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   onClick={() => {
                     setActiveConversationId(conv.id);
                     setMobileShowThread(true);
+                    clearChatUnread(conv.id);
                     markConversationAsRead(conv.id, currentUserId);
                   }}
                   className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 cursor-pointer border-l-[3px] ${conv.type === 'broadcast'

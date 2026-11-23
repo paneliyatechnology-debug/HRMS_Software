@@ -99,7 +99,8 @@ const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) 
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
-import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
+import { getActiveChatConversation } from '../../lib/chatService';
+import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
@@ -319,20 +320,35 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   }, [portalMode, activeModule, user?.role, setPortalMode]);
 
-  // Chat unread count synchronization
   useEffect(() => {
-    if (isAuthenticated) {
-      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
-      const updateChatUnread = () => {
-        setUnreadChatCount(getTotalUnreadChatCount(currentUserId));
-      };
-      updateChatUnread();
-      window.addEventListener('hrms_chat_updated', updateChatUnread);
-      return () => {
-        window.removeEventListener('hrms_chat_updated', updateChatUnread);
-      };
-    }
-  }, [isAuthenticated, portalMode, user]);
+    return subscribeChatUnread((counts) => {
+      setUnreadChatCount(Object.values(counts).reduce((sum, count) => sum + count, 0));
+    });
+  }, []);
+
+  useEffect(() => {
+    const myId = user?.id || '';
+    const onDirect = (event: Event) => {
+      const row = (event as CustomEvent).detail as { senderId?: string; recipientId?: string };
+      if (!myId || !row?.senderId || !row.recipientId || row.senderId === myId) return;
+      const conversationId = `direct-${row.senderId}`;
+      if (conversationId === getActiveChatConversation()) return;
+      addChatUnread(conversationId);
+    };
+    const onGroup = (event: Event) => {
+      const row = (event as CustomEvent).detail as { groupId?: string; userId?: string };
+      if (!myId || !row?.groupId || !row.userId || row.userId === myId) return;
+      const conversationId = `group-${row.groupId}`;
+      if (conversationId === getActiveChatConversation()) return;
+      addChatUnread(conversationId);
+    };
+    window.addEventListener('hrms_direct_chat_message', onDirect);
+    window.addEventListener('hrms_group_chat_message', onGroup);
+    return () => {
+      window.removeEventListener('hrms_direct_chat_message', onDirect);
+      window.removeEventListener('hrms_group_chat_message', onGroup);
+    };
+  }, [user?.id]);
 
   // Global keyboard shortcut for Global Search (Ctrl+K or Cmd+K)
   useEffect(() => {
@@ -593,6 +609,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
+        const role = String(user?.role || '').toUpperCase();
+        const canListUsers = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+        if (!canListUsers) return;
         const employeesData = await api.getEmployees().catch(() => []);
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
@@ -609,7 +628,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         void loadDataForModule(targetModule);
       }
     }
-  }, [activeCompanyId, activeCompanyCode, portalMode, scopeEmployees, scopeLeaves, scopeAttendance]);
+  }, [activeCompanyId, activeCompanyCode, portalMode, user?.role, scopeEmployees, scopeLeaves, scopeAttendance]);
 
   // Refresh handler passed down to modules
   const loadData = useCallback(() => {

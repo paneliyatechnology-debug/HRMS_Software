@@ -191,7 +191,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       isAuthenticated ||
       (typeof window !== 'undefined' && getCookie('hrms_is_authenticated') === 'true');
 
-    if (!isAuth) {
+    if (!isAuth || !user?.id) {
       if (socket) {
         (socket as any).disconnect();
         setSocket(null);
@@ -214,30 +214,21 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const socketUrl = typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:4000`
       : getSocketBaseUrl();
-    const token =
-      typeof window !== 'undefined'
-        ? getCookie('hrms_auth_token') || getCookie('token') || ''
-        : '';
-    const currentUserId =
-      user?.id ||
-      user?.employeeId ||
-      (typeof window !== 'undefined' ? getCookie('hrms_user_id') : '');
-    const currentRole = user?.role || role || '';
+    const currentUserId = user.id;
+    const currentRole = user.role || role || '';
 
     const s = io(socketUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       auth: {
-        token,
         userId: currentUserId,
-        employeeId: user?.employeeId || currentUserId,
+        employeeId: user.employeeId || currentUserId,
         role: currentRole,
         companyId: (user as any)?.companyId,
       },
       query: {
-        token,
         userId: currentUserId,
-        employeeId: user?.employeeId || currentUserId,
+        employeeId: user.employeeId || currentUserId,
         role: currentRole,
       },
       reconnectionAttempts: Infinity,

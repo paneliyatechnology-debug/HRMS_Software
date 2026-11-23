@@ -383,8 +383,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               'Team Chat',
               <MessageSquare className="w-4 h-4" />,
               unreadChatCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
-                  {unreadChatCount}
+                <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
+                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
                 </span>
               ) : undefined
             )}

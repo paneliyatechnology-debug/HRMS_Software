@@ -2031,7 +2031,13 @@ function userToEmployee(u: any): any {
   };
 }
 
+function canListUsers() {
+  const role = String(getCookie('hrms_current_role') || '').toUpperCase();
+  return ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+}
+
 async function getEmployees() {
+  if (!canListUsers()) return [];
   try {
     const res = await listUsers({ limit: 100 });
     const users = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
