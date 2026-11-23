@@ -218,10 +218,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     let isActive = activeModule === id;
     if (id === 'organization') {
-      if (subTab === 'departments') {
-        isActive = activeModule === 'organization' && activeSubTab === 'departments';
+      if (subTab) {
+        isActive = activeModule === 'organization' && activeSubTab === subTab;
       } else {
-        isActive = activeModule === 'organization' && activeSubTab !== 'departments';
+        isActive = activeModule === 'organization';
       }
     }
 
@@ -454,6 +454,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }`}
                       >
                         Teams
+                      </button>
+                      <button
+                        onClick={() => handleNav('organization', 'designations')}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'designations'
+                          ? 'text-white font-bold bg-[#2d6a4f]'
+                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                          }`}
+                      >
+                        Designations
                       </button>
                     </div>
                   )}

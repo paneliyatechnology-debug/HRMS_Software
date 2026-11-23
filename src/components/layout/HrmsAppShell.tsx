@@ -955,7 +955,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 departments={departments}
                 designations={designations}
                 locations={locations}
-                initialTab={(subTab as any) === 'designations' ? 'designations' : (subTab as any) === 'teams' ? 'teams' : 'departments'}
+                initialTab={(subTab as any) === 'designations' ? 'designations' : (subTab as any) === 'teams' ? 'teams' : (subTab as any) === 'about' ? 'about' : 'departments'}
                 onRefresh={loadData}
                 portalMode={portalMode}
                 employees={employees}

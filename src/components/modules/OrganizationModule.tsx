@@ -81,6 +81,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [activeTab, setActiveTab] = useState<'departments' | 'designations' | 'teams' | 'about' | 'hierarchy'>(() => {
     if (initialTab === 'designations') return 'designations';
     if (initialTab === 'teams') return 'teams';
+    if (initialTab === 'about') return 'about';
     return 'departments';
   });
 
@@ -331,6 +332,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     if (initialTab === 'designations') setActiveTab('designations');
     else if (initialTab === 'teams') setActiveTab('teams');
     else if (initialTab === 'departments') setActiveTab('departments');
+    else if (initialTab === 'about') setActiveTab('about');
   }, [initialTab]);
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
@@ -940,30 +942,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {/* ── Tab Bar ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
-          {[
-            { key: 'departments', label: `Departments (${departments.length})`, icon: Layers },
-            { key: 'teams', label: `Teams (${teams.length})`, icon: Users },
-            { key: 'designations', label: `Designations (${designations.length})`, icon: Briefcase },
-          ].map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              id={`tab-btn-${key}`}
-              onClick={() => setActiveTab(key as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${activeTab === key
-                ? 'bg-[#1b4332] text-white shadow-xs border border-[#1b4332]'
-                : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332]'
-                }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* ═══════════════════════════════════════════════════════
           TAB: ABOUT / OVERVIEW
       ═══════════════════════════════════════════════════════ */}
