@@ -1056,89 +1056,67 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, sessionPunches, sessionAttendanceLogic]);
 
   // Helper to reliably extract and format break time for any attendance record
+  const secondsFromPunches = (rec: AttendanceRecord) => {
+    const punches = Array.isArray((rec as any).punches) ? (rec as any).punches : [];
+    const at = (punch: any) => new Date(punch.punchedAt || punch.at || punch.time || 0).getTime();
+    let work = 0;
+    let brk = 0;
+    let open: number | null = null;
+    let breakOpen: number | null = null;
+    const now = Date.now();
+    for (const punch of punches) {
+      const type = String(punch.type || '');
+      const time = at(punch);
+      if (!Number.isFinite(time)) continue;
+      if (type === 'BREAK_END') {
+        if (breakOpen) brk += Math.max(0, time - breakOpen);
+        open = time;
+        breakOpen = null;
+      } else if (type === 'IN') {
+        open = time;
+        breakOpen = null;
+      } else if (type === 'BREAK_START' && open) {
+        work += Math.max(0, time - open);
+        breakOpen = time;
+        open = null;
+      } else if (type === 'OUT' && open) {
+        work += Math.max(0, time - open);
+        open = null;
+      }
+    }
+    if (open) work += Math.max(0, now - open);
+    if (breakOpen) brk += Math.max(0, now - breakOpen);
+    if (!punches.length) {
+      work = Number((rec as any).totalMinutes || 0) * 60000;
+    }
+    return { work: Math.floor(work / 1000), breakSeconds: Math.floor(brk / 1000) };
+  };
+
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
+    const mine = isMyAttendanceRecord(rec);
     const anyRec = rec as any;
-    if (anyRec.sessionStartTime && anyRec.isLive) {
+    if (mine && anyRec.sessionStartTime && anyRec.isLive) {
       return formatSecondsToWords(getLiveBreakSeconds(rec));
     }
-    if (anyRec.formattedTotalBreak && anyRec.formattedTotalBreak !== '0s') {
-      return anyRec.formattedTotalBreak;
+    if (mine && sessionBreakWords && sessionBreakWords !== '0s' && rec.date === getTodayDateString()) {
+      return sessionBreakWords;
     }
-    if (anyRec.totalBreakFormatted && anyRec.totalBreakFormatted !== '0s') {
-      return anyRec.totalBreakFormatted;
-    }
-    if (anyRec.todaySummary?.totalBreakFormatted && anyRec.todaySummary.totalBreakFormatted !== '0s') {
-      return anyRec.todaySummary.totalBreakFormatted;
-    }
-    const isToday = rec.date === getTodayDateString();
-    if (isToday) {
-      if (workStatusData?.todaySummary?.totalBreakFormatted && workStatusData.todaySummary.totalBreakFormatted !== '0s') {
-        return workStatusData.todaySummary.totalBreakFormatted;
-      }
-      if (todaySummary?.totalBreakFormatted && todaySummary.totalBreakFormatted !== '0s') {
-        return todaySummary.totalBreakFormatted;
-      }
-      if (workStatusData?.formattedTotalBreak && workStatusData.formattedTotalBreak !== '0s' && workStatusData.formattedTotalBreak !== '00h 00m 00s') {
-        return workStatusData.formattedTotalBreak;
-      }
-      if (todaySummary?.totalBreakSecondsToday && todaySummary.totalBreakSecondsToday > 0) {
-        return formatSecondsToWords(todaySummary.totalBreakSecondsToday);
-      }
-      if (sessionBreakWords && sessionBreakWords !== '0s') {
-        return sessionBreakWords;
-      }
-      if (liveBreakWords && liveBreakWords !== '0s') {
-        return liveBreakWords;
-      }
-    }
-    const breakSecs = getLiveBreakSeconds(rec);
-    if (breakSecs > 0) {
-      return formatSecondsToWords(breakSecs);
-    }
-    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) {
-      return `${rec.breakDurationMinutes}m`;
-    }
+    const fromPunches = secondsFromPunches(rec).breakSeconds;
+    if (fromPunches > 0) return formatSecondsToWords(fromPunches);
+    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) return `${rec.breakDurationMinutes}m`;
     return '00h 00m 00s';
   };
 
-  // Helper to reliably extract and format active worked duration
   const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
-    const anyRec = rec as any;
-    if (anyRec.sessionStartTime && anyRec.isLive) {
-      return formatSecondsToHMS(getLiveActiveSeconds(rec));
-    }
+    const mine = isMyAttendanceRecord(rec);
     const isToday = rec.date === getTodayDateString();
-    const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
-
-    if (isWorking) {
-      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
-        return sessionWorkedHMS;
-      }
-      if (liveWorkedHMS && liveWorkedHMS !== '00:00:00') {
-        return liveWorkedHMS;
-      }
+    if (mine && isToday && sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+      return sessionWorkedHMS;
     }
-    if (anyRec.durationFormatted && anyRec.durationFormatted !== '00:00:00' && anyRec.durationFormatted !== '00h 00m 00s') {
-      return anyRec.durationFormatted;
-    }
-    if (anyRec.todaySummary?.totalDurationFormatted) {
-      return anyRec.todaySummary.totalDurationFormatted;
-    }
-    if (isToday) {
-      if (workStatusData?.todaySummary?.totalDurationFormatted) {
-        return workStatusData.todaySummary.totalDurationFormatted;
-      }
-      if (workStatusData?.lastCompletedSession?.durationFormatted) {
-        return workStatusData.lastCompletedSession.durationFormatted;
-      }
-      if (todaySummary?.totalDurationFormatted) {
-        return todaySummary.totalDurationFormatted;
-      }
-    }
-    const liveSecs = getLiveActiveSeconds(rec);
-    if (liveSecs > 0) {
-      return formatSecondsToHMS(liveSecs);
-    }
+    const seconds = secondsFromPunches(rec).work;
+    if (seconds > 0) return formatSecondsToHMS(seconds);
+    const hours = String((rec as any).totalHours || '');
+    if (hours && hours !== '00:00') return hours.length === 5 ? `${hours}:00` : hours;
     return '00:00:00';
   };
 
