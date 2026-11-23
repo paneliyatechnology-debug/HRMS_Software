@@ -509,7 +509,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
         setLiveEmployees(scopedEmps);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'attendance') {
         const needEmployees = portalMode === 'admin' && employeesRef.current.length === 0;
         const [attendanceData, employeesData] = await Promise.all([
@@ -564,7 +564,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         ]);
         setJobs(Array.isArray(jobsData) ? jobsData : []);
         setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'organization') {
         const [departmentsData, designationsData, employeesData] = await Promise.all([
           api.getDepartments().catch(() => []),
@@ -574,7 +574,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
         setLiveEmployees(scopedEmps);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
         setDesignations(Array.isArray(designationsData) ? designationsData : []);
       } else if (targetModule === 'calendar') {
         const needEmployees = employeesRef.current.length === 0;

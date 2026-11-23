@@ -66,7 +66,7 @@ const DEPT_COLORS = [
 ];
 
 export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
-  departments,
+  departments: propDepartments = [],
   designations,
   locations,
   initialTab = 'departments',
@@ -78,6 +78,38 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const { user } = useAuth();
   const { showToast } = useSocket();
   const isAdmin = isUserAdminRole(user?.role);
+  const [departments, setDepartments] = useState<Department[]>(propDepartments || []);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
+
+  const loadDepartments = useCallback(async () => {
+    setLoadingDepartments(true);
+    try {
+      const data = await api.getDepartments();
+      const depts = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+        ? (data as any).data
+        : Array.isArray((data as any)?.departments)
+        ? (data as any).departments
+        : [];
+      setDepartments(depts);
+      return depts;
+    } catch (err: any) {
+      console.warn('Could not load departments:', err);
+      return [];
+    } finally {
+      setLoadingDepartments(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (propDepartments && propDepartments.length > 0) {
+      setDepartments(propDepartments);
+    } else {
+      loadDepartments();
+    }
+  }, [propDepartments, loadDepartments]);
+
   const [activeTab, setActiveTab] = useState<'departments' | 'designations' | 'teams' | 'about' | 'hierarchy'>(() => {
     if (initialTab === 'designations') return 'designations';
     if (initialTab === 'teams') return 'teams';
@@ -343,11 +375,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     } else if (deptName.trim().length < 2) {
       errors.deptName = 'Department name must be at least 2 characters.';
     }
-    if (!deptCode.trim()) {
-      errors.deptCode = 'Code is required.';
-    } else if (deptCode.trim().length < 2) {
-      errors.deptCode = 'Code must be at least 2 characters.';
-    }
 
     if (Object.keys(errors).length > 0) {
       setDeptErrors(errors);
@@ -359,16 +386,29 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     try {
       await api.createDepartment({
         name: deptName.trim(),
-        code: deptCode.trim().toUpperCase(),
-        headName: deptHeadName.trim(),
-        description: deptDescription.trim(),
       });
-      showToast?.({ title: 'Department Created', message: `${deptName} (${deptCode}) has been registered.`, type: 'success' });
+      showToast?.({
+        title: 'Department Created',
+        message: `${deptName.trim()} has been registered successfully.`,
+        type: 'success',
+      });
       setAddDeptModalOpen(false);
-      setDeptName(''); setDeptCode(''); setDeptDescription('');
-      onRefresh();
-    } catch (err) { console.error(err); }
-    finally { setDeptSubmitting(false); }
+      setDeptName('');
+      setDeptCode('');
+      setDeptDescription('');
+      setDeptHeadName('Department Head');
+      await loadDepartments();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      console.error('Department creation failed:', err);
+      showToast?.({
+        title: 'Creation Failed',
+        message: err.message || 'Could not create department.',
+        type: 'error',
+      });
+    } finally {
+      setDeptSubmitting(false);
+    }
   };
 
   const handleCreateDesignation = async (e: React.FormEvent) => {
@@ -736,7 +776,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         message: `${editDeptName} updated successfully.`,
       });
       setEditingDept(null);
-      onRefresh();
+      await loadDepartments();
+      if (onRefresh) onRefresh();
     } catch (err: any) {
       showToast?.({
         type: 'error',
@@ -759,7 +800,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         message: `${deletingDept.name} has been removed.`,
       });
       setDeletingDept(null);
-      onRefresh();
+      await loadDepartments();
+      if (onRefresh) onRefresh();
     } catch (err: any) {
       showToast?.({
         type: 'error',
@@ -1259,7 +1301,18 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       {activeTab === 'departments' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-slate-500 font-medium">{departments.length} departments registered</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-slate-500 font-medium">{departments.length} departments registered</p>
+              <button
+                type="button"
+                onClick={loadDepartments}
+                disabled={loadingDepartments}
+                className="p-1.5 rounded-lg bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-2xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="Refresh departments"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${loadingDepartments ? 'animate-spin text-emerald-600' : ''}`} />
+              </button>
+            </div>
             {portalMode === 'admin' && (
               <div className="flex items-center gap-2">
                 <button
@@ -1957,26 +2010,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-slate-700">Code *</label>
-                      {deptErrors.deptCode && (
-                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                          <AlertCircle className="w-3 h-3 shrink-0" />
-                          {deptErrors.deptCode}
-                        </span>
-                      )}
+                      <label className="text-xs font-bold text-slate-700">Code (Optional)</label>
                     </div>
-                    <input id="input-dept-code" type="text" required value={deptCode}
-                      onChange={(e) => {
-                        setDeptCode(e.target.value);
-                        if (deptErrors.deptCode) {
-                          setDeptErrors((p) => { const c = { ...p }; delete c.deptCode; return c; });
-                        }
-                      }}
+                    <input id="input-dept-code" type="text" value={deptCode}
+                      onChange={(e) => setDeptCode(e.target.value)}
                       placeholder="e.g. AI"
-                      className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white focus:outline-none transition ${deptErrors.deptCode
-                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
-                        }`} />
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1.5">Dept. Head</label>
