@@ -97,6 +97,10 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   };
 
   useEffect(() => {
+    fetchSalaries();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === 'salaries') {
       fetchSalaries();
     }
@@ -258,18 +262,32 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const totalDeductions = records.reduce((acc, curr) => acc + (curr.totalDeductions || 0), 0);
 
   const handleGenerateBatch = async () => {
+    if (salaries.length === 0) {
+      showToast({
+        title: 'Salary Structures Required',
+        message: 'No employee salary structures found in the database. Please configure employee monthly salaries in the "Salary Structures" tab before running payroll.',
+        type: 'error',
+        module: 'payroll',
+      });
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.generatePayroll(selectedMonth);
       showToast({
         title: 'Payroll Generated',
-        message: `Successfully calculated ${selectedMonth} payroll (${res.recordsGenerated || 23} payslips created).`,
+        message: `Successfully calculated ${selectedMonth} payroll (${res?.recordsGenerated || 0} payslips created).`,
         type: 'success',
         module: 'payroll',
       });
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'Payroll generation completed.');
+      showToast({
+        title: 'Payroll Calculation Error',
+        message: err?.message || 'Backend payroll generation failed (500). Please ensure employee salaries and attendance are recorded for this month.',
+        type: 'error',
+        module: 'payroll',
+      });
       onRefresh();
     } finally {
       setLoading(false);
@@ -413,7 +431,24 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               {payslipRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
-                    No payroll records generated for this cycle. Click &quot;Run Payroll&quot; to calculate salaries.
+                    <p className="mb-1 font-semibold text-slate-500">No payroll records generated for this cycle.</p>
+                    {salaries.length === 0 ? (
+                      <p className="text-amber-700 font-medium text-[11px] mt-1">
+                        ⚠️ Please configure employee salaries in the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('salaries')}
+                          className="underline font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+                        >
+                          Salary Structures tab
+                        </button>{' '}
+                        first before running payroll.
+                      </p>
+                    ) : (
+                      <p className="text-slate-400 text-[11px]">
+                        Click &quot;Run Payroll&quot; above to calculate salaries for {salaries.length} employee{salaries.length > 1 ? 's' : ''}.
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (
