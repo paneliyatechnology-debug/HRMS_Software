@@ -545,7 +545,7 @@ async function clock(data?: { workMode?: string; note?: string }) {
     clearApiCache('/attendance');
     return response.data;
   } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance clock action failed.');
   }
 }

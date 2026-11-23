@@ -498,11 +498,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return true;
       }
-      console.error('[WorkSessionContext] Check-in error:', err);
+      const isLeaveBlocked = /leave/i.test(message);
+      console.warn('[WorkSessionContext] Check-in notice:', message);
       showToast({
-        title: 'Clock-In Failed',
+        title: isLeaveBlocked ? 'Approved Leave Active' : 'Clock-In Notice',
         message: message || 'Could not start shift. Please try again.',
-        type: 'error',
+        type: isLeaveBlocked ? 'warning' : 'error',
       });
       return false;
     } finally {
@@ -548,10 +549,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
-      console.error('[WorkSessionContext] Take break error:', err);
+      const message = String(err?.message || '');
+      console.warn('[WorkSessionContext] Take break notice:', message);
       showToast({
         title: 'Break Failed',
-        message: err.message || 'Could not start break. Please try again.',
+        message: message || 'Could not start break. Please try again.',
         type: 'error',
       });
       return false;
@@ -603,10 +605,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
-      console.error('[WorkSessionContext] Resume work error:', err);
+      const message = String(err?.message || '');
+      console.warn('[WorkSessionContext] Resume work notice:', message);
       showToast({
         title: 'Resume Failed',
-        message: err.message || 'Could not resume work. Please try again.',
+        message: message || 'Could not resume work. Please try again.',
         type: 'error',
       });
       return false;
@@ -672,10 +675,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
-      console.error('[WorkSessionContext] Check out error:', err);
+      const message = String(err?.message || '');
+      console.warn('[WorkSessionContext] Check out notice:', message);
       showToast({
         title: 'Clock-Out Failed',
-        message: err.message || 'Could not complete shift. Please try again.',
+        message: message || 'Could not complete shift. Please try again.',
         type: 'error',
       });
       return false;
