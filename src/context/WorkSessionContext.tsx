@@ -41,12 +41,8 @@ export interface WorkSessionContextType {
   serverTime: string | null;
   actionLoading: boolean;
   initialLoading: boolean;
-<<<<<<< HEAD
   punchBlockMessage: string | null;
-  checkIn: () => Promise<boolean>;
-=======
   checkIn: (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }) => Promise<boolean>;
->>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
   takeBreak: () => Promise<boolean>;
   resumeWork: () => Promise<boolean>;
   checkOut: (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }) => Promise<boolean>;
@@ -450,7 +446,6 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const checkIn = useCallback(async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
     setActionLoading(true);
     try {
-<<<<<<< HEAD
       if (punchBlockRef.current) {
         showToast({
           title: 'Clock closed',
@@ -459,13 +454,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return false;
       }
-      const res = await api.clockIn({ note: 'Work shift start' });
-=======
       const res = await api.clockIn({
         workMode: options?.workMode || 'Office',
-        note: options?.note ?? '',
+        note: options?.note ?? 'Work shift start',
       });
->>>>>>> 9a4dcee8ebcbdd9969a15c04eaa4d85036d19ac2
 
       const isClockOutAction = res?.action === 'clock-out';
       if (isClockOutAction) {
