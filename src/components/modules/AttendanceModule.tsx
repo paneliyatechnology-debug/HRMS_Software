@@ -1113,6 +1113,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     if (mine && isToday && sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
       return sessionWorkedHMS;
     }
+    const liveSecs = getLiveActiveSeconds(rec);
+    if (liveSecs > 0) return formatSecondsToHMS(liveSecs);
+
     const seconds = secondsFromPunches(rec).work;
     if (seconds > 0) return formatSecondsToHMS(seconds);
     const hours = String((rec as any).totalHours || '');
@@ -1409,9 +1412,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       visibleEmployees.forEach((emp) => {
         const rec = getEmpTodayRecord(emp);
-        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
         const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
         const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -1437,7 +1440,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
 
         const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-        const activeWorkedStr = (rec as any)?.durationFormatted || (rec ? formatSecondsToHMS(liveSecs) : '00:00:00');
+        const activeWorkedStr = rec ? getRecordActiveWorkedDisplay(rec) : '00:00:00';
         const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
 
         const statusStr = rec
@@ -1575,9 +1578,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         const todayRecords = isEmployeeView
           ? mergedRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
           : mergedRecords.filter((r) => r.date === todayDate);
-        const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
-        const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
-        const completedCount = todayRecords.filter((r) => r.isCompleted).length;
+        const isRecDone = (r: AttendanceRecord) =>
+          Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== '' && r.checkOut !== '—') || (r as any).status === 'Completed');
+        const isRecBreak = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && r.isOnBreak);
+        const isRecWorking = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && !r.isOnBreak && ((r.checkIn && r.checkIn !== '—') || (r as any).clock?.isLive));
+
+        const workingCount = todayRecords.filter(isRecWorking).length;
+        const onBreakCount = todayRecords.filter(isRecBreak).length;
+        const completedCount = todayRecords.filter(isRecDone).length;
 
         return (
           <div className="space-y-4">
@@ -2013,9 +2023,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     ) : (
                       visibleEmployees.map((emp) => {
                         const rec = getEmpTodayRecord(emp);
-                        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
                         const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                         const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -2082,7 +2092,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <div>
                                 <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
                                 <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                                  {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                                  {rec ? getRecordActiveWorkedDisplay(rec) : '—'}
                                 </span>
                               </div>
                             </div>
@@ -2164,9 +2174,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         ) : (
                           visibleEmployees.map((emp) => {
                             const rec = getEmpTodayRecord(emp);
-                            const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                            const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                            const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                            const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
                             const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
                             const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
@@ -2217,7 +2227,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                                     {rec ? (
                                       <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                        {formatSecondsToHMS(liveSecs)}
+                                        {getRecordActiveWorkedDisplay(rec)}
                                       </span>
                                     ) : (
                                       <span className="text-slate-400">—</span>
