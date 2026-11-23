@@ -264,6 +264,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [isAuthenticated]);
 
   // Data state
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -497,38 +498,43 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
     try {
       if (targetModule === 'dashboard') {
-        const needEmployees = employeesRef.current.length === 0;
-        const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
-          api.getDashboardStats().catch(() => null),
-          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
-          api.getLeaves().catch(() => []),
-          api.getAttendance().catch(() => []),
-          portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
-        ]);
+        setDashboardLoading(true);
+        try {
+          const needEmployees = employeesRef.current.length === 0;
+          const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
+            api.getDashboardStats().catch(() => null),
+            needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
+            api.getLeaves().catch(() => []),
+            api.getAttendance().catch(() => []),
+            portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
+          ]);
 
-        const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
-        if (needEmployees) {
-          setEmployees(scopedEmps);
-          setLiveEmployees(scopedEmps);
-        }
+          const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
+          if (needEmployees) {
+            setEmployees(scopedEmps);
+            setLiveEmployees(scopedEmps);
+          }
 
-        const scopedLvs = scopeLeaves(leavesData, scopedEmps);
-        setLeaves(scopedLvs);
-        setLiveLeaves(scopedLvs);
+          const scopedLvs = scopeLeaves(leavesData, scopedEmps);
+          setLeaves(scopedLvs);
+          setLiveLeaves(scopedLvs);
 
-        const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
-        setAttendance(scopedAtt);
-        setLiveAttendanceRecords(scopedAtt);
+          const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
+          setAttendance(scopedAtt);
+          setLiveAttendanceRecords(scopedAtt);
 
-        const anyStats = statsData as any;
-        if (anyStats) {
-          setStats({
-            ...anyStats,
-            totalEmployees: scopedEmps.length,
-            activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
-            attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
-            totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
-          });
+          const anyStats = statsData as any;
+          if (anyStats) {
+            setStats({
+              ...anyStats,
+              totalEmployees: scopedEmps.length,
+              activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
+              attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
+              totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
+            });
+          }
+        } finally {
+          setDashboardLoading(false);
         }
       } else if (targetModule === 'employees') {
         const [employeesData, departmentsData] = await Promise.all([
@@ -891,6 +897,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           >
             {activeModule === 'dashboard' && (
               <DashboardView
+                loading={dashboardLoading}
                 stats={stats}
                 employees={employees}
                 leaves={leaves}

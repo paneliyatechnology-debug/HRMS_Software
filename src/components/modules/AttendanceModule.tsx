@@ -1364,10 +1364,45 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Compact Daily Shift Console fitted into top-right header area */}
+        {/* Right: Compact Daily Shift Console for Employee OR Live Monitoring Console for Admin */}
         {resolvedTab === 'today' && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
-            <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
+            {isEmployeeView ? (
+              <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-slate-900 tracking-tight">Live Attendance Monitoring</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    Admin Oversight
+                  </span>
+                </div>
+                <div className="py-2.5 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 block font-medium">Workforce</span>
+                    <span className="font-bold text-slate-900 text-sm">{employees.length}</span>
+                  </div>
+                  <div className="bg-emerald-50/60 p-2 rounded-xl border border-emerald-100">
+                    <span className="text-[10px] text-emerald-700 block font-medium">Working</span>
+                    <span className="font-bold text-emerald-800 text-sm">
+                      {liveRecords.filter((r) => r.date === getTodayDateString() && !r.isCompleted && !r.isOnBreak).length}
+                    </span>
+                  </div>
+                  <div className="bg-amber-50/60 p-2 rounded-xl border border-amber-100">
+                    <span className="text-[10px] text-amber-700 block font-medium">On Break</span>
+                    <span className="font-bold text-amber-800 text-sm">
+                      {liveRecords.filter((r) => r.date === getTodayDateString() && !r.isCompleted && r.isOnBreak).length}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  ℹ️ Staff punching is restricted to Employee &amp; Manager workforce. Admin maintains live monitoring.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1836,7 +1871,32 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <>
                   {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
                   <div className="md:hidden divide-y divide-slate-100">
-                    {visibleEmployees.map((emp) => {
+                    {visibleEmployees.length === 0 ? (
+                      <div className="p-8 text-center space-y-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-800">No employees found</p>
+                        <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                          No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;. Try resetting your filters.
+                        </p>
+                        {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAttendanceSearch('');
+                              setSelectedDept('All');
+                              setSelectedEmp('All');
+                            }}
+                            className="px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Clear Filters</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      visibleEmployees.map((emp) => {
                       const rec = getEmpTodayRecord(emp);
                       const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
                       const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
@@ -1901,7 +1961,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
 
                   <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
@@ -1918,7 +1978,38 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.map((emp) => {
+                        {visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
+                                </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleEmployees.map((emp) => {
                           const rec = getEmpTodayRecord(emp);
                           const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
                           const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
@@ -1996,7 +2087,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </td>
                             </tr>
                           );
-                        })}
+                        }))}
                       </tbody>
                     </table>
                   </div>
@@ -2276,7 +2367,38 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.map((emp) => {
+                        {visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
+                                </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleEmployees.map((emp) => {
                           const metrics = getEmployeeMonthlyMetrics(emp);
                           const todayRec = getEmpTodayRecord(emp);
                           const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
@@ -2419,7 +2541,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </td>
                             </tr>
                           );
-                        })}
+                        }))}
                       </tbody>
                     </table>
                   </div>
