@@ -36,6 +36,7 @@ import { api } from '../../lib/api';
 import {
   fetchLeaveQuotaData,
   resolveLeaveQuotaSummary,
+  calculateEmployeeLeaveBalances,
   RawLeaveQuotaPayload,
 } from '../../lib/leaveQuotaUtils';
 import { useSocket } from '../../context/SocketContext';
@@ -115,13 +116,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const userRole = (user?.role || '').trim().toUpperCase();
   const isAdminOrHr = ['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(userRole) || portalMode === 'admin';
 
-  // Leave Types Modal State (Admin & HR)
+  // Leave Types Modal State (Admin, HR, Employee, Manager)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
-  const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean }>>(initialLeaveTypes || []);
+  const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string; daysPerYear?: number; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean }>>(initialLeaveTypes || []);
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
   const [newLeaveTypeName, setNewLeaveTypeName] = useState('');
+  const [newLeaveTypeDays, setNewLeaveTypeDays] = useState<string>('12');
   const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
   const [editingLeaveTypeName, setEditingLeaveTypeName] = useState('');
+  const [editingLeaveTypeDays, setEditingLeaveTypeDays] = useState<string>('12');
   const [isSubmittingLeaveType, setIsSubmittingLeaveType] = useState(false);
   const [deletingLeaveTypeId, setDeletingLeaveTypeId] = useState<string | null>(null);
 
@@ -184,15 +187,22 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       showToast({ type: 'warning', title: 'Name Required', message: 'Please enter a leave type name.' });
       return;
     }
+    const parsedDays = Number(newLeaveTypeDays);
+    if (newLeaveTypeDays === '' || isNaN(parsedDays) || parsedDays < 0) {
+      showToast({ type: 'warning', title: 'Invalid Days', message: 'Days per year must be a valid positive number.' });
+      return;
+    }
+
     setIsSubmittingLeaveType(true);
     try {
-      const created = await api.createLeaveType({ name: nameToAdd });
+      const created = await api.createLeaveType({ name: nameToAdd, daysPerYear: parsedDays });
       showToast({
         type: 'success',
         title: 'Leave Type Created',
-        message: `"${created?.name || nameToAdd}" created successfully.`,
+        message: `"${created?.name || nameToAdd}" (${parsedDays} days/year) created successfully.`,
       });
       setNewLeaveTypeName('');
+      setNewLeaveTypeDays('12');
       await loadLeaveTypes();
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hrms_leave_types_updated'));
     } catch (err: any) {
@@ -212,16 +222,23 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       showToast({ type: 'warning', title: 'Name Required', message: 'Please enter a valid leave type name.' });
       return;
     }
+    const parsedDays = Number(editingLeaveTypeDays);
+    if (editingLeaveTypeDays === '' || isNaN(parsedDays) || parsedDays < 0) {
+      showToast({ type: 'warning', title: 'Invalid Days', message: 'Days per year must be a valid positive number.' });
+      return;
+    }
+
     setIsSubmittingLeaveType(true);
     try {
-      const updated = await api.updateLeaveType(id, { name: nameToUpdate });
+      const updated = await api.updateLeaveType(id, { name: nameToUpdate, daysPerYear: parsedDays });
       showToast({
         type: 'success',
         title: 'Leave Type Updated',
-        message: `"${updated?.name || nameToUpdate}" updated successfully.`,
+        message: `"${updated?.name || nameToUpdate}" (${parsedDays} days/year) updated successfully.`,
       });
       setEditingLeaveTypeId(null);
       setEditingLeaveTypeName('');
+      setEditingLeaveTypeDays('12');
       await loadLeaveTypes();
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hrms_leave_types_updated'));
     } catch (err: any) {
@@ -324,158 +341,30 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const approvedLeaves = relevantLeaves.filter((l) => l.status === 'Approved');
   const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
 
-  // Dynamic leave quota & balance calculation strictly from Admin-configured backend quotas
+  // Dynamic leave quota & balance calculation strictly from Admin-configured backend quotas & leave types
   const quotaSummary = resolveLeaveQuotaSummary(
     quotaData?.settings ?? null,
     quotaData?.balances ?? null,
     relevantLeaves
   );
 
-  const CASUAL_QUOTA = quotaSummary.casual.quota;
-  const casualTaken = quotaSummary.casual.taken;
-  const casualPending = quotaSummary.casual.pending;
-  const casualLeft = quotaSummary.casual.available;
+  const empLeaveResult = useMemo(() => {
+    return calculateEmployeeLeaveBalances(
+      leaveTypesList,
+      relevantLeaves,
+      quotaData?.settings ?? null,
+      quotaData?.balances ?? null
+    );
+  }, [leaveTypesList, relevantLeaves, quotaData]);
 
-  const SICK_QUOTA = quotaSummary.sick.quota;
-  const sickTaken = quotaSummary.sick.taken;
-  const sickPending = quotaSummary.sick.pending;
-  const sickLeft = quotaSummary.sick.available;
-
-  const PAID_QUOTA = quotaSummary.paid.quota;
-  const paidTaken = quotaSummary.paid.taken;
-  const paidPending = quotaSummary.paid.pending;
-  const paidLeft = quotaSummary.paid.available;
-
-  const TOTAL_QUOTA = quotaSummary.total.quota;
-  const totalTaken = quotaSummary.total.taken;
-  const totalPending = quotaSummary.total.pending;
-  const totalLeft = quotaSummary.total.available;
+  const dynamicLeaveCards = empLeaveResult.cards;
+  const TOTAL_QUOTA = empLeaveResult.totalQuota;
+  const totalTaken = empLeaveResult.totalTaken;
+  const totalPending = empLeaveResult.totalPending;
+  const totalLeft = empLeaveResult.totalAvailable;
 
   const getUsagePercent = (taken: number, quota: number) =>
     quota > 0 ? Math.min(100, Math.round((taken / quota) * 100)) : 0;
-
-  // Top 4 leave types configured by administrator for the employee summary boxes
-  const dynamicLeaveCards = useMemo(() => {
-    if (!leaveTypesList || leaveTypesList.length === 0) return [];
-
-    // Filter out invalid names and deduplicate
-    const seen = new Set<string>();
-    const unique = leaveTypesList.filter((lt) => {
-      const name = (lt.name || '').trim();
-      if (!name || seen.has(name.toLowerCase())) return false;
-      seen.add(name.toLowerCase());
-      return true;
-    });
-
-    // Sort by highest daysAllowed/quota descending, preserving admin configured order
-    const sorted = [...unique].sort((a, b) => {
-      const quotaA = Number((a as any).daysAllowed ?? 0);
-      const quotaB = Number((b as any).daysAllowed ?? 0);
-      return quotaB - quotaA;
-    });
-
-    // Take highest 4 leave types configured by administrator
-    const top4 = sorted.slice(0, 4);
-
-    const THEMES = [
-      {
-        border: 'border-emerald-100',
-        dot: 'bg-emerald-500',
-        title: 'text-emerald-800',
-        badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        usedTag: 'text-emerald-700',
-        progressBar: 'bg-emerald-500',
-      },
-      {
-        border: 'border-amber-100',
-        dot: 'bg-amber-500',
-        title: 'text-amber-800',
-        badge: 'bg-amber-50 text-amber-800 border-amber-200',
-        usedTag: 'text-amber-700',
-        progressBar: 'bg-amber-500',
-      },
-      {
-        border: 'border-violet-100',
-        dot: 'bg-violet-600',
-        title: 'text-violet-800',
-        badge: 'bg-violet-50 text-violet-800 border-violet-200',
-        usedTag: 'text-violet-700',
-        progressBar: 'bg-violet-600',
-      },
-      {
-        border: 'border-indigo-100',
-        dot: 'bg-indigo-600',
-        title: 'text-indigo-700',
-        badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-        usedTag: 'text-indigo-600',
-        progressBar: 'bg-indigo-600',
-      },
-    ];
-
-    return top4.map((lt, idx) => {
-      const tName = (lt.name || '').trim().toLowerCase();
-
-      let quota = 0;
-      if (tName.includes('casual') && CASUAL_QUOTA > 0) {
-        quota = CASUAL_QUOTA;
-      } else if ((tName.includes('sick') || tName.includes('med')) && SICK_QUOTA > 0) {
-        quota = SICK_QUOTA;
-      } else if ((tName.includes('paid') || tName.includes('annual') || tName.includes('earn')) && PAID_QUOTA > 0) {
-        quota = PAID_QUOTA;
-      } else if (typeof (lt as any).daysAllowed === 'number' && (lt as any).daysAllowed > 0) {
-        quota = (lt as any).daysAllowed;
-      } else {
-        quota = 0;
-      }
-
-      const taken = relevantLeaves
-        .filter((l) => {
-          const lType = (l.leaveType || '').trim().toLowerCase();
-          const isApproved = (l.status || '').toLowerCase() === 'approved';
-          return isApproved && (lType === tName || lType.includes(tName) || tName.includes(lType));
-        })
-        .reduce((sum, l) => {
-          const count = Number(l.daysCount);
-          if (Number.isFinite(count) && count > 0) return sum + count;
-          return sum + (l.isHalfDay ? 0.5 : 1);
-        }, 0);
-
-      const pending = relevantLeaves
-        .filter((l) => {
-          const lType = (l.leaveType || '').trim().toLowerCase();
-          const isPending = (l.status || '').toLowerCase() === 'pending';
-          return isPending && (lType === tName || lType.includes(tName) || tName.includes(lType));
-        })
-        .reduce((sum, l) => {
-          const count = Number(l.daysCount);
-          if (Number.isFinite(count) && count > 0) return sum + count;
-          return sum + (l.isHalfDay ? 0.5 : 1);
-        }, 0);
-
-      const available = Math.max(0, quota - taken);
-
-      let badge = (lt as any).code || '';
-      if (!badge) {
-        if (tName.includes('casual')) badge = 'CASUAL';
-        else if (tName.includes('sick') || tName.includes('med')) badge = 'MEDICAL';
-        else if (tName.includes('paid') || tName.includes('annual')) badge = 'EARNED';
-        else if (tName.includes('privilege')) badge = 'PRIVILEGE';
-        else if ((lt as any).isPaid === false) badge = 'UNPAID';
-        else badge = (lt.name || '').toUpperCase().slice(0, 10);
-      }
-
-      return {
-        id: lt.id,
-        name: lt.name,
-        quota,
-        taken,
-        pending,
-        available,
-        badge,
-        theme: THEMES[idx % THEMES.length],
-      };
-    });
-  }, [leaveTypesList, relevantLeaves, CASUAL_QUOTA, SICK_QUOTA, PAID_QUOTA]);
 
   // Filter leaves according to current portal & filters
   const lq = search.trim().toLowerCase();
@@ -650,10 +539,20 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       {/* ========================================================================= */}
       {portalMode === 'employee' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-end gap-3 pb-2 border-b border-[#e9ecef]">
+          <div className="flex items-center justify-end gap-2.5 pb-2 border-b border-slate-200">
+            <button
+              onClick={() => {
+                setIsLeaveTypesModalOpen(true);
+                loadLeaveTypes();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+            >
+              <List className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Leave Types</span>
+            </button>
             <button
               onClick={onOpenApplyModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Apply for Leave</span>
@@ -1581,8 +1480,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </div>
         </div>
       )}
-      {/* Leave Types Management Modal (Admin / HR) */}
-      {isLeaveTypesModalOpen && isAdminOrHr && (
+      {/* Leave Types Management Modal (Accessible by Admin, HR, Employee, Manager) */}
+      {isLeaveTypesModalOpen && (
         <div
           onClick={() => setIsLeaveTypesModalOpen(false)}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
@@ -1593,13 +1492,13 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           >
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold shrink-0">
                   <List className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base font-bold text-slate-900 truncate">Manage Leave Types</h3>
                   <p className="text-xs text-slate-500 truncate mt-0.5">
-                    Configure company leave categories
+                    Configure company leave categories.
                   </p>
                 </div>
               </div>
@@ -1614,41 +1513,63 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
               {/* Role restriction banner for non-admin/hr */}
               {!isAdminOrHr && (
-                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Only Administrator and HR accounts have permission to configure company leave types.</span>
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 text-emerald-900 rounded-xl text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Company leave categories and annual allowances. (View only)</span>
                 </div>
               )}
 
-              {/* Add New Leave Type Form */}
-              <form onSubmit={handleCreateLeaveType} className="flex gap-2">
-                <input
-                  type="text"
-                  value={newLeaveTypeName}
-                  onChange={(e) => setNewLeaveTypeName(e.target.value)}
-                  placeholder="Enter leave type name (e.g. Maternity Leave)..."
-                  disabled={isSubmittingLeaveType || !isAdminOrHr}
-                  className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={isSubmittingLeaveType || !newLeaveTypeName.trim() || !isAdminOrHr}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed transition-all active:scale-95"
-                >
-                  {isSubmittingLeaveType ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Adding...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      <span>Add</span>
-                    </>
-                  )}
-                </button>
-              </form>
+              {/* Add New Leave Type Form (Admin & HR only) */}
+              {isAdminOrHr && (
+                <form onSubmit={handleCreateLeaveType} className="space-y-2 p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-2xl">
+                  <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Add Leave Type</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        value={newLeaveTypeName}
+                        onChange={(e) => setNewLeaveTypeName(e.target.value)}
+                        placeholder="Leave type name (e.g. Privilege)..."
+                        disabled={isSubmittingLeaveType}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={newLeaveTypeDays}
+                        onChange={(e) => setNewLeaveTypeDays(e.target.value)}
+                        placeholder="Days / Year"
+                        disabled={isSubmittingLeaveType}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:text-slate-400"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingLeaveType || !newLeaveTypeName.trim()}
+                      className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      {isSubmittingLeaveType ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Adding...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          <span>Add Leave Type</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
 
               {/* Leave Types List */}
               <div className="space-y-2 pt-1">
@@ -1667,71 +1588,95 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   {leaveTypesList.map((lt) => (
                     <div key={lt.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
                       {editingLeaveTypeId === lt.id ? (
-                        <div className="flex-1 flex items-center gap-2">
+                        <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <input
                             type="text"
                             value={editingLeaveTypeName}
                             onChange={(e) => setEditingLeaveTypeName(e.target.value)}
-                            className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-white text-slate-900"
+                            placeholder="Leave type name"
+                            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                             autoFocus
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateLeaveType(lt.id)}
-                            disabled={isSubmittingLeaveType || !editingLeaveTypeName.trim()}
-                            className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-                          >
-                            {isSubmittingLeaveType ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                <span>Saving...</span>
-                              </>
-                            ) : (
-                              <span>Save</span>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingLeaveTypeId(null);
-                              setEditingLeaveTypeName('');
-                            }}
-                            disabled={isSubmittingLeaveType}
-                            className="px-2 py-1 border border-slate-200 text-slate-600 text-xs rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="font-semibold text-xs text-slate-800">{lt.name}</span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              max="365"
+                              value={editingLeaveTypeDays}
+                              onChange={(e) => setEditingLeaveTypeDays(e.target.value)}
+                              placeholder="Days/Yr"
+                              className="w-20 px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                            />
+                            <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">Days/Yr</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateLeaveType(lt.id)}
+                              disabled={isSubmittingLeaveType || !editingLeaveTypeName.trim()}
+                              className="px-3 py-1.5 bg-emerald-700 text-white text-xs font-semibold rounded-lg hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              {isSubmittingLeaveType ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Saving...</span>
+                                </>
+                              ) : (
+                                <span>Save</span>
+                              )}
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
-                                setEditingLeaveTypeId(lt.id);
-                                setEditingLeaveTypeName(lt.name);
+                                setEditingLeaveTypeId(null);
+                                setEditingLeaveTypeName('');
+                                setEditingLeaveTypeDays('12');
                               }}
-                              disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
-                              className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer transition-colors"
-                              title="Edit"
+                              disabled={isSubmittingLeaveType}
+                              className="px-2.5 py-1.5 border border-slate-200 text-slate-600 text-xs rounded-lg hover:bg-slate-100 disabled:opacity-50 cursor-pointer transition-colors"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteLeaveType(lt.id, lt.name)}
-                              disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
-                              className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer transition-colors"
-                              title="Delete"
-                            >
-                              {deletingLeaveTypeId === lt.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
+                              Cancel
                             </button>
                           </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-xs text-slate-800">{lt.name}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {lt.daysPerYear ?? lt.daysAllowed ?? 0} Days/Year
+                            </span>
+                          </div>
+                          {isAdminOrHr && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingLeaveTypeId(lt.id);
+                                  setEditingLeaveTypeName(lt.name);
+                                  setEditingLeaveTypeDays(String(lt.daysPerYear ?? lt.daysAllowed ?? 12));
+                                }}
+                                disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
+                                className="p-1.5 rounded-md text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 cursor-pointer transition-colors"
+                                title="Edit leave type"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLeaveType(lt.id, lt.name)}
+                                disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
+                                className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer transition-colors"
+                                title="Delete leave type"
+                              >
+                                {deletingLeaveTypeId === lt.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

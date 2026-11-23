@@ -50,6 +50,7 @@ import { api } from '../lib/api';
 import {
   fetchLeaveQuotaData,
   resolveLeaveQuotaSummary,
+  calculateEmployeeLeaveBalances,
   RawLeaveQuotaPayload,
 } from '../lib/leaveQuotaUtils';
 import { getRoleDefinition } from '../lib/roleConfig';
@@ -92,6 +93,7 @@ interface DashboardViewProps {
   employees: Employee[];
   leaves: LeaveRequest[];
   attendance: AttendanceRecord[];
+  leaveTypes?: any[];
   onNavigateModule: (moduleName: string, subTab?: string) => void;
   onOpenClockModal: () => void;
   onOpenLeaveModal: () => void;
@@ -107,6 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   stats,
   employees,
   leaves,
+  leaveTypes,
   attendance,
   onNavigateModule,
   onOpenClockModal,
@@ -217,20 +220,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Real announcements, holidays, and admin-configured leave quota/balance states
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
+  const [leaveTypesList, setLeaveTypesList] = useState<any[]>(leaveTypes || []);
   const [leaveQuotaData, setLeaveQuotaData] = useState<RawLeaveQuotaPayload | null>(null);
   const [leaveQuotaLoading, setLeaveQuotaLoading] = useState<boolean>(portalMode !== 'admin');
+
+  useEffect(() => {
+    if (Array.isArray(leaveTypes) && leaveTypes.length > 0) {
+      setLeaveTypesList(leaveTypes);
+    }
+  }, [leaveTypes]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchExtraData = async () => {
       try {
-        const [annRes, holRes] = await Promise.all([
+        const [annRes, holRes, ltRes] = await Promise.all([
           api.getAnnouncements(),
           api.getHolidays(),
+          api.listLeaveTypes(user?.companyId ? { companyId: user.companyId } : undefined).catch(() => []),
         ]);
         if (isMounted) {
           setAnnouncements(Array.isArray(annRes) ? annRes : []);
           setHolidays(Array.isArray(holRes) ? holRes : []);
+          if (Array.isArray(ltRes) && ltRes.length > 0) {
+            setLeaveTypesList(ltRes);
+          }
         }
       } catch (err) {
         console.warn('DashboardView fetch extra data notice:', err);
@@ -252,19 +266,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const handleLeaveQuotaSync = async () => {
       if (portalMode === 'admin') return;
       try {
-        const payload = await fetchLeaveQuotaData(activeEmpId);
-        if (isMounted) setLeaveQuotaData(payload);
+        const [payload, ltRes] = await Promise.all([
+          fetchLeaveQuotaData(activeEmpId),
+          api.listLeaveTypes(user?.companyId ? { companyId: user.companyId } : undefined).catch(() => []),
+        ]);
+        if (isMounted) {
+          setLeaveQuotaData(payload);
+          if (Array.isArray(ltRes) && ltRes.length > 0) {
+            setLeaveTypesList(ltRes);
+          }
+        }
       } catch (_) { }
     };
 
     window.addEventListener('hrms_settings_updated', handleLeaveQuotaSync);
     window.addEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
+    window.addEventListener('hrms_leave_types_updated', handleLeaveQuotaSync);
     return () => {
       isMounted = false;
       window.removeEventListener('hrms_settings_updated', handleLeaveQuotaSync);
       window.removeEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
+      window.removeEventListener('hrms_leave_types_updated', handleLeaveQuotaSync);
     };
-  }, [portalMode, activeEmpId]);
+  }, [portalMode, activeEmpId, user?.companyId]);
 
   // Set of all identifier keys for this employee to match attendance records accurately
   const myCandidateIds = useMemo(() => {
@@ -1035,16 +1059,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const myLeaves = leaves.filter((l) => {
               const eId = currentEmp?.id || user?.employeeId || user?.id || '';
               const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
+              const eCode = ((currentEmp as any)?.employeeCode || (user as any)?.employeeCode || '').toLowerCase();
               const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
               if (eId && l.employeeId === eId) return true;
               if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
+              if (eCode && (l as any).employeeCode?.toLowerCase() === eCode) return true;
               if (eName && l.employeeName?.toLowerCase() === eName) return true;
               return false;
             });
             const empLeaveSummary = resolveLeaveQuotaSummary(
               leaveQuotaData?.settings ?? null,
               leaveQuotaData?.balances ?? null,
-              myLeaves
+              myLeaves,
+              leaveTypesList
             );
             const empTakenDays = empLeaveSummary.total.taken;
             const empTotalQuota = empLeaveSummary.total.quota;
@@ -1222,34 +1249,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="p-5">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                     <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota &amp; Balances</h4>
-                    <button
-                      onClick={onOpenLeaveModal}
-                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                    >
-                      + Apply Leave
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => onNavigateModule('leaves')}
+                        className="text-xs font-semibold text-slate-500 hover:text-emerald-700 cursor-pointer"
+                      >
+                        View All
+                      </button>
+                      <button
+                        onClick={onOpenLeaveModal}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      >
+                        + Apply Leave
+                      </button>
+                    </div>
                   </div>
 
                   {(() => {
                     const empMyLeaves = leaves.filter((l) => {
                       const eId = currentEmp?.id || user?.employeeId || user?.id || '';
                       const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
+                      const eCode = ((currentEmp as any)?.employeeCode || (user as any)?.employeeCode || '').toLowerCase();
                       const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
                       if (eId && l.employeeId === eId) return true;
                       if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
+                      if (eCode && (l as any).employeeCode?.toLowerCase() === eCode) return true;
                       if (eName && l.employeeName?.toLowerCase() === eName) return true;
                       return false;
                     });
+                    const empLeaveResult = calculateEmployeeLeaveBalances(
+                      leaveTypesList,
+                      empMyLeaves,
+                      leaveQuotaData?.settings ?? null,
+                      leaveQuotaData?.balances ?? null
+                    );
                     const empSummary = resolveLeaveQuotaSummary(
                       leaveQuotaData?.settings ?? null,
                       leaveQuotaData?.balances ?? null,
-                      empMyLeaves
+                      empMyLeaves,
+                      leaveTypesList
                     );
+
                     if (leaveQuotaLoading) {
                       return (
                         <div className="grid grid-cols-3 gap-2.5 text-center text-xs animate-pulse">
                           {[0, 1, 2].map((idx) => (
-                            <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
+                            <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
                               <div className="h-3 w-12 mx-auto bg-slate-200 rounded" />
                               <div className="h-5 w-14 mx-auto bg-slate-200 rounded" />
                               <div className="h-2.5 w-16 mx-auto bg-slate-100 rounded" />
@@ -1258,32 +1303,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                       );
                     }
+
+                    // Dynamically show the top 3 leave types configured for the employee
+                    const top3Cards = empLeaveResult.cards.slice(0, 3);
+                    const gridColsClass = top3Cards.length === 1 ? 'grid-cols-1' : top3Cards.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
+
+                    if (top3Cards.length > 0) {
+                      return (
+                        <div className={`grid ${gridColsClass} gap-2.5 text-center text-xs`}>
+                          {top3Cards.map((card) => (
+                            <div
+                              key={card.id}
+                              onClick={() => onNavigateModule('leaves')}
+                              className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all cursor-pointer flex flex-col justify-between"
+                            >
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block truncate" title={card.name}>
+                                {card.name}
+                              </span>
+                              <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
+                                {card.available} Left
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                of {card.quota} Total
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
                     return (
                       <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
-                        <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
-                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Casual</span>
-                          <span className="text-lg font-semibold tracking-tight text-blue-700 block mt-0.5">
+                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Casual</span>
+                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.casual.available} Left
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.casual.quota} Total
                           </span>
                         </div>
-                        <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Sick</span>
-                          <span className="text-lg font-semibold tracking-tight text-emerald-700 block mt-0.5">
+                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sick</span>
+                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.sick.available} Left
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.sick.quota} Total
                           </span>
                         </div>
-                        <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
-                          <span className="text-[10px] font-semibold text-slate-500 uppercase block">Annual</span>
-                          <span className="text-lg font-semibold tracking-tight text-purple-700 block mt-0.5">
+                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Annual</span>
+                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.paid.available} Left
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.paid.quota} Total
                           </span>
                         </div>

@@ -29,6 +29,18 @@ export type LeaveType =
   | 'Paternity Leave'
   | (string & {});
 
+export interface ConfiguredLeaveType {
+  id: string;
+  name: string;
+  daysPerYear?: number;
+  daysAllowed?: number;
+  companyId?: string;
+  createdAt?: string;
+  code?: string;
+  color?: string;
+  isPaid?: boolean;
+}
+
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
 export type CandidateStatus =

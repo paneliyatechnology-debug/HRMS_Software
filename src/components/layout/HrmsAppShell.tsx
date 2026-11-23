@@ -591,7 +591,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
         const rawPayroll = Array.isArray(payrollData) ? payrollData : Array.isArray((payrollData as any)?.data) ? (payrollData as any).data : [];
         const scopedPayroll = rawPayroll.filter(
-          (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
+          (p: any) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
         );
         setPayroll(scopedPayroll);
       } else if (targetModule === 'recruitment') {
@@ -909,6 +909,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 stats={stats}
                 employees={employees}
                 leaves={leaves}
+                leaveTypes={leaveTypes}
                 attendance={attendance}
                 onNavigateModule={navigateToModule}
                 onOpenClockModal={() => setClockModalOpen(true)}

@@ -827,12 +827,21 @@ async function correctAttendance(attendanceId: string, data: {
 
 function backendLeaveTypeToFrontend(lt: any) {
   if (!lt) return lt;
+  const days = lt.daysPerYear !== undefined
+    ? Number(lt.daysPerYear)
+    : (lt.daysAllowed !== undefined
+      ? Number(lt.daysAllowed)
+      : (lt.quota !== undefined
+        ? Number(lt.quota)
+        : (lt.days !== undefined ? Number(lt.days) : 0)));
+
   return {
     id: lt.id || lt._id || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     name: lt.name || lt.title || lt.leaveType || '',
+    daysPerYear: days,
+    daysAllowed: days,
     companyId: lt.companyId || '',
     createdAt: lt.createdAt || '',
-    daysAllowed: lt.daysAllowed !== undefined ? Number(lt.daysAllowed) : (lt.quota !== undefined ? Number(lt.quota) : (lt.days !== undefined ? Number(lt.days) : 0)),
     code: lt.code || '',
     color: lt.color || '',
     isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
@@ -840,16 +849,35 @@ function backendLeaveTypeToFrontend(lt: any) {
 }
 
 // 31. POST /leave-types (Create leave type - Admin/HR only)
-async function createLeaveType(dataOrName: { name: string } | string) {
-  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+async function createLeaveType(dataOrName: { name: string; daysPerYear?: number } | string, maybeDays?: number) {
+  let name = '';
+  let daysPerYear: number | undefined = undefined;
+
+  if (typeof dataOrName === 'string') {
+    name = dataOrName;
+    if (maybeDays !== undefined) daysPerYear = Number(maybeDays);
+  } else if (dataOrName && typeof dataOrName === 'object') {
+    name = dataOrName.name;
+    if (dataOrName.daysPerYear !== undefined) {
+      daysPerYear = Number(dataOrName.daysPerYear);
+    } else if (maybeDays !== undefined) {
+      daysPerYear = Number(maybeDays);
+    }
+  }
+
   if (!name || !name.trim()) {
     throw new Error('Leave type name is required.');
+  }
+
+  const payload: any = { name: name.trim() };
+  if (daysPerYear !== undefined && !isNaN(daysPerYear)) {
+    payload.daysPerYear = daysPerYear;
   }
 
   try {
     const response = await http.post(
       '/leave-types',
-      { name: name.trim() },
+      payload,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -860,7 +888,7 @@ async function createLeaveType(dataOrName: { name: string } | string) {
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
   } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be created.');
   }
 }
@@ -906,10 +934,29 @@ async function listLeaveTypes(params?: { companyId?: string }) {
 }
 
 // 33. PATCH / PUT /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
-async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string } | string) {
-  const name = typeof dataOrName === 'string' ? dataOrName : dataOrName?.name;
+async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string; daysPerYear?: number } | string, maybeDays?: number) {
+  let name = '';
+  let daysPerYear: number | undefined = undefined;
+
+  if (typeof dataOrName === 'string') {
+    name = dataOrName;
+    if (maybeDays !== undefined) daysPerYear = Number(maybeDays);
+  } else if (dataOrName && typeof dataOrName === 'object') {
+    name = dataOrName.name;
+    if (dataOrName.daysPerYear !== undefined) {
+      daysPerYear = Number(dataOrName.daysPerYear);
+    } else if (maybeDays !== undefined) {
+      daysPerYear = Number(maybeDays);
+    }
+  }
+
   if (!name || !name.trim()) {
     throw new Error('Leave type name is required.');
+  }
+
+  const payload: any = { name: name.trim() };
+  if (daysPerYear !== undefined && !isNaN(daysPerYear)) {
+    payload.daysPerYear = daysPerYear;
   }
 
   try {
@@ -917,7 +964,7 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string }
     try {
       response = await http.patch(
         `/leave-types/${leaveTypeId}`,
-        { name: name.trim() },
+        payload,
         {
           headers: { 'Content-Type': 'application/json' },
         }
@@ -926,7 +973,7 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string }
       if (patchErr?.response?.status === 404 || patchErr?.response?.status === 405) {
         response = await http.put(
           `/leave-types/${leaveTypeId}`,
-          { name: name.trim() },
+          payload,
           {
             headers: { 'Content-Type': 'application/json' },
           }
@@ -939,7 +986,7 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string }
     const res = response.data;
     return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
   } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be updated.');
   }
 }
