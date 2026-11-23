@@ -15,6 +15,7 @@ import {
   Send,
   MessageSquare,
   Shield,
+  RotateCcw,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
@@ -450,8 +451,28 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         {/* Mobile Cards Roster (< md) */}
         <div className="md:hidden divide-y divide-slate-100">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
-              No employees found matching &quot;{search}&quot;
+            <div className="p-8 text-center space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <Search className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-bold text-slate-800">No employees found</p>
+              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                No staff members match &quot;{search || selectedRole || selectedStatus}&quot;. Try resetting your filters.
+              </p>
+              {(search || selectedStatus !== 'Active' || selectedRole !== 'All') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setSelectedStatus('Active');
+                    setSelectedRole('All');
+                  }}
+                  className="px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Clear Filters</span>
+                </button>
+              )}
             </div>
           ) : (
             filtered.map((emp, empIdx) => {
@@ -643,7 +664,38 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {filtered.map((emp, empIdx) => {
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={portalMode === 'admin' ? 7 : 6} className="py-14 text-center">
+                    <div className="max-w-sm mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                        <Search className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800">No Employees Found</h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          No staff members match your search &quot;{search || selectedRole || selectedStatus}&quot;.
+                        </p>
+                      </div>
+                      {(search || selectedStatus !== 'Active' || selectedRole !== 'All') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch('');
+                            setSelectedStatus('Active');
+                            setSelectedRole('All');
+                          }}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Clear Filters</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((emp, empIdx) => {
                 const isCurrentUser =
                   emp.email === user.email ||
                   emp.id === user.employeeId ||
@@ -850,7 +902,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     )}
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

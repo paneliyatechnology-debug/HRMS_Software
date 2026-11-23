@@ -64,7 +64,7 @@ import {
   setEmployeeWFHStatus,
   isEmployeeWFHEnabled,
 } from '../../lib/geoService';
-import { api } from '../../lib/api';
+import { api, clearApiCache } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useWorkSession } from '../../context/WorkSessionContext';
@@ -99,6 +99,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     liveBreakHMS: sessionBreakHMS,
     activeSession,
     lastCompletedSession,
+    punches: sessionPunches,
+    attendanceLogic: sessionAttendanceLogic,
   } = useWorkSession();
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
@@ -225,6 +227,248 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailEmpLoading, setDetailEmpLoading] = useState(false);
   const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
   const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
+  const [expandedPunchId, setExpandedPunchId] = useState<string | null>(null);
+  const [expandedAdminEmpId, setExpandedAdminEmpId] = useState<string | null>(null);
+
+  const getPunchTypeBadge = (type: string) => {
+    const t = String(type || '').toUpperCase();
+    if (t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN') {
+      return {
+        label: 'IN',
+        title: 'Clocked In',
+        color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        dotColor: 'bg-emerald-500',
+        dotBorderColor: 'border-emerald-500',
+      };
+    }
+    if (t === 'BREAK_START' || t === 'BREAK' || t === 'TAKE_BREAK') {
+      return {
+        label: 'BREAK',
+        title: 'Break Started',
+        color: 'bg-amber-50 text-amber-700 border-amber-200',
+        dotColor: 'bg-amber-500',
+        dotBorderColor: 'border-amber-500',
+      };
+    }
+    if (t === 'BREAK_END' || t === 'RESUME' || t === 'RESUME_WORK') {
+      return {
+        label: 'RESUME',
+        title: 'Work Resumed',
+        color: 'bg-blue-50 text-blue-700 border-blue-200',
+        dotColor: 'bg-blue-500',
+        dotBorderColor: 'border-blue-500',
+      };
+    }
+    if (t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT') {
+      return {
+        label: 'OUT',
+        title: 'Clocked Out',
+        color: 'bg-rose-50 text-rose-700 border-rose-200',
+        dotColor: 'bg-rose-500',
+        dotBorderColor: 'border-rose-500',
+      };
+    }
+    return {
+      label: t || 'LOG',
+      title: 'Activity Punch',
+      color: 'bg-slate-50 text-slate-700 border-slate-200',
+      dotColor: 'bg-slate-400',
+      dotBorderColor: 'border-slate-400',
+    };
+  };
+
+  const renderPunchTimeline = (
+    punches: any[],
+    rec: AttendanceRecord | null,
+    isWorking: boolean,
+    isOnBreak: boolean,
+    titleDate?: string
+  ) => {
+    const rawPunches = Array.isArray(punches) && punches.length > 0 ? punches : [];
+
+    let displayList = rawPunches;
+    if (displayList.length === 0 && rec) {
+      const syn: any[] = [];
+      if (rec.checkIn && rec.checkIn !== '—') {
+        syn.push({
+          id: 'syn-in',
+          type: 'IN',
+          time: rec.checkIn,
+          punchedAt: rec.checkIn.includes('T') ? rec.checkIn : undefined,
+        });
+      }
+      if (isOnBreak) {
+        syn.push({
+          id: 'syn-break',
+          type: 'BREAK',
+          time: 'Active Break',
+        });
+      }
+      if (rec.checkOut && rec.checkOut !== '—') {
+        syn.push({
+          id: 'syn-out',
+          type: 'OUT',
+          time: rec.checkOut,
+          punchedAt: rec.checkOut.includes('T') ? rec.checkOut : undefined,
+        });
+      } else if (isWorking) {
+        syn.push({
+          id: 'syn-working',
+          type: 'RESUME',
+          time: 'In Progress',
+        });
+      }
+      displayList = syn;
+    }
+
+    const breakDisplay = rec ? getRecordBreakDisplay(rec) : '0s';
+    const workedDisplay = rec ? getRecordActiveWorkedDisplay(rec) : '00:00:00';
+
+    return (
+      <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-4">
+        {/* Top Summary Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <span>Punch Activity Logs &amp; Audit Trail</span>
+                {titleDate && (
+                  <span className="text-[11px] font-semibold text-slate-500">• {titleDate}</span>
+                )}
+              </h5>
+              <p className="text-[11px] text-slate-400">
+                {displayList.length > 0
+                  ? `${displayList.length} punch ${displayList.length === 1 ? 'event' : 'events'} recorded in sequence`
+                  : 'No punch logs registered yet'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Clock In</span>
+              <span className="font-mono font-bold text-slate-800 text-[11px]">
+                {rec?.checkIn && rec.checkIn !== '—' ? rec.checkIn : '—'}
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Clock Out</span>
+              <span className="font-mono font-bold text-slate-800 text-[11px]">
+                {rec?.checkOut && rec.checkOut !== '—' ? rec.checkOut : isWorking ? 'Working...' : '—'}
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Total Break</span>
+              <span className="font-mono font-bold text-amber-700 text-[11px]">{breakDisplay}</span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Active Worked</span>
+              <span className="font-mono font-bold text-emerald-700 text-[11px]">{workedDisplay}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Punch Logs - Clean Chronological List View */}
+        {displayList.length === 0 ? (
+          <div className="py-6 text-center space-y-1.5">
+            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center mx-auto">
+              <Clock className="w-4 h-4" />
+            </div>
+            <p className="text-xs font-bold text-slate-700">No punch records found</p>
+            <p className="text-[11px] text-slate-400">
+              No punch activity registered for this record yet. Entries will appear automatically once punched.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+            {/* Desktop / Tablet List Table */}
+            <div className="hidden sm:block overflow-x-auto w-full">
+              <table className="w-full text-left text-xs min-w-[560px]">
+                <thead className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 px-3.5 w-12 text-center">#</th>
+                    <th className="py-2.5 px-3.5">Action</th>
+                    <th className="py-2.5 px-3.5">Punch Time</th>
+                    <th className="py-2.5 px-3.5">Date</th>
+                    <th className="py-2.5 px-3.5">Activity Description</th>
+                    <th className="py-2.5 px-3.5 text-right">Audit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {displayList.map((p: any, idx: number) => {
+                    const badge = getPunchTypeBadge(p.type);
+                    const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
+                    const iso = p.punchedAt || p.time;
+                    const fullDateStr = iso && typeof iso === 'string' && iso.includes('T')
+                      ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : (titleDate || 'Today');
+                    const desc = badge.title || (p.type === 'IN' ? 'Clock In / Work Started' : p.type === 'OUT' ? 'Clock Out / Work Ended' : p.type === 'BREAK' ? 'Break Interval Started' : 'Active Work Resumed');
+
+                    return (
+                      <tr key={p.id || `punch-list-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-400">
+                          #{idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${badge.color}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 text-xs">
+                          {timeStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-500 font-mono text-[11px]">
+                          {fullDateStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-700 text-xs">
+                          {desc}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            Logged
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Vertical List View */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {displayList.map((p: any, idx: number) => {
+                const badge = getPunchTypeBadge(p.type);
+                const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
+                const desc = badge.title || (p.type === 'IN' ? 'Clock In' : p.type === 'OUT' ? 'Clock Out' : p.type === 'BREAK' ? 'Break' : 'Resumed');
+
+                return (
+                  <div key={p.id || `punch-m-list-${idx}`} className="py-2.5 px-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-bold text-slate-400 text-xs shrink-0">#{idx + 1}</span>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${badge.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                        {badge.label}
+                      </span>
+                      <span className="text-xs text-slate-800 font-medium truncate">{desc}</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-slate-900 shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                      {timeStr}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const fetchEmpWorkStatus = React.useCallback(async (empToLoad: Employee) => {
     if (!empToLoad) return;
@@ -288,11 +532,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     if (isFetchingWorkStatusRef.current) return;
     isFetchingWorkStatusRef.current = true;
     try {
-      const data: any = await api.getWorkStatus();
+      clearApiCache('/attendance/logic');
+      const data: any = await api.getAttendanceLogic();
       if (!data || typeof data !== 'object') return;
       setWorkStatusData(data);
     } catch (err) {
-      console.warn('[AttendanceModule] Could not load work status:', err);
+      console.warn('[AttendanceModule] Could not load work status from /api/attendance/logic:', err);
     } finally {
       isFetchingWorkStatusRef.current = false;
     }
@@ -498,18 +743,32 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let rec = getTodayRecordForEmployee(emp.id);
     if (rec) return rec;
 
-    if (isEmployeeView) {
-      const today = getTodayDateString();
-      const dbRec = records.find((r) => r.date === today && isMyAttendanceRecord(r));
-      if (dbRec) return dbRec;
+    const today = getTodayDateString();
+    const candIds = [
+      emp.id,
+      (emp as any)._id,
+      (emp as any).userId,
+      emp.employeeCode,
+    ].filter(Boolean).map((id) => String(id).toLowerCase());
 
-      for (const candId of Array.from(myCandidateIds)) {
-        rec = getTodayRecordForEmployee(candId);
-        if (rec) return rec;
+    const isMatch = (r: AttendanceRecord) => {
+      const rEmpId = String(r.employeeId || '').toLowerCase();
+      const rUserId = String((r as any).userId || '').toLowerCase();
+      const rCode = String((r as any).employeeCode || '').toLowerCase();
+      if (candIds.includes(rEmpId) || candIds.includes(rUserId) || candIds.includes(rCode)) return true;
+      if (emp.firstName && r.employeeName) {
+        const full = `${emp.firstName} ${emp.lastName || ''}`.trim().toLowerCase();
+        if (r.employeeName.toLowerCase().trim() === full) return true;
       }
-      const live = liveRecords.find((r) => r.date === today && isMyAttendanceRecord(r));
-      if (live) return live;
-    }
+      return false;
+    };
+
+    const dbRec = records.find((r) => r.date === today && isMatch(r));
+    if (dbRec) return dbRec;
+
+    const live = liveRecords.find((r) => r.date === today && isMatch(r));
+    if (live) return live;
+
     return null;
   };
 
@@ -628,48 +887,137 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       map.set(cleanDate, { ...todayRec, date: cleanDate });
     }
 
-    // 4. Authoritative overlay from /api/attendance/work/status (todayDate, status, start time, end time, break time, active work time)
-    const statusDataToUse = historySessions.length === 0
-      ? (workStatusData || (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null))
-      : null;
+    // 4. Authoritative overlay from /api/attendance/logic (todayDate, status, start time, end time, break time, active work time, punches)
+    const statusDataToUse =
+      workStatusData ||
+      sessionAttendanceLogic ||
+      (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
+
     if (statusDataToUse) {
       const summary = statusDataToUse.todaySummary;
       const active = statusDataToUse.activeSession;
       const lastComp = statusDataToUse.lastCompletedSession;
       const session = active || lastComp;
 
-      const todayKey = summary?.todayDate || (statusDataToUse.serverTime ? statusDataToUse.serverTime.split('T')[0] : todayDateStr);
-      const hasActive = Boolean(statusDataToUse.hasActiveSession || (active && active.status !== 'COMPLETED'));
-      const isOnBreak = Boolean(statusDataToUse.isOnBreak || (active && active.status === 'ON_BREAK'));
-      const isCompleted = Boolean(!hasActive && (lastComp || (summary && summary.totalSessionsToday > 0)));
+      // Extract logic, attendance, and punches from /api/attendance/logic response
+      const logic = statusDataToUse.logic || statusDataToUse.data?.logic;
+      const attendance = statusDataToUse.attendance || statusDataToUse.data?.attendance;
+      const rawPunchesList: any[] = Array.isArray(statusDataToUse.punches)
+        ? statusDataToUse.punches
+        : Array.isArray(statusDataToUse.data?.punches)
+          ? statusDataToUse.data.punches
+          : Array.isArray(sessionPunches) && sessionPunches.length > 0
+            ? sessionPunches
+            : [];
 
-      const checkInTime = formatIsoTo12HourTime(session?.startTime || session?.startedAt || active?.startTime || lastComp?.startTime);
-      const checkOutTime = hasActive ? undefined : formatIsoTo12HourTime(lastComp?.endTime || session?.endTime);
+      // Find first punch-in and last punch-out
+      const inPunch = rawPunchesList.find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN';
+      });
+      const outPunch = rawPunchesList.slice().reverse().find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT';
+      });
+
+      const rawInTime =
+        inPunch?.punchedAt ||
+        inPunch?.time ||
+        inPunch?.timestamp ||
+        attendance?.checkInAt ||
+        attendance?.checkIn ||
+        session?.startTime ||
+        session?.startedAt ||
+        active?.startTime;
+
+      const rawOutTime =
+        outPunch?.punchedAt ||
+        outPunch?.time ||
+        outPunch?.timestamp ||
+        attendance?.checkOutAt ||
+        attendance?.checkOut ||
+        lastComp?.endTime ||
+        session?.endTime;
+
+      const todayKey =
+        attendance?.date ||
+        summary?.todayDate ||
+        (statusDataToUse.serverTime ? statusDataToUse.serverTime.split('T')[0] : todayDateStr);
+
+      const isOnBreak = Boolean(
+        logic?.onBreak ||
+        logic?.next === 'break-end' ||
+        statusDataToUse.isOnBreak ||
+        (active && active.status === 'ON_BREAK')
+      );
+
+      const hasActive = Boolean(
+        isOnBreak ||
+        logic?.next === 'check-out' ||
+        logic?.next === 'clock-out' ||
+        statusDataToUse.hasActiveSession ||
+        (active && active.status !== 'COMPLETED')
+      );
+
+      const isCompleted = Boolean(
+        !hasActive &&
+        (outPunch ||
+          logic?.next === 'check-in' ||
+          logic?.next === 'clock-in' ||
+          attendance?.checkOutAt ||
+          lastComp ||
+          (summary && summary.totalSessionsToday > 0))
+      );
+
+      const checkInTime = formatIsoTo12HourTime(rawInTime);
+      const checkOutTime = hasActive ? undefined : formatIsoTo12HourTime(rawOutTime);
 
       const breakTimeStr =
-        summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
-          ? summary.totalBreakFormatted
-          : statusDataToUse.formattedTotalBreak && statusDataToUse.formattedTotalBreak !== '0s' && statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
-            ? statusDataToUse.formattedTotalBreak
-            : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
-              ? formatSecondsToWords(summary.totalBreakSecondsToday)
-              : session?.totalBreakSeconds && session.totalBreakSeconds > 0
-                ? formatSecondsToWords(session.totalBreakSeconds)
-                : '00h 00m 00s';
+        sessionBreakWords && sessionBreakWords !== '0s'
+          ? sessionBreakWords
+          : logic?.breakHours && logic.breakHours !== '00:00:00'
+            ? logic.breakHours
+            : logic?.breakMinutes && logic.breakMinutes > 0
+              ? formatSecondsToWords(logic.breakMinutes * 60)
+              : summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
+                ? summary.totalBreakFormatted
+                : statusDataToUse.formattedTotalBreak &&
+                  statusDataToUse.formattedTotalBreak !== '0s' &&
+                  statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
+                  ? statusDataToUse.formattedTotalBreak
+                  : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
+                    ? formatSecondsToWords(summary.totalBreakSecondsToday)
+                    : session?.totalBreakSeconds && session.totalBreakSeconds > 0
+                      ? formatSecondsToWords(session.totalBreakSeconds)
+                      : '00h 00m 00s';
 
       const activeWorkedStr =
-        summary?.totalDurationFormatted ||
-        lastComp?.durationFormatted ||
-        (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
-        (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? (sessionWorkedHMS || liveWorkedHMS) : '00:00:00'));
+        sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+          ? sessionWorkedHMS
+          : logic?.totalHours && logic.totalHours !== '00:00:00'
+            ? logic.totalHours
+            : logic?.totalMinutes && logic.totalMinutes > 0
+              ? formatSecondsToHMS(logic.totalMinutes * 60)
+              : summary?.totalDurationFormatted ||
+                lastComp?.durationFormatted ||
+                (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
+                (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
 
-      const statusStr = isCompleted ? 'Completed' : isOnBreak ? 'On Break' : hasActive ? 'Working' : 'Present';
+      const statusStr = isCompleted
+        ? 'Completed'
+        : isOnBreak
+          ? 'On Break'
+          : hasActive
+            ? 'Working'
+            : attendance?.status
+              ? (attendance.status === 'PRESENT' ? 'Present' : attendance.status)
+              : 'Present';
 
       const existingToday = map.get(todayKey);
 
       const authoritativeTodayRec: AttendanceRecord = {
         ...(existingToday || {}),
-        id: session?.id || existingToday?.id || `ws-${todayKey}`,
+        id: attendance?.id || session?.id || existingToday?.id || `ws-${todayKey}`,
         employeeId: selfEmployee.id || myEmpId,
         employeeName: `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim(),
         employeeCode: selfEmployee.employeeCode,
@@ -679,20 +1027,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         status: statusStr,
         isCompleted,
         isOnBreak,
-        activeSeconds: summary?.totalSecondsWorked || session?.durationSeconds || existingToday?.activeSeconds || 0,
-        breakSeconds: summary?.totalBreakSecondsToday || session?.totalBreakSeconds || existingToday?.breakSeconds || 0,
+        punches: rawPunchesList.length > 0 ? rawPunchesList : existingToday?.punches,
+        activeSeconds: (logic?.totalMinutes ? logic.totalMinutes * 60 : undefined) || summary?.totalSecondsWorked || session?.durationSeconds || existingToday?.activeSeconds || 0,
+        breakSeconds: (logic?.breakMinutes ? logic.breakMinutes * 60 : undefined) || summary?.totalBreakSecondsToday || session?.totalBreakSeconds || existingToday?.breakSeconds || 0,
         formattedTotalBreak: breakTimeStr,
         durationFormatted: activeWorkedStr,
-        breakDurationMinutes: Math.round((summary?.totalBreakSecondsToday || session?.totalBreakSeconds || 0) / 60),
-        workingHours: Number(((summary?.totalSecondsWorked || session?.durationSeconds || 0) / 3600).toFixed(2)),
+        breakDurationMinutes: logic?.breakMinutes || Math.round((summary?.totalBreakSecondsToday || session?.totalBreakSeconds || 0) / 60),
+        workingHours: Number(((logic?.totalMinutes ? logic.totalMinutes * 60 : (summary?.totalSecondsWorked || session?.durationSeconds || 0)) / 3600).toFixed(2)),
         overtimeHours: 0,
-        createdAt: session?.startTime || existingToday?.createdAt || new Date().toISOString(),
-        sessionStartTime: statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
+        createdAt: rawInTime || session?.startTime || existingToday?.createdAt || new Date().toISOString(),
+        sessionStartTime: rawInTime || statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
         openBreakStartTime: statusDataToUse.clock?.openBreakStartTime || null,
         completedBreakSeconds: statusDataToUse.clock?.completedBreakSeconds,
         sessionClosedBreakSeconds: statusDataToUse.clock?.sessionClosedBreakSeconds,
         completedWorkSeconds: statusDataToUse.clock?.completedWorkSeconds,
-        isLive: statusDataToUse.clock?.isLive,
+        isLive: hasActive,
       } as any;
 
       map.set(todayKey, authoritativeTodayRec);
@@ -704,7 +1053,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       const bTime = (b as any).createdAt || b.date || '';
       return String(bTime).localeCompare(String(aTime));
     });
-  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS]);
+  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, sessionPunches, sessionAttendanceLogic]);
 
   // Helper to reliably extract and format break time for any attendance record
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
@@ -1233,8 +1582,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Compact Daily Shift Console fitted into top-right header area */}
-        {resolvedTab === 'today' && (
+        {/* Right: Compact Daily Shift Console for Employee */}
+        {resolvedTab === 'today' && isEmployeeView && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
             <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
           </div>
@@ -1347,6 +1696,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
+                      clearApiCache('/attendance/logic');
                       await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
                       onRefresh?.();
                     }}
@@ -1386,14 +1736,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         {employeeDailyRecords.map((rec, recIdx) => {
                           const dateInfo = formatDailyDate(rec.date);
                           const isToday = dateInfo.isToday;
-                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
                           const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
                           const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
                           const liveSecs = getLiveActiveSeconds(rec);
                           const breakSecs = getLiveBreakSeconds(rec);
+                          const rowKey = `${rec.id || rec.date}-m-${recIdx}`;
+                          const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                           return (
-                            <div key={`${rec.id || rec.date}-m-${recIdx}`} className="p-3.5 space-y-2.5">
+                            <div key={rowKey} className="p-3.5 space-y-2.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-1.5">
@@ -1454,6 +1806,40 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   </span>
                                 </div>
                               </div>
+
+                              <div
+                                onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                className="pt-2 border-t border-slate-100 flex items-center justify-between cursor-pointer group"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-700 transition">
+                                    {punchesList.length > 0
+                                      ? `${punchesList.length} Punch Logs Recorded`
+                                      : rec.checkIn && rec.checkIn !== '—'
+                                        ? 'View Activity Logs'
+                                        : 'View Record Details'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                                  <span>{expandedPunchId === rowKey ? 'Hide Logs' : 'View Logs'}</span>
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''}`}
+                                  />
+                                </div>
+                              </div>
+
+                              {expandedPunchId === rowKey && (
+                                <div className="pt-2">
+                                  {renderPunchTimeline(
+                                    punchesList,
+                                    rec,
+                                    Boolean(isWorking),
+                                    Boolean(isOnBreak),
+                                    dateInfo.formatted
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1461,7 +1847,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                       {/* Desktop Table View (Visible on >= md) */}
                       <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                        <table className="w-full text-left text-xs min-w-[650px]">
+                        <table className="w-full text-left text-xs min-w-[760px]">
                           <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
                             <tr>
                               {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
@@ -1471,36 +1857,399 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
                               <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
                               <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                              <th className="py-2.5 px-4 font-medium text-right">PUNCH LOGS</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {employeeDailyRecords.map((rec, recIdx) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
-                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
                               const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
                               const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                              const rowKey = `${rec.id || rec.date}-d-${recIdx}`;
+                              const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                               return (
-                                <tr key={`${rec.id || rec.date}-d-${recIdx}`} className="hover:bg-slate-50/70 transition-colors">
-                                  {!isEmployeeView && (
-                                    <td className="py-3 px-4 font-semibold text-slate-900">
-                                      {rec.employeeName || rec.employeeId}
+                                <React.Fragment key={rowKey}>
+                                  <tr
+                                    onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
+                                      expandedPunchId === rowKey ? 'bg-emerald-50/20' : ''
+                                    }`}
+                                  >
+                                    {!isEmployeeView && (
+                                      <td className="py-3 px-4 font-semibold text-slate-900">
+                                        {rec.employeeName || rec.employeeId}
+                                      </td>
+                                    )}
+                                    <td className="py-3 px-4 font-medium text-slate-900">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
+                                        {isToday ? (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                            TODAY
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                        )}
+                                      </div>
                                     </td>
-                                  )}
-                                  <td className="py-3 px-4 font-medium text-slate-900">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
-                                      {isToday ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
-                                          TODAY
+
+                                    <td className="py-3 px-4">
+                                      {isWorking ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          Working
+                                        </span>
+                                      ) : isOnBreak ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                          <Pause className="w-3 h-3 text-amber-600" />
+                                          On Break
+                                        </span>
+                                      ) : isDone ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                          <Check className="w-3 h-3 text-slate-600" />
+                                          Completed
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
+                                          {rec.status || 'Present'}
+                                        </span>
                                       )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkIn && rec.checkIn !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkIn}</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkOut && rec.checkOut !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkOut}</span>
+                                      ) : isWorking ? (
+                                        <span className="text-emerald-600 font-medium">Working...</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-600">
+                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                        {getRecordBreakDisplay(rec)}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                      <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
+                                        {getRecordActiveWorkedDisplay(rec)}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-3 px-4 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey);
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
+                                          expandedPunchId === rowKey
+                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                            : punchesList.length > 0
+                                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>
+                                          {punchesList.length > 0
+                                            ? `${punchesList.length} Logs`
+                                            : rec.checkIn && rec.checkIn !== '—'
+                                              ? 'Logs'
+                                              : 'Details'}
+                                        </span>
+                                        <ChevronDown
+                                          className={`w-3.5 h-3.5 transition-transform ${
+                                            expandedPunchId === rowKey ? 'rotate-180' : ''
+                                          }`}
+                                        />
+                                      </button>
+                                    </td>
+                                  </tr>
+
+                                  {/* Expandable Punch Audit Trail row */}
+                                  {expandedPunchId === rowKey && (
+                                    <tr className="bg-slate-50/70 border-b border-slate-200">
+                                      <td colSpan={isEmployeeView ? 7 : 8} className="py-3 px-4 sm:px-6">
+                                        {renderPunchTimeline(
+                                          punchesList,
+                                          rec,
+                                          Boolean(isWorking),
+                                          Boolean(isOnBreak),
+                                          dateInfo.formatted
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {visibleEmployees.length === 0 ? (
+                      <div className="p-8 text-center space-y-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-800">No employees found</p>
+                        <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                          No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;. Try resetting your filters.
+                        </p>
+                        {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAttendanceSearch('');
+                              setSelectedDept('All');
+                              setSelectedEmp('All');
+                            }}
+                            className="px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Clear Filters</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      visibleEmployees.map((emp) => {
+                        const rec = getEmpTodayRecord(emp);
+                        const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+                        const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+                        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                        const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                        const isExpanded = expandedAdminEmpId === emp.id;
+
+                        return (
+                          <div
+                            key={emp.id}
+                            className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
+                              isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
+                            }`}
+                            onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                  {emp.firstName?.[0] || 'E'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs text-slate-900 truncate">
+                                    {emp.firstName} {emp.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 font-mono">
+                                    {emp.employeeCode} • {emp.departmentName || 'General'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center gap-2">
+                                {isWorking ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Working
+                                  </span>
+                                ) : isOnBreak ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                    <Pause className="w-3 h-3 text-amber-600" />
+                                    On Break
+                                  </span>
+                                ) : isDone ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-slate-600" />
+                                    Completed
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                    Not Punched
+                                  </span>
+                                )}
+                                <ChevronDown
+                                  className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                                <span className="font-semibold text-slate-800 text-[11px]">
+                                  {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                                <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                  {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="pt-2 border-t border-slate-200 space-y-2.5">
+                                {renderPunchTimeline(
+                                  Array.isArray(rec?.punches) ? rec.punches : [],
+                                  rec,
+                                  Boolean(isWorking),
+                                  Boolean(isOnBreak),
+                                  `${emp.firstName} ${emp.lastName}`
+                                )}
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDetailEmp(emp);
+                                    }}
+                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span>View Monthly Scorecard for {emp.firstName}</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                    <table className="w-full text-left text-xs min-w-[760px]">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                          <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
+                          <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
+                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
+                          <th className="py-2.5 px-4 font-medium text-right">ACTIVITY LOGS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
+                                </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleEmployees.map((emp) => {
+                            const rec = getEmpTodayRecord(emp);
+                            const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+                            const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+                            const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                            const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                            const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                            const isExpanded = expandedAdminEmpId === emp.id;
+
+                            return (
+                              <React.Fragment key={emp.id}>
+                                <tr
+                                  onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                                  className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
+                                    isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
+                                  }`}
+                                >
+                                  <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                      {emp.firstName?.[0] || 'E'}
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                        <span>{emp.firstName} {emp.lastName}</span>
+                                        {isWfhActive && (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                            WFH
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
                                     </div>
                                   </td>
-
+                                  <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec?.checkIn ? (
+                                      <span>{rec.checkIn}</span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec?.checkOut ? (
+                                      <span>{rec.checkOut}</span>
+                                    ) : isWorking ? (
+                                      <span className="text-emerald-600 font-medium">Working...</span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                    {rec ? (
+                                      <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                                        {formatSecondsToHMS(liveSecs)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-slate-600">
+                                    <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                      {rec ? getRecordBreakDisplay(rec) : '0s'}
+                                    </span>
+                                  </td>
                                   <td className="py-3 px-4">
                                     {isWorking ? (
                                       <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
@@ -1518,215 +2267,64 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                         Completed
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
-                                        {rec.status || 'Present'}
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                        Not Punched
                                       </span>
                                     )}
                                   </td>
-
-                                  <td className="py-3 px-4 font-mono text-slate-700">
-                                    {rec.checkIn && rec.checkIn !== '—' ? (
-                                      <span>{rec.checkIn}</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-
-                                  <td className="py-3 px-4 font-mono text-slate-700">
-                                    {rec.checkOut && rec.checkOut !== '—' ? (
-                                      <span>{rec.checkOut}</span>
-                                    ) : isWorking ? (
-                                      <span className="text-emerald-600 font-medium">Working...</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-
-                                  <td className="py-3 px-4 font-mono text-slate-600">
-                                    <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                      {getRecordBreakDisplay(rec)}
-                                    </span>
-                                  </td>
-
-                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                                    <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
-                                      {getRecordActiveWorkedDisplay(rec)}
-                                    </span>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedAdminEmpId(isExpanded ? null : emp.id);
+                                      }}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
+                                        isExpanded
+                                          ? 'bg-emerald-600 text-white border-emerald-600'
+                                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                      }`}
+                                    >
+                                      <span>Logs</span>
+                                      <ChevronDown
+                                        className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                      />
+                                    </button>
                                   </td>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
-                  <div className="md:hidden divide-y divide-slate-100">
-                    {visibleEmployees.map((emp) => {
-                      const rec = getEmpTodayRecord(emp);
-                      const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                      const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                      const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
 
-                      const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                      const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                      const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-
-                      return (
-                        <div key={emp.id} className="p-3.5 space-y-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                                {emp.firstName?.[0] || 'E'}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-xs text-slate-900 truncate">
-                                  {emp.firstName} {emp.lastName}
-                                </p>
-                                <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
-                              </div>
-                            </div>
-
-                            <div className="shrink-0">
-                              {isWorking ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  Working
-                                </span>
-                              ) : isOnBreak ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                  <Pause className="w-3 h-3 text-amber-600" />
-                                  On Break
-                                </span>
-                              ) : isDone ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                                  <Check className="w-3 h-3 text-slate-600" />
-                                  Completed
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                                  Not Punched
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                            <div>
-                              <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
-                              <span className="font-semibold text-slate-800 text-[11px]">
-                                {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
-                              <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                                {rec ? formatSecondsToHMS(liveSecs) : '—'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                    <table className="w-full text-left text-xs min-w-[700px]">
-                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
-                        <tr>
-                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
-                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
-                          <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
-                          <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
-                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
-                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
-                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.map((emp) => {
-                          const rec = getEmpTodayRecord(emp);
-                          const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
-                          const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
-
-                          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                          const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-
-                          return (
-                            <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                                  {emp.firstName?.[0] || 'E'}
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-slate-900">
-                                    {emp.firstName} {emp.lastName}
-                                  </p>
-                                  <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                              <td className="py-3 px-4 font-mono text-slate-700">
-                                {rec?.checkIn ? (
-                                  <span>{rec.checkIn}</span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
+                                {isExpanded && (
+                                  <tr className="bg-slate-50/70 border-b border-slate-200">
+                                    <td colSpan={8} className="py-3 px-4 sm:px-6">
+                                      <div className="space-y-3">
+                                        {renderPunchTimeline(
+                                          Array.isArray(rec?.punches) ? rec.punches : [],
+                                          rec,
+                                          Boolean(isWorking),
+                                          Boolean(isOnBreak),
+                                          `${emp.firstName} ${emp.lastName}`
+                                        )}
+                                        <div className="flex justify-end pt-1">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setDetailEmp(emp);
+                                            }}
+                                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                          >
+                                            <span>View Full Monthly History &amp; Scorecard for {emp.firstName}</span>
+                                            <ArrowRight className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
                                 )}
-                              </td>
-                              <td className="py-3 px-4 font-mono text-slate-700">
-                                {rec?.checkOut ? (
-                                  <span>{rec.checkOut}</span>
-                                ) : isWorking ? (
-                                  <span className="text-emerald-600 font-medium">Working...</span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                                {rec ? (
-                                  <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                    {formatSecondsToHMS(liveSecs)}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 font-mono text-slate-600">
-                                <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                  {rec ? getRecordBreakDisplay(rec) : '0s'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                {isWorking ? (
-                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Working
-                                  </span>
-                                ) : isOnBreak ? (
-                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                                    <Pause className="w-3 h-3 text-amber-600" />
-                                    On Break
-                                  </span>
-                                ) : isDone ? (
-                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                    <Check className="w-3 h-3 text-slate-600" />
-                                    Completed
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                                    Not Punched
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                              </React.Fragment>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -2006,7 +2604,38 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.map((emp) => {
+                        {visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
+                                </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleEmployees.map((emp) => {
                           const metrics = getEmployeeMonthlyMetrics(emp);
                           const todayRec = getEmpTodayRecord(emp);
                           const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
@@ -2149,7 +2778,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </td>
                             </tr>
                           );
-                        })}
+                        }))}
                       </tbody>
                     </table>
                   </div>

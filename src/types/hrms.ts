@@ -206,9 +206,10 @@ export interface Employee {
 
 export interface AttendancePunchLog {
   id?: string;
-  type: 'IN' | 'OUT';
-  time: string;
-  timestamp: number;
+  type: 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'CLOCK_IN' | 'CLOCK_OUT' | string;
+  time?: string;
+  punchedAt?: string;
+  timestamp?: number | string;
   photo?: string;
   device?: DevicePunchInfo;
   remarks?: string;
