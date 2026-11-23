@@ -27,6 +27,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Receipt,
+  CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllCompanies } from '../lib/companyService';
@@ -217,10 +218,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     let isActive = activeModule === id;
     if (id === 'organization') {
-      if (subTab === 'departments') {
-        isActive = activeModule === 'organization' && activeSubTab === 'departments';
+      if (subTab) {
+        isActive = activeModule === 'organization' && activeSubTab === subTab;
       } else {
-        isActive = activeModule === 'organization' && activeSubTab !== 'departments';
+        isActive = activeModule === 'organization';
       }
     }
 
@@ -382,8 +383,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               'Team Chat',
               <MessageSquare className="w-4 h-4" />,
               unreadChatCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
-                  {unreadChatCount}
+                <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
+                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
                 </span>
               ) : undefined
             )}
@@ -404,7 +405,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {effectiveCollapsed ? (
                 <>
                   {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
-                  {navItem('organization', 'Departments & Roles', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                  {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                  {navItem('tasks', 'Tasks', <CheckSquare className="w-4 h-4" />)}
                 </>
               ) : (
                 <div>
@@ -442,13 +444,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
                           }`}
                       >
-                        Departments & Roles
+                        Departments
+                      </button>
+                      <button
+                        onClick={() => handleNav('organization', 'teams')}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
+                          ? 'text-white font-bold bg-[#2d6a4f]'
+                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                          }`}
+                      >
+                        Teams
                       </button>
                     </div>
                   )}
                 </div>
               )}
 
+              {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
               {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
               {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
               {navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)}

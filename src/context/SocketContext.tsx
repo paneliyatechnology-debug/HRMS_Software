@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
-import { clearApiCache } from '../lib/api';
+import { clearApiCache, api } from '../lib/api';
 import { getCookie } from '../lib/cookies';
 import { useAuth } from './AuthContext';
 import {
@@ -13,6 +13,15 @@ import {
   receiveIncomingSocketDelete,
   applyReadReceipt,
 } from '../lib/chatService';
+
+export interface AppNotice {
+  id: string;
+  kind: 'message' | 'leave' | 'task';
+  title: string;
+  message: string;
+  module: string;
+  createdAt: string;
+}
 
 export interface ToastItem {
   id: string;
@@ -34,8 +43,14 @@ interface SocketContextType {
   emitChatDelete: (payload: any) => void;
   emitChatTyping: (payload: any) => void;
   emitChatRead: (payload: any) => void;
+  joinTeamChat: (teamId: string) => void;
+  emitTeamChat: (payload: { teamId: string; text: string }) => void;
+  emitTeamChatTyping: (teamId: string) => void;
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
+  notices: AppNotice[];
+  dismissNotice: (id: string) => void;
+  clearNotices: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -49,8 +64,14 @@ const SocketContext = createContext<SocketContextType>({
   emitChatDelete: () => { },
   emitChatTyping: () => { },
   emitChatRead: () => { },
+  joinTeamChat: () => { },
+  emitTeamChat: () => { },
+  emitTeamChatTyping: () => { },
   emitLeaveApplied: () => { },
   emitLeaveStatusUpdated: () => { },
+  notices: [],
+  dismissNotice: () => { },
+  clearNotices: () => { },
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -58,6 +79,37 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [notices, setNotices] = useState<AppNotice[]>([]);
+
+  const dismissNotice = (id: string) => {
+    setNotices((prev) => prev.filter((item) => item.id !== id));
+    api.dismissNotice(id).catch(() => {});
+  };
+
+  const clearNotices = () => {
+    setNotices([]);
+    api.clearNotices().catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setNotices([]);
+      return;
+    }
+    let live = true;
+    api.listNotices()
+      .then((rows) => {
+        if (!live) return;
+        setNotices((prev) => {
+          const ids = new Set(rows.map((row) => row.id));
+          return [...prev.filter((item) => !ids.has(item.id)), ...rows].slice(0, 40);
+        });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [isAuthenticated, user?.id]);
 
   const showToast = (item: Omit<ToastItem, 'id' | 'timestamp'>) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -107,6 +159,18 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (socket && isConnected) {
       socket.emit('chat_read', payload);
     }
+  };
+
+  const joinTeamChat = (teamId: string) => {
+    if (socket && isConnected && teamId) socket.emit('team_chat_join', { teamId });
+  };
+
+  const emitTeamChat = (payload: { teamId: string; text: string }) => {
+    if (socket && isConnected && payload?.teamId) socket.emit('team_chat_send', payload);
+  };
+
+  const emitTeamChatTyping = (teamId: string) => {
+    if (socket && isConnected && teamId) socket.emit('team_chat_typing', { teamId });
   };
 
   const emitLeaveApplied = (leaveData: any) => {
@@ -168,14 +232,12 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
-    setIsConnected(false);
-    return;
     // Check if user is authenticated (from context state or cookie)
     const isAuth =
       isAuthenticated ||
       (typeof window !== 'undefined' && getCookie('hrms_is_authenticated') === 'true');
 
-    if (!isAuth) {
+    if (!isAuth || !user?.id) {
       if (socket) {
         (socket as any).disconnect();
         setSocket(null);
@@ -195,30 +257,24 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     // Dynamically connect to WebSocket Gateway using URL from .env
-    const socketUrl = getSocketBaseUrl();
-    const token =
-      typeof window !== 'undefined'
-        ? getCookie('hrms_auth_token') || getCookie('token') || ''
-        : '';
-    const currentUserId =
-      user?.id ||
-      user?.employeeId ||
-      (typeof window !== 'undefined' ? getCookie('hrms_user_id') : '');
-    const currentRole = user?.role || role || '';
+    const socketUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : getSocketBaseUrl();
+    const currentUserId = user.id;
+    const currentRole = user.role || role || '';
 
     const s = io(socketUrl, {
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       auth: {
-        token,
         userId: currentUserId,
-        employeeId: user?.employeeId || currentUserId,
+        employeeId: user.employeeId || currentUserId,
         role: currentRole,
         companyId: (user as any)?.companyId,
       },
       query: {
-        token,
         userId: currentUserId,
-        employeeId: user?.employeeId || currentUserId,
+        employeeId: user.employeeId || currentUserId,
         role: currentRole,
       },
       reconnectionAttempts: Infinity,
@@ -433,6 +489,50 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ? 'company-admin'
       : (user?.employeeId || currentUserId || undefined);
 
+    const pushNotice = (notice: AppNotice) => {
+      if (!notice?.id || !notice.title) return;
+      setNotices((prev) => (prev.some((item) => item.id === notice.id) ? prev : [notice, ...prev].slice(0, 40)));
+      showToast({ title: notice.title, message: notice.message, type: 'info', module: notice.module });
+    };
+
+    s.on('app_notification', (payload: AppNotice) => {
+      pushNotice(payload);
+      if (payload?.module === 'leaves') window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
+      if (payload?.module === 'tasks') window.dispatchEvent(new CustomEvent('hrms_tasks_updated', { detail: payload }));
+    });
+
+    s.on('group_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_group_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('group_chat_list', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_group_chat_list', { detail: payload }));
+    });
+
+    s.on('direct_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_direct_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('direct_chat_read', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_direct_chat_read', { detail: payload }));
+    });
+
+    s.on('staff_chat_read', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_staff_chat_read', { detail: payload }));
+    });
+
+    s.on('staff_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_staff_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('team_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_team_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('team_chat_typing', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_team_chat_typing', { detail: payload }));
+    });
+
     s.on('chat_message_received', (incomingMessage: any) => {
       receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
@@ -509,8 +609,14 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitChatDelete,
         emitChatTyping,
         emitChatRead,
+        joinTeamChat,
+        emitTeamChat,
+        emitTeamChatTyping,
         emitLeaveApplied,
         emitLeaveStatusUpdated,
+        notices,
+        dismissNotice,
+        clearNotices,
       }}
     >
       {children}

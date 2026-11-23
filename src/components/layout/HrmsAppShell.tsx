@@ -88,6 +88,7 @@ const EmployeePayslipsModule = dynamic(() => import('../modules/EmployeePayslips
 const RecruitmentModule = dynamic(() => import('../modules/RecruitmentModule').then((m) => m.RecruitmentModule), { loading: () => <ModuleLoadingSkeleton /> });
 const PerformanceModule = dynamic(() => import('../modules/PerformanceModule').then((m) => m.PerformanceModule), { loading: () => <ModuleLoadingSkeleton /> });
 const OrganizationModule = dynamic(() => import('../modules/OrganizationModule').then((m) => m.OrganizationModule), { loading: () => <ModuleLoadingSkeleton /> });
+const TasksModule = dynamic(() => import('../modules/TasksModule').then((m) => m.TasksModule), { loading: () => <ModuleLoadingSkeleton /> });
 const TrainingModule = dynamic(() => import('../modules/TrainingModule').then((m) => m.TrainingModule), { loading: () => <ModuleLoadingSkeleton /> });
 const DocumentsModule = dynamic(() => import('../modules/DocumentsModule').then((m) => m.DocumentsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AssetsModule = dynamic(() => import('../modules/AssetsModule').then((m) => m.AssetsModule), { loading: () => <ModuleLoadingSkeleton /> });
@@ -97,7 +98,13 @@ const ChatModule = dynamic(() => import('../modules/ChatModule').then((m) => m.C
 const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) => m.ReportsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
+<<<<<<< HEAD
 import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
+=======
+const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
+import { getActiveChatConversation } from '../../lib/chatService';
+import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
+>>>>>>> 29c498226a3cf1db1bd711c8d8b533aff5c30cf6
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
@@ -318,20 +325,35 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   }, [portalMode, activeModule, user?.role, setPortalMode]);
 
-  // Chat unread count synchronization
   useEffect(() => {
-    if (isAuthenticated) {
-      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
-      const updateChatUnread = () => {
-        setUnreadChatCount(getTotalUnreadChatCount(currentUserId));
-      };
-      updateChatUnread();
-      window.addEventListener('hrms_chat_updated', updateChatUnread);
-      return () => {
-        window.removeEventListener('hrms_chat_updated', updateChatUnread);
-      };
-    }
-  }, [isAuthenticated, portalMode, user]);
+    return subscribeChatUnread((counts) => {
+      setUnreadChatCount(Object.values(counts).reduce((sum, count) => sum + count, 0));
+    });
+  }, []);
+
+  useEffect(() => {
+    const myId = user?.id || '';
+    const onDirect = (event: Event) => {
+      const row = (event as CustomEvent).detail as { senderId?: string; recipientId?: string };
+      if (!myId || !row?.senderId || !row.recipientId || row.senderId === myId) return;
+      const conversationId = `direct-${row.senderId}`;
+      if (conversationId === getActiveChatConversation()) return;
+      addChatUnread(conversationId);
+    };
+    const onGroup = (event: Event) => {
+      const row = (event as CustomEvent).detail as { groupId?: string; userId?: string };
+      if (!myId || !row?.groupId || !row.userId || row.userId === myId) return;
+      const conversationId = `group-${row.groupId}`;
+      if (conversationId === getActiveChatConversation()) return;
+      addChatUnread(conversationId);
+    };
+    window.addEventListener('hrms_direct_chat_message', onDirect);
+    window.addEventListener('hrms_group_chat_message', onGroup);
+    return () => {
+      window.removeEventListener('hrms_direct_chat_message', onDirect);
+      window.removeEventListener('hrms_group_chat_message', onGroup);
+    };
+  }, [user?.id]);
 
   // Global keyboard shortcut for Global Search (Ctrl+K or Cmd+K)
   useEffect(() => {
@@ -508,7 +530,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
         setLiveEmployees(scopedEmps);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'attendance') {
         const needEmployees = portalMode === 'admin' && employeesRef.current.length === 0;
         const [attendanceData, employeesData] = await Promise.all([
@@ -565,18 +587,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         ]);
         setJobs(Array.isArray(jobsData) ? jobsData : []);
         setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'organization') {
-        const [departmentsData, designationsData, employeesData] = await Promise.all([
+        const [departmentsData, employeesData] = await Promise.all([
           api.getDepartments().catch(() => []),
-          api.getDesignations().catch(() => []),
           api.getEmployees().catch(() => []),
         ]);
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
         setLiveEmployees(scopedEmps);
-        setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
-        setDesignations(Array.isArray(designationsData) ? designationsData : []);
+        setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'calendar') {
         const needEmployees = employeesRef.current.length === 0;
         const [attendanceData, leavesData, employeesData] = await Promise.all([
@@ -596,6 +616,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
+        const role = String(user?.role || '').toUpperCase();
+        const canListUsers = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+        if (!canListUsers) return;
         const employeesData = await api.getEmployees().catch(() => []);
         const scopedEmps = scopeEmployees(employeesData);
         setEmployees(scopedEmps);
@@ -612,7 +635,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         void loadDataForModule(targetModule);
       }
     }
-  }, [activeCompanyId, activeCompanyCode, portalMode, scopeEmployees, scopeLeaves, scopeAttendance]);
+  }, [activeCompanyId, activeCompanyCode, portalMode, user?.role, scopeEmployees, scopeLeaves, scopeAttendance]);
 
   // Refresh handler passed down to modules
   const loadData = useCallback(() => {
@@ -965,11 +988,20 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 departments={departments}
                 designations={designations}
                 locations={locations}
-                initialTab={(subTab as any) === 'designations' ? 'designations' : 'departments'}
+                initialTab={(subTab as any) === 'teams' ? 'teams' : (subTab as any) === 'about' ? 'about' : 'departments'}
                 onRefresh={loadData}
                 portalMode={portalMode}
                 employees={employees}
                 company={currentCompany}
+              />
+            )}
+
+            {activeModule === 'tasks' && (
+              <TasksModule
+                employees={employees}
+                departments={departments}
+                portalMode={portalMode}
+                onRefresh={loadData}
               />
             )}
 

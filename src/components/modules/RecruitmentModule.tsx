@@ -24,6 +24,12 @@ import {
   Award,
   FileText,
   Users,
+  Edit2,
+  Trash2,
+  Eye,
+  ExternalLink,
+  Loader2,
+  Send,
 } from 'lucide-react';
 import { JobOpening, Candidate, CandidateStatus, Department } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -64,9 +70,37 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
     return [...candidates, ...uniqueSession];
   }, [candidates, sessionImportedCandidates]);
 
+  // Job Opening Edit & Delete states
+  const [editingJob, setEditingJob] = useState<JobOpening | null>(null);
+  const [editJobTitle, setEditJobTitle] = useState('');
+  const [editJobLocation, setEditJobLocation] = useState('');
+  const [editJobDescription, setEditJobDescription] = useState('');
+  const [savingJobEdit, setSavingJobEdit] = useState(false);
+  const [deletingJob, setDeletingJob] = useState<JobOpening | null>(null);
+  const [deletingJobSubmitting, setDeletingJobSubmitting] = useState(false);
+  const [publicJobData, setPublicJobData] = useState<any | null>(null);
+  const [loadingPublicJob, setLoadingPublicJob] = useState(false);
+
+  // Send Offer Letter Modal states
+  const [offerLetterCand, setOfferLetterCand] = useState<Candidate | null>(null);
+  const [offerDesignation, setOfferDesignation] = useState('');
+  const [offerJoiningDate, setOfferJoiningDate] = useState('');
+  const [offerLocation, setOfferLocation] = useState('Office Headquarters');
+  const [offerBasicSalary, setOfferBasicSalary] = useState(50000);
+  const [offerHra, setOfferHra] = useState(20000);
+  const [offerAllowances, setOfferAllowances] = useState(10000);
+  const [submittingOffer, setSubmittingOffer] = useState(false);
+
   useEffect(() => {
     const isAnyOpen =
-      createJobModalOpen || addCandidateModalOpen || importCandidatesModalOpen || !!interviewModalCand;
+      createJobModalOpen ||
+      addCandidateModalOpen ||
+      importCandidatesModalOpen ||
+      !!interviewModalCand ||
+      !!editingJob ||
+      !!deletingJob ||
+      !!publicJobData ||
+      !!offerLetterCand;
     if (!isAnyOpen) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -76,6 +110,10 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         if (addCandidateModalOpen) setAddCandidateModalOpen(false);
         if (importCandidatesModalOpen) setImportCandidatesModalOpen(false);
         if (interviewModalCand) setInterviewModalCand(null);
+        if (editingJob) setEditingJob(null);
+        if (deletingJob) setDeletingJob(null);
+        if (publicJobData) setPublicJobData(null);
+        if (offerLetterCand) setOfferLetterCand(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -83,8 +121,16 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [createJobModalOpen, addCandidateModalOpen, importCandidatesModalOpen, interviewModalCand]);
-
+  }, [
+    createJobModalOpen,
+    addCandidateModalOpen,
+    importCandidatesModalOpen,
+    interviewModalCand,
+    editingJob,
+    deletingJob,
+    publicJobData,
+    offerLetterCand,
+  ]);
 
   // New Job Form State
   const [jobTitle, setJobTitle] = useState('');
@@ -328,6 +374,124 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
     }
   };
 
+  // Open Edit Job Modal
+  const handleOpenEditJob = (job: JobOpening) => {
+    setEditingJob(job);
+    setEditJobTitle(job.title);
+    setEditJobLocation(job.location || '');
+    setEditJobDescription(job.description || '');
+  };
+
+  // Save Edit Job (PATCH /openings/:id)
+  const handleSaveEditJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingJob || !editJobTitle.trim()) return;
+    setSavingJobEdit(true);
+    try {
+      await api.editOpening(editingJob.id, {
+        title: editJobTitle.trim(),
+        location: editJobLocation.trim(),
+        description: editJobDescription.trim(),
+      });
+      showToast?.({
+        type: 'success',
+        title: 'Opening Updated',
+        message: `${editJobTitle} details saved.`,
+      });
+      setEditingJob(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Update Failed',
+        message: err.message || 'Could not update opening.',
+      });
+    } finally {
+      setSavingJobEdit(false);
+    }
+  };
+
+  // Delete Job (DELETE /openings/:id)
+  const handleDeleteJob = async () => {
+    if (!deletingJob) return;
+    setDeletingJobSubmitting(true);
+    try {
+      await api.deleteOpening(deletingJob.id);
+      showToast?.({
+        type: 'success',
+        title: 'Opening Deleted',
+        message: `${deletingJob.title} has been removed.`,
+      });
+      setDeletingJob(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete opening.',
+      });
+    } finally {
+      setDeletingJobSubmitting(false);
+    }
+  };
+
+  // View Public Job (GET /openings/:id/public)
+  const handleViewPublicJob = async (job: JobOpening) => {
+    setPublicJobData(job);
+    setLoadingPublicJob(true);
+    try {
+      const data = await api.getPublicOpening(job.id);
+      if (data) setPublicJobData(data);
+    } catch (err) {
+      console.warn('Could not load public opening details:', err);
+    } finally {
+      setLoadingPublicJob(false);
+    }
+  };
+
+  // Open Offer Letter Modal
+  const handleOpenOfferLetterModal = (cand: Candidate) => {
+    setOfferLetterCand(cand);
+    setOfferDesignation(cand.jobTitle || 'Software Engineer');
+    setOfferJoiningDate(new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]);
+    setOfferLocation('Surat, Gujarat');
+    setOfferBasicSalary(50000);
+    setOfferHra(20000);
+    setOfferAllowances(10000);
+  };
+
+  // Submit Offer Letter (POST /applications/:id/offer)
+  const handleSendOfferLetter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!offerLetterCand) return;
+    setSubmittingOffer(true);
+    try {
+      await api.sendOfferLetter(offerLetterCand.id, {
+        designation: offerDesignation.trim(),
+        joiningDate: offerJoiningDate,
+        location: offerLocation.trim(),
+        basicSalary: Number(offerBasicSalary),
+        hra: Number(offerHra),
+        allowances: Number(offerAllowances),
+      });
+      showToast?.({
+        type: 'success',
+        title: 'Offer Letter Dispatched',
+        message: `Official offer letter sent to ${offerLetterCand.fullName} (${offerLetterCand.email}).`,
+      });
+      setOfferLetterCand(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Failed to Send Offer',
+        message: err.message || 'Could not send offer letter.',
+      });
+    } finally {
+      setSubmittingOffer(false);
+    }
+  };
+
   const handleImportSuccess = (
     newCandidates: Candidate[],
     summary: { importedCount: number; skippedCount: number; failedCount: number }
@@ -450,12 +614,38 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span className="font-semibold text-slate-700">{job.applicantCount || 0} Applicants</span>
-              <button
-                onClick={() => setSelectedJob(job.id)}
-                className="text-xs font-bold text-[#2d6a4f] hover:text-[#1b4332] hover:underline cursor-pointer"
-              >
-                View Pipeline &rarr;
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleViewPublicJob(job)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                  title="View Public Opening"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditJob(job)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+                  title="Edit Opening"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingJob(job)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  title="Delete Opening"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setSelectedJob(job.id)}
+                  className="text-xs font-bold text-[#2d6a4f] hover:text-[#1b4332] hover:underline cursor-pointer ml-1"
+                >
+                  Pipeline &rarr;
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -784,6 +974,17 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       <span>Schedule Interview</span>
+                    </button>
+                  )}
+
+                  {cand.status === 'Offer' && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenOfferLetterModal(cand)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-2xs cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Offer Letter</span>
                     </button>
                   )}
 
@@ -1216,6 +1417,334 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         availableJobs={jobs}
         onImportSuccess={handleImportSuccess}
       />
+
+      {/* ── Edit Job Opening Modal ────────────────────────── */}
+      {Boolean(editingJob) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setEditingJob(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Edit Job Opening</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingJob(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditJob} className="p-6 space-y-4 text-xs flex-1 overflow-y-auto">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Job Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editJobTitle}
+                  onChange={(e) => setEditJobTitle(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={editJobLocation}
+                  onChange={(e) => setEditJobLocation(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Role Description &amp; Requirements
+                </label>
+                <textarea
+                  rows={4}
+                  value={editJobDescription}
+                  onChange={(e) => setEditJobDescription(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingJob(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingJobEdit}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {savingJobEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Job Opening Modal ──────────────────────── */}
+      {Boolean(deletingJob) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setDeletingJob(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete Job Opening</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-5 leading-relaxed">
+              Are you sure you want to delete <span className="font-bold text-slate-800">{deletingJob?.title}</span>?
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingJob(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingJobSubmitting}
+                onClick={handleDeleteJob}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {deletingJobSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Public Opening View Modal ─────────────────────── */}
+      {Boolean(publicJobData) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setPublicJobData(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Public Job Opening</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPublicJobData(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-xs">
+              {loadingPublicJob ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <p className="text-slate-500 font-medium">Fetching public posting data...</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Position</span>
+                    <h4 className="text-base font-bold text-slate-900 mt-0.5">{publicJobData?.title}</h4>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department &amp; Location</span>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {publicJobData?.departmentName || 'General'} • {publicJobData?.location || 'Surat, Gujarat'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Description</span>
+                    <p className="text-slate-600 leading-relaxed mt-0.5 whitespace-pre-wrap">
+                      {publicJobData?.description || 'No description provided.'}
+                    </p>
+                  </div>
+                  {publicJobData?.requirements && (
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Requirements</span>
+                      <p className="text-slate-600 leading-relaxed mt-0.5 whitespace-pre-wrap">
+                        {publicJobData.requirements}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setPublicJobData(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Send Offer Letter Modal ───────────────────────── */}
+      {Boolean(offerLetterCand) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setOfferLetterCand(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Generate &amp; Dispatch Offer Letter</h3>
+                  <p className="text-[11px] text-slate-500">For candidate: {offerLetterCand?.fullName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOfferLetterCand(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSendOfferLetter} className="p-6 space-y-4 text-xs flex-1 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Offered Designation <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={offerDesignation}
+                    onChange={(e) => setOfferDesignation(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Joining Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={offerJoiningDate}
+                    onChange={(e) => setOfferJoiningDate(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Work Location
+                </label>
+                <input
+                  type="text"
+                  value={offerLocation}
+                  onChange={(e) => setOfferLocation(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Basic Salary (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={offerBasicSalary}
+                    onChange={(e) => setOfferBasicSalary(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    HRA (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={offerHra}
+                    onChange={(e) => setOfferHra(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Allowances (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={offerAllowances}
+                    onChange={(e) => setOfferAllowances(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setOfferLetterCand(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOffer}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {submittingOffer && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Dispatch Offer Letter</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

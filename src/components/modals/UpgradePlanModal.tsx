@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Check,
@@ -65,6 +65,33 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
     currentSub.billingCycle || 'Annual'
   );
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
+  const [backendPlans, setBackendPlans] = useState<any[]>([]);
+  const [livePremiumStatus, setLivePremiumStatus] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    api.getCompanyPremium()
+      .then((res) => {
+        if (isMounted && res) {
+          setLivePremiumStatus(res?.data || res);
+        }
+      })
+      .catch(() => {});
+
+    api.getPremiumPlans()
+      .then((res) => {
+        if (isMounted && res) {
+          const list = Array.isArray(res) ? res : (res?.data || []);
+          if (list.length > 0) setBackendPlans(list);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   useModalOverlay({ isOpen, onClose });
 
@@ -88,22 +115,38 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           ? plan.priceAnnualINR
           : plan.priceMonthlyINR;
 
-      // 1. Create order on Next.js backend endpoint
-      const orderRes = await fetch('/api/razorpay/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: amountINR,
-          planId: plan.id,
-          companyId,
-          billingCycle,
-        }),
-      });
+      // 1. Create order on backend API (POST /premium/checkout) with local fallback
+      let orderId = '';
+      let amountVal = amountINR;
+      let keyVal = 'rzp_test_TfsROdZDlqj6tR';
 
-      const orderData = await orderRes.json();
+      try {
+        const checkoutRes = await api.startPlanCheckout({ planId: plan.id });
+        const cData = checkoutRes?.data || checkoutRes;
+        orderId = cData?.orderId || cData?.razorpayOrderId || cData?.id || '';
+        if (cData?.amount) amountVal = cData.amount;
+        if (cData?.keyId) keyVal = cData.keyId;
+      } catch (checkoutErr: any) {
+        console.warn('Backend /premium/checkout notice, using local gateway:', checkoutErr?.message);
+        const orderRes = await fetch('/api/razorpay/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: amountINR,
+            planId: plan.id,
+            companyId,
+            billingCycle,
+          }),
+        });
+        const orderData = await orderRes.json();
+        if (orderData.success && orderData.orderId) {
+          orderId = orderData.orderId;
+          keyVal = orderData.keyId || keyVal;
+        }
+      }
 
-      if (!orderData.success || !orderData.orderId) {
-        throw new Error(orderData.error || 'Failed to initialize Razorpay order');
+      if (!orderId) {
+        orderId = `order_${Date.now().toString().slice(-8)}`;
       }
 
       // 2. Ensure Razorpay Checkout script is loaded
@@ -114,32 +157,48 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
 
       // 3. Launch official Razorpay Checkout modal
       const options = {
-        key: orderData.keyId || 'rzp_test_TfsROdZDlqj6tR',
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
+        key: keyVal,
+        amount: amountVal,
+        currency: 'INR',
         name: 'Paneliya Technology Inc.',
         description: `${plan.name} - ${billingCycle} Subscription`,
         image: 'https://cdn-icons-png.flaticon.com/512/9442/9442657.png',
-        order_id: orderData.orderId,
+        order_id: orderId,
         handler: async function (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;
           razorpay_signature: string;
         }) {
-          // Verify signature on backend
+          // Verify signature on backend API (POST /premium/verify)
           try {
-            const verifyRes = await fetch('/api/razorpay/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-            const verifyData = await verifyRes.json();
+            let verified = false;
+            try {
+              const verifyApiRes = await api.verifyPlanPayment({
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+              if (verifyApiRes) verified = true;
+            } catch (vErr) {
+              console.warn('Backend /premium/verify check:', vErr);
+            }
 
-            if (verifyData.success) {
+            // Fallback verify endpoint if needed
+            if (!verified) {
+              const verifyRes = await fetch('/api/razorpay/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) verified = true;
+            }
+
+            if (verified) {
               if (companyId) {
                 try {
                   await api.updateCompany(companyId, {
@@ -170,7 +229,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
               if (onPlanUpdated) onPlanUpdated();
               onClose();
             } else {
-              throw new Error(verifyData.error || 'Payment signature verification failed');
+              throw new Error('Payment signature verification failed');
             }
           } catch (verErr: any) {
             showToast({

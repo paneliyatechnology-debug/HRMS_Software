@@ -631,6 +631,32 @@ async function saveAttendanceSettings(data: {
   }
 }
 
+async function getWeekendRules() {
+  try {
+    const response = await http.get('/attendance/weekend-rules');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be loaded.');
+  }
+}
+
+async function saveWeekendRules(data: { weekendDays: number[]; saturdayRule: string }) {
+  try {
+    const response = await http.put('/attendance/weekend-rules', {
+      weekendDays: data.weekendDays,
+      saturdayRule: data.saturdayRule,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/settings');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be saved.');
+  }
+}
+
 // 24. GET /attendance/holidays (List holidays)
 async function listHolidays() {
   try {
@@ -1194,6 +1220,1043 @@ async function getApiRoot() {
 }
 
 /* ==========================================================================
+   MODULE 9: DEPARTMENTS (4 ENDPOINTS)
+   ========================================================================== */
+
+// 42. POST /departments (Create department)
+async function createDepartment(payload: { name: string; [key: string]: any }) {
+  try {
+    const res = await http.post('/departments', { name: payload.name?.trim() }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create department.');
+  }
+}
+
+// 43. GET /departments (List departments)
+async function listDepartments() {
+  try {
+    const res = await deduplicatedGet('/departments');
+    const raw = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.departments)
+      ? res.departments
+      : Array.isArray(res?.items)
+      ? res.items
+      : [];
+    return raw.map((d: any) => ({
+      ...d,
+      id: d.id || d._id,
+      name: d.name || 'Unnamed Department',
+      code: d.code || (d.name ? d.name.slice(0, 3).toUpperCase() : 'DEP'),
+      employeeCount: typeof d.employeeCount === 'number' ? d.employeeCount : (d._count?.employees || d.employees?.length || 0),
+      headName: d.headName || d.head?.name || '',
+      description: d.description || '',
+      createdAt: d.createdAt || new Date().toISOString(),
+    }));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list departments.');
+  }
+}
+
+// 44. PATCH /departments/:departmentId (Edit department)
+async function editDepartment(departmentId: string, payload: { name: string; [key: string]: any }) {
+  try {
+    const res = await http.patch(`/departments/${departmentId}`, { name: payload.name?.trim() }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update department.');
+  }
+}
+
+// 45. DELETE /departments/:departmentId (Delete department)
+async function deleteDepartment(departmentId: string) {
+  try {
+    const res = await http.delete(`/departments/${departmentId}`);
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete department.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 10: TEAMS (8 ENDPOINTS)
+   ========================================================================== */
+
+// 46. POST /teams (Create team)
+async function createTeam(payload: { name: string; departmentId: string }) {
+  try {
+    const res = await http.post('/teams', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create team.');
+  }
+}
+
+async function listChatGroups() {
+  try {
+    const res = await http.get('/chat/groups');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load groups.');
+  }
+}
+
+async function createChatGroup(payload: { name: string; memberIds: string[] }) {
+  try {
+    const res = await http.post('/chat/groups', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create group.');
+  }
+}
+
+async function addChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/members`, { userId }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to add member.');
+  }
+}
+
+async function listChatGroupMembers(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/members`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group members.');
+  }
+}
+
+async function removeChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}/members/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to remove member.');
+  }
+}
+
+async function leaveChatGroup(groupId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/leave`, {}, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to leave group.');
+  }
+}
+
+async function deleteChatGroup(groupId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete group.');
+  }
+}
+
+async function listGroupChat(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/messages`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group chat.');
+  }
+}
+
+async function sendGroupChat(groupId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/messages`, payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send group message.');
+  }
+}
+
+async function createAnnouncement(payload: {
+  title: string;
+  content: string;
+  priority?: string;
+  targetAudience?: string;
+  targetEmployeeId?: string;
+  departmentName?: string;
+}) {
+  try {
+    const res = await http.post('/notices', {
+      title: payload.title,
+      content: payload.content,
+      priority: payload.priority,
+      targetAudience: payload.targetAudience,
+      targetEmployeeId: payload.targetEmployeeId,
+      departmentName: payload.departmentName,
+    }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.notice || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not publish notice.');
+  }
+}
+
+async function getAnnouncements(_employeeId?: string) {
+  try {
+    const res = await http.get('/notices/board');
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function deleteAnnouncement(id: string) {
+  try {
+    const res = await http.delete(`/notices/board/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not delete notice.');
+  }
+}
+
+async function listNotices() {
+  try {
+    const res = await http.get('/notices');
+    const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+    return rows.map((row: any) => ({
+      id: String(row.id || ''),
+      kind: row.kind === 'leave' || row.kind === 'task' ? row.kind : 'message',
+      title: String(row.title || ''),
+      message: String(row.message || ''),
+      module: String(row.module || ''),
+      createdAt: String(row.createdAt || ''),
+    }));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function dismissNotice(id: string) {
+  try {
+    const res = await http.delete(`/notices/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notice.');
+  }
+}
+
+async function clearNotices() {
+  try {
+    const res = await http.delete('/notices');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notices.');
+  }
+}
+
+async function listDirectChats() {
+  try {
+    const res = await http.get('/chat/direct');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listDirectChat(userId: string) {
+  try {
+    const res = await http.get(`/chat/direct/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendDirectChat(userId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/direct/${userId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+async function listStaffThreads() {
+  try {
+    const res = await http.get('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listStaffChat(employeeId: string) {
+  try {
+    const res = await http.get(`/chat/staff/${employeeId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendStaffChat(employeeId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/staff/${employeeId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+// 47b. GET /teams/mine (Teams this user can chat in)
+async function listMyTeams() {
+  try {
+    return await deduplicatedGet('/teams/mine');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load your teams.');
+  }
+}
+
+// 47. GET /teams (List teams)
+async function listTeams() {
+  try {
+    return await deduplicatedGet('/teams');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list teams.');
+  }
+}
+
+// 48. POST /teams/:teamId/leader (Set team leader)
+async function setTeamLeader(teamId: string, payload: { userId: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/leader`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to set team leader.');
+  }
+}
+
+// 49. POST /teams/:teamId/members (Add team member)
+async function addTeamMember(teamId: string, payload: { userId: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/members`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to add team member.');
+  }
+}
+
+// 50. DELETE /teams/:teamId/members/:employeeId (Remove team member)
+async function removeTeamMember(teamId: string, employeeId: string) {
+  try {
+    const res = await http.delete(`/teams/${teamId}/members/${employeeId}`);
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to remove team member.');
+  }
+}
+
+// 51. GET /teams/:teamId (Get team)
+async function getTeam(teamId: string) {
+  try {
+    return await deduplicatedGet(`/teams/${teamId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get team.');
+  }
+}
+
+// 52. PATCH /teams/:teamId (Edit team)
+async function editTeam(teamId: string, payload: { name?: string; departmentId?: string }) {
+  try {
+    const res = await http.patch(`/teams/${teamId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update team.');
+  }
+}
+
+// 53b. GET /teams/:teamId/chat (List team chat)
+async function listTeamChat(teamId: string, params?: { page?: number; limit?: number }) {
+  try {
+    return await deduplicatedGet(`/teams/${teamId}/chat`, { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load team chat.');
+  }
+}
+
+// 53c. POST /teams/:teamId/chat (Send team chat)
+async function sendTeamChat(teamId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/chat`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache(`/teams/${teamId}/chat`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send team chat.');
+  }
+}
+
+// 53. DELETE /teams/:teamId (Delete team)
+async function deleteTeam(teamId: string) {
+  try {
+    const res = await http.delete(`/teams/${teamId}`);
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete team.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 11: TASKS (5 ENDPOINTS)
+   ========================================================================== */
+
+// 54. POST /tasks (Create task)
+async function createTask(payload: {
+  teamId?: string;
+  assigneeId?: string;
+  title: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  startDate?: string;
+  dueDate?: string;
+}) {
+  try {
+    const res = await http.post('/tasks', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create task.');
+  }
+}
+
+// 55. GET /tasks (List tasks)
+async function listTasks(params?: any) {
+  try {
+    return await deduplicatedGet('/tasks', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list tasks.');
+  }
+}
+
+// 56. GET /tasks/:taskId (Get task)
+async function getTask(taskId: string) {
+  try {
+    return await deduplicatedGet(`/tasks/${taskId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get task.');
+  }
+}
+
+// 57. PATCH /tasks/:taskId (Edit task)
+async function editTask(taskId: string, payload: any) {
+  try {
+    const res = await http.patch(`/tasks/${taskId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update task.');
+  }
+}
+
+// 58. DELETE /tasks/:taskId (Delete task)
+async function deleteTask(taskId: string) {
+  try {
+    const res = await http.delete(`/tasks/${taskId}`);
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete task.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 12: OPENINGS (7 ENDPOINTS)
+   ========================================================================== */
+
+// 59. POST /openings (Create job opening)
+async function createOpening(payload: {
+  title: string;
+  description?: string;
+  requirements?: string;
+  location?: string;
+  employmentType?: string;
+  vacancy?: number;
+}) {
+  try {
+    const res = await http.post('/openings', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create job opening.');
+  }
+}
+
+// 60. GET /openings (List job openings)
+async function listOpenings() {
+  try {
+    return await deduplicatedGet('/openings');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list job openings.');
+  }
+}
+
+// 61. GET /openings/:openingId/public (Public job opening)
+async function getPublicOpening(openingId: string) {
+  try {
+    return await deduplicatedGet(`/openings/${openingId}/public`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get public job opening.');
+  }
+}
+
+// 62. POST /openings/:openingId/apply (Apply for job)
+async function applyForOpening(openingId: string, data: FormData | any) {
+  try {
+    const res = await http.post(`/openings/${openingId}/apply`, data);
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to submit application.');
+  }
+}
+
+// 63. GET /openings/:openingId (Get job opening)
+async function getOpening(openingId: string) {
+  try {
+    return await deduplicatedGet(`/openings/${openingId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get job opening.');
+  }
+}
+
+// 64. PATCH /openings/:openingId (Edit job opening)
+async function editOpening(openingId: string, payload: any) {
+  try {
+    const res = await http.patch(`/openings/${openingId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update job opening.');
+  }
+}
+
+// 65. DELETE /openings/:openingId (Delete job opening)
+async function deleteOpening(openingId: string) {
+  try {
+    const res = await http.delete(`/openings/${openingId}`);
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete job opening.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 13: APPLICATIONS (8 ENDPOINTS)
+   ========================================================================== */
+
+// 66. GET /applications/verify (Verify offer email)
+async function verifyOfferEmail(token?: string) {
+  try {
+    return await deduplicatedGet('/applications/verify', { params: token ? { token } : undefined });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to verify offer.');
+  }
+}
+
+// 67. GET /applications (List applications)
+async function listApplications(params?: any) {
+  try {
+    return await deduplicatedGet('/applications', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list applications.');
+  }
+}
+
+// 68. GET /applications/selected (List selected candidates)
+async function listSelectedCandidates() {
+  try {
+    return await deduplicatedGet('/applications/selected');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list selected candidates.');
+  }
+}
+
+// 69. PATCH /applications/:applicationId/status (Update application status)
+async function updateApplicationStatus(applicationId: string, payload: { status: string; interviewerId?: string }) {
+  try {
+    const res = await http.patch(`/applications/${applicationId}/status`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update application status.');
+  }
+}
+
+// 70. GET /applications/:applicationId/offer (Offer letter form)
+async function getApplicationOfferForm(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}/offer`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load offer form.');
+  }
+}
+
+// 71. GET /applications/:applicationId/employee (Add employee form)
+async function getApplicationEmployeeForm(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}/employee`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load employee onboarding form.');
+  }
+}
+
+// 72. POST /applications/:applicationId/offer (Send offer letter)
+async function sendOfferLetter(applicationId: string, payload: {
+  designation: string;
+  joiningDate: string;
+  location?: string;
+  employmentType?: string;
+  reportingTo?: string;
+  basicSalary?: number;
+  hra?: number;
+  allowances?: number;
+  bonus?: number;
+  deductions?: number;
+}) {
+  try {
+    const res = await http.post(`/applications/${applicationId}/offer`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send offer letter.');
+  }
+}
+
+// 73. GET /applications/:applicationId (Get application)
+async function getApplication(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get application.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 14: PAYROLL (7 ENDPOINTS)
+   ========================================================================== */
+
+// 74. PUT /payroll/salaries/:employeeId (Save salary)
+async function saveSalary(employeeId: string, payload: {
+  basicSalary: number;
+  hra?: number;
+  allowances?: number;
+  bonus?: number;
+  deductions?: number;
+  overtimePerHour?: number;
+  effectiveFrom?: string;
+}) {
+  try {
+    const res = await http.put(`/payroll/salaries/${employeeId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to save salary.');
+  }
+}
+
+// 75. GET /payroll/salaries (List salaries)
+async function listSalaries() {
+  try {
+    return await deduplicatedGet('/payroll/salaries');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list salaries.');
+  }
+}
+
+// 76. GET /payroll/salaries/:employeeId (Salary history)
+async function getSalaryHistory(employeeId: string) {
+  try {
+    return await deduplicatedGet(`/payroll/salaries/${employeeId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get salary history.');
+  }
+}
+
+// 77. POST /payroll/runs (Generate payroll)
+async function generatePayroll(payload: { year: number; month: number } | string) {
+  try {
+    const body = typeof payload === 'string'
+      ? { year: parseInt(payload.split('-')[0]), month: parseInt(payload.split('-')[1]) }
+      : payload;
+    const res = await http.post('/payroll/runs', body, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to generate payroll.');
+  }
+}
+
+// 78. GET /payroll/payslips (List payslips)
+async function listPayslips() {
+  try {
+    return await deduplicatedGet('/payroll/payslips');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list payslips.');
+  }
+}
+
+// 79. POST /payroll/payslips/:payslipId/paid (Mark payslip paid)
+async function markPayslipPaid(payslipId: string) {
+  try {
+    const res = await http.post(`/payroll/payslips/${payslipId}/paid`);
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to mark payslip as paid.');
+  }
+}
+
+// 80. GET /payroll/payslips/:payslipId (Get payslip)
+async function getPayslip(payslipId: string) {
+  try {
+    return await deduplicatedGet(`/payroll/payslips/${payslipId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get payslip.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 15: PLANS (5 ENDPOINTS)
+   ========================================================================== */
+
+// 81. POST /plans (Create plan)
+async function createPlan(payload: {
+  name: string;
+  price: number;
+  durationMonths: number;
+  description?: string;
+}) {
+  try {
+    const res = await http.post('/plans', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create plan.');
+  }
+}
+
+// 82. GET /plans (List plans)
+async function listPlans() {
+  try {
+    return await deduplicatedGet('/plans');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list plans.');
+  }
+}
+
+// 83. POST /plans/:planId/sell (Sell plan)
+async function sellPlan(planId: string, payload: { companyId: string }) {
+  try {
+    const res = await http.post(`/plans/${planId}/sell`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to sell plan.');
+  }
+}
+
+// 84. PATCH /plans/:planId (Edit plan)
+async function editPlan(planId: string, payload: any) {
+  try {
+    const res = await http.patch(`/plans/${planId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update plan.');
+  }
+}
+
+// 85. DELETE /plans/:planId (Delete plan)
+async function deletePlan(planId: string) {
+  try {
+    const res = await http.delete(`/plans/${planId}`);
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete plan.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 16: PREMIUM (7 ENDPOINTS)
+   ========================================================================== */
+
+// 86. GET /premium (Company premium)
+async function getCompanyPremium() {
+  try {
+    return await deduplicatedGet('/premium');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get company premium status.');
+  }
+}
+
+// 87. GET /premium/plans (Plans for purchase)
+async function getPremiumPlans() {
+  try {
+    return await deduplicatedGet('/premium/plans');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get premium plans.');
+  }
+}
+
+// 88. POST /premium/checkout (Start plan purchase)
+async function startPlanCheckout(payload: { planId: string }) {
+  try {
+    const res = await http.post('/premium/checkout', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to start plan purchase.');
+  }
+}
+
+// 89. POST /premium/verify (Verify plan payment)
+async function verifyPlanPayment(payload: {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}) {
+  try {
+    const res = await http.post('/premium/verify', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to verify plan payment.');
+  }
+}
+
+// 90. GET /premium/orders (List premium orders)
+async function listPremiumOrders() {
+  try {
+    return await deduplicatedGet('/premium/orders');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list premium orders.');
+  }
+}
+
+// 91. POST /premium/orders (Place premium order)
+async function placePremiumOrder(payload: { planId: string }) {
+  try {
+    const res = await http.post('/premium/orders', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to place premium order.');
+  }
+}
+
+// 92. PATCH /premium/orders/:premiumOrderId (Update premium order)
+async function updatePremiumOrder(premiumOrderId: string, payload: { status: string }) {
+  try {
+    const res = await http.patch(`/premium/orders/${premiumOrderId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update premium order.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 17: SUPPORT (4 ENDPOINTS)
+   ========================================================================== */
+
+// 93. POST /support (Send demo or contact request)
+async function sendSupportRequest(payload: {
+  kind?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  companyName?: string;
+  message: string;
+}) {
+  try {
+    const res = await http.post('/support', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/support');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to submit support request.');
+  }
+}
+
+// 94. GET /support (List support requests)
+async function listSupportRequests() {
+  try {
+    return await deduplicatedGet('/support');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list support requests.');
+  }
+}
+
+// 95. GET /support/:supportId (Get support request)
+async function getSupportRequest(supportId: string) {
+  try {
+    return await deduplicatedGet(`/support/${supportId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get support request.');
+  }
+}
+
+// 96. PATCH /support/:supportId (Update support request)
+async function updateSupportRequest(supportId: string, payload: { status: string }) {
+  try {
+    const res = await http.patch(`/support/${supportId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/support');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update support request.');
+  }
+}
+
+/* ==========================================================================
    INTEGRATION ALIASES & HELPERS
    ========================================================================== */
 
@@ -1219,7 +2282,13 @@ function userToEmployee(u: any): any {
   };
 }
 
+function canListUsers() {
+  const role = String(getCookie('hrms_current_role') || '').toUpperCase();
+  return ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+}
+
 async function getEmployees() {
+  if (!canListUsers()) return [];
   try {
     if (isEmployeeSession()) {
       return [];
@@ -1456,6 +2525,8 @@ export const api = new Proxy({
   saveAttendanceSettings,
   getSettings,
   updateSettings,
+  getWeekendRules,
+  saveWeekendRules,
   listHolidays,
   getHolidays,
   addHoliday,
@@ -1490,6 +2561,127 @@ export const api = new Proxy({
 
   // System (1)
   getApiRoot,
+
+  // Departments (4)
+  createDepartment,
+  listDepartments,
+  getDepartments: listDepartments,
+  editDepartment,
+  updateDepartment: editDepartment,
+  deleteDepartment,
+
+  // Teams (8)
+  createTeam,
+  listTeams,
+  getTeams: listTeams,
+  listMyTeams,
+  listChatGroups,
+  createChatGroup,
+  addChatGroupMember,
+  listChatGroupMembers,
+  removeChatGroupMember,
+  leaveChatGroup,
+  deleteChatGroup,
+  listGroupChat,
+  sendGroupChat,
+  listDirectChats,
+  createAnnouncement,
+  getAnnouncements,
+  deleteAnnouncement,
+  listNotices,
+  dismissNotice,
+  clearNotices,
+  listDirectChat,
+  sendDirectChat,
+  listStaffThreads,
+  listStaffChat,
+  sendStaffChat,
+  setTeamLeader,
+  addTeamMember,
+  removeTeamMember,
+  getTeam,
+  listTeamChat,
+  getTeamChat: listTeamChat,
+  sendTeamChat,
+  editTeam,
+  updateTeam: editTeam,
+  deleteTeam,
+
+  // Tasks (5)
+  createTask,
+  listTasks,
+  getTasks: listTasks,
+  getTask,
+  editTask,
+  updateTask: editTask,
+  deleteTask,
+
+  // Openings (7)
+  createOpening,
+  createJob: createOpening,
+  listOpenings,
+  getOpenings: listOpenings,
+  getJobs: listOpenings,
+  getPublicOpening,
+  applyForOpening,
+  getOpening,
+  editOpening,
+  updateOpening: editOpening,
+  deleteOpening,
+
+  // Applications (8)
+  verifyOfferEmail,
+  listApplications,
+  getApplications: listApplications,
+  getCandidates: listApplications,
+  listSelectedCandidates,
+  updateApplicationStatus,
+  updateCandidateStatus: (id: string, status: any) => updateApplicationStatus(id, typeof status === 'string' ? { status } : status),
+  getApplicationOfferForm,
+  getApplicationEmployeeForm,
+  sendOfferLetter,
+  getApplication,
+
+  // Payroll (7)
+  saveSalary,
+  listSalaries,
+  getSalaries: listSalaries,
+  getSalaryHistory,
+  generatePayroll,
+  listPayslips,
+  getPayslips: listPayslips,
+  getPayroll: listPayslips,
+  markPayslipPaid,
+  updatePayrollStatus: (id: string, _payload?: any) => markPayslipPaid(id),
+  getPayslip,
+
+  // Plans (5)
+  createPlan,
+  listPlans,
+  getPlans: listPlans,
+  sellPlan,
+  editPlan,
+  updatePlan: editPlan,
+  deletePlan,
+
+  // Premium (7)
+  getCompanyPremium,
+  getPremium: getCompanyPremium,
+  getPremiumPlans,
+  startPlanCheckout,
+  verifyPlanPayment,
+  listPremiumOrders,
+  getPremiumOrders: listPremiumOrders,
+  placePremiumOrder,
+  updatePremiumOrder,
+
+  // Support (4)
+  sendSupportRequest,
+  createSupportRequest: sendSupportRequest,
+  listSupportRequests,
+  getSupportRequests: listSupportRequests,
+  getSupportRequest,
+  updateSupportRequest,
 } as Record<string, (...args: any[]) => Promise<any>>, {
   get(target, prop) {
     if (typeof prop !== 'string') return undefined;

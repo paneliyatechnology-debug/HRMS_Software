@@ -65,6 +65,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   const [audienceType, setAudienceType] = useState<'All' | 'Department' | 'Management'>('All');
   const [targetEmployeeId, setTargetEmployeeId] = useState(employees[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
+  const canCreateNotice = ['ADMIN', 'HR', 'MANAGER'].includes(String(user.role || '').toUpperCase());
 
   const loadAnnouncements = async () => {
     try {
@@ -178,7 +179,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   return (
     <div className="space-y-5 w-full select-none">
       {/* Top Action (Admin) */}
-      {portalMode === 'admin' && (
+      {canCreateNotice && (
         <div className="flex justify-end pb-3 border-b border-slate-200">
           <button
             id="btn-new-notice-modal"
@@ -285,7 +286,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
                       <Calendar className="w-3.5 h-3.5" /> Published {anc.publishDate}
                     </span>
 
-                    {portalMode === 'admin' && (
+                    {canCreateNotice && (
                       <button
                         id={`btn-delete-notice-${anc.id}`}
                         onClick={() => handleDeleteNotice(anc.id, anc.title)}
