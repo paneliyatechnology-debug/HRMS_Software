@@ -131,13 +131,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setTransitionStage('leaving');
 
     setTimeout(() => {
-      clearAllSignupFields();
-      setViewMode('signup');
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
-        window.history.pushState(null, '', '/register');
-      }
+    clearAllSignupFields();
+    setViewMode('signup');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
+      window.history.pushState(null, '', '/register');
+    }
       setTransitionStage('entering');
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -155,14 +155,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setTransitionStage('leaving');
 
     setTimeout(() => {
-      clearAllSignupFields();
-      clearLoginFields();
-      setViewMode('login');
-      setErrorMessage(null);
-      setSuccessMessage(null);
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.history.pushState(null, '', '/login');
-      }
+    clearAllSignupFields();
+    clearLoginFields();
+    setViewMode('login');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.history.pushState(null, '', '/login');
+    }
       setTransitionStage('entering');
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -175,13 +175,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
   useEffect(() => {
     const handlePopState = () => {
-      if (typeof window !== 'undefined') {
-        if (window.location.pathname === '/register') {
-          setViewMode('signup');
-        } else if (window.location.pathname === '/login') {
-          setViewMode('login');
-        }
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname === '/register') {
+        setViewMode('signup');
+      } else if (window.location.pathname === '/login') {
+        setViewMode('login');
       }
+    }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -508,7 +508,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                 <span className="text-[10px] font-mono text-emerald-200/80 bg-black/20 px-2 py-0.5 rounded-md border border-white/10">
                   SYS_ONLINE
                 </span>
-              </div>
+            </div>
 
               {/* Middle Showcase Graphic: Animated Enterprise Workspace Illustration */}
               <div className="relative z-10 my-auto py-2 flex flex-col justify-center space-y-4">
@@ -518,8 +518,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   </h2>
                   <p className="text-xs text-emerald-100/80 leading-relaxed font-medium mt-1">
                     Smart shift tracking, leave approvals, automated statutory payroll, and team self-service.
-                  </p>
-                </div>
+            </p>
+          </div>
 
                 {/* Animated Workspace & Dashboard Vector Illustration */}
                 <div className="relative my-2 py-3 flex items-center justify-center">
@@ -630,12 +630,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     >
                       <div className="w-7 h-7 rounded-xl bg-emerald-500/30 border border-emerald-400/40 flex items-center justify-center text-emerald-200">
                         <CheckCircle2 className="w-4 h-4 text-[#d8f3dc]" />
-                      </div>
-                      <div>
+                  </div>
+                  <div>
                         <p className="text-[10px] font-bold leading-tight">Payroll &amp; Leaves</p>
                         <p className="text-[9px] text-emerald-200/70">Synced in real-time</p>
-                      </div>
-                    </div>
+                  </div>
+                </div>
 
                     {/* Floating Card 2 (Bottom Left) */}
                     <div
@@ -644,7 +644,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     >
                       <div className="w-7 h-7 rounded-xl bg-teal-500/30 border border-teal-400/40 flex items-center justify-center text-teal-200">
                         <Users className="w-4 h-4 text-[#d8f3dc]" />
-                      </div>
+              </div>
                       <div>
                         <p className="text-[10px] font-bold leading-tight">Team Operations</p>
                         <div className="flex items-center gap-1 mt-0.5">
@@ -704,138 +704,138 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   </p>
                 </div>
 
-                {/* Feedback Alerts */}
-                {errorMessage && (
-                  <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
+            {/* Feedback Alerts */}
+            {errorMessage && (
+              <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-                {successMessage && (
-                  <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>{successMessage}</span>
-                  </div>
-                )}
+            {successMessage && (
+              <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{successMessage}</span>
+              </div>
+            )}
 
                 {/* Login Form */}
-                <form
-                  onSubmit={handleLoginSubmit}
-                  className="space-y-4"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  data-lpignore="true"
-                  data-1p-ignore="true"
-                  data-form-type="other"
-                >
-                  {/* Trap inputs to absorb browser autofill and auto-detection */}
-                  <div style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }}>
-                    <input type="text" name="fake_user_trap_login" tabIndex={-1} autoComplete="off" />
-                    <input type="password" name="fake_pwd_trap_login" tabIndex={-1} autoComplete="new-password" />
-                  </div>
+              <form
+                onSubmit={handleLoginSubmit}
+                className="space-y-4"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+              >
+                {/* Trap inputs to absorb browser autofill and auto-detection */}
+                <div style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }}>
+                  <input type="text" name="fake_user_trap_login" tabIndex={-1} autoComplete="off" />
+                  <input type="password" name="fake_pwd_trap_login" tabIndex={-1} autoComplete="new-password" />
+                </div>
 
-                  {/* Identifier Input */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label htmlFor="input-login-identifier" className="text-xs font-bold text-slate-700">
+                {/* Identifier Input */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="input-login-identifier" className="text-xs font-bold text-slate-700">
                         Work Email, Mobile or Employee Code
-                      </label>
-                      {fieldErrors.identifier && (
-                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
-                          <AlertCircle className="w-3 h-3 shrink-0" />
-                          {fieldErrors.identifier}
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <input
-                        id="input-login-identifier"
-                        name="paneliya_fld_usr_noautofill"
-                        type="text"
-                        required
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-form-type="other"
-                        readOnly={loginIdentifierReadOnly}
-                        onFocus={() => setLoginIdentifierReadOnly(false)}
-                        value={identifier}
-                        onChange={(e) => {
-                          setIdentifier(e.target.value);
-                          clearFieldError('identifier');
-                        }}
-                        placeholder="Enter email, mobile number or employee code"
-                        className={`w-full h-12 pl-11 pr-4 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
-                          fieldErrors.identifier
-                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
-                        }`}
-                      />
-                    </div>
+                    </label>
+                    {fieldErrors.identifier && (
+                      <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.identifier}
+                      </span>
+                    )}
                   </div>
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="input-login-identifier"
+                      name="paneliya_fld_usr_noautofill"
+                      type="text"
+                      required
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-form-type="other"
+                      readOnly={loginIdentifierReadOnly}
+                      onFocus={() => setLoginIdentifierReadOnly(false)}
+                      value={identifier}
+                      onChange={(e) => {
+                        setIdentifier(e.target.value);
+                        clearFieldError('identifier');
+                      }}
+                        placeholder="Enter email, mobile number or employee code"
+                      className={`w-full h-12 pl-11 pr-4 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
+                        fieldErrors.identifier
+                          ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                      }`}
+                    />
+                  </div>
+                </div>
 
-                  {/* Password Input */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label htmlFor="input-login-password" className="text-xs font-bold text-slate-700">
-                        Password
-                      </label>
+                {/* Password Input */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="input-login-password" className="text-xs font-bold text-slate-700">
+                      Password
+                    </label>
                       {fieldErrors.password && (
                         <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
                           <AlertCircle className="w-3 h-3 shrink-0" />
                           {fieldErrors.password}
                         </span>
                       )}
+                  </div>
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                      <Lock className="w-4 h-4" />
                     </div>
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <input
-                        id="input-login-password"
-                        name="paneliya_fld_pwd_noautofill"
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-form-type="other"
-                        readOnly={loginPasswordReadOnly}
-                        onFocus={() => setLoginPasswordReadOnly(false)}
-                        value={password}
-                        onChange={(e) => {
-                          setPassword(e.target.value);
-                          clearFieldError('password');
-                        }}
-                        placeholder="••••••••"
-                        className={`w-full h-12 pl-11 pr-11 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
-                          fieldErrors.password
-                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
-                        }`}
-                      />
-                      <button
-                        id="btn-toggle-login-password"
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                        title={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    <input
+                      id="input-login-password"
+                      name="paneliya_fld_pwd_noautofill"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-form-type="other"
+                      readOnly={loginPasswordReadOnly}
+                      onFocus={() => setLoginPasswordReadOnly(false)}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearFieldError('password');
+                      }}
+                      placeholder="••••••••"
+                      className={`w-full h-12 pl-11 pr-11 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
+                        fieldErrors.password
+                          ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                      }`}
+                    />
+                    <button
+                      id="btn-toggle-login-password"
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="w-10 h-10 rounded-lg flex items-center justify-center absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                     <div className="flex justify-end mt-1.5">
                       <button
                         id="btn-forgot-password"
@@ -846,46 +846,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         Forgot Password?
                       </button>
                     </div>
-                  </div>
+                </div>
 
-                  {/* Submit Button */}
-                  <button
-                    id="btn-submit-login"
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group whitespace-nowrap shrink-0"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Signing In to Workspace...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Sign In to Workspace</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
-                  </button>
+                {/* Submit Button */}
+                <button
+                  id="btn-submit-login"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group whitespace-nowrap shrink-0"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Signing In to Workspace...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In to Workspace</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
                 </form>
               </div>
 
-              {/* Bottom Switcher: Register Company */}
+                {/* Bottom Switcher: Register Company */}
               <div className="pt-6 mt-6 border-t border-slate-100 text-center sm:text-left">
-                <p className="text-xs text-slate-500 font-medium">
-                  Are you a Company Owner?{' '}
-                  <button
-                    id="link-switch-to-signup"
-                    type="button"
-                    onClick={handleSwitchToSignup}
+                  <p className="text-xs text-slate-500 font-medium">
+                    Are you a Company Owner?{' '}
+                    <button
+                      id="link-switch-to-signup"
+                      type="button"
+                      onClick={handleSwitchToSignup}
                     disabled={isTransitioning}
                     className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer inline-flex items-center gap-1 group disabled:opacity-50"
-                  >
-                    <span>Register Your Company Workspace</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                </p>
-              </div>
+                    >
+                      <span>Register Your Company Workspace</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  </p>
+                </div>
             </div>
           </div>
         ) : (
@@ -1371,7 +1371,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
           {/* Security & Trust Badges */}
           
-        </div>
+            </div>
       )}
     </main>
 
@@ -1410,7 +1410,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               <div className="text-center py-2 space-y-4">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                   <CheckCircle2 className="w-7 h-7 stroke-[2.2]" />
-                </div>
+            </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
                     Reset Link Sent!
@@ -1418,13 +1418,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
                     {forgotSuccess}
                   </p>
-                </div>
+          </div>
 
                 <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 text-left space-y-1.5 text-xs">
                   <div className="flex items-center gap-1.5 text-emerald-950 font-bold">
                     <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Recipient Email:</span>
-                  </div>
+        </div>
                   <p className="font-mono text-emerald-800 font-semibold break-all pl-5">
                     {forgotEmail}
                   </p>

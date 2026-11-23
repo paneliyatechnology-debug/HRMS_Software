@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle2, AlertCircle, Info, X, MessageSquare } from 'lucide-react';
 import { getSocketBaseUrl } from '../lib/config';
-import { clearApiCache } from '../lib/api';
+import { clearApiCache, api } from '../lib/api';
 import { getCookie } from '../lib/cookies';
 import { useAuth } from './AuthContext';
 import {
@@ -13,6 +13,15 @@ import {
   receiveIncomingSocketDelete,
   applyReadReceipt,
 } from '../lib/chatService';
+
+export interface AppNotice {
+  id: string;
+  kind: 'message' | 'leave' | 'task';
+  title: string;
+  message: string;
+  module: string;
+  createdAt: string;
+}
 
 export interface ToastItem {
   id: string;
@@ -39,6 +48,9 @@ interface SocketContextType {
   emitTeamChatTyping: (teamId: string) => void;
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
+  notices: AppNotice[];
+  dismissNotice: (id: string) => void;
+  clearNotices: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -57,6 +69,9 @@ const SocketContext = createContext<SocketContextType>({
   emitTeamChatTyping: () => { },
   emitLeaveApplied: () => { },
   emitLeaveStatusUpdated: () => { },
+  notices: [],
+  dismissNotice: () => { },
+  clearNotices: () => { },
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -64,6 +79,37 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [notices, setNotices] = useState<AppNotice[]>([]);
+
+  const dismissNotice = (id: string) => {
+    setNotices((prev) => prev.filter((item) => item.id !== id));
+    api.dismissNotice(id).catch(() => {});
+  };
+
+  const clearNotices = () => {
+    setNotices([]);
+    api.clearNotices().catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setNotices([]);
+      return;
+    }
+    let live = true;
+    api.listNotices()
+      .then((rows) => {
+        if (!live) return;
+        setNotices((prev) => {
+          const ids = new Set(rows.map((row) => row.id));
+          return [...prev.filter((item) => !ids.has(item.id)), ...rows].slice(0, 40);
+        });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [isAuthenticated, user?.id]);
 
   const showToast = (item: Omit<ToastItem, 'id' | 'timestamp'>) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -443,6 +489,18 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ? 'company-admin'
       : (user?.employeeId || currentUserId || undefined);
 
+    const pushNotice = (notice: AppNotice) => {
+      if (!notice?.id || !notice.title) return;
+      setNotices((prev) => (prev.some((item) => item.id === notice.id) ? prev : [notice, ...prev].slice(0, 40)));
+      showToast({ title: notice.title, message: notice.message, type: 'info', module: notice.module });
+    };
+
+    s.on('app_notification', (payload: AppNotice) => {
+      pushNotice(payload);
+      if (payload?.module === 'leaves') window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
+      if (payload?.module === 'tasks') window.dispatchEvent(new CustomEvent('hrms_tasks_updated', { detail: payload }));
+    });
+
     s.on('group_chat_message', (incomingMessage: any) => {
       window.dispatchEvent(new CustomEvent('hrms_group_chat_message', { detail: incomingMessage }));
     });
@@ -556,6 +614,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitTeamChatTyping,
         emitLeaveApplied,
         emitLeaveStatusUpdated,
+        notices,
+        dismissNotice,
+        clearNotices,
       }}
     >
       {children}

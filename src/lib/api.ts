@@ -613,6 +613,32 @@ async function saveAttendanceSettings(data: {
   }
 }
 
+async function getWeekendRules() {
+  try {
+    const response = await http.get('/attendance/weekend-rules');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be loaded.');
+  }
+}
+
+async function saveWeekendRules(data: { weekendDays: number[]; saturdayRule: string }) {
+  try {
+    const response = await http.put('/attendance/weekend-rules', {
+      weekendDays: data.weekendDays,
+      saturdayRule: data.saturdayRule,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/settings');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be saved.');
+  }
+}
+
 // 24. GET /attendance/holidays (List holidays)
 async function listHolidays() {
   try {
@@ -1228,6 +1254,88 @@ async function sendGroupChat(groupId: string, payload: { text: string }) {
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send group message.');
+  }
+}
+
+async function createAnnouncement(payload: {
+  title: string;
+  content: string;
+  priority?: string;
+  targetAudience?: string;
+  targetEmployeeId?: string;
+  departmentName?: string;
+}) {
+  try {
+    const res = await http.post('/notices', {
+      title: payload.title,
+      content: payload.content,
+      priority: payload.priority,
+      targetAudience: payload.targetAudience,
+      targetEmployeeId: payload.targetEmployeeId,
+      departmentName: payload.departmentName,
+    }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.notice || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not publish notice.');
+  }
+}
+
+async function getAnnouncements(_employeeId?: string) {
+  try {
+    const res = await http.get('/notices/board');
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function deleteAnnouncement(id: string) {
+  try {
+    const res = await http.delete(`/notices/board/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not delete notice.');
+  }
+}
+
+async function listNotices() {
+  try {
+    const res = await http.get('/notices');
+    const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+    return rows.map((row: any) => ({
+      id: String(row.id || ''),
+      kind: row.kind === 'leave' || row.kind === 'task' ? row.kind : 'message',
+      title: String(row.title || ''),
+      message: String(row.message || ''),
+      module: String(row.module || ''),
+      createdAt: String(row.createdAt || ''),
+    }));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function dismissNotice(id: string) {
+  try {
+    const res = await http.delete(`/notices/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notice.');
+  }
+}
+
+async function clearNotices() {
+  try {
+    const res = await http.delete('/notices');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notices.');
   }
 }
 
@@ -2271,6 +2379,8 @@ export const api = new Proxy({
   saveAttendanceSettings,
   getSettings,
   updateSettings,
+  getWeekendRules,
+  saveWeekendRules,
   listHolidays,
   getHolidays,
   addHoliday,
@@ -2329,6 +2439,12 @@ export const api = new Proxy({
   listGroupChat,
   sendGroupChat,
   listDirectChats,
+  createAnnouncement,
+  getAnnouncements,
+  deleteAnnouncement,
+  listNotices,
+  dismissNotice,
+  clearNotices,
   listDirectChat,
   sendDirectChat,
   listStaffThreads,

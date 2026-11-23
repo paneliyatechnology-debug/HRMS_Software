@@ -34,6 +34,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
@@ -93,9 +94,11 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { notices, dismissNotice, clearNotices } = useSocket();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const noticeRef = useRef<HTMLDivElement>(null);
 
   // Close profile dropdown on outside click or Escape key
   useEffect(() => {
@@ -117,6 +120,15 @@ export const Header: React.FC<HeaderProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (noticeRef.current && !noticeRef.current.contains(e.target as Node)) setNotificationsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationsOpen]);
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
@@ -558,6 +570,55 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
         )}
+
+        <div ref={noticeRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen((open) => !open)}
+            className="relative p-2 rounded-[10px] hover:bg-[#f8f9fa] text-[#343a40] cursor-pointer"
+            title="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {notices.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold flex items-center justify-center">
+                {notices.length > 9 ? '9+' : notices.length}
+              </span>
+            )}
+          </button>
+          {notificationsOpen && (
+            <div className="absolute right-0 top-11 z-50 w-[320px] max-w-[80vw] rounded-2xl border border-[#dee2e6] bg-white shadow-xl overflow-hidden">
+              <div className="px-3 py-2 border-b border-[#e9ecef] flex items-center justify-between">
+                <p className="text-sm font-semibold text-[#212529]">Notifications</p>
+                {notices.length > 0 && (
+                  <button type="button" onClick={clearNotices} className="text-[11px] font-semibold text-[#2d6a4f] cursor-pointer">Clear</button>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notices.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-xs text-[#6c757d]">No new notifications.</p>
+                ) : notices.map((notice) => (
+                  <button
+                    key={notice.id}
+                    type="button"
+                    onClick={() => {
+                      dismissNotice(notice.id);
+                      setNotificationsOpen(false);
+                      if (notice.module === 'chat') {
+                        onOpenChat ? onOpenChat() : onNavigateModule?.('chat');
+                      } else if (notice.module) {
+                        onNavigateModule?.(notice.module);
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2.5 border-b border-[#f1f3f5] hover:bg-[#f8f9fa] cursor-pointer"
+                  >
+                    <p className="text-[13px] font-semibold text-[#212529]">{notice.title}</p>
+                    <p className="text-[12px] text-[#495057] line-clamp-2">{notice.message}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User Profile Dropdown */}
         <div ref={profileMenuRef} className="relative shrink-0">

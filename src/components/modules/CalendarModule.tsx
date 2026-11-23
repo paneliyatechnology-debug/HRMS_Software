@@ -338,13 +338,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     let active = true;
     const loadSchedule = async () => {
       try {
-        const raw = await api.getSettings();
-        const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
-        if (!active) return;
-        if (data?.workSchedule) {
-          setScheduleConfig(data.workSchedule);
-          saveWorkScheduleConfig(data.workSchedule, user?.companyId);
-        }
+        const rules = await api.getWeekendRules();
+        if (!active || !rules) return;
+        const weekendDays = Array.isArray(rules.weekendDays) ? rules.weekendDays : [0];
+        const saturdayRule = rules.saturdayRule || 'none';
+        const next = { ...getWorkScheduleConfig(user?.companyId), weekendDays, saturdayRule };
+        setScheduleConfig(next);
+        saveWorkScheduleConfig(next, user?.companyId);
       } catch (err) {
         console.error('Failed to load schedule for calendar:', err);
       }
@@ -397,13 +397,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         weekendDays: editingWeekendDays,
         saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
       };
+      await api.saveWeekendRules({
+        weekendDays: updatedConfig.weekendDays || [],
+        saturdayRule: updatedConfig.saturdayRule || 'none',
+      });
       saveWorkScheduleConfig(updatedConfig, user?.companyId);
       setScheduleConfig(updatedConfig);
-
-      // Persist to backend /settings
-      await api.updateSettings({
-        workSchedule: updatedConfig,
-      });
 
       showToast({
         type: 'success',
