@@ -265,9 +265,12 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
     );
   }
 
-  const { user, role, permissions, company } = profileData;
-  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User Profile';
-  const initials = `${user.firstName?.[0] || 'U'}${user.lastName?.[0] || ''}`.toUpperCase();
+  const user = profileData?.user || ({} as Partial<ProfileUser>);
+  const role = profileData?.role || user?.role || 'USER';
+  const permissions = Array.isArray(profileData?.permissions) ? profileData.permissions : [];
+  const company = profileData?.company || null;
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User Profile';
+  const initials = `${user?.firstName?.[0] || 'U'}${user?.lastName?.[0] || ''}`.toUpperCase();
 
   return (
     <div className="space-y-6 w-full animate-in fade-in duration-200 select-none pb-8">
@@ -280,7 +283,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
           <div className="flex items-center gap-4 sm:gap-5 min-w-0">
             {/* Avatar */}
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white font-extrabold text-2xl sm:text-3xl flex items-center justify-center shadow-md shrink-0 tracking-wider">
-              {user.avatarUrl ? (
+              {user?.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={fullName}
@@ -299,28 +302,28 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
                 </h1>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <Shield className="w-3 h-3" />
-                  <span>{user.role || role || 'USER'}</span>
+                  <span>{user?.role || role || 'USER'}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{user.status || 'Active'}</span>
+                  <span>{user?.status || 'Active'}</span>
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-500 mt-1.5">
-                {user.email && (
+                {user?.email && (
                   <span className="inline-flex items-center gap-1.5 text-slate-600 truncate">
                     <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>{user.email}</span>
                   </span>
                 )}
-                {user.phone && (
+                {user?.phone && (
                   <span className="inline-flex items-center gap-1.5 text-slate-600">
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>{user.phone}</span>
                   </span>
                 )}
-                {user.companyName && (
+                {user?.companyName && (
                   <span className="inline-flex items-center gap-1.5 text-slate-600">
                     <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="font-medium text-slate-800">{user.companyName}</span>
@@ -343,7 +346,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
             </button>
             <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
               <Calendar className="w-3 h-3 text-slate-400" />
-              <span>Joined {formatDate(user.createdAt)}</span>
+              <span>Joined {formatDate(user?.createdAt)}</span>
             </span>
           </div>
         </div>
@@ -376,69 +379,71 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
             {/* First Name */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">First Name</span>
-              <span className="font-semibold text-slate-800 text-sm block">{user.firstName || '—'}</span>
+              <span className="font-semibold text-slate-800 text-sm block">{user?.firstName || '—'}</span>
             </div>
 
             {/* Last Name */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Last Name</span>
-              <span className="font-semibold text-slate-800 text-sm block">{user.lastName || '—'}</span>
+              <span className="font-semibold text-slate-800 text-sm block">{user?.lastName || '—'}</span>
             </div>
 
             {/* Email */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Email Address</span>
-              <span className="font-semibold text-slate-800 truncate block" title={user.email}>
-                {user.email || '—'}
+              <span className="font-semibold text-slate-800 truncate block" title={user?.email}>
+                {user?.email || '—'}
               </span>
             </div>
 
             {/* Phone */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Phone Number</span>
-              <span className="font-semibold text-slate-800 block">{user.phone || '—'}</span>
+              <span className="font-semibold text-slate-800 block">{user?.phone || '—'}</span>
             </div>
 
             {/* Gender */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Gender</span>
-              <span className="font-semibold text-slate-800 block capitalize">{user.gender || 'Not specified'}</span>
+              <span className="font-semibold text-slate-800 block capitalize">{user?.gender || 'Not specified'}</span>
             </div>
 
             {/* Account Role */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Access Role</span>
-              <span className="font-bold text-emerald-700 block">{user.role || '—'}</span>
+              <span className="font-bold text-emerald-700 block">{user?.role || role || '—'}</span>
             </div>
 
             {/* Residential Address (Full span) */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Residential Address</span>
-              <span className="font-semibold text-slate-800 block">{user.address || 'Not specified'}</span>
+              <span className="font-semibold text-slate-800 block">{user?.address || 'Not specified'}</span>
             </div>
 
             {/* User ID (Full span) */}
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">User System ID</span>
-                <button
-                  onClick={() => handleCopy(user.id, 'user-id')}
-                  className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  {copiedKey === 'user-id' ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
+                {user?.id && (
+                  <button
+                    onClick={() => handleCopy(user.id, 'user-id')}
+                    className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    {copiedKey === 'user-id' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-600 font-bold">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
-              <span className="font-mono text-xs text-slate-700 block truncate select-all">{user.id || '—'}</span>
+              <span className="font-mono text-xs text-slate-700 block truncate select-all">{user?.id || '—'}</span>
             </div>
 
             {/* Timestamps */}
@@ -446,14 +451,14 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Created At
               </span>
-              <span className="font-semibold text-slate-700 text-xs block">{formatDateTime(user.createdAt)}</span>
+              <span className="font-semibold text-slate-700 text-xs block">{formatDateTime(user?.createdAt)}</span>
             </div>
 
             <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Updated At
               </span>
-              <span className="font-semibold text-slate-700 text-xs block">{formatDateTime(user.updatedAt)}</span>
+              <span className="font-semibold text-slate-700 text-xs block">{formatDateTime(user?.updatedAt)}</span>
             </div>
           </div>
         </div>
@@ -469,104 +474,122 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
               </div>
               <div>
                 <h2 className="text-sm sm:text-base font-bold text-slate-900">Company Information</h2>
-                <p className="text-[11px] text-slate-500">Associated tenant workspace & organization profile</p>
+                <p className="text-[11px] text-slate-500">Associated tenant workspace &amp; organization profile</p>
               </div>
             </div>
-            <span className="text-[10px] font-bold uppercase bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-md">
-              {company.status || 'Active'}
-            </span>
+            {company ? (
+              <span className="text-[10px] font-bold uppercase bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-md">
+                {company.status || 'Active'}
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
+                Not Associated
+              </span>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-            {/* Company Name */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Company Name</span>
-              <span className="font-bold text-slate-900 text-sm block">{company.name || '—'}</span>
-            </div>
+          {company ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+              {/* Company Name */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Company Name</span>
+                <span className="font-bold text-slate-900 text-sm block">{company.name || user?.companyName || '—'}</span>
+              </div>
 
-            {/* Industry Sector */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
-                <Briefcase className="w-3 h-3" /> Industry Sector
-              </span>
-              <span className="font-semibold text-slate-800 block">{company.industrySector || '—'}</span>
-            </div>
+              {/* Industry Sector */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
+                  <Briefcase className="w-3 h-3" /> Industry Sector
+                </span>
+                <span className="font-semibold text-slate-800 block">{company.industrySector || '—'}</span>
+              </div>
 
-            {/* Company Email */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Official Email</span>
-              <span className="font-semibold text-slate-800 truncate block" title={company.email}>
-                {company.email || '—'}
-              </span>
-            </div>
+              {/* Company Email */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Official Email</span>
+                <span className="font-semibold text-slate-800 truncate block" title={company.email}>
+                  {company.email || '—'}
+                </span>
+              </div>
 
-            {/* Company Phone */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Contact Phone</span>
-              <span className="font-semibold text-slate-800 block">{company.phone || '—'}</span>
-            </div>
+              {/* Company Phone */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Contact Phone</span>
+                <span className="font-semibold text-slate-800 block">{company.phone || '—'}</span>
+              </div>
 
-            {/* GST Number */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">GSTIN / Tax ID</span>
-              <span className="font-semibold text-slate-800 block font-mono">{company.gstNumber || 'Not Registered'}</span>
-            </div>
+              {/* GST Number */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">GSTIN / Tax ID</span>
+                <span className="font-semibold text-slate-800 block font-mono">{company.gstNumber || 'Not Registered'}</span>
+              </div>
 
-            {/* Location */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> Location
-              </span>
-              <span className="font-semibold text-slate-800 block">
-                {company.city ? `${company.city}, ${company.state}` : company.state || '—'}
-              </span>
-            </div>
+              {/* Location */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> Location
+                </span>
+                <span className="font-semibold text-slate-800 block">
+                  {company.city ? `${company.city}, ${company.state}` : company.state || '—'}
+                </span>
+              </div>
 
-            {/* Office Address (Full span) */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Registered Address</span>
-              <span className="font-semibold text-slate-800 block">{company.address || '—'}</span>
-            </div>
+              {/* Office Address (Full span) */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Registered Address</span>
+                <span className="font-semibold text-slate-800 block">{company.address || '—'}</span>
+              </div>
 
-            {/* Company ID (Full span) */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Company Workspace ID</span>
-                <button
-                  onClick={() => handleCopy(company.id, 'company-id')}
-                  className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  {copiedKey === 'company-id' ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Copy</span>
-                    </>
+              {/* Company ID (Full span) */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Company Workspace ID</span>
+                  {company.id && (
+                    <button
+                      onClick={() => handleCopy(company.id, 'company-id')}
+                      className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {copiedKey === 'company-id' ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600 font-bold">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
+                <span className="font-mono text-xs text-slate-700 block truncate select-all">{company.id || user?.companyId || '—'}</span>
               </div>
-              <span className="font-mono text-xs text-slate-700 block truncate select-all">{company.id || '—'}</span>
-            </div>
 
-            {/* Timestamps */}
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Established
-              </span>
-              <span className="font-semibold text-slate-700 text-xs block">{formatDate(company.createdAt)}</span>
-            </div>
+              {/* Timestamps */}
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> Established
+                </span>
+                <span className="font-semibold text-slate-700 text-xs block">{formatDate(company.createdAt)}</span>
+              </div>
 
-            <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Record Updated
-              </span>
-              <span className="font-semibold text-slate-700 text-xs block">{formatDate(company.updatedAt)}</span>
+              <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Record Updated
+                </span>
+                <span className="font-semibold text-slate-700 text-xs block">{formatDate(company.updatedAt)}</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="py-8 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+              <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-xs font-bold text-slate-700">No Company Profile Linked</p>
+              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                {user?.companyName ? `Linked organization: ${user.companyName}` : 'This user account is not linked to a company organization profile.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
