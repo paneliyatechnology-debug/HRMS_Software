@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CreditCard,
   Download,
@@ -32,6 +33,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   onRefresh,
 }) => {
   const { user, hasPermission } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const { showToast } = useSocket();
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const day = new Date();
@@ -730,12 +736,12 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   )}
 
   {/* Printable Payslip Modal */}
-      {selectedPayslip && (
+      {mounted && selectedPayslip && typeof document !== 'undefined' && createPortal(
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -807,15 +813,16 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Configure Salary Modal (PUT /payroll/salaries/:employeeId) ── */}
-      {Boolean(editingSalaryEmp) && (
+      {mounted && Boolean(editingSalaryEmp) && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
           onClick={() => setEditingSalaryEmp(null)}
         >
           <div
@@ -963,15 +970,16 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Salary History Modal (GET /payroll/salaries/:employeeId) ── */}
-      {Boolean(historyEmp) && (
+      {mounted && Boolean(historyEmp) && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
           onClick={() => setHistoryEmp(null)}
         >
           <div
@@ -1025,7 +1033,8 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

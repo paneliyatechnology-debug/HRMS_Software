@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Receipt,
   Download,
@@ -73,10 +74,15 @@ interface EmployeePayslipsModuleProps {
 export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ employees = [] }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+  const [mounted, setMounted] = useState(false);
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
   const [bank, setBank] = useState<{ bankName: string; accountNumber: string; ifsc: string } | null>(null);
   const [salaryNote, setSalaryNote] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!selectedPayslip) return;
@@ -472,12 +478,12 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       {/* ========================================================================= */}
       {/* DETAILED PRINTABLE PAYSLIP MODAL */}
       {/* ========================================================================= */}
-      {selectedPayslip && (
+      {mounted && selectedPayslip && typeof document !== 'undefined' && createPortal(
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -680,14 +686,15 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
                 <div className="text-left sm:text-right">
                   <span className="inline-block px-3 py-1 rounded-lg border-2 border-emerald-600 text-emerald-700 font-black text-[10px] uppercase tracking-widest rotate-[-2deg]">
-                    âœ“ PAID & CONFIRMED
+                    ✓ PAID & CONFIRMED
                   </span>
                 </div>
               </div>
             </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
