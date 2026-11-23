@@ -79,6 +79,16 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const clockRef = useRef<any>(null);
   const isFetchingRef = useRef<boolean>(false);
   const punchBlockRef = useRef<string | null>(null);
+  const lastTickRef = useRef(0);
+  const userIdRef = useRef<string | undefined>(undefined);
+  const timingRef = useRef({
+    status: 'not_started' as WorkPunchStatus,
+    closedWork: 0,
+    closedBreak: 0,
+    openStart: null as string | null,
+    breakStart: null as string | null,
+  });
+  userIdRef.current = user?.id;
 
   const publishClock = (clock: any, nowMs: number = Date.now()) => {
     const live = computeShiftClock(clock, nowMs);
@@ -125,15 +135,18 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       return null;
     };
-    const openStart = resolved === 'working' ? latest('BREAK_END') || latest('IN') : null;
+    const nowMs = data?.serverNow ? new Date(data.serverNow).getTime() : Date.now();
+    const clockNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const openStart = resolved === 'working' ? latest('BREAK_END') || latest('IN') || latest('CLOCK_IN') || latest('clock-in') : null;
     const breakStart = resolved === 'on_break' ? latest('BREAK_START') : null;
-    const extraWork = openStart ? Math.max(0, Math.floor((Date.now() - new Date(openStart).getTime()) / 1000)) : 0;
-    const extraBreak = breakStart ? Math.max(0, Math.floor((Date.now() - new Date(breakStart).getTime()) / 1000)) : 0;
+    const extraWork = openStart ? Math.max(0, Math.floor((clockNow - new Date(openStart).getTime()) / 1000)) : 0;
+    const extraBreak = breakStart ? Math.max(0, Math.floor((clockNow - new Date(breakStart).getTime()) / 1000)) : 0;
     const worked = closedWork + (Number.isFinite(extraWork) ? extraWork : 0);
     const brk = closedBreak + (Number.isFinite(extraBreak) ? extraBreak : 0);
 
     baseWorkedRef.current = worked;
     baseBreakRef.current = brk;
+    timingRef.current = { status: resolved, closedWork, closedBreak, openStart, breakStart };
     setElapsedSeconds(worked);
     setBreakSeconds(brk);
     setLiveWorkedHMS(formatSecondsToHMS(worked));
@@ -406,14 +419,56 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     window.addEventListener('hrms_work_status_updated', handleExternalUpdate);
+    const handleLive = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail?.logic) return;
+      if (detail.employeeId && userIdRef.current && detail.employeeId !== userIdRef.current) return;
+      if (detail.serverNow) syncServerClock(detail.serverNow);
+      applyAttendanceLogic(detail);
+    };
+    window.addEventListener('hrms_attendance_live', handleLive);
     return () => {
       window.removeEventListener('hrms_work_status_updated', handleExternalUpdate);
+      window.removeEventListener('hrms_attendance_live', handleLive);
     };
   }, [isAuthenticated, refresh]);
 
   // Master 1-second live chronometer tick
   useEffect(() => {
+    const paint = (worked: number, brk: number, status: WorkPunchStatus) => {
+      if (status === 'working') {
+        setElapsedSeconds(worked);
+        setLiveWorkedHMS(formatSecondsToHMS(worked));
+        setLiveBreakWords(formatSecondsToWords(brk));
+        setLiveBreakHMS(formatSecondsToHMS(brk));
+        return;
+      }
+      setBreakSeconds(brk);
+      setLiveWorkedHMS(formatSecondsToHMS(worked));
+      setLiveBreakWords(formatSecondsToWords(brk));
+      setLiveBreakHMS(formatSecondsToHMS(brk));
+    };
+
+    const onTick = (event: Event) => {
+      const serverNow = (event as CustomEvent).detail?.serverNow as string | undefined;
+      if (!serverNow) return;
+      const nowMs = new Date(serverNow).getTime();
+      if (!Number.isFinite(nowMs)) return;
+      syncServerClock(serverNow);
+      lastTickRef.current = Date.now();
+      const timing = timingRef.current;
+      if (timing.status === 'working' && timing.openStart) {
+        const extra = Math.max(0, Math.floor((nowMs - new Date(timing.openStart).getTime()) / 1000));
+        paint(timing.closedWork + extra, timing.closedBreak, 'working');
+      } else if (timing.status === 'on_break' && timing.breakStart) {
+        const extra = Math.max(0, Math.floor((nowMs - new Date(timing.breakStart).getTime()) / 1000));
+        paint(timing.closedWork, timing.closedBreak + extra, 'on_break');
+      }
+    };
+
+    window.addEventListener('hrms_attendance_tick', onTick);
     const interval = setInterval(() => {
+      if (Date.now() - lastTickRef.current < 2500) return;
       const now = Date.now();
       const diff = Math.max(0, Math.floor((now - anchorTimeRef.current) / 1000));
 
@@ -437,7 +492,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('hrms_attendance_tick', onTick);
+      clearInterval(interval);
+    };
   }, []);
 
   /**

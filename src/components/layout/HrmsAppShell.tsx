@@ -103,6 +103,7 @@ import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } fro
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
+const BankDetailForm = dynamic(() => import('../modals/BankDetailForm').then((m) => m.BankDetailForm), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
 import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
@@ -582,7 +583,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           setLiveEmployees(scopedEmps);
         }
         const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
-        const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
+        const rawPayroll = Array.isArray(payrollData) ? payrollData : Array.isArray((payrollData as any)?.data) ? (payrollData as any).data : [];
         const scopedPayroll = rawPayroll.filter(
           (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
         );
@@ -606,6 +607,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLiveEmployees(scopedEmps);
         setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'calendar') {
+        if (portalMode !== 'admin') {
+          const leavesData = await api.getLeaves().catch(() => []);
+          const ownLeaves = Array.isArray(leavesData) ? leavesData : [];
+          setLeaves(ownLeaves);
+          setLiveLeaves(ownLeaves);
+        } else {
         const needEmployees = employeesRef.current.length === 0;
         const [attendanceData, leavesData, employeesData] = await Promise.all([
           api.getAttendance().catch(() => []),
@@ -623,6 +630,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
+        }
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
         const role = String(user?.role || '').toUpperCase();
         const canListUsers = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
@@ -1085,6 +1093,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onRefresh={loadData}
         />
       )}
+      <BankDetailForm />
 
       {leaveModalOpen && (
         <LeaveModal

@@ -29,12 +29,15 @@ interface PayrollModuleProps {
 }
 
 export const PayrollModule: React.FC<PayrollModuleProps> = ({
-  payrollRecords,
   onRefresh,
 }) => {
   const { user, hasPermission } = useAuth();
   const { showToast } = useSocket();
-  const [selectedMonth, setSelectedMonth] = useState('2026-10');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const day = new Date();
+    day.setMonth(day.getMonth() - 1);
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [selectedPayslip, setSelectedPayslip] = useState<any | null>(null);
 
   useEffect(() => {
@@ -53,17 +56,30 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
   const [loading, setLoading] = useState(false);
 
-  const [records, setRecords] = useState<PayrollRecord[]>(payrollRecords || []);
+  const [records, setRecords] = useState<any[]>([]);
+
+  const loadPayslips = async () => {
+    try {
+      const res = await api.listPayslips();
+      const list = Array.isArray(res) ? res : (res as any)?.data || [];
+      setRecords(list);
+    } catch (err: any) {
+      setRecords([]);
+      showToast({ title: 'Payroll', message: err.message || 'Could not load payslips.', type: 'error' });
+    }
+  };
 
   useEffect(() => {
-    setRecords(payrollRecords || []);
-  }, [payrollRecords]);
+    loadPayslips();
+  }, []);
 
   // Tab State: 'runs' (Payroll Runs) vs 'salaries' (Employee Salaries Structure)
   const [activeTab, setActiveTab] = useState<'runs' | 'salaries'>('runs');
   const [salaries, setSalaries] = useState<any[]>([]);
   const [loadingSalaries, setLoadingSalaries] = useState(false);
   const [salaryError, setSalaryError] = useState<string | null>(null);
+  const [bankDate, setBankDate] = useState('');
+  const [savingBankDate, setSavingBankDate] = useState(false);
 
   // Configure Salary Modal
   const [editingSalaryEmp, setEditingSalaryEmp] = useState<any | null>(null);
@@ -71,14 +87,38 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   const [formHra, setFormHra] = useState(12000);
   const [formAllowances, setFormAllowances] = useState(5000);
   const [formBonus, setFormBonus] = useState(0);
-  const [formDeductions, setFormDeductions] = useState(1800);
+  const [formDeductions, setFormDeductions] = useState(0);
+  const [formOvertimePerHour, setFormOvertimePerHour] = useState(0);
   const [formEffectiveFrom, setFormEffectiveFrom] = useState('');
   const [savingSalary, setSavingSalary] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   // Salary History Modal
   const [historyEmp, setHistoryEmp] = useState<any | null>(null);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (!hasPermission('payroll.manage')) return;
+    api.getBankDetails().then((data) => setBankDate(data?.date || '')).catch(() => undefined);
+  }, [hasPermission]);
+
+  const saveBankDate = async () => {
+    if (!bankDate) {
+      showToast({ title: 'Date required', message: 'Select the date when last month salary should open.', type: 'warning' });
+      return;
+    }
+    setSavingBankDate(true);
+    try {
+      const saved = await api.saveBankFormDate(bankDate);
+      setBankDate(saved?.date || bankDate);
+      showToast({ title: 'Saved', message: 'On this date, last month salary opens for Employee, HR, and Manager.', type: 'success' });
+    } catch (err: any) {
+      showToast({ title: 'Could not save', message: err.message || 'Try again.', type: 'error' });
+    } finally {
+      setSavingBankDate(false);
+    }
+  };
 
   const fetchSalaries = async () => {
     setLoadingSalaries(true);
@@ -106,28 +146,69 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     }
   }, [activeTab]);
 
+  const salaryUserId = (row: any) => String(row?.userId || row?.employeeId || '');
+  const salaryName = (row: any) =>
+    row?.userName || row?.employee?.fullName || row?.employeeName || 'Staff Member';
+  const money = (value: unknown) => Number(value || 0);
+  const showDate = (value?: string) => {
+    const day = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return 'Active';
+    const [year, month, date] = day.split('-');
+    return `${Number(month)}/${Number(date)}/${year}`;
+  };
+
   const handleOpenSalaryModal = (emp: any) => {
     setEditingSalaryEmp(emp);
-    setFormBasicSalary(emp.basicSalary || 30000);
-    setFormHra(emp.hra || 12000);
-    setFormAllowances(emp.allowances || 5000);
-    setFormBonus(emp.bonus || 0);
-    setFormDeductions(emp.deductions || 1800);
-    setFormEffectiveFrom(new Date().toISOString().split('T')[0]);
+    setFormBasicSalary(money(emp.basicSalary));
+    setFormHra(money(emp.hra));
+    setFormAllowances(money(emp.allowances));
+    setFormBonus(money(emp.bonus));
+    setFormDeductions(money(emp.deductions));
+    setFormOvertimePerHour(money(emp.overtimePerHour));
+    setFormEffectiveFrom(String(emp.effectiveFrom || new Date().toISOString()).slice(0, 10));
+  };
+
+  const handleAddSalary = async () => {
+    try {
+      const people = await api.getEmployees();
+      const options = (Array.isArray(people) ? people : [])
+        .map((person: any) => ({
+          id: String(person.id || person.userId || ''),
+          name: `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.email || 'Employee',
+        }))
+        .filter((person) => person.id);
+      setStaffOptions(options);
+      const today = new Date().toISOString().slice(0, 10);
+      setEditingSalaryEmp({ userId: options[0]?.id || '', userName: options[0]?.name || '' });
+      setFormBasicSalary(0);
+      setFormHra(0);
+      setFormAllowances(0);
+      setFormBonus(0);
+      setFormDeductions(0);
+      setFormOvertimePerHour(0);
+      setFormEffectiveFrom(today);
+    } catch (err: any) {
+      showToast({ title: 'Employees', message: err.message || 'Could not load employees.', type: 'error' });
+    }
   };
 
   const handleSaveSalary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSalaryEmp) return;
+    const empId = salaryUserId(editingSalaryEmp);
+    if (!empId) {
+      showToast({ title: 'Employee required', message: 'Choose the employee for this salary.', type: 'warning' });
+      return;
+    }
     setSavingSalary(true);
     try {
-      const empId = editingSalaryEmp.employeeId || editingSalaryEmp.id;
       await api.saveSalary(empId, {
         basicSalary: Number(formBasicSalary),
         hra: Number(formHra),
         allowances: Number(formAllowances),
         bonus: Number(formBonus),
         deductions: Number(formDeductions),
+        overtimePerHour: Number(formOvertimePerHour),
         effectiveFrom: formEffectiveFrom,
       });
       showToast({
@@ -154,7 +235,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     setHistoryEmp(emp);
     setLoadingHistory(true);
     try {
-      const empId = emp.employeeId || emp.id;
+      const empId = salaryUserId(emp);
       const res = await api.getSalaryHistory(empId);
       const list = Array.isArray(res) ? res : (res as any)?.history || (res as any)?.data || [];
       setHistoryData(list);
@@ -166,58 +247,48 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     }
   };
 
-  const payslipRows = records.map((r) => ({
+  const monthOf = (row: any) => {
+    if (row?.payrollMonth) return String(row.payrollMonth).slice(0, 7);
+    if (row?.year && row?.month) return `${row.year}-${String(row.month).padStart(2, '0')}`;
+    return '';
+  };
+  const monthRecords = records.filter((row) => monthOf(row) === selectedMonth);
+  const payslipRows = monthRecords.map((r: any) => ({
     id: r.id,
-    name: r.employeeName || 'Employee',
-    code: r.employeeCode || r.id,
-    avatar: (r as any).employeeAvatar || (r as any).avatarUrl || '',
-    role: r.designationTitle || 'Staff Member',
-    basic: r.basicSalary || 0,
-    allowances: r.allowances || 0,
-    gross: r.grossSalary || 0,
-    deductions: r.totalDeductions || 0,
-    net: r.netSalary || 0,
-    status: r.status || 'Draft',
+    name: r.employeeName || r.userName || 'Employee',
+    code: r.employeeCode || `EMP-${String(r.userId || r.employeeId || r.id).slice(0, 6).toUpperCase()}`,
+    avatar: r.employeeAvatar || r.avatarUrl || '',
+    role: r.designationTitle || r.role || 'Staff Member',
+    basic: Number(r.basicSalary || 0),
+    allowances: Number(r.allowances || 0),
+    gross: Number(r.grossSalary || r.grossPay || 0),
+    deductions: Number(r.totalDeductions || r.deduction || r.deductions || 0),
+    net: Number(r.netSalary || r.netPay || 0),
+    status: r.status || 'Generated',
   }));
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    if (newStatus !== 'Paid') return;
     try {
-      if (newStatus === 'Paid') {
-        try {
-          await api.markPayslipPaid(id);
-        } catch (paidErr) {
-          console.warn('markPayslipPaid error:', paidErr);
-        }
-      }
-      await api.updatePayrollStatus(id, {
-        status: newStatus,
-        actorName: `${user.firstName || 'Finance'} ${user.lastName || 'Admin'}`,
-      });
-      setRecords((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: newStatus as any } : r))
-      );
-      showToast({
-        title: 'Status Updated',
-        message: `Payroll status marked as ${newStatus}.`,
-        type: 'success',
-        module: 'payroll',
-      });
+      await api.markPayslipPaid(id);
+      setRecords((prev) => prev.map((row) => (row.id === id ? { ...row, status: 'Paid' } : row)));
+      showToast({ title: 'Marked paid', message: 'This salary slip is now paid.', type: 'success' });
     } catch (err: any) {
-      showToast({
-        title: 'Update Failed',
-        message: err.message || 'Could not update status.',
-        type: 'error',
-      });
+      showToast({ title: 'Update failed', message: err.message || 'Could not mark this slip paid.', type: 'error' });
     }
   };
 
   const handleExportACH = () => {
     const csvContent =
-      'EmployeeCode,EmployeeName,BankName,AccountNumber,RoutingCode,NetSalary,Month\n' +
+      'Name,Role,NetPay,Month\n' +
       records
+        .filter((row: any) => {
+          const month = row.payrollMonth || (row.year && row.month ? `${row.year}-${String(row.month).padStart(2, '0')}` : '');
+          return month === selectedMonth;
+        })
         .map(
-          (r) =>
-            `${r.employeeCode || r.id},"${r.employeeName || ''}","${(r as any).bankName || ''}","${(r as any).accountNumber || ''}","${(r as any).ifscOrRouting || ''}",${r.netSalary || 0},${selectedMonth}`
+          (r: any) =>
+            `"${r.userName || r.employeeName || ''}","${r.role || r.designationTitle || ''}",${Number(r.netPay || r.netSalary || 0)},${selectedMonth}`
         )
         .join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -257,9 +328,23 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     }
   };
 
-  const totalGross = records.reduce((acc, curr) => acc + (curr.grossSalary || 0), 0);
-  const totalNet = records.reduce((acc, curr) => acc + (curr.netSalary || 0), 0);
-  const totalDeductions = records.reduce((acc, curr) => acc + (curr.totalDeductions || 0), 0);
+  const handlePrintSlip = async () => {
+    if (!selectedPayslip?.id) return;
+    try {
+      await api.downloadPayslipFile(selectedPayslip.id);
+      showToast({ title: 'Downloaded', message: 'Salary slip PDF downloaded.', type: 'success' });
+    } catch (err: any) {
+      showToast({
+        title: 'Print failed',
+        message: err.message || 'Could not load the salary slip.',
+        type: 'error',
+      });
+    }
+  };
+
+  const totalGross = payslipRows.reduce((acc, curr) => acc + curr.gross, 0);
+  const totalNet = payslipRows.reduce((acc, curr) => acc + curr.net, 0);
+  const totalDeductions = payslipRows.reduce((acc, curr) => acc + curr.deductions, 0);
 
   const handleGenerateBatch = async () => {
     if (salaries.length === 0) {
@@ -274,12 +359,16 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     setLoading(true);
     try {
       const res = await api.generatePayroll(selectedMonth);
+      const count = Array.isArray(res?.generated) ? res.generated.length : 0;
+      const missing = Array.isArray(res?.missingSalary) ? res.missingSalary.length : 0;
       showToast({
-        title: 'Payroll Generated',
-        message: `Successfully calculated ${selectedMonth} payroll (${res?.recordsGenerated || 0} payslips created).`,
-        type: 'success',
-        module: 'payroll',
+        title: 'Payroll generated',
+        message: missing
+          ? `${count} slips created. ${missing} people have no salary for this month.`
+          : `${count} salary slips created for ${selectedMonth}.`,
+        type: missing ? 'warning' : 'success',
       });
+      await loadPayslips();
       onRefresh();
     } catch (err: any) {
       showToast({
@@ -308,7 +397,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Disbursement Ledger &amp; Runs
+            Payslips
           </button>
           <button
             type="button"
@@ -319,7 +408,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Salary Structures ({salaries.length})
+            Salary setup ({salaries.length})
           </button>
         </div>
 
@@ -347,6 +436,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleAddSalary}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white font-bold text-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add salary</span>
+            </button>
+            <button
+              type="button"
               onClick={fetchSalaries}
               disabled={loadingSalaries}
               className="p-2 rounded-xl bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-2xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
@@ -360,39 +457,56 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
       {activeTab === 'runs' && (
         <div className="space-y-5 animate-in fade-in duration-200">
-          {/* 3 Payroll Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex flex-wrap items-end gap-3">
+              <label className="text-xs font-bold text-slate-700">
+                Salary date
+                <input
+                  type="date"
+                  value={bankDate}
+                  onChange={(event) => setBankDate(event.target.value)}
+                  className="mt-1 block rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={saveBankDate}
+                disabled={savingBankDate}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-60"
+              >
+                {savingBankDate ? 'Saving...' : 'Save date'}
+              </button>
+              <p className="text-[11px] text-slate-500 max-w-xl">
+                1. Set salary in Salary setup. 2. Choose a month and press Run Payroll. 3. On this date, Employee, HR, and Manager see last month&apos;s slip. Bank details are added by them, one time, from their own screen.
+              </p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Total Gross Salary</span>
+          <span className="text-xs font-semibold text-slate-400">Gross</span>
           <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
-            ${totalGross.toLocaleString()}
+            ₹{totalGross.toLocaleString('en-IN')}
           </p>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Period: {selectedMonth}</span>
-            <span>{records.length} Staff</span>
+            <span>{selectedMonth}</span>
+            <span>{payslipRows.length} slips</span>
           </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Total Statutory Deductions</span>
+          <span className="text-xs font-semibold text-slate-400">Deductions</span>
           <p className="text-2xl font-semibold tracking-tight text-amber-600 mt-2">
-            ${totalDeductions.toLocaleString()}
+            ₹{totalDeductions.toLocaleString('en-IN')}
           </p>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span>PF, ESI & Tax Withheld</span>
-            <span>{totalGross > 0 ? `${Math.round((totalDeductions / totalGross) * 100)}% Avg` : '0%'}</span>
-          </div>
+          <div className="mt-2 text-[11px] text-slate-400">From the salary structure</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Net Take-Home Disbursed</span>
+          <span className="text-xs font-semibold text-slate-400">Net pay</span>
           <p className="text-2xl font-semibold tracking-tight text-blue-600 mt-2">
-            ${totalNet.toLocaleString()}
+            ₹{totalNet.toLocaleString('en-IN')}
           </p>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="text-emerald-600 font-semibold">100% Reconciled</span>
-            <span>Direct Deposit</span>
-          </div>
+          <div className="mt-2 text-[11px] text-slate-400">Payable for {selectedMonth}</div>
         </div>
       </div>
 
@@ -400,7 +514,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
       <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h3 className="text-sm font-bold text-slate-900">
-            Monthly Disbursement Ledger
+            Monthly slips
           </h3>
 
           <button
@@ -408,7 +522,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200/80 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Bank Transfer File</span>
+            <span>Download CSV</span>
           </button>
         </div>
 
@@ -491,9 +605,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                             : 'bg-amber-50 text-amber-600'
                         }`}
                       >
-                        <option value="Draft">Draft</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Processed">Processed</option>
+                        <option value="Generated">Generated</option>
                         <option value="Paid">Paid</option>
                       </select>
                     </td>
@@ -563,27 +675,28 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {salaries.map((sal: any) => {
-                  const empName = sal.employee?.fullName || sal.employeeName || 'Staff Member';
+                  const empName = salaryName(sal);
+                  const empId = salaryUserId(sal);
                   return (
-                    <tr key={sal.id || sal.employeeId} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={sal.id || empId} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900">{empName}</div>
-                        <div className="text-[10px] text-slate-400">{sal.employeeId}</div>
+                        <div className="text-[10px] text-slate-400">{sal.role || ''}</div>
                       </td>
                       <td className="py-3.5 px-4 font-mono font-semibold text-slate-800">
-                        ₹{(sal.basicSalary || 0).toLocaleString()}
+                        ₹{money(sal.basicSalary).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-600">
-                        ₹{(sal.hra || 0).toLocaleString()}
+                        ₹{money(sal.hra).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-600">
-                        ₹{(sal.allowances || 0).toLocaleString()}
+                        ₹{money(sal.allowances).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-rose-600">
-                        -₹{(sal.deductions || 0).toLocaleString()}
+                        -₹{money(sal.deductions).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-4 text-slate-500">
-                        {sal.effectiveFrom ? new Date(sal.effectiveFrom).toLocaleDateString() : 'Active'}
+                        {showDate(sal.effectiveFrom)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -640,7 +753,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => window.print()}
+                  onClick={handlePrintSlip}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" /> <span>Print</span>
@@ -657,40 +770,39 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
               <div className="flex justify-between">
                 <div>
-                  <p className="font-bold text-slate-900 text-sm">{selectedPayslip.employee.name}</p>
-                  <p className="text-slate-500">{selectedPayslip.employee.designation}</p>
+                  <p className="font-bold text-slate-900 text-sm">{selectedPayslip.userName || selectedPayslip.employeeName || 'Employee'}</p>
+                  <p className="text-slate-500">{selectedPayslip.role || selectedPayslip.designationTitle || ''}</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-semibold text-blue-600">Period: {selectedPayslip.payPeriod}</span>
-                  <p className="text-slate-400 text-[10px]">Method: {selectedPayslip.paymentMethod}</p>
+                  <span className="font-semibold text-blue-600">
+                    Period: {selectedPayslip.year && selectedPayslip.month ? `${selectedPayslip.year}-${String(selectedPayslip.month).padStart(2, '0')}` : selectedPayslip.payPeriod || ''}
+                  </span>
+                  <p className="text-slate-400 text-[10px]">Status: {selectedPayslip.status || 'Generated'}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200/60">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 text-xs">
                 <div>
                   <p className="font-bold text-slate-700 mb-1">Earnings</p>
-                  {selectedPayslip.earnings.map((e: any) => (
-                    <div key={e.item} className="flex justify-between text-slate-600 py-0.5">
-                      <span>{e.item}</span>
-                      <span className="font-semibold">${e.amount.toLocaleString()}</span>
-                    </div>
-                  ))}
+                  <div className="flex justify-between text-slate-600 py-0.5"><span>Basic</span><span>₹{money(selectedPayslip.basicSalary).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-slate-600 py-0.5"><span>HRA</span><span>₹{money(selectedPayslip.hra).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-slate-600 py-0.5"><span>Allowances</span><span>₹{money(selectedPayslip.allowances).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-slate-600 py-0.5"><span>Bonus</span><span>₹{money(selectedPayslip.bonus).toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-slate-600 py-0.5"><span>Overtime</span><span>₹{money(selectedPayslip.overtimePay).toLocaleString('en-IN')}</span></div>
                 </div>
                 <div>
                   <p className="font-bold text-slate-700 mb-1">Deductions</p>
-                  {selectedPayslip.deductions.map((d: any) => (
-                    <div key={d.item} className="flex justify-between text-slate-600 py-0.5">
-                      <span>{d.item}</span>
-                      <span className="font-semibold text-rose-600">-${d.amount.toLocaleString()}</span>
-                    </div>
-                  ))}
+                  <div className="flex justify-between text-slate-600 py-0.5">
+                    <span>Total deductions</span>
+                    <span className="font-semibold text-rose-600">₹{money(selectedPayslip.deduction ?? selectedPayslip.deductions).toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
               </div>
 
               <div className="pt-3 border-t border-slate-200/60 flex justify-between items-center">
                 <span className="font-bold text-slate-900">Net Take-Home Salary:</span>
                 <span className="text-lg font-semibold tracking-tight text-blue-600">
-                  ${selectedPayslip.summary.netSalary.toLocaleString()} USD
+                  ₹{money(selectedPayslip.netPay ?? selectedPayslip.netSalary).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
@@ -724,6 +836,27 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               </button>
             </div>
             <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs">
+              {!editingSalaryEmp?.id && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Employee</label>
+                  <select
+                    required
+                    value={salaryUserId(editingSalaryEmp)}
+                    onChange={(event) => {
+                      const picked = staffOptions.find((person) => person.id === event.target.value);
+                      setEditingSalaryEmp({ userId: event.target.value, userName: picked?.name || '' });
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  >
+                    {staffOptions.map((person) => (
+                      <option key={person.id} value={person.id}>{person.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {editingSalaryEmp?.id && (
+                <p className="text-xs font-semibold text-slate-700">{salaryName(editingSalaryEmp)}</p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -770,6 +903,29 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                     type="number"
                     value={formDeductions}
                     onChange={(e) => setFormDeductions(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Bonus (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formBonus}
+                    onChange={(e) => setFormBonus(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Overtime / hour (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formOvertimePerHour}
+                    onChange={(e) => setFormOvertimePerHour(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
                   />
                 </div>
@@ -849,11 +1005,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 historyData.map((h: any, i: number) => (
                   <div key={h.id || i} className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Basic: ₹{(h.basicSalary || 0).toLocaleString()}</span>
-                      <span className="text-[10px] text-slate-400">{h.effectiveFrom ? new Date(h.effectiveFrom).toLocaleDateString() : 'Initial'}</span>
+                      <span className="font-bold text-slate-800">Basic: ₹{money(h.basicSalary).toLocaleString('en-IN')}</span>
+                      <span className="text-[10px] text-slate-400">{showDate(h.effectiveFrom)}</span>
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      HRA: ₹{(h.hra || 0).toLocaleString()} • Allowances: ₹{(h.allowances || 0).toLocaleString()}
+                      HRA: ₹{money(h.hra).toLocaleString('en-IN')} • Allowances: ₹{money(h.allowances).toLocaleString('en-IN')} • Bonus: ₹{money(h.bonus).toLocaleString('en-IN')}
                     </div>
                   </div>
                 ))

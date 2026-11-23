@@ -756,7 +756,7 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
     employeeName: userName,
     employeeCode: a.employeeCode || (a.user?.employeeCode) || 'EMP',
     departmentName: a.departmentName || (a.user?.departmentName) || 'General',
-    date: a.date ? (typeof a.date === 'string' ? a.date.split('T')[0] : new Date(a.date).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+    date: String(a.workDate || a.date || '').slice(0, 10) || new Date().toISOString().split('T')[0],
     checkIn: checkIn || '--:--',
     checkOut: checkOut || undefined,
     breakDurationMinutes: a.breakDurationMinutes || a.breakMinutes || 0,
@@ -2053,9 +2053,9 @@ async function generatePayroll(payload: { year: number; month: number } | string
 }
 
 // 78. GET /payroll/payslips (List payslips)
-async function listPayslips() {
+async function listPayslips(mine = false) {
   try {
-    return await deduplicatedGet('/payroll/payslips');
+    return await deduplicatedGet('/payroll/payslips', mine ? { params: { mine: 1 } } : undefined);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list payslips.');
@@ -2074,7 +2074,68 @@ async function markPayslipPaid(payslipId: string) {
   }
 }
 
-// 80. GET /payroll/payslips/:payslipId (Get payslip)
+async function saveBankDetails(payload: { bankName: string; accountHolderName: string; accountNumber: string; ifsc: string }) {
+  try {
+    const response = await http.post('/payroll/bank', payload, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll/bank');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank details could not be saved.');
+  }
+}
+
+async function getBankDetails() {
+  try {
+    return await deduplicatedGet('/payroll/bank');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank details could not be loaded.');
+  }
+}
+
+async function saveBankFormDate(date: string) {
+  try {
+    const response = await http.put('/payroll/bank-date', { date }, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll/bank');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank form date could not be saved.');
+  }
+}
+
+async function downloadPayslipFile(id: string) {
+  try {
+    const response = await http.get(`/payroll/payslips/${id}/pdf`, { responseType: 'blob' });
+    const blob = response.data as Blob;
+    if (blob.type.includes('json')) {
+      const text = await blob.text();
+      let message = 'Salary slip PDF could not be downloaded.';
+      try {
+        const body = JSON.parse(text);
+        message = Array.isArray(body.message) ? body.message.join(' ') : body.message || message;
+      } catch {
+        message = text || message;
+      }
+      throw new Error(message);
+    }
+    const header = String(response.headers['content-disposition'] || '');
+    const match = /filename="([^"]+)"/.exec(header);
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = match?.[1] || `salary-slip-${id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    if (error instanceof Error && error.message && !axios.isAxiosError(error)) throw error;
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Salary slip PDF could not be downloaded.');
+  }
+}
 async function getPayslip(payslipId: string) {
   try {
     return await deduplicatedGet(`/payroll/payslips/${payslipId}`);
@@ -2712,6 +2773,10 @@ export const api = new Proxy({
   markPayslipPaid,
   updatePayrollStatus: (id: string, _payload?: any) => markPayslipPaid(id),
   getPayslip,
+  downloadPayslipFile,
+  getBankDetails,
+  saveBankDetails,
+  saveBankFormDate,
 
   // Plans (5)
   createPlan,

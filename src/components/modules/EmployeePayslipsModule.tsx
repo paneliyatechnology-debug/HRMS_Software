@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { PayrollRecord, Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import {
   numberToWords,
 } from '../../lib/payrollService';
@@ -71,8 +72,11 @@ interface EmployeePayslipsModuleProps {
 
 export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ employees = [] }) => {
   const { user } = useAuth();
+  const { showToast } = useSocket();
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
+  const [bank, setBank] = useState<{ bankName: string; accountNumber: string; ifsc: string } | null>(null);
+  const [salaryNote, setSalaryNote] = useState('');
 
   useEffect(() => {
     if (!selectedPayslip) return;
@@ -115,15 +119,28 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
       try {
         let apiRecords: any[] = [];
         try {
-          const res = await api.listPayslips();
+          const res = await api.listPayslips(true);
           apiRecords = Array.isArray(res) ? res : (res as any)?.data || [];
+          const releaseDate = (res as any)?.date;
+          const released = (res as any)?.released;
+          if (releaseDate && released === false) {
+            setSalaryNote(`Your salary opens on ${releaseDate}. That slip is for the previous month.`);
+          } else if (!releaseDate) {
+            setSalaryNote('Admin has not set the salary date yet.');
+          } else if (!apiRecords.length) {
+            setSalaryNote('No salary slip for the released month yet.');
+          } else {
+            setSalaryNote('');
+          }
         } catch {
           if (currentEmpId) {
             const fallback = await api.getPayroll({ employeeId: currentEmpId });
-            apiRecords = Array.isArray(fallback) ? fallback : [];
+            apiRecords = Array.isArray(fallback) ? fallback : (fallback as any)?.data || [];
           }
         }
+        const bankRes = await api.getBankDetails().catch(() => null);
         if (isMounted) {
+          setBank(bankRes?.bank || null);
           setPayslips((Array.isArray(apiRecords) ? apiRecords : []).map(toPayrollRecord));
         }
       } catch (err) {
@@ -186,8 +203,24 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async (id?: string) => {
+    const payslipId = id || selectedPayslip?.id;
+    if (!payslipId) return;
+    try {
+      await api.downloadPayslipFile(payslipId);
+      showToast({ title: 'Downloaded', message: 'Salary slip PDF downloaded.', type: 'success' });
+    } catch (err: any) {
+      showToast({ title: 'Print failed', message: err.message || 'Could not load the salary slip.', type: 'error' });
+    }
+  };
+
+  const handleViewSlip = async (id: string) => {
+    try {
+      const data = await api.getPayslip(id);
+      setSelectedPayslip(toPayrollRecord(data));
+    } catch (err: any) {
+      showToast({ title: 'Salary slip', message: err.message || 'Could not load the salary slip.', type: 'error' });
+    }
   };
 
   return (
@@ -295,19 +328,19 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <span className="text-[11px] font-black uppercase text-amber-700 tracking-wider">
               Payment Account
             </span>
-            <span className={`flex items-center gap-1 text-[10px] font-bold ${employeeDetails?.bankDetails?.accountNumber ? 'text-emerald-600' : 'text-slate-400'}`}>
+            <span className={`flex items-center gap-1 text-[10px] font-bold ${bank?.accountNumber ? 'text-emerald-600' : 'text-slate-400'}`}>
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{employeeDetails?.bankDetails?.accountNumber ? 'Verified' : 'Unset'}</span>
+              <span>{bank?.accountNumber ? 'Saved' : 'Not added'}</span>
             </span>
           </div>
           <div className="mt-2.5">
             <p className="text-base font-bold text-slate-900 truncate">
-              {employeeDetails?.bankDetails?.bankName || 'Not Configured'}
+              {bank?.bankName || 'No bank yet'}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
-              {employeeDetails?.bankDetails?.accountNumber
-                ? `A/C: **** ${employeeDetails.bankDetails.accountNumber.slice(-4)} â€¢ Direct Deposit`
-                : 'No bank account linked'}
+              {bank?.accountNumber
+                ? `A/C ****${bank.accountNumber.slice(-4)} • ${bank.ifsc || ''}`
+                : 'Add your bank once. The form stays until it is saved.'}
             </p>
           </div>
         </div>
@@ -346,7 +379,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <th className="py-3 px-4">Pay Period</th>
                 <th className="py-3 px-4">Disbursement Date</th>
                 <th className="py-3 px-4">Gross Earnings</th>
-                <th className="py-3 px-4">Deductions (PF & Tax)</th>
+                <th className="py-3 px-4">Deductions</th>
                 <th className="py-3 px-4 font-black text-indigo-950">Net Take-Home</th>
                 <th className="py-3 px-4">Payment Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
@@ -356,7 +389,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               {filteredPayslips.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                    No payslips found matching your filters.
+                    {salaryNote || 'No salary slip yet.'}
                   </td>
                 </tr>
               ) : (
@@ -381,7 +414,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
                     {/* Disbursement Date */}
                     <td className="py-3.5 px-4 text-slate-600 font-medium">
-                      {rec.paymentDate || 'End of Month'}
+                      {rec.paymentDate || 'Not paid yet'}
                     </td>
 
                     {/* Gross Earnings */}
@@ -411,7 +444,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => setSelectedPayslip(rec)}
+                          onClick={() => handleViewSlip(rec.id)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
                           title="View detailed payslip"
                         >
@@ -420,12 +453,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                         </button>
 
                         <button
-                          onClick={() => {
-                            setSelectedPayslip(rec);
-                            setTimeout(() => {
-                              window.print();
-                            }, 300);
-                          }}
+                          onClick={() => handlePrint(rec.id)}
                           className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
                           title="Print / Save PDF"
                         >
@@ -472,7 +500,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={handlePrint}
+                  onClick={() => handlePrint()}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
                   <Printer className="w-4 h-4 stroke-[2.2]" />
@@ -519,7 +547,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     Pay Period: {formatMonthName(selectedPayslip.payrollMonth)}
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Disbursed: {selectedPayslip.paymentDate || '2026-10-31'}
+                    Disbursed: {selectedPayslip.paymentDate || 'Not paid yet'}
                   </p>
                 </div>
               </div>
@@ -548,25 +576,19 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l border-slate-200 sm:pl-4 pt-2 sm:pt-0">
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Bank Name:</span>
-                    <span className="font-bold text-slate-800">
-                      {employeeDetails?.bankDetails?.bankName || 'HDFC Bank Ltd.'}
-                    </span>
+                    <span className="font-bold text-slate-800">{bank?.bankName || 'Not added'}</span>
                   </p>
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Account Number:</span>
-                    <span className="font-bold text-slate-800 font-mono">
-                      **** **** {employeeDetails?.bankDetails?.accountNumber?.slice(-4) || '4819'}
-                    </span>
+                    <span className="font-bold text-slate-800 font-mono">{bank?.accountNumber ? `****${bank.accountNumber.slice(-4)}` : 'Not added'}</span>
                   </p>
                   <p className="flex justify-between">
-                    <span className="font-bold text-slate-500">Payment Mode:</span>
-                    <span className="font-bold text-slate-800">{selectedPayslip.paymentMethod || 'Direct Deposit'}</span>
+                    <span className="font-bold text-slate-500">IFSC:</span>
+                    <span className="font-bold text-slate-800">{bank?.ifsc || 'Not added'}</span>
                   </p>
                   <p className="flex justify-between">
-                    <span className="font-bold text-slate-500">PAN / Tax ID:</span>
-                    <span className="font-bold text-slate-800 font-mono">
-                      {employeeDetails?.taxInformation?.panOrSsn || 'ABCDE1234F'}
-                    </span>
+                    <span className="font-bold text-slate-500">Status:</span>
+                    <span className="font-bold text-slate-800">{selectedPayslip.status || 'Generated'}</span>
                   </p>
                 </div>
               </div>
@@ -615,23 +637,9 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                   </div>
                   <div className="p-3 text-xs space-y-2">
                     <div className="flex justify-between text-slate-700">
-                      <span>Provident Fund (EPF Employee Share)</span>
-                      <span className="font-bold">₹{amount(selectedPayslip.pfDeduction).toLocaleString('en-IN')}</span>
+                      <span>Deductions</span>
+                      <span className="font-bold">₹{amount(selectedPayslip.totalDeductions).toLocaleString('en-IN')}</span>
                     </div>
-                    <div className="flex justify-between text-slate-700">
-                      <span>Tax Deducted at Source (TDS)</span>
-                      <span className="font-bold">₹{amount(selectedPayslip.taxDeduction).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-700">
-                      <span>Professional Tax (PT)</span>
-                      <span className="font-bold">₹{amount(selectedPayslip.professionalTax).toLocaleString('en-IN')}</span>
-                    </div>
-                    {selectedPayslip.otherDeductions > 0 && (
-                      <div className="flex justify-between text-slate-700">
-                        <span>Other Deductions</span>
-                        <span className="font-bold">₹{amount(selectedPayslip.otherDeductions).toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
                   </div>
                   <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-between items-center text-xs font-black text-slate-900">
                     <span>Total Deductions:</span>
