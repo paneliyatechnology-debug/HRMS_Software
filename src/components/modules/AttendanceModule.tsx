@@ -64,7 +64,7 @@ import {
   setEmployeeWFHStatus,
   isEmployeeWFHEnabled,
 } from '../../lib/geoService';
-import { api } from '../../lib/api';
+import { api, clearApiCache } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useWorkSession } from '../../context/WorkSessionContext';
@@ -99,6 +99,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     liveBreakHMS: sessionBreakHMS,
     activeSession,
     lastCompletedSession,
+    punches: sessionPunches,
+    attendanceLogic: sessionAttendanceLogic,
   } = useWorkSession();
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
@@ -225,6 +227,44 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailEmpLoading, setDetailEmpLoading] = useState(false);
   const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
   const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
+  const [expandedPunchId, setExpandedPunchId] = useState<string | null>(null);
+
+  const getPunchTypeBadge = (type: string) => {
+    const t = String(type || '').toUpperCase();
+    if (t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN') {
+      return {
+        label: 'IN',
+        color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        dotColor: 'bg-emerald-500',
+      };
+    }
+    if (t === 'BREAK_START' || t === 'BREAK' || t === 'TAKE_BREAK') {
+      return {
+        label: 'BREAK',
+        color: 'bg-amber-50 text-amber-700 border-amber-200',
+        dotColor: 'bg-amber-500',
+      };
+    }
+    if (t === 'BREAK_END' || t === 'RESUME' || t === 'RESUME_WORK') {
+      return {
+        label: 'RESUME',
+        color: 'bg-blue-50 text-blue-700 border-blue-200',
+        dotColor: 'bg-blue-500',
+      };
+    }
+    if (t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT') {
+      return {
+        label: 'OUT',
+        color: 'bg-rose-50 text-rose-700 border-rose-200',
+        dotColor: 'bg-rose-500',
+      };
+    }
+    return {
+      label: t,
+      color: 'bg-slate-50 text-slate-700 border-slate-200',
+      dotColor: 'bg-slate-400',
+    };
+  };
 
   const fetchEmpWorkStatus = React.useCallback(async (empToLoad: Employee) => {
     if (!empToLoad) return;
@@ -288,11 +328,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     if (isFetchingWorkStatusRef.current) return;
     isFetchingWorkStatusRef.current = true;
     try {
-      const data: any = await api.getWorkStatus();
+      clearApiCache('/attendance/logic');
+      const data: any = await api.getAttendanceLogic();
       if (!data || typeof data !== 'object') return;
       setWorkStatusData(data);
     } catch (err) {
-      console.warn('[AttendanceModule] Could not load work status:', err);
+      console.warn('[AttendanceModule] Could not load work status from /api/attendance/logic:', err);
     } finally {
       isFetchingWorkStatusRef.current = false;
     }
@@ -628,48 +669,137 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       map.set(cleanDate, { ...todayRec, date: cleanDate });
     }
 
-    // 4. Authoritative overlay from /api/attendance/work/status (todayDate, status, start time, end time, break time, active work time)
-    const statusDataToUse = historySessions.length === 0
-      ? (workStatusData || (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null))
-      : null;
+    // 4. Authoritative overlay from /api/attendance/logic (todayDate, status, start time, end time, break time, active work time, punches)
+    const statusDataToUse =
+      workStatusData ||
+      sessionAttendanceLogic ||
+      (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
+
     if (statusDataToUse) {
       const summary = statusDataToUse.todaySummary;
       const active = statusDataToUse.activeSession;
       const lastComp = statusDataToUse.lastCompletedSession;
       const session = active || lastComp;
 
-      const todayKey = summary?.todayDate || (statusDataToUse.serverTime ? statusDataToUse.serverTime.split('T')[0] : todayDateStr);
-      const hasActive = Boolean(statusDataToUse.hasActiveSession || (active && active.status !== 'COMPLETED'));
-      const isOnBreak = Boolean(statusDataToUse.isOnBreak || (active && active.status === 'ON_BREAK'));
-      const isCompleted = Boolean(!hasActive && (lastComp || (summary && summary.totalSessionsToday > 0)));
+      // Extract logic, attendance, and punches from /api/attendance/logic response
+      const logic = statusDataToUse.logic || statusDataToUse.data?.logic;
+      const attendance = statusDataToUse.attendance || statusDataToUse.data?.attendance;
+      const rawPunchesList: any[] = Array.isArray(statusDataToUse.punches)
+        ? statusDataToUse.punches
+        : Array.isArray(statusDataToUse.data?.punches)
+          ? statusDataToUse.data.punches
+          : Array.isArray(sessionPunches) && sessionPunches.length > 0
+            ? sessionPunches
+            : [];
 
-      const checkInTime = formatIsoTo12HourTime(session?.startTime || session?.startedAt || active?.startTime || lastComp?.startTime);
-      const checkOutTime = hasActive ? undefined : formatIsoTo12HourTime(lastComp?.endTime || session?.endTime);
+      // Find first punch-in and last punch-out
+      const inPunch = rawPunchesList.find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN';
+      });
+      const outPunch = rawPunchesList.slice().reverse().find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT';
+      });
+
+      const rawInTime =
+        inPunch?.punchedAt ||
+        inPunch?.time ||
+        inPunch?.timestamp ||
+        attendance?.checkInAt ||
+        attendance?.checkIn ||
+        session?.startTime ||
+        session?.startedAt ||
+        active?.startTime;
+
+      const rawOutTime =
+        outPunch?.punchedAt ||
+        outPunch?.time ||
+        outPunch?.timestamp ||
+        attendance?.checkOutAt ||
+        attendance?.checkOut ||
+        lastComp?.endTime ||
+        session?.endTime;
+
+      const todayKey =
+        attendance?.date ||
+        summary?.todayDate ||
+        (statusDataToUse.serverTime ? statusDataToUse.serverTime.split('T')[0] : todayDateStr);
+
+      const isOnBreak = Boolean(
+        logic?.onBreak ||
+        logic?.next === 'break-end' ||
+        statusDataToUse.isOnBreak ||
+        (active && active.status === 'ON_BREAK')
+      );
+
+      const hasActive = Boolean(
+        isOnBreak ||
+        logic?.next === 'check-out' ||
+        logic?.next === 'clock-out' ||
+        statusDataToUse.hasActiveSession ||
+        (active && active.status !== 'COMPLETED')
+      );
+
+      const isCompleted = Boolean(
+        !hasActive &&
+        (outPunch ||
+          logic?.next === 'check-in' ||
+          logic?.next === 'clock-in' ||
+          attendance?.checkOutAt ||
+          lastComp ||
+          (summary && summary.totalSessionsToday > 0))
+      );
+
+      const checkInTime = formatIsoTo12HourTime(rawInTime);
+      const checkOutTime = hasActive ? undefined : formatIsoTo12HourTime(rawOutTime);
 
       const breakTimeStr =
-        summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
-          ? summary.totalBreakFormatted
-          : statusDataToUse.formattedTotalBreak && statusDataToUse.formattedTotalBreak !== '0s' && statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
-            ? statusDataToUse.formattedTotalBreak
-            : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
-              ? formatSecondsToWords(summary.totalBreakSecondsToday)
-              : session?.totalBreakSeconds && session.totalBreakSeconds > 0
-                ? formatSecondsToWords(session.totalBreakSeconds)
-                : '00h 00m 00s';
+        sessionBreakWords && sessionBreakWords !== '0s'
+          ? sessionBreakWords
+          : logic?.breakHours && logic.breakHours !== '00:00:00'
+            ? logic.breakHours
+            : logic?.breakMinutes && logic.breakMinutes > 0
+              ? formatSecondsToWords(logic.breakMinutes * 60)
+              : summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
+                ? summary.totalBreakFormatted
+                : statusDataToUse.formattedTotalBreak &&
+                  statusDataToUse.formattedTotalBreak !== '0s' &&
+                  statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
+                  ? statusDataToUse.formattedTotalBreak
+                  : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
+                    ? formatSecondsToWords(summary.totalBreakSecondsToday)
+                    : session?.totalBreakSeconds && session.totalBreakSeconds > 0
+                      ? formatSecondsToWords(session.totalBreakSeconds)
+                      : '00h 00m 00s';
 
       const activeWorkedStr =
-        summary?.totalDurationFormatted ||
-        lastComp?.durationFormatted ||
-        (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
-        (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? (sessionWorkedHMS || liveWorkedHMS) : '00:00:00'));
+        sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+          ? sessionWorkedHMS
+          : logic?.totalHours && logic.totalHours !== '00:00:00'
+            ? logic.totalHours
+            : logic?.totalMinutes && logic.totalMinutes > 0
+              ? formatSecondsToHMS(logic.totalMinutes * 60)
+              : summary?.totalDurationFormatted ||
+                lastComp?.durationFormatted ||
+                (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
+                (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
 
-      const statusStr = isCompleted ? 'Completed' : isOnBreak ? 'On Break' : hasActive ? 'Working' : 'Present';
+      const statusStr = isCompleted
+        ? 'Completed'
+        : isOnBreak
+          ? 'On Break'
+          : hasActive
+            ? 'Working'
+            : attendance?.status
+              ? (attendance.status === 'PRESENT' ? 'Present' : attendance.status)
+              : 'Present';
 
       const existingToday = map.get(todayKey);
 
       const authoritativeTodayRec: AttendanceRecord = {
         ...(existingToday || {}),
-        id: session?.id || existingToday?.id || `ws-${todayKey}`,
+        id: attendance?.id || session?.id || existingToday?.id || `ws-${todayKey}`,
         employeeId: selfEmployee.id || myEmpId,
         employeeName: `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim(),
         employeeCode: selfEmployee.employeeCode,
@@ -679,20 +809,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         status: statusStr,
         isCompleted,
         isOnBreak,
-        activeSeconds: summary?.totalSecondsWorked || session?.durationSeconds || existingToday?.activeSeconds || 0,
-        breakSeconds: summary?.totalBreakSecondsToday || session?.totalBreakSeconds || existingToday?.breakSeconds || 0,
+        punches: rawPunchesList.length > 0 ? rawPunchesList : existingToday?.punches,
+        activeSeconds: (logic?.totalMinutes ? logic.totalMinutes * 60 : undefined) || summary?.totalSecondsWorked || session?.durationSeconds || existingToday?.activeSeconds || 0,
+        breakSeconds: (logic?.breakMinutes ? logic.breakMinutes * 60 : undefined) || summary?.totalBreakSecondsToday || session?.totalBreakSeconds || existingToday?.breakSeconds || 0,
         formattedTotalBreak: breakTimeStr,
         durationFormatted: activeWorkedStr,
-        breakDurationMinutes: Math.round((summary?.totalBreakSecondsToday || session?.totalBreakSeconds || 0) / 60),
-        workingHours: Number(((summary?.totalSecondsWorked || session?.durationSeconds || 0) / 3600).toFixed(2)),
+        breakDurationMinutes: logic?.breakMinutes || Math.round((summary?.totalBreakSecondsToday || session?.totalBreakSeconds || 0) / 60),
+        workingHours: Number(((logic?.totalMinutes ? logic.totalMinutes * 60 : (summary?.totalSecondsWorked || session?.durationSeconds || 0)) / 3600).toFixed(2)),
         overtimeHours: 0,
-        createdAt: session?.startTime || existingToday?.createdAt || new Date().toISOString(),
-        sessionStartTime: statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
+        createdAt: rawInTime || session?.startTime || existingToday?.createdAt || new Date().toISOString(),
+        sessionStartTime: rawInTime || statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
         openBreakStartTime: statusDataToUse.clock?.openBreakStartTime || null,
         completedBreakSeconds: statusDataToUse.clock?.completedBreakSeconds,
         sessionClosedBreakSeconds: statusDataToUse.clock?.sessionClosedBreakSeconds,
         completedWorkSeconds: statusDataToUse.clock?.completedWorkSeconds,
-        isLive: statusDataToUse.clock?.isLive,
+        isLive: hasActive,
       } as any;
 
       map.set(todayKey, authoritativeTodayRec);
@@ -704,7 +835,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       const bTime = (b as any).createdAt || b.date || '';
       return String(bTime).localeCompare(String(aTime));
     });
-  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS]);
+  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, sessionPunches, sessionAttendanceLogic]);
 
   // Helper to reliably extract and format break time for any attendance record
   const getRecordBreakDisplay = (rec: AttendanceRecord) => {
@@ -1347,6 +1478,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
+                      clearApiCache('/attendance/logic');
                       await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
                       onRefresh?.();
                     }}
@@ -1386,14 +1518,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         {employeeDailyRecords.map((rec, recIdx) => {
                           const dateInfo = formatDailyDate(rec.date);
                           const isToday = dateInfo.isToday;
-                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
                           const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
                           const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
                           const liveSecs = getLiveActiveSeconds(rec);
                           const breakSecs = getLiveBreakSeconds(rec);
+                          const rowKey = `${rec.id || rec.date}-m-${recIdx}`;
+                          const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                           return (
-                            <div key={`${rec.id || rec.date}-m-${recIdx}`} className="p-3.5 space-y-2.5">
+                            <div key={rowKey} className="p-3.5 space-y-2.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-1.5">
@@ -1454,6 +1588,33 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   </span>
                                 </div>
                               </div>
+
+                              {punchesList.length > 0 && (
+                                <div className="pt-1.5 border-t border-slate-100">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      Punch Logs ({punchesList.length})
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 font-mono">/attendance/logic</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {punchesList.map((p: any, pIdx: number) => {
+                                      const badge = getPunchTypeBadge(p.type);
+                                      const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp);
+                                      return (
+                                        <span
+                                          key={p.id || `m-p-${pIdx}`}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${badge.color}`}
+                                        >
+                                          <span className={`w-1 h-1 rounded-full ${badge.dotColor}`} />
+                                          <span className="font-bold">{badge.label}</span>
+                                          <span className="font-mono">{timeStr}</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1461,7 +1622,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                       {/* Desktop Table View (Visible on >= md) */}
                       <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                        <table className="w-full text-left text-xs min-w-[650px]">
+                        <table className="w-full text-left text-xs min-w-[760px]">
                           <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
                             <tr>
                               {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
@@ -1471,89 +1632,198 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
                               <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
                               <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                              <th className="py-2.5 px-4 font-medium">PUNCH ACTIVITY / LOGS</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {employeeDailyRecords.map((rec, recIdx) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
-                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
                               const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
                               const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                              const rowKey = `${rec.id || rec.date}-d-${recIdx}`;
+                              const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                               return (
-                                <tr key={`${rec.id || rec.date}-d-${recIdx}`} className="hover:bg-slate-50/70 transition-colors">
-                                  {!isEmployeeView && (
-                                    <td className="py-3 px-4 font-semibold text-slate-900">
-                                      {rec.employeeName || rec.employeeId}
+                                <React.Fragment key={rowKey}>
+                                  <tr className="hover:bg-slate-50/70 transition-colors">
+                                    {!isEmployeeView && (
+                                      <td className="py-3 px-4 font-semibold text-slate-900">
+                                        {rec.employeeName || rec.employeeId}
+                                      </td>
+                                    )}
+                                    <td className="py-3 px-4 font-medium text-slate-900">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
+                                        {isToday ? (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                            TODAY
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                        )}
+                                      </div>
                                     </td>
-                                  )}
-                                  <td className="py-3 px-4 font-medium text-slate-900">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
-                                      {isToday ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
-                                          TODAY
+
+                                    <td className="py-3 px-4">
+                                      {isWorking ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          Working
+                                        </span>
+                                      ) : isOnBreak ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                          <Pause className="w-3 h-3 text-amber-600" />
+                                          On Break
+                                        </span>
+                                      ) : isDone ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                          <Check className="w-3 h-3 text-slate-600" />
+                                          Completed
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
+                                          {rec.status || 'Present'}
+                                        </span>
                                       )}
-                                    </div>
-                                  </td>
+                                    </td>
 
-                                  <td className="py-3 px-4">
-                                    {isWorking ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        Working
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkIn && rec.checkIn !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkIn}</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkOut && rec.checkOut !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkOut}</span>
+                                      ) : isWorking ? (
+                                        <span className="text-emerald-600 font-medium">Working...</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-600">
+                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                        {getRecordBreakDisplay(rec)}
                                       </span>
-                                    ) : isOnBreak ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                                        <Pause className="w-3 h-3 text-amber-600" />
-                                        On Break
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                      <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
+                                        {getRecordActiveWorkedDisplay(rec)}
                                       </span>
-                                    ) : isDone ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                        <Check className="w-3 h-3 text-slate-600" />
-                                        Completed
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
-                                        {rec.status || 'Present'}
-                                      </span>
-                                    )}
-                                  </td>
+                                    </td>
 
-                                  <td className="py-3 px-4 font-mono text-slate-700">
-                                    {rec.checkIn && rec.checkIn !== '—' ? (
-                                      <span>{rec.checkIn}</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
+                                    <td className="py-3 px-4">
+                                      {punchesList.length > 0 ? (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          {punchesList.map((p: any, pIdx: number) => {
+                                            const badge = getPunchTypeBadge(p.type);
+                                            const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp);
+                                            return (
+                                              <span
+                                                key={p.id || `${p.type}-${pIdx}`}
+                                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${badge.color}`}
+                                                title={`Punch #${pIdx + 1}: ${badge.label} at ${timeStr}`}
+                                              >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                                                <span className="font-bold">{badge.label}</span>
+                                                <span className="font-mono">{timeStr}</span>
+                                              </span>
+                                            );
+                                          })}
+                                          <button
+                                            type="button"
+                                            onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                            className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 px-1.5 py-0.5 rounded hover:bg-slate-100 transition flex items-center gap-0.5 cursor-pointer"
+                                            title="Toggle full punch audit details"
+                                          >
+                                            <span>Logs ({punchesList.length})</span>
+                                            <ChevronDown
+                                              className={`w-3 h-3 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''}`}
+                                            />
+                                          </button>
+                                        </div>
+                                      ) : rec.checkIn && rec.checkIn !== '—' ? (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                            <span className="font-bold">IN</span>
+                                            <span className="font-mono">{rec.checkIn}</span>
+                                          </span>
+                                          {rec.checkOut && rec.checkOut !== '—' && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border bg-rose-50 text-rose-700 border-rose-200">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                              <span className="font-bold">OUT</span>
+                                              <span className="font-mono">{rec.checkOut}</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400 font-mono text-[11px]">—</span>
+                                      )}
+                                    </td>
+                                  </tr>
 
-                                  <td className="py-3 px-4 font-mono text-slate-700">
-                                    {rec.checkOut && rec.checkOut !== '—' ? (
-                                      <span>{rec.checkOut}</span>
-                                    ) : isWorking ? (
-                                      <span className="text-emerald-600 font-medium">Working...</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-
-                                  <td className="py-3 px-4 font-mono text-slate-600">
-                                    <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                      {getRecordBreakDisplay(rec)}
-                                    </span>
-                                  </td>
-
-                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                                    <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
-                                      {getRecordActiveWorkedDisplay(rec)}
-                                    </span>
-                                  </td>
-                                </tr>
+                                  {/* Expandable Punch Audit Trail row */}
+                                  {expandedPunchId === rowKey && punchesList.length > 0 && (
+                                    <tr className="bg-slate-50/70 border-b border-slate-200">
+                                      <td colSpan={isEmployeeView ? 7 : 8} className="py-3 px-6">
+                                        <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs">
+                                          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                              <Clock className="w-4 h-4 text-emerald-600" />
+                                              <span className="text-xs font-bold text-slate-800">
+                                                Punch Audit Trail • {dateInfo.formatted} ({punchesList.length} {punchesList.length === 1 ? 'Punch' : 'Punches'} Recorded)
+                                              </span>
+                                            </div>
+                                            <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                              Source: /api/attendance/logic
+                                            </span>
+                                          </div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                            {punchesList.map((p: any, idx: number) => {
+                                              const badge = getPunchTypeBadge(p.type);
+                                              const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp);
+                                              const iso = p.punchedAt || p.time;
+                                              const fullDateStr = iso ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                                              return (
+                                                <div
+                                                  key={p.id || `expanded-punch-${idx}`}
+                                                  className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs"
+                                                >
+                                                  <div className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-[10px] text-slate-600 shrink-0">
+                                                    #{idx + 1}
+                                                  </div>
+                                                  <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold border ${badge.color}`}>
+                                                        {badge.label}
+                                                      </span>
+                                                      <span className="font-mono font-bold text-slate-800 text-[11px] truncate">
+                                                        {timeStr}
+                                                      </span>
+                                                    </div>
+                                                    {fullDateStr && (
+                                                      <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                                        {fullDateStr}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
                               );
                             })}
                           </tbody>

@@ -39,6 +39,8 @@ export interface WorkSessionContextType {
   lastCompletedSession: any | null;
   todaySummary: any | null;
   serverTime: string | null;
+  attendanceLogic: any | null;
+  punches: any[];
   actionLoading: boolean;
   initialLoading: boolean;
   punchBlockMessage: string | null;
@@ -66,6 +68,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [lastCompletedSession, setLastCompletedSession] = useState<any | null>(null);
   const [todaySummary, setTodaySummary] = useState<any | null>(null);
   const [serverTime, setServerTime] = useState<string | null>(null);
+  const [attendanceLogic, setAttendanceLogic] = useState<any | null>(null);
+  const [punches, setPunches] = useState<any[]>([]);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -104,7 +108,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const reason = logic.blocked ? String(logic.blockedReason || 'Clock in is not allowed today.') : null;
     punchBlockRef.current = reason;
     setPunchBlockMessage(reason);
-    const punches = Array.isArray(data.punches) ? data.punches : [];
+    const punchesList = Array.isArray(data.punches) ? data.punches : (Array.isArray(data.data?.punches) ? data.data.punches : []);
+    setPunches(punchesList);
+    setAttendanceLogic(data);
+    const punches = punchesList;
     const attendance = data.attendance;
     const onBreak = Boolean(logic.onBreak || logic.next === 'break-end');
     let resolved: WorkPunchStatus = 'not_started';
@@ -722,6 +729,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         lastCompletedSession,
         todaySummary,
         serverTime,
+        attendanceLogic,
+        punches,
         actionLoading,
         initialLoading,
         punchBlockMessage,
