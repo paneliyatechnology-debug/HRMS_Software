@@ -894,6 +894,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 stats={stats}
                 employees={employees}
                 leaves={leaves}
+                leaveTypes={leaveTypes}
                 attendance={attendance}
                 onNavigateModule={navigateToModule}
                 onOpenClockModal={() => setClockModalOpen(true)}
