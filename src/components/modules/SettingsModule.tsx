@@ -287,7 +287,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       if (isMounted && comp) {
         setCompanyData({
           name: comp.name || user.companyName || '',
-          tagline: comp.industry || '',
+          tagline: typeof comp.industry === 'object' && comp.industry !== null
+            ? comp.industry.name || comp.industry.code || ''
+            : comp.industry || '',
           taxId: comp.gstin || comp.taxId || '',
           supportEmail: comp.email || '',
           phone: comp.phone || '',

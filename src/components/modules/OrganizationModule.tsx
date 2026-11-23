@@ -65,6 +65,21 @@ const DEPT_COLORS = [
   { bg: 'from-amber-500 to-yellow-500', light: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800' },
 ];
 
+function getSafeString(val: any, fallback: string = ''): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val.trim() || fallback;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.name === 'string' && val.name.trim()) return val.name.trim();
+    if (typeof val.companyName === 'string' && val.companyName.trim()) return val.companyName.trim();
+    if (typeof val.label === 'string' && val.label.trim()) return val.label.trim();
+    if (typeof val.title === 'string' && val.title.trim()) return val.title.trim();
+    if (typeof val.code === 'string' && val.code.trim()) return val.code.trim();
+    return fallback;
+  }
+  return fallback;
+}
+
 export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   departments: propDepartments = [],
   designations = [],
@@ -156,16 +171,16 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   const handleOpenEditCompany = () => {
     const comp = currentCompany || {};
-    setEditCompanyName(comp.companyName || comp.name || user?.companyName || '');
-    setEditIndustry(comp.industry || '');
-    setEditDescription(comp.description || '');
-    setEditEmail(comp.email || comp.contactEmail || user?.email || '');
-    setEditPhone(comp.phone || comp.contactPhone || (user as any)?.phone || '');
-    setEditAddress(comp.address || '');
-    setEditCity(comp.city || '');
-    setEditState(comp.state || '');
-    setEditGst(comp.gstNumber || comp.panNumber || comp.taxId || '');
-    setEditWebsite(comp.website || '');
+    setEditCompanyName(getSafeString(comp.companyName || comp.name || user?.companyName, ''));
+    setEditIndustry(getSafeString(comp.industry || comp.industrySector, ''));
+    setEditDescription(getSafeString(comp.description, ''));
+    setEditEmail(getSafeString(comp.email || comp.contactEmail || user?.email, ''));
+    setEditPhone(getSafeString(comp.phone || comp.contactPhone || (user as any)?.phone, ''));
+    setEditAddress(getSafeString(comp.address, ''));
+    setEditCity(getSafeString(comp.city, ''));
+    setEditState(getSafeString(comp.state, ''));
+    setEditGst(getSafeString(comp.gstNumber || comp.panNumber || comp.taxId, ''));
+    setEditWebsite(getSafeString(comp.website, ''));
     setIsEditCompanyOpen(true);
   };
 
@@ -736,20 +751,26 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
           {/* ── Dynamic Organization Hero Banner ─────────── */}
           {(() => {
-            const compName = currentCompany?.companyName || currentCompany?.name || user?.companyName || user?.companyCode || 'Company Workspace';
+            const rawCompName = currentCompany?.companyName || currentCompany?.name || user?.companyName || user?.companyCode;
+            const compName = getSafeString(rawCompName, 'Company Workspace');
             const compInitial = (compName[0] || 'C').toUpperCase();
-            const compIndustry = currentCompany?.industry || 'Corporate Workspace';
-            const compDesc = currentCompany?.description || 'Corporate workspace structure and workforce management identity.';
-            const compEmail = currentCompany?.email || currentCompany?.contactEmail || (isUserAdminRole(user?.role) ? user?.email : 'Not provided');
-            const compPhone = currentCompany?.phone || currentCompany?.contactPhone || 'Not provided';
-            const compAddress = currentCompany?.address || 'Not provided';
-            const compCityState = currentCompany?.city && currentCompany?.state
-              ? `${currentCompany.city}, ${currentCompany.state}`
-              : currentCompany?.city || currentCompany?.state || (currentCompany?.address ? currentCompany.address : 'Not provided');
-            const compGst = currentCompany?.gstNumber || currentCompany?.panNumber || currentCompany?.taxId || currentCompany?.companyCode || 'Not provided';
-            const compWebsite = currentCompany?.website || 'Not provided';
+            const compIndustry = getSafeString(currentCompany?.industry || currentCompany?.industrySector, 'Corporate Workspace');
+            const compDesc = getSafeString(currentCompany?.description, 'Corporate workspace structure and workforce management identity.');
+            const compEmail = getSafeString(currentCompany?.email || currentCompany?.contactEmail || (isUserAdminRole(user?.role) ? user?.email : ''), 'Not provided');
+            const compPhone = getSafeString(currentCompany?.phone || currentCompany?.contactPhone || (user as any)?.phone, 'Not provided');
+            const compAddress = getSafeString(currentCompany?.address, 'Not provided');
+            const cityStr = getSafeString(currentCompany?.city, '');
+            const stateStr = getSafeString(currentCompany?.state, '');
+            const compCityState = cityStr && stateStr
+              ? `${cityStr}, ${stateStr}`
+              : cityStr || stateStr || (compAddress !== 'Not provided' ? compAddress : 'Not provided');
+            const compGst = getSafeString(currentCompany?.gstNumber || currentCompany?.panNumber || currentCompany?.taxId || currentCompany?.companyCode, 'Not provided');
+            const compWebsite = getSafeString(currentCompany?.website, 'Not provided');
             const estYear = currentCompany?.createdAt ? new Date(currentCompany.createdAt).getFullYear() : 'Established';
-            const ownerDisplayName = currentCompany?.adminUser?.fullName || (isUserAdminRole(user?.role) ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Company Leadership') || 'Company Leadership';
+            const ownerDisplayName = getSafeString(
+              currentCompany?.adminUser?.fullName || (isUserAdminRole(user?.role) ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() : ''),
+              'Company Leadership'
+            );
             const ownerDisplayRole = currentCompany?.adminUser?.role
               ? getRoleDefinition(currentCompany.adminUser.role).label
               : (isUserAdminRole(user?.role) ? getRoleDefinition(user?.role).label : 'Executive Management');
@@ -1009,25 +1030,28 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {departments.map((dept, idx) => {
                     const c = DEPT_COLORS[idx % DEPT_COLORS.length];
+                    const deptCode = getSafeString(dept.code, 'DEP');
+                    const deptName = getSafeString(dept.name, 'Unnamed Department');
+                    const deptHead = getSafeString(dept.headName, 'Unassigned');
                     return (
                       <div
-                        key={dept.id}
+                        key={dept.id || idx}
                         onClick={() => setActiveTab('departments')}
                         className={`p-4 rounded-2xl border ${c.border} ${c.light} hover:shadow-md transition-all cursor-pointer group`}
                       >
                         <div className="flex items-center justify-between mb-2.5">
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${c.badge}`}>
-                            {dept.code}
+                            {deptCode}
                           </span>
                           <span className="text-[10px] text-slate-400 flex items-center gap-1 font-semibold">
                             <Users className="w-2.5 h-2.5" /> {dept.employeeCount || 0}
                           </span>
                         </div>
                         <h5 className={`text-sm font-bold text-slate-900 group-hover:${c.text} transition-colors`}>
-                          {dept.name}
+                          {deptName}
                         </h5>
                         <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">
-                          {dept.headName || 'Unassigned'}
+                          {deptHead}
                         </p>
                       </div>
                     );
@@ -1091,32 +1115,36 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {departments.map((dept, idx) => {
                 const c = DEPT_COLORS[idx % DEPT_COLORS.length];
+                const deptCode = getSafeString(dept.code, 'DEP');
+                const deptName = getSafeString(dept.name, 'Unnamed Department');
+                const deptDesc = getSafeString(dept.description, 'Core business division of the organisation.');
+                const deptHead = getSafeString(dept.headName, 'Unassigned');
                 const deptMembers = employees.filter(
                   (e) =>
                     e.departmentId === dept.id ||
-                    (e.departmentName && e.departmentName.toLowerCase() === dept.name.toLowerCase())
+                    (e.departmentName && e.departmentName.toLowerCase() === deptName.toLowerCase())
                 );
                 return (
-                  <div key={dept.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
+                  <div key={dept.id || idx} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-3">
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
-                          {dept.code}
+                          {deptCode}
                         </span>
                         <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
                           <Users className="w-3.5 h-3.5" /> {deptMembers.length} {deptMembers.length === 1 ? 'member' : 'members'}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-slate-900 mb-1">{dept.name}</h3>
+                      <h3 className="text-base font-bold text-slate-900 mb-1">{deptName}</h3>
                       <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-                        {dept.description || 'Core business division of the organisation.'}
+                        {deptDesc}
                       </p>
 
                       {/* Team Members Chips */}
                       <div className="mt-4 pt-3 border-t border-slate-100 space-y-2 flex-1">
                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
                           <span>Team Members ({deptMembers.length})</span>
-                          <span className="font-semibold text-slate-600">Head: {dept.headName || 'Unassigned'}</span>
+                          <span className="font-semibold text-slate-600">Head: {deptHead}</span>
                         </div>
                         {deptMembers.length > 0 ? (
                           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -1423,16 +1451,19 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
               {departments.map((dept, idx) => {
                 const c = DEPT_COLORS[idx % DEPT_COLORS.length];
+                const deptCode = getSafeString(dept.code, 'DEP');
+                const deptName = getSafeString(dept.name, 'Unnamed Department');
+                const deptHead = getSafeString(dept.headName, 'Unassigned');
                 return (
-                  <div key={dept.id} className={`p-4 rounded-2xl border ${c.border} ${c.light}`}>
+                  <div key={dept.id || idx} className={`p-4 rounded-2xl border ${c.border} ${c.light}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${c.badge}`}>{dept.code}</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${c.badge}`}>{deptCode}</span>
                       <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
                         <Users className="w-3 h-3" /> {dept.employeeCount || 0}
                       </span>
                     </div>
-                    <h5 className={`font-bold text-sm text-slate-900`}>{dept.name}</h5>
-                    <p className={`text-[11px] ${c.text} mt-0.5 font-medium`}>Head: {dept.headName || 'Unassigned'}</p>
+                    <h5 className={`font-bold text-sm text-slate-900`}>{deptName}</h5>
+                    <p className={`text-[11px] ${c.text} mt-0.5 font-medium`}>Head: {deptHead}</p>
                   </div>
                 );
               })}
