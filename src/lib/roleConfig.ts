@@ -9,7 +9,7 @@ export interface RoleDefinition {
   bgLight: string;
   borderClass: string;
   textColor: string;
-  iconName: 'Crown' | 'Shield' | 'Users' | 'User';
+  iconName: 'Crown' | 'Shield' | 'Users' | 'User' | 'Briefcase';
 }
 
 export const ROLE_DEFINITIONS: RoleDefinition[] = [
@@ -47,6 +47,17 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     iconName: 'Users',
   },
   {
+    role: 'MANAGER',
+    label: 'Manager',
+    shortLabel: 'Manager',
+    description: 'Team and department manager with approval, delegation, and performance oversight.',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    bgLight: 'bg-amber-50',
+    borderClass: 'border-amber-200',
+    textColor: 'text-amber-700',
+    iconName: 'Briefcase',
+  },
+  {
     role: 'EMPLOYEE',
     label: 'Employee',
     shortLabel: 'Employee',
@@ -68,7 +79,7 @@ export const ASSIGNABLE_ROLE_DEFINITIONS: RoleDefinition[] = ROLE_DEFINITIONS.fi
 );
 
 export function getRoleDefinition(role?: Role | string): RoleDefinition {
-  const employee = ROLE_DEFINITIONS[3];
+  const employee = ROLE_DEFINITIONS.find((r) => r.role === 'EMPLOYEE') || ROLE_DEFINITIONS[ROLE_DEFINITIONS.length - 1];
   if (!role) return employee;
   const normalized = role.trim().toUpperCase();
   return ROLE_DEFINITIONS.find((r) => r.role === normalized) || {

@@ -639,7 +639,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {user.firstName || 'User'} {user.lastName || ''}
               </span>
               <span className="text-[10px] text-[#343a40] leading-none block truncate">
-                {portalMode === 'admin' ? 'Administrator' : 'Employee'}
+                {user.role ? (user.role === 'ADMIN' ? 'Administrator' : user.role === 'HR' ? 'HR Manager' : user.role === 'MANAGER' ? 'Manager' : user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Employee') : (portalMode === 'admin' ? 'Administrator' : 'Employee')}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-[#343a40] shrink-0" />

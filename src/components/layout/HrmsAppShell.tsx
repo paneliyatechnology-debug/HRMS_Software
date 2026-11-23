@@ -98,13 +98,9 @@ const ChatModule = dynamic(() => import('../modules/ChatModule').then((m) => m.C
 const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) => m.ReportsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
-<<<<<<< HEAD
-import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
-=======
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
-import { getActiveChatConversation } from '../../lib/chatService';
+import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } from '../../lib/chatService';
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
->>>>>>> 29c498226a3cf1db1bd711c8d8b533aff5c30cf6
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
