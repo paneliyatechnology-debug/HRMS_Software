@@ -293,9 +293,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                     id="btn-shift-check-out"
                     onClick={() => checkOut()}
                     disabled={actionLoading}
-                    className="w-full py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm shadow-rose-600/25 min-w-0 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs min-w-0 cursor-pointer disabled:opacity-50"
                   >
-                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                    <Square className="w-3.5 h-3.5 fill-current text-rose-600 shrink-0" />
                     <span className="truncate">
                       {actionLoading ? 'Clocking out...' : 'End Day & Clock Out'}
                     </span>
