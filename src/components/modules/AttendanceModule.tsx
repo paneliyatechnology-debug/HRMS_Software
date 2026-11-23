@@ -1537,45 +1537,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Compact Daily Shift Console for Employee OR Live Monitoring Console for Admin */}
-        {resolvedTab === 'today' && (
+        {/* Right: Compact Daily Shift Console for Employee */}
+        {resolvedTab === 'today' && isEmployeeView && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
-            {isEmployeeView ? (
-              <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
-            ) : (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm h-full flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold text-slate-900 tracking-tight">Live Attendance Monitoring</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    Admin Oversight
-                  </span>
-                </div>
-                <div className="py-2.5 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 block font-medium">Workforce</span>
-                    <span className="font-bold text-slate-900 text-sm">{employees.length}</span>
-                  </div>
-                  <div className="bg-emerald-50/60 p-2 rounded-xl border border-emerald-100">
-                    <span className="text-[10px] text-emerald-700 block font-medium">Working</span>
-                    <span className="font-bold text-emerald-800 text-sm">
-                      {liveRecords.filter((r) => r.date === getTodayDateString() && !r.isCompleted && !r.isOnBreak).length}
-                    </span>
-                  </div>
-                  <div className="bg-amber-50/60 p-2 rounded-xl border border-amber-100">
-                    <span className="text-[10px] text-amber-700 block font-medium">On Break</span>
-                    <span className="font-bold text-amber-800 text-sm">
-                      {liveRecords.filter((r) => r.date === getTodayDateString() && !r.isCompleted && r.isOnBreak).length}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
-                  ℹ️ Staff punching is restricted to Employee &amp; Manager workforce. Admin maintains live monitoring.
-                </p>
-              </div>
-            )}
+            <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
           </div>
         )}
       </div>
