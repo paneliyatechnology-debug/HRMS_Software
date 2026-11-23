@@ -42,7 +42,6 @@ import {
   clearAllChats,
   markConversationAsRead,
   syncConversationsWithEmployees,
-  hydrateMessages,
   setActiveChatConversation,
   markOpenConversationRead,
   ADMIN_USER_ID,
@@ -75,7 +74,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 }) => {
   const { user, portalMode: authPortalMode } = useAuth();
   const portalMode = propPortalMode || authPortalMode || 'admin';
-  const { isConnected, showToast, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead } = useSocket();
+  const { isConnected, showToast, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead, joinTeamChat, emitTeamChatTyping } = useSocket();
 
   // Determine current user chat identity
   const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
@@ -84,6 +83,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || ADMIN_NAME
       : `${user?.firstName || 'Staff'} ${user?.lastName || 'Member'}`.trim();
   const currentUserRole = portalMode === 'admin' ? ('admin' as const) : ('employee' as const);
+  const teamMode = portalMode === 'employee';
+  const canMakeGroup = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN'].includes(String(user?.role || '').toUpperCase());
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('');
@@ -91,6 +92,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupAdding, setGroupAdding] = useState(false);
+  const [groupMemberRows, setGroupMemberRows] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [groupPanel, setGroupPanel] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string }>>([]);
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
   const [previewAttachment, setPreviewAttachment] = useState<ChatAttachment | null>(null);
@@ -140,6 +148,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const serverTeamIdsRef = useRef<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileInputAccept, setFileInputAccept] = useState<string>('*/*');
@@ -173,35 +182,107 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     setConversations(withPreview);
   };
 
-  useEffect(() => {
-    loadConversations();
-    const handleUpdate = () => {
-      loadConversations();
-    };
-    window.addEventListener('hrms_chat_updated', handleUpdate);
-    return () => {
-      window.removeEventListener('hrms_chat_updated', handleUpdate);
-    };
-  }, [employees]);
+  const toTeamMessage = (row: { id: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null }, teamId: string): ChatMessage => ({
+    id: row.id,
+    conversationId: teamId,
+    senderId: row.userId,
+    senderName: row.userName || 'Team member',
+    senderRole: 'employee',
+    recipientId: teamId,
+    recipientName: '',
+    content: row.text,
+    timestamp: row.createdAt,
+    status: row.readAt ? 'read' : 'delivered',
+  });
+
+  const myStaffId = user?.id || '';
+  const staffEmployeeId = (conversationId: string) => (
+    conversationId.startsWith('direct-') ? conversationId.slice('direct-'.length) : ''
+  );
+  const roleLabel = (role: string) => (
+    role === 'ADMIN' ? 'Admin' : role === 'HR' ? 'HR' : role === 'MANAGER' ? 'Manager' : 'Employee'
+  );
+  const toDirectConversation = (person: { userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
+    id: `direct-${person.userId}`,
+    type: 'direct',
+    title: person.name,
+    participantIds: [person.userId, myStaffId],
+    participantNames: {
+      [person.userId]: person.name,
+      [myStaffId]: currentUserName,
+    },
+    participantDesignations: { [person.userId]: roleLabel(person.role) },
+    participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
+    lastMessage: person.lastMessage || '',
+    lastMessageTimestamp: person.lastMessageAt || undefined,
+    unreadCount: {},
+    updatedAt: person.lastMessageAt || new Date().toISOString(),
+  });
+  const groupIdOf = (conversationId: string) => (
+    conversationId.startsWith('group-') ? conversationId.slice('group-'.length) : ''
+  );
+  const toGroupConversation = (group: { id: string; name: string; createdBy?: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
+    id: `group-${group.id}`,
+    type: 'direct',
+    title: group.name,
+    createdBy: group.createdBy || '',
+    participantIds: [`group-${group.id}`],
+    participantNames: { [`group-${group.id}`]: group.name },
+    participantDesignations: { [`group-${group.id}`]: `Group · ${group.memberCount || 0} members` },
+    lastMessage: group.lastMessage || '',
+    lastMessageTimestamp: group.lastMessageAt || undefined,
+    unreadCount: {},
+    updatedAt: group.lastMessageAt || new Date().toISOString(),
+  });
 
   useEffect(() => {
     let cancelled = false;
-    api.getChatMessages()
-      .then((rows) => {
-        if (cancelled || !Array.isArray(rows)) return;
-        hydrateMessages(rows);
-        markOpenConversationRead(currentUserId);
+    if (!myStaffId) return;
+    const loadChats = () => Promise.all([api.listDirectChats(), api.listChatGroups()])
+      .then(([peopleRes, groupRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }]) => {
+        if (cancelled) return;
+        const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
+        const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+        setChatPeople(people);
+        setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
       })
-      .catch(() => { });
+      .catch((err: { message?: string }) => {
+        if (!cancelled) showToast({ title: 'Chat', message: err?.message || 'Could not load chat.', type: 'error', module: 'chat' });
+      });
+    loadChats();
+    const timer = window.setInterval(loadChats, 4000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
-  }, []);
+  }, [myStaffId]);
+
+  useEffect(() => {
+    if (!myStaffId && teamMode) return;
+    const timer = window.setInterval(() => {
+      api.listDirectChats()
+        .then((res: { data?: Array<{ userId: string; lastMessage?: string; lastMessageAt?: string }> }) => {
+          const rows = Array.isArray(res?.data) ? res.data : [];
+          setConversations((prev) => prev.map((conv) => {
+            const row = rows.find((item) => item.userId === staffEmployeeId(conv.id));
+            if (!row || row.lastMessage === conv.lastMessage) return conv;
+            return {
+              ...conv,
+              lastMessage: row.lastMessage || '',
+              lastMessageTimestamp: row.lastMessageAt || conv.lastMessageTimestamp,
+            };
+          }));
+        })
+        .catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [teamMode, myStaffId]);
 
   // Handle initial targeted employee chat from directory or dashboard
   useEffect(() => {
+    if (teamMode) return;
     if (initialEmployeeId) {
-      const targetConvId = `conv-${ADMIN_USER_ID}-${initialEmployeeId}`;
+      const targetConvId = `direct-${initialEmployeeId}`;
       const found = conversations.find((c) => c.id === targetConvId);
       if (found) {
         setActiveConversationId(targetConvId);
@@ -225,18 +306,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   useEffect(() => {
     if (conversations.length === 0) return;
     if (activeConversationId && conversations.some((c) => c.id === activeConversationId)) return;
-    const directId =
-      portalMode === 'employee'
-        ? `conv-${ADMIN_USER_ID}-${currentUserId}`
-        : conversations.find((c) => c.type === 'direct')?.id;
-    const preferred =
-      conversations.find((c) => c.id === directId) ||
-      conversations.find((c) => c.type === 'direct') ||
-      conversations[0];
+    const preferred = conversations.find((c) => c.type === 'direct') || conversations[0];
     setActiveConversationId(preferred.id);
   }, [conversations, activeConversationId, portalMode, currentUserId]);
 
   const notifyMessagesRead = (conversationId: string) => {
+    if (teamMode) return;
     const conv = getAllConversations().find((item) => item.id === conversationId);
     const otherId =
       conv?.type === 'broadcast'
@@ -251,6 +326,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   useEffect(() => {
+    setGroupPanel(false);
     setActiveChatConversation(activeConversationId);
   }, [activeConversationId]);
 
@@ -292,6 +368,42 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   // Load messages when active conversation changes
   useEffect(() => {
     if (!activeConversationId) return;
+    const directId = staffEmployeeId(activeConversationId);
+    const groupId = groupIdOf(activeConversationId);
+    if (directId || groupId) {
+      let cancelled = false;
+      const load = () => {
+        const request = groupId ? api.listGroupChat(groupId) : api.listDirectChat(directId);
+        request
+          .then((res: { data?: Array<{ id: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null }> }) => {
+            if (cancelled) return;
+            const rows = Array.isArray(res?.data) ? res.data : [];
+            const next = rows.map((row) => toTeamMessage(row, activeConversationId));
+            setMessages((prev) => {
+              if (
+                prev.length === next.length
+                && prev.every((item, index) => item.id === next[index]?.id && item.status === next[index]?.status)
+              ) return prev;
+              return next;
+            });
+            const last = next[next.length - 1];
+            if (last) {
+              setConversations((prev) => prev.map((conv) => (
+                conv.id === activeConversationId
+                  ? { ...conv, lastMessage: last.content, lastMessageTimestamp: last.timestamp, lastSenderId: last.senderId }
+                  : conv
+              )));
+            }
+          })
+          .catch(() => undefined);
+      };
+      load();
+      const timer = window.setInterval(load, 2000);
+      return () => {
+        cancelled = true;
+        window.clearInterval(timer);
+      };
+    }
     const msgs = getMessagesForConversation(activeConversationId);
     setMessages(msgs);
     markConversationAsRead(activeConversationId, currentUserId);
@@ -302,8 +414,67 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   // Listen to message updates
   useEffect(() => {
+    const onMessage = (event: Event) => {
+      const row = (event as CustomEvent).detail as { id: string; senderId: string; recipientId: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null };
+      if (!row?.id || !row.senderId || !row.recipientId) return;
+      const otherId = row.senderId === myStaffId ? row.recipientId : row.senderId;
+      const conversationId = `direct-${otherId}`;
+      setConversations((prev) => prev.map((conv) => (
+        conv.id === conversationId
+          ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+          : conv
+      )));
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, conversationId)]));
+    };
+    window.addEventListener('hrms_direct_chat_message', onMessage);
+    const onRead = (event: Event) => {
+      const read = (event as CustomEvent).detail as { readerId?: string };
+      if (!read?.readerId) return;
+      const conversationId = `direct-${read.readerId}`;
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => prev.map((item) => (
+        item.senderId !== read.readerId ? { ...item, status: 'read' } : item
+      )));
+    };
+    window.addEventListener('hrms_direct_chat_read', onRead);
+    const onGroup = (event: Event) => {
+      const row = (event as CustomEvent).detail as { id: string; groupId: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null };
+      if (!row?.groupId || !row.id) return;
+      const conversationId = `group-${row.groupId}`;
+      setConversations((prev) => prev.map((conv) => (
+        conv.id === conversationId
+          ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+          : conv
+      )));
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, conversationId)]));
+    };
+    window.addEventListener('hrms_group_chat_message', onGroup);
+    const onGroupList = () => {
+      api.listChatGroups()
+        .then((groupRes: { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }) => {
+          const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+          setConversations((prev) => [
+            ...groups.map(toGroupConversation),
+            ...prev.filter((conv) => !conv.id.startsWith('group-')),
+          ]);
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener('hrms_group_chat_list', onGroupList);
+    return () => {
+      window.removeEventListener('hrms_direct_chat_message', onMessage);
+      window.removeEventListener('hrms_direct_chat_read', onRead);
+      window.removeEventListener('hrms_group_chat_message', onGroup);
+      window.removeEventListener('hrms_group_chat_list', onGroupList);
+    };
+  }, [activeConversationId, myStaffId]);
+
+  useEffect(() => {
+    if (teamMode) return;
     const handleMessageUpdate = () => {
-      if (!activeConversationId) return;
+      if (!activeConversationId || staffEmployeeId(activeConversationId)) return;
       const hadUnread = markConversationAsRead(activeConversationId, currentUserId);
       setMessages(getMessagesForConversation(activeConversationId));
       if (hadUnread) notifyMessagesRead(activeConversationId);
@@ -440,7 +611,47 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     return { id: targetId || conv.id, name, role, code, email, designation, initials };
   };
 
+  const sendTeamText = async (text: string) => {
+    const clean = text.trim();
+    const directId = activeConversation ? staffEmployeeId(activeConversation.id) : '';
+    const groupId = activeConversation ? groupIdOf(activeConversation.id) : '';
+    if (!clean || !activeConversation || (!directId && !groupId)) return;
+    try {
+      const res = groupId
+        ? await api.sendGroupChat(groupId, { text: clean })
+        : await api.sendDirectChat(directId, { text: clean });
+      const row = res?.chat;
+      if (row?.id) {
+        setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, activeConversation.id)]));
+        setConversations((prev) => prev.map((conv) => (
+          conv.id === activeConversation.id
+            ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+            : conv
+        )));
+      }
+    } catch (err: any) {
+      showToast({
+        title: 'Message not sent',
+        message: err?.message || 'Could not send this message.',
+        type: 'error',
+        module: 'chat',
+      });
+    }
+  };
+
   const dispatchChatMessage = (text: string, attachment: ChatAttachment | null) => {
+    if (activeConversation && (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id))) {
+      if (attachment) {
+        showToast({
+          title: 'Text only',
+          message: 'Team chat saves text messages.',
+          type: 'warning',
+          module: 'chat',
+        });
+      }
+      void sendTeamText(text);
+      return;
+    }
     if (!text.trim() && !attachment) return;
     if (!activeConversation) return;
 
@@ -493,6 +704,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
   const handleQuickReply = (text: string) => {
     if (!activeConversation) return;
+    if (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id)) {
+      void sendTeamText(text);
+      return;
+    }
     const other = getOtherParticipantInfo(activeConversation);
 
     const sent = sendChatMessage({
@@ -704,6 +919,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   const handleClearActiveConversation = () => {
+    if (teamMode) return;
     if (!activeConversation) return;
     setCustomConfirmAction({
       title: 'Clear Conversation?',
@@ -718,6 +934,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   const handleClearAllChats = () => {
+    if (teamMode) return;
     setCustomConfirmAction({
       title: 'Delete All Chat History?',
       message: 'Are you sure you want to delete all chat history across all conversations? This action cannot be undone.',
@@ -743,9 +960,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
     if (portalMode === 'employee') {
       const mine =
+        conv.id.startsWith('direct-') ||
+        conv.id.startsWith('group-') ||
+        serverTeamIdsRef.current.has(conv.id) ||
         conv.type === 'broadcast' ||
         conv.participantIds?.includes(currentUserId) ||
-        conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}`;
+        conv.participantIds?.includes(user?.id || '') ||
+        conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}` ||
+        conv.id === `conv-${ADMIN_USER_ID}-${user?.id || ''}`;
       if (!mine) return false;
     }
 
@@ -811,11 +1033,25 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
               </p>
             </div>
+            {canMakeGroup && (
+              <button
+                type="button"
+                onClick={() => {
+                  setGroupName('');
+                  setGroupMemberIds([]);
+                  setGroupAdding(false);
+                  setGroupOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-semibold cursor-pointer"
+              >
+                New group
+              </button>
+            )}
             <button
               type="button"
               id="btn-clear-all-chats"
               onClick={handleClearAllChats}
-              className="p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              className={`p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer ${teamMode ? 'hidden' : ''}`}
               title="Clear all chat history"
             >
               <Trash2 className="w-4 h-4" />
@@ -869,7 +1105,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <Users className="w-8 h-8 mx-auto stroke-1" />
-              <p className="text-xs font-medium">No conversations found</p>
+              <p className="text-xs font-medium">{teamMode ? 'No Admin, HR, or Manager to message.' : 'No people to message.'}</p>
             </div>
           ) : (
             filteredConversations.map((conv) => {
@@ -910,6 +1146,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     <div className="flex items-center justify-between gap-1.5 mb-0.5">
                       <span className="text-[14px] font-medium text-[#212529] truncate flex items-center gap-1.5">
                         <span className="truncate">{other.name}</span>
+                        {conv.id.startsWith('group-') && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0">
+                            Group
+                          </span>
+                        )}
                         {conv.type === 'broadcast' && (
                           <span
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0"
@@ -982,16 +1223,128 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               </div>
 
+              {activeConversation.id.startsWith('group-') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const opening = !groupPanel;
+                    setGroupPanel(opening);
+                    if (!opening) return;
+                    try {
+                      const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
+                      setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
+                    } catch (err: any) {
+                      showToast({ title: 'Group', message: err?.message || 'Could not load members.', type: 'error', module: 'chat' });
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-full border border-[#95d5b2] text-[#1b4332] text-[11px] font-semibold cursor-pointer"
+                >
+                  Group
+                </button>
+              )}
+
               <button
                 type="button"
                 id="btn-clear-conversation-chat"
                 onClick={handleClearActiveConversation}
-                className="p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                className={`p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer ${teamMode ? 'hidden' : ''}`}
                 title="Clear this chat"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+
+            {groupPanel && activeConversation.id.startsWith('group-') && (
+              <div className="bg-white border-b border-[#dee2e6] px-4 py-3 space-y-2 max-h-72 overflow-y-auto">
+                {groupMemberRows.map((member) => {
+                  const groupBoss = String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id;
+                  return (
+                    <div key={member.userId} className="flex items-center justify-between gap-2 text-sm text-slate-700">
+                      <span className="truncate">
+                        {member.name}
+                        <span className="ml-2 text-[11px] text-slate-400">
+                          {roleLabel(member.role)}
+                          {member.userId === activeConversation.createdBy ? ' · Creator' : ''}
+                        </span>
+                      </span>
+                      {groupBoss && member.userId !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.removeChatGroupMember(groupIdOf(activeConversation.id), member.userId);
+                              const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
+                              setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
+                              showToast({ title: 'Group', message: 'Member removed.', type: 'success', module: 'chat' });
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not remove member.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-rose-600 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {canMakeGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGroupMemberIds([]);
+                        setGroupAdding(true);
+                        setGroupOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-full border border-[#95d5b2] text-[#1b4332] text-[11px] font-semibold cursor-pointer"
+                    >
+                      Add member
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.leaveChatGroup(groupIdOf(activeConversation.id));
+                        setGroupPanel(false);
+                        setActiveConversationId('');
+                        const groupRes = await api.listChatGroups();
+                        const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                        setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                        showToast({ title: 'Group', message: 'You left the group.', type: 'success', module: 'chat' });
+                      } catch (err: any) {
+                        showToast({ title: 'Group', message: err?.message || 'Could not leave the group.', type: 'error', module: 'chat' });
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-slate-300 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                  >
+                    Leave group
+                  </button>
+                  {(String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await api.deleteChatGroup(groupIdOf(activeConversation.id));
+                          setGroupPanel(false);
+                          setActiveConversationId('');
+                          const groupRes = await api.listChatGroups();
+                          const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                          setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                          showToast({ title: 'Group', message: 'Group deleted.', type: 'success', module: 'chat' });
+                        } catch (err: any) {
+                          showToast({ title: 'Group', message: err?.message || 'Could not delete the group.', type: 'error', module: 'chat' });
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-rose-600 text-white text-[11px] font-semibold cursor-pointer"
+                    >
+                      Delete group
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Messages Scroll Area */}
             <div
@@ -1022,7 +1375,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     msg.senderId === user?.id ||
                     msg.senderId === user?.employeeId ||
                     (portalMode === 'admin' && msg.senderId === ADMIN_USER_ID);
-                  const canManage = isMe || currentUserRole === 'admin';
+                  const canManage = !teamMode && (isMe || currentUserRole === 'admin');
                   const isEditingThis = editingMessageId === msg.id;
 
                   return (
@@ -1155,7 +1508,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                             {isMe && (
                               <span title={msg.status === 'read' ? 'Read' : msg.status === 'delivered' ? 'Delivered' : 'Sent'}>
                                 {msg.status === 'read' ? (
-                                  <CheckCheck className="w-[16px] h-[16px] text-[#74c69d] inline" />
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] inline" style={{ color: '#53bdeb' }} />
                                 ) : msg.status === 'delivered' ? (
                                   <CheckCheck className="w-[16px] h-[16px] text-[#d8f3dc] inline" />
                                 ) : (
@@ -1384,12 +1737,16 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       const val = e.target.value;
                       setInputText(val);
                       if (activeConversation) {
-                        emitChatTyping({
-                          conversationId: activeConversation.id,
-                          userId: currentUserId,
-                          userName: currentUserName,
-                          isTyping: val.length > 0,
-                        });
+                        if (activeConversation && (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id))) {
+                          if (val.length > 0) emitTeamChatTyping(activeConversation.id);
+                        } else {
+                          emitChatTyping({
+                            conversationId: activeConversation.id,
+                            userId: currentUserId,
+                            userName: currentUserName,
+                            isTyping: val.length > 0,
+                          });
+                        }
                       }
                     }}
                     placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type a message...'}
@@ -1534,6 +1891,69 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         </div>
       )}
       {/* Attachment Lightbox / Document & PDF Preview Modal */}
+      {groupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" onClick={() => setGroupOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200" onClick={(event) => event.stopPropagation()}>
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">{groupAdding ? 'Add member' : 'New group'}</h3>
+              <button type="button" onClick={() => setGroupOpen(false)} className="p-2 text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {groupAdding ? null : (
+                <input
+                  value={groupName}
+                  onChange={(event) => setGroupName(event.target.value)}
+                  placeholder="Group name"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"
+                />
+              )}
+              {chatPeople.filter((person) => String(user?.role || '').toUpperCase() === 'ADMIN' || person.role === 'ADMIN' || person.role === 'HR' || person.role === 'MANAGER').map((person) => (
+                <label key={person.userId} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={person.role === 'ADMIN' || groupMemberIds.includes(person.userId)}
+                    disabled={person.role === 'ADMIN'}
+                    onChange={() => setGroupMemberIds((prev) => prev.includes(person.userId) ? prev.filter((id) => id !== person.userId) : [...prev, person.userId])}
+                  />
+                  <span>{person.name}</span>
+                  <span className="text-[11px] text-slate-400">{person.role === 'ADMIN' ? 'Admin · always added' : roleLabel(person.role)}</span>
+                </label>
+              ))}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (groupAdding && activeConversation) {
+                      const groupId = groupIdOf(activeConversation.id);
+                      for (const userId of groupMemberIds) await api.addChatGroupMember(groupId, userId);
+                      const members = await api.listChatGroupMembers(groupId);
+                      setGroupMemberRows(Array.isArray(members?.data) ? members.data : []);
+                      showToast({ title: 'Group', message: 'Members added.', type: 'success', module: 'chat' });
+                    } else {
+                      const created = await api.createChatGroup({ name: groupName, memberIds: groupMemberIds });
+                      if (created?.id) setActiveConversationId(`group-${created.id}`);
+                      showToast({ title: 'Group', message: 'Group created.', type: 'success', module: 'chat' });
+                    }
+                    setGroupOpen(false);
+                    const [peopleRes, groupRes] = await Promise.all([api.listDirectChats(), api.listChatGroups()]);
+                    const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
+                    const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                    setChatPeople(people);
+                    setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
+                  } catch (err: any) {
+                    showToast({ title: 'Group', message: err?.message || 'Could not save the group.', type: 'error', module: 'chat' });
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ChatAttachmentPreviewModal
         attachment={previewAttachment}
         onClose={() => setPreviewAttachment(null)}

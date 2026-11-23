@@ -1122,6 +1122,171 @@ async function createTeam(payload: { name: string; departmentId: string }) {
   }
 }
 
+async function listChatGroups() {
+  try {
+    const res = await http.get('/chat/groups');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load groups.');
+  }
+}
+
+async function createChatGroup(payload: { name: string; memberIds: string[] }) {
+  try {
+    const res = await http.post('/chat/groups', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create group.');
+  }
+}
+
+async function addChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/members`, { userId }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to add member.');
+  }
+}
+
+async function listChatGroupMembers(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/members`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group members.');
+  }
+}
+
+async function removeChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}/members/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to remove member.');
+  }
+}
+
+async function leaveChatGroup(groupId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/leave`, {}, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to leave group.');
+  }
+}
+
+async function deleteChatGroup(groupId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete group.');
+  }
+}
+
+async function listGroupChat(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/messages`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group chat.');
+  }
+}
+
+async function sendGroupChat(groupId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/messages`, payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send group message.');
+  }
+}
+
+async function listDirectChats() {
+  try {
+    const res = await http.get('/chat/direct');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listDirectChat(userId: string) {
+  try {
+    const res = await http.get(`/chat/direct/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendDirectChat(userId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/direct/${userId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+async function listStaffThreads() {
+  try {
+    const res = await http.get('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listStaffChat(employeeId: string) {
+  try {
+    const res = await http.get(`/chat/staff/${employeeId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendStaffChat(employeeId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/staff/${employeeId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+// 47b. GET /teams/mine (Teams this user can chat in)
+async function listMyTeams() {
+  try {
+    return await deduplicatedGet('/teams/mine');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load your teams.');
+  }
+}
+
 // 47. GET /teams (List teams)
 async function listTeams() {
   try {
@@ -1193,6 +1358,30 @@ async function editTeam(teamId: string, payload: { name?: string; departmentId?:
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update team.');
+  }
+}
+
+// 53b. GET /teams/:teamId/chat (List team chat)
+async function listTeamChat(teamId: string, params?: { page?: number; limit?: number }) {
+  try {
+    return await deduplicatedGet(`/teams/${teamId}/chat`, { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load team chat.');
+  }
+}
+
+// 53c. POST /teams/:teamId/chat (Send team chat)
+async function sendTeamChat(teamId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/chat`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache(`/teams/${teamId}/chat`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send team chat.');
   }
 }
 
@@ -2104,10 +2293,29 @@ export const api = new Proxy({
   createTeam,
   listTeams,
   getTeams: listTeams,
+  listMyTeams,
+  listChatGroups,
+  createChatGroup,
+  addChatGroupMember,
+  listChatGroupMembers,
+  removeChatGroupMember,
+  leaveChatGroup,
+  deleteChatGroup,
+  listGroupChat,
+  sendGroupChat,
+  listDirectChats,
+  listDirectChat,
+  sendDirectChat,
+  listStaffThreads,
+  listStaffChat,
+  sendStaffChat,
   setTeamLeader,
   addTeamMember,
   removeTeamMember,
   getTeam,
+  listTeamChat,
+  getTeamChat: listTeamChat,
+  sendTeamChat,
   editTeam,
   updateTeam: editTeam,
   deleteTeam,

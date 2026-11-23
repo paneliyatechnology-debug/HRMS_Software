@@ -595,4 +595,5 @@ export interface ChatConversation {
   lastSenderId?: string;
   unreadCount: Record<string, number>;
   updatedAt: string;
+  createdBy?: string;
 }

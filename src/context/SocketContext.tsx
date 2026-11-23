@@ -34,6 +34,9 @@ interface SocketContextType {
   emitChatDelete: (payload: any) => void;
   emitChatTyping: (payload: any) => void;
   emitChatRead: (payload: any) => void;
+  joinTeamChat: (teamId: string) => void;
+  emitTeamChat: (payload: { teamId: string; text: string }) => void;
+  emitTeamChatTyping: (teamId: string) => void;
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
 }
@@ -49,6 +52,9 @@ const SocketContext = createContext<SocketContextType>({
   emitChatDelete: () => { },
   emitChatTyping: () => { },
   emitChatRead: () => { },
+  joinTeamChat: () => { },
+  emitTeamChat: () => { },
+  emitTeamChatTyping: () => { },
   emitLeaveApplied: () => { },
   emitLeaveStatusUpdated: () => { },
 });
@@ -107,6 +113,18 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (socket && isConnected) {
       socket.emit('chat_read', payload);
     }
+  };
+
+  const joinTeamChat = (teamId: string) => {
+    if (socket && isConnected && teamId) socket.emit('team_chat_join', { teamId });
+  };
+
+  const emitTeamChat = (payload: { teamId: string; text: string }) => {
+    if (socket && isConnected && payload?.teamId) socket.emit('team_chat_send', payload);
+  };
+
+  const emitTeamChatTyping = (teamId: string) => {
+    if (socket && isConnected && teamId) socket.emit('team_chat_typing', { teamId });
   };
 
   const emitLeaveApplied = (leaveData: any) => {
@@ -168,8 +186,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
-    setIsConnected(false);
-    return;
     // Check if user is authenticated (from context state or cookie)
     const isAuth =
       isAuthenticated ||
@@ -195,7 +211,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     // Dynamically connect to WebSocket Gateway using URL from .env
-    const socketUrl = getSocketBaseUrl();
+    const socketUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : getSocketBaseUrl();
     const token =
       typeof window !== 'undefined'
         ? getCookie('hrms_auth_token') || getCookie('token') || ''
@@ -207,6 +225,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const currentRole = user?.role || role || '';
 
     const s = io(socketUrl, {
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       auth: {
         token,
@@ -433,6 +452,38 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ? 'company-admin'
       : (user?.employeeId || currentUserId || undefined);
 
+    s.on('group_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_group_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('group_chat_list', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_group_chat_list', { detail: payload }));
+    });
+
+    s.on('direct_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_direct_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('direct_chat_read', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_direct_chat_read', { detail: payload }));
+    });
+
+    s.on('staff_chat_read', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_staff_chat_read', { detail: payload }));
+    });
+
+    s.on('staff_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_staff_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('team_chat_message', (incomingMessage: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_team_chat_message', { detail: incomingMessage }));
+    });
+
+    s.on('team_chat_typing', (payload: any) => {
+      window.dispatchEvent(new CustomEvent('hrms_team_chat_typing', { detail: payload }));
+    });
+
     s.on('chat_message_received', (incomingMessage: any) => {
       receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);
       window.dispatchEvent(new CustomEvent('hrms_chat_socket_message', { detail: incomingMessage }));
@@ -509,6 +560,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitChatDelete,
         emitChatTyping,
         emitChatRead,
+        joinTeamChat,
+        emitTeamChat,
+        emitTeamChatTyping,
         emitLeaveApplied,
         emitLeaveStatusUpdated,
       }}
