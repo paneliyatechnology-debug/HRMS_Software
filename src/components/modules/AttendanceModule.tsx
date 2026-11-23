@@ -96,6 +96,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     todaySummary,
     liveWorkedHMS: sessionWorkedHMS,
     liveBreakWords: sessionBreakWords,
+    liveBreakHMS: sessionBreakHMS,
     activeSession,
     lastCompletedSession,
   } = useWorkSession();
@@ -1233,7 +1234,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         ) : null}
 
         {/* Right: Compact Daily Shift Console fitted into top-right header area */}
-        {isEmployeeView && resolvedTab === 'today' && (
+        {resolvedTab === 'today' && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
             <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
           </div>
