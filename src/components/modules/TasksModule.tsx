@@ -21,6 +21,8 @@ import {
   Sparkles,
   X,
   RefreshCw,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
@@ -185,10 +187,33 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     }
   };
 
+  // Team Leader presence check for task submission (Prevents 400 Bad Request)
+  const selectedFormTeam = teams.find((t) => String(t.id) === String(formTeamId));
+  const teamHasLeader = selectedFormTeam
+    ? Boolean(
+        selectedFormTeam.leader ||
+        selectedFormTeam.leaderId ||
+        selectedFormTeam.leaderUserId ||
+        selectedFormTeam.teamLeaderId ||
+        selectedFormTeam.leadId ||
+        (Array.isArray(selectedFormTeam.members) && selectedFormTeam.members.some((m: any) => m.isLeader || m.role === 'LEADER'))
+      )
+    : true;
+
   // Submit Create Task (calls POST /tasks)
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
+
+    if (selectedFormTeam && !teamHasLeader) {
+      showToast?.({
+        type: 'warning',
+        title: 'Team Leader Required',
+        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       await api.createTask({
@@ -224,6 +249,16 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTaskData || !formTitle.trim()) return;
+
+    if (selectedFormTeam && !teamHasLeader) {
+      showToast?.({
+        type: 'warning',
+        title: 'Team Leader Required',
+        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       await api.editTask(editTaskData.id, {
@@ -452,14 +487,45 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
           <p className="text-xs font-bold text-slate-700">Loading tasks from backend database...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-16 text-center shadow-2xs">
-          <CheckSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-bold text-slate-800">No tasks found</p>
-          <p className="text-xs text-slate-400 mt-1">
-            {searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
-              ? 'Try adjusting your search query or filters.'
-              : 'Create the first task deliverable for your team using the button above.'}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 sm:p-16 text-center shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3 border border-slate-200">
+            <CheckSquare className="w-6 h-6 text-slate-400" />
+          </div>
+          <p className="text-sm font-bold text-slate-800">
+            {tasks.length === 0 ? 'No Tasks Created Yet' : 'No tasks found'}
           </p>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            {searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
+              ? 'Try adjusting your search query or filters to find what you are looking for.'
+              : 'Create the first task deliverable for your team using the button below.'}
+          </p>
+          {searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' ? (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('ALL');
+                  setPriorityFilter('ALL');
+                }}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Clear Filters</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create New Task</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
@@ -738,6 +804,19 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   </div>
                 </div>
 
+                {/* Team Leader Validation Notice (Prevents 400 Bad Request) */}
+                {selectedFormTeam && !teamHasLeader && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="font-bold text-amber-900">આ ટીમમાં હજુ Team Leader સેટ નથી</p>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        ⚠️ કૃપા કરીને પહેલા <span className="font-semibold underline">Organization &gt; Teams</span> માં જઈને લીડર અસાઇન કરો, અન્યથા ટાસ્ક સબમિટ કરવા પર 400 Bad Request આવશે.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -779,7 +858,8 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || Boolean(selectedFormTeam && !teamHasLeader)}
+                  title={selectedFormTeam && !teamHasLeader ? 'આ ટીમમાં Team Leader સેટ નથી' : undefined}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
                   style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
                 >

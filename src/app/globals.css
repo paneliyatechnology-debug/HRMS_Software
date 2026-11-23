@@ -1062,7 +1062,6 @@ button,
 
 .animate-module-fade-in {
   animation: moduleFadeIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity, filter;
   backface-visibility: hidden;
   transform-origin: top center;
 }

@@ -417,14 +417,19 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     s.on('leave_status_updated', handleIncomingLeaveStatus);
 
-    const handleAttendanceLive = () => {
+    const handleAttendanceLive = (payload?: any) => {
       clearApiCache('attendance');
       clearApiCache('work');
-      window.dispatchEvent(new CustomEvent('hrms_attendance_live'));
+      window.dispatchEvent(new CustomEvent('hrms_attendance_live', { detail: payload || null }));
       window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));
     };
+    s.on('attendance_live', handleAttendanceLive);
     s.on('attendance_updated', handleAttendanceLive);
     s.on('attendance_punched', handleAttendanceLive);
+    s.on('attendance_tick', (payload: { serverNow?: string }) => {
+      if (!payload?.serverNow) return;
+      window.dispatchEvent(new CustomEvent('hrms_attendance_tick', { detail: payload }));
+    });
     s.on('leave_updated', handleIncomingLeaveStatus);
     s.on('leave_approved', handleIncomingLeaveStatus);
     s.on('leave_rejected', handleIncomingLeaveStatus);

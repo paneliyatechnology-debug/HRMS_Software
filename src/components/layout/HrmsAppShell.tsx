@@ -103,6 +103,7 @@ import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } fro
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
+const BankDetailForm = dynamic(() => import('../modals/BankDetailForm').then((m) => m.BankDetailForm), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
 import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
@@ -264,6 +265,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [isAuthenticated]);
 
   // Data state
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -497,38 +499,43 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
     try {
       if (targetModule === 'dashboard') {
-        const needEmployees = employeesRef.current.length === 0;
-        const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
-          api.getDashboardStats().catch(() => null),
-          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
-          api.getLeaves().catch(() => []),
-          api.getAttendance().catch(() => []),
-          portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
-        ]);
+        setDashboardLoading(true);
+        try {
+          const needEmployees = employeesRef.current.length === 0;
+          const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
+            api.getDashboardStats().catch(() => null),
+            needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
+            api.getLeaves().catch(() => []),
+            api.getAttendance().catch(() => []),
+            portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
+          ]);
 
-        const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
-        if (needEmployees) {
-          setEmployees(scopedEmps);
-          setLiveEmployees(scopedEmps);
-        }
+          const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
+          if (needEmployees) {
+            setEmployees(scopedEmps);
+            setLiveEmployees(scopedEmps);
+          }
 
-        const scopedLvs = scopeLeaves(leavesData, scopedEmps);
-        setLeaves(scopedLvs);
-        setLiveLeaves(scopedLvs);
+          const scopedLvs = scopeLeaves(leavesData, scopedEmps);
+          setLeaves(scopedLvs);
+          setLiveLeaves(scopedLvs);
 
-        const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
-        setAttendance(scopedAtt);
-        setLiveAttendanceRecords(scopedAtt);
+          const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
+          setAttendance(scopedAtt);
+          setLiveAttendanceRecords(scopedAtt);
 
-        const anyStats = statsData as any;
-        if (anyStats) {
-          setStats({
-            ...anyStats,
-            totalEmployees: scopedEmps.length,
-            activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
-            attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
-            totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
-          });
+          const anyStats = statsData as any;
+          if (anyStats) {
+            setStats({
+              ...anyStats,
+              totalEmployees: scopedEmps.length,
+              activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
+              attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
+              totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
+            });
+          }
+        } finally {
+          setDashboardLoading(false);
         }
       } else if (targetModule === 'employees') {
         const [employeesData, departmentsData] = await Promise.all([
@@ -582,9 +589,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           setLiveEmployees(scopedEmps);
         }
         const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
-        const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
+        const rawPayroll = Array.isArray(payrollData) ? payrollData : Array.isArray((payrollData as any)?.data) ? (payrollData as any).data : [];
         const scopedPayroll = rawPayroll.filter(
-          (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
+          (p: any) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
         );
         setPayroll(scopedPayroll);
       } else if (targetModule === 'recruitment') {
@@ -606,6 +613,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLiveEmployees(scopedEmps);
         setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'calendar') {
+        if (portalMode !== 'admin') {
+          const leavesData = await api.getLeaves().catch(() => []);
+          const ownLeaves = Array.isArray(leavesData) ? leavesData : [];
+          setLeaves(ownLeaves);
+          setLiveLeaves(ownLeaves);
+        } else {
         const needEmployees = employeesRef.current.length === 0;
         const [attendanceData, leavesData, employeesData] = await Promise.all([
           api.getAttendance().catch(() => []),
@@ -623,6 +636,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
+        }
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
         const role = String(user?.role || '').toUpperCase();
         const canListUsers = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
@@ -891,6 +905,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           >
             {activeModule === 'dashboard' && (
               <DashboardView
+                loading={dashboardLoading}
                 stats={stats}
                 employees={employees}
                 leaves={leaves}
@@ -1086,6 +1101,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onRefresh={loadData}
         />
       )}
+      <BankDetailForm />
 
       {leaveModalOpen && (
         <LeaveModal

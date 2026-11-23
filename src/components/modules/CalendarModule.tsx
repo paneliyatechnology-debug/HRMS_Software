@@ -45,6 +45,21 @@ import {
   getWeekendPolicyDescription,
 } from '../../lib/shiftScheduleService';
 
+function clockLabel(value?: string | null) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function calendarAttendanceStatus(status: string): AttendanceRecord['status'] {
+  if (status === 'Leave') return 'On Leave';
+  if (status === 'Weekly Off') return 'Week Off';
+  if (status === 'Holiday') return 'Holiday';
+  if (status === 'Absent' || status === 'Late' || status === 'Half Day' || status === 'Present') return status;
+  return 'Present';
+}
+
 interface CalendarModuleProps {
   attendance: AttendanceRecord[];
   leaves?: LeaveRequest[];
@@ -75,10 +90,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       (!!myEmpCode && recordCode === myEmpCode)
     );
   };
-
-  const userAttendance = isAdminCalendar
-    ? attendance.filter((record) => !isOwnPunch(record))
-    : attendance.filter((record) => isOwnPunch(record));
 
   // Live in-memory leaves store for calendar
   const [leavesList, setLeavesList] = useState<LeaveRequest[]>(() =>
@@ -199,6 +210,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(() => new Date().getDate());
   const [holidaysList, setHolidaysList] = useState<any[]>([]);
+  const [ownMonthAttendance, setOwnMonthAttendance] = useState<AttendanceRecord[]>([]);
+  const [joinedOn, setJoinedOn] = useState('');
 
   // Search & Filter in Holidays directory
   const [holidaySearchQuery, setHolidaySearchQuery] = useState('');
@@ -516,6 +529,53 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
+  useEffect(() => {
+    if (isAdminCalendar) return;
+    let active = true;
+    const loadMonth = async () => {
+      try {
+        const data = await api.getAttendanceCalendar({ year, month: month + 1 });
+        if (!active) return;
+        const days = Array.isArray(data?.days) ? data.days : [];
+        setJoinedOn(String(data?.joinedOn || '').slice(0, 10));
+        const name = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Employee';
+        setOwnMonthAttendance(days.filter((day: any) => day?.status && !day.beforeJoining && day.status !== 'Holiday' && day.status !== 'Weekly Off').map((day: any) => ({
+          id: day.attendanceId || `day-${day.date}`,
+          employeeId: user?.id || myEmpId,
+          employeeName: name,
+          employeeCode: myEmpCode,
+          departmentName: (user as any)?.departmentName || 'General',
+          date: String(day.date || '').slice(0, 10),
+          checkIn: clockLabel(day.checkInAt),
+          checkOut: clockLabel(day.checkOutAt) || undefined,
+          breakDurationMinutes: 0,
+          workingHours: Number(day.totalMinutes || 0) / 60,
+          overtimeHours: Number(day.overtimeMinutes || 0) / 60,
+          status: calendarAttendanceStatus(day.status),
+          remarks: day.holidayName || '',
+          createdAt: new Date().toISOString(),
+        })));
+        setHolidaysList((prev) => {
+          const known = new Set(prev.map((item) => String(item.date || '').slice(0, 10)));
+          const extra = days
+            .filter((day: any) => day.holidayName && !day.beforeJoining && !known.has(String(day.date).slice(0, 10)))
+            .map((day: any) => ({ id: `hol-${day.date}`, name: day.holidayName, date: String(day.date).slice(0, 10) }));
+          return extra.length ? [...prev, ...extra] : prev;
+        });
+      } catch (err) {
+        console.error('Failed to load attendance calendar:', err);
+      }
+    };
+    loadMonth();
+    window.addEventListener('hrms_attendance_updated', loadMonth);
+    window.addEventListener('hrms_attendance_live', loadMonth);
+    return () => {
+      active = false;
+      window.removeEventListener('hrms_attendance_updated', loadMonth);
+      window.removeEventListener('hrms_attendance_live', loadMonth);
+    };
+  }, [isAdminCalendar, year, month, user?.id, user?.firstName, user?.lastName, myEmpId, myEmpCode]);
+
   const handlePrevMonth = () => {
     const prevDate = new Date(year, month - 1, 1);
     setCurrentDate(prevDate);
@@ -558,6 +618,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     return map;
   }, [holidaysList]);
 
+  const userAttendance = isAdminCalendar
+    ? attendance.filter((record) => !isOwnPunch(record))
+    : ownMonthAttendance;
+
   // Generate calendar grid
   const days = useMemo(() => {
     const list = [];
@@ -586,16 +650,18 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       const isWeekend = isDateWeekend(dateStr, scheduleConfig);
 
       const dayRecords = userAttendance.filter((a) => a.date === dateStr);
-      const holObj = holidayDateMap[dateStr];
-      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
+      const beforeJoining = !isAdminCalendar && Boolean(joinedOn) && dateStr < joinedOn;
+      const holObj = beforeJoining ? undefined : holidayDateMap[dateStr];
+      const dayLeaves = beforeJoining ? [] : leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
 
       list.push({
         day: d,
         isCurrentMonth: true,
         dateStr,
-        isWeekend,
+        beforeJoining,
+        isWeekend: beforeJoining ? false : isWeekend,
         dayOfWeek,
-        attendance: isAdminCalendar ? undefined : dayRecords[0],
+        attendance: isAdminCalendar || beforeJoining ? undefined : dayRecords[0],
         staffCount: isAdminCalendar ? dayRecords.length : 0,
         holiday: holObj?.name,
         holidayObj: holObj,
@@ -622,13 +688,13 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     }
 
     return list;
-  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig, leavesList]);
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig, leavesList, isAdminCalendar, joinedOn]);
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
     const currentMonthDays = days.filter((d) => d.isCurrentMonth);
     const totalDays = currentMonthDays.length;
-    const workingDays = currentMonthDays.filter((d) => !d.isWeekend && !d.holiday).length;
+    const workingDays = currentMonthDays.filter((d) => !d.beforeJoining && !d.isWeekend && !d.holiday).length;
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
     const monthStaff = userAttendance.filter((record) => String(record.date || '').startsWith(monthKey));
     const presentCount = isAdminCalendar
@@ -940,10 +1006,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 item.day === todayDateNum &&
                 month === todayMonth &&
                 year === todayYear;
-              const isSelected = item.isCurrentMonth && item.day === selectedDay;
+              const isSelected = item.isCurrentMonth && !item.beforeJoining && item.day === selectedDay;
 
               let cellStyle = 'bg-white border-[#dee2e6] hover:border-[#52b788] hover:bg-[#d8f3dc]/20';
-              if (!item.isCurrentMonth) {
+              if (item.beforeJoining) {
+                cellStyle = 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed';
+              } else if (!item.isCurrentMonth) {
                 cellStyle = 'bg-[#f8f9fa]/70 text-[#adb5bd] border-[#e9ecef] pointer-events-none opacity-65';
               } else if (isToday && isSelected) {
                 cellStyle = 'border-[#1b4332] ring-2 ring-[#2d6a4f]/30 bg-[#d8f3dc]/55 shadow-xs';
@@ -961,11 +1029,15 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <div
                   key={idx}
                   onClick={() => {
-                    if (item.isCurrentMonth) setSelectedDay(item.day);
+                    if (item.beforeJoining || !item.isCurrentMonth) return;
+                    setSelectedDay(item.day);
                   }}
-                  onMouseEnter={(e) => handleCellMouseEnter(e, item)}
+                  onMouseEnter={(e) => {
+                    if (item.beforeJoining) return;
+                    handleCellMouseEnter(e, item);
+                  }}
                   onMouseLeave={handleCellMouseLeave}
-                  className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between cursor-pointer group ${cellStyle}`}
+                  className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between group ${item.beforeJoining ? 'cursor-not-allowed' : 'cursor-pointer'} ${cellStyle}`}
                 >
                   {/* Day Number Header */}
                   <div className="flex items-center justify-between gap-1">
@@ -1000,8 +1072,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
                   {/* Day Badges and Event Tags: ONLY official holidays and weekends */}
                   <div className="space-y-1 mt-1 text-[10px]">
-                    {/* Official Holiday Tag (Added by Admin) */}
-                    {item.holiday && (
+                    {item.beforeJoining && (
+                      <div className="truncate px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 font-semibold border border-slate-300" title="This day is before the employee joined">
+                        Not joined
+                      </div>
+                    )}
+                    {item.holiday && !item.beforeJoining && (
                       <div
                         className="truncate px-2 py-0.5 rounded-md bg-[#1b4332] text-white font-semibold border border-[#081c15] shadow-2xs flex items-center gap-1"
                         title={`Holiday: ${item.holiday}`}
@@ -1012,7 +1088,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     )}
 
                     {/* Weekend Tag */}
-                    {item.isWeekend && !item.holiday && item.isCurrentMonth && (
+                    {item.isWeekend && !item.holiday && !item.beforeJoining && item.isCurrentMonth && (
                       <div
                         className="truncate px-2 py-0.5 rounded-md bg-white text-[#495057] font-semibold border border-[#ced4da] flex items-center gap-1.5"
                         title="Weekend"
@@ -1030,7 +1106,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     )}
 
                     {/* Attendance Record Status (Regular Working Days Only) */}
-                    {!isAdminCalendar && item.attendance && !item.holiday && !item.isWeekend && (
+                    {!isAdminCalendar && item.attendance && !item.beforeJoining && !item.holiday && !item.isWeekend && (
                       <div
                         className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 ${item.attendance.status === 'Present'
                           ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
@@ -1053,7 +1129,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     )}
 
                     {/* Employees on Leave Badge */}
-                    {item.isCurrentMonth && item.leaves && item.leaves.length > 0 && (
+                    {item.isCurrentMonth && !item.beforeJoining && item.leaves && item.leaves.length > 0 && (
                       <div
                         className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-amber-50 text-amber-900 border-amber-200 shadow-2xs"
                         title={`${item.leaves.length} employee(s) on leave`}

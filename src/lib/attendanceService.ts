@@ -1257,6 +1257,49 @@ export function extractRecordsFromWorkStatus(response: any, empList: Employee[] 
     }
   }
 
+  // 3. Check logic, attendance & punches from /attendance/logic response
+  if ((response.attendance || response.logic || response.punches) && !results.some((x) => x.date === (response.attendance?.date || getTodayDateString()))) {
+    const att = response.attendance;
+    const logic = response.logic;
+    const punchesList: any[] = Array.isArray(response.punches) ? response.punches : [];
+    const inP = punchesList.find((p: any) => p.type === 'IN' || p.type === 'CLOCK_IN' || p.type === 'clock-in');
+    const outP = punchesList.slice().reverse().find((p: any) => p.type === 'OUT' || p.type === 'CLOCK_OUT' || p.type === 'clock-out');
+    const rawIn = inP?.punchedAt || inP?.time || inP?.timestamp || att?.checkInAt || att?.checkIn;
+    const rawOut = outP?.punchedAt || outP?.time || outP?.timestamp || att?.checkOutAt || att?.checkOut;
+    const totalMins = Number(logic?.totalMinutes || att?.totalWorkMinutes || 0);
+    const breakMins = Number(logic?.breakMinutes || att?.totalBreakMinutes || 0);
+    const activeSec = totalMins * 60;
+    const brkSec = breakMins * 60;
+    const onBrk = Boolean(logic?.onBreak || logic?.next === 'break-end');
+    const isAct = Boolean(onBrk || logic?.next === 'check-out' || logic?.next === 'clock-out');
+    const isDone = Boolean(!isAct && (outP || logic?.next === 'check-in' || logic?.next === 'clock-in' || att?.checkOutAt));
+
+    const rec: AttendanceRecord = {
+      id: String(att?.id || 'logic-today'),
+      employeeId: String(att?.employeeId || att?.userId || empList[0]?.id || 'emp-self'),
+      employeeName: empList[0] ? `${empList[0].firstName} ${empList[0].lastName}`.trim() : 'Employee',
+      employeeCode: empList[0]?.employeeCode,
+      departmentName: (empList[0] as any)?.department || (empList[0] as any)?.departmentName || empList[0]?.departmentId,
+      date: att?.date || getTodayDateString(),
+      checkIn: rawIn ? (new Date(rawIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })) : '—',
+      checkOut: isAct ? undefined : (rawOut ? new Date(rawOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined),
+      breakDurationMinutes: breakMins,
+      workingHours: Number((totalMins / 60).toFixed(2)),
+      overtimeHours: 0,
+      status: isDone ? 'Completed' : onBrk ? 'On Break' : isAct ? 'Working' : 'Present',
+      createdAt: rawIn || new Date().toISOString(),
+      activeSeconds: activeSec,
+      breakSeconds: brkSec,
+      totalBreakSeconds: brkSec,
+      formattedTotalBreak: logic?.breakHours && logic.breakHours !== '00:00:00' ? logic.breakHours : formatSecondsToWords(brkSec),
+      durationFormatted: logic?.totalHours && logic.totalHours !== '00:00:00' ? logic.totalHours : formatSecondsToHMS(activeSec),
+      isOnBreak: onBrk,
+      isCompleted: isDone,
+      punches: punchesList,
+    } as any;
+    results.unshift(rec);
+  }
+
   return results;
 }
 

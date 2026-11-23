@@ -88,6 +88,7 @@ function formatDisplayName(first?: string, last?: string): string {
 }
 
 interface DashboardViewProps {
+  loading?: boolean;
   stats: any;
   employees: Employee[];
   leaves: LeaveRequest[];
@@ -104,6 +105,7 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
+  loading = false,
   stats,
   employees,
   leaves,
@@ -663,63 +665,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* ============================================================== */
         <div className="space-y-5">
           {/* KPI Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div
-              onClick={() => onNavigateModule('employees')}
-              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-              <div className="stat-icon">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Total Employees</small>
-                <strong>{employees.length}</strong>
-                <small>Active workforce</small>
-              </div>
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 animate-pulse">
+              {[0, 1, 2, 3].map((idx) => (
+                <div key={idx} className="stat h-24 bg-white/70 border border-slate-200/70 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200/80 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-3 w-20 bg-slate-200/70 rounded" />
+                    <div className="h-6 w-14 bg-slate-200/80 rounded" />
+                    <div className="h-2.5 w-24 bg-slate-100 rounded" />
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div
+                onClick={() => onNavigateModule('employees')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Total Employees</small>
+                  <strong>{employees.length}</strong>
+                  <small>Active workforce</small>
+                </div>
+              </div>
 
-            <div
-              onClick={() => onNavigateModule('attendance')}
-              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-              <div className="stat-icon">
-                <Clock className="w-5 h-5" />
+              <div
+                onClick={() => onNavigateModule('attendance')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Present Today</small>
+                  <strong>{todayRecords.length}</strong>
+                  <small>{activeWorkingCount} working, {onBreakCount} break</small>
+                </div>
               </div>
-              <div>
-                <small>Present Today</small>
-                <strong>{todayRecords.length}</strong>
-                <small>{activeWorkingCount} working, {onBreakCount} break</small>
-              </div>
-            </div>
 
-            <div
-              onClick={() => onNavigateModule('leaves')}
-              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-              <div className="stat-icon">
-                <Shield className="w-5 h-5" />
+              <div
+                onClick={() => onNavigateModule('leaves')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Pending Leaves</small>
+                  <strong>{pendingLeaves.length}</strong>
+                  <small>Need review</small>
+                </div>
               </div>
-              <div>
-                <small>Pending Leaves</small>
-                <strong>{pendingLeaves.length}</strong>
-                <small>Need review</small>
-              </div>
-            </div>
 
-            <div
-              onClick={() => onNavigateModule('chat')}
-              className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-              <div className="stat-icon">
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Team Hub</small>
-                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                <small>Real-time collaboration</small>
+              <div
+                onClick={() => onNavigateModule('chat')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Team Hub</small>
+                  <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
+                  <small>Real-time collaboration</small>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Main Dashboard Grid */}
           <div className="dashboard-grid">
@@ -1059,6 +1076,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const empTakenDays = empLeaveSummary.total.taken;
             const empTotalQuota = empLeaveSummary.total.quota;
             const empLeftDays = empLeaveSummary.total.available;
+
+            if (loading) {
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 animate-pulse">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div key={idx} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 h-full flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-200/70 shrink-0" />
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="h-2.5 w-16 bg-slate-200/70 rounded" />
+                        <div className="h-4 w-24 bg-slate-200/80 rounded" />
+                        <div className="h-2.5 w-20 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
 
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
