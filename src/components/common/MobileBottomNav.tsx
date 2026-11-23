@@ -9,9 +9,10 @@ import {
   Play,
   Square,
   Coffee,
-  Calendar,
   Users,
+  Receipt,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface MobileBottomNavProps {
   activeModule: string;
@@ -34,6 +35,42 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   unreadChatCount = 0,
   punchStatus = 'not_started',
 }) => {
+  const { user } = useAuth();
+  const resigned = Boolean(user?.resigned);
+  if (resigned) {
+    return (
+      <nav
+        id="mobile-bottom-nav"
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t-2 border-[#343a40] px-2 py-1 flex items-center justify-around lg:hidden shadow-[0_-4px_24px_rgba(6,45,31,0.08)] pb-[calc(0.4rem+env(safe-area-inset-bottom))] select-none"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveModule('attendance')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] cursor-pointer ${activeModule === 'attendance' ? 'text-[#6c757d] font-bold' : 'text-[#343a40]'}`}
+        >
+          <Clock className="w-5 h-5 stroke-[2.2]" />
+          <span className="text-[10px] mt-0.5 leading-none">Attendance</span>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenClockModal}
+          className="w-13 h-13 -mt-5 rounded-full bg-gradient-to-tr from-[#343a40] via-[#6c757d] to-[#adb5bd] text-white flex items-center justify-center shadow-lg border-4 border-white cursor-pointer"
+          title="Attendance Punch Clock"
+        >
+          {punchStatus === 'working' ? <Square className="w-5 h-5 fill-current" /> : punchStatus === 'on_break' ? <Coffee className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveModule('payslips')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] cursor-pointer ${activeModule === 'payslips' ? 'text-[#6c757d] font-bold' : 'text-[#343a40]'}`}
+        >
+          <Receipt className="w-5 h-5 stroke-[2.2]" />
+          <span className="text-[10px] mt-0.5 leading-none">Payroll</span>
+        </button>
+      </nav>
+    );
+  }
   return (
     <nav
       id="mobile-bottom-nav"

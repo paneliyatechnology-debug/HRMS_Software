@@ -293,6 +293,18 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Strict role guard: prevent employees from accessing admin-only views or portal
   useEffect(() => {
+    const resigned = Boolean(user?.resigned);
+    if (resigned) {
+      if (portalMode !== 'employee') {
+        setPortalMode('employee');
+        return;
+      }
+      if (activeModule !== 'attendance' && activeModule !== 'payslips') {
+        navigateToModule('attendance');
+      }
+      return;
+    }
+
     const isAdmin = isUserAdminRole(user?.role);
     if (!isAdmin && portalMode === 'admin') {
       setPortalMode('employee');
@@ -318,7 +330,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         navigateToModule('dashboard');
       }
     }
-  }, [portalMode, activeModule, user?.role, setPortalMode]);
+  }, [portalMode, activeModule, user?.role, user?.resigned, setPortalMode]);
 
   useEffect(() => {
     return subscribeChatUnread((counts) => {

@@ -64,7 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   company,
   onOpenProfile,
 }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
@@ -360,6 +361,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </p>
             )}
 
+            {resigned ? (
+              <>
+                {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
+                {navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)}
+              </>
+            ) : (
+            <>
             {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
             {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
             {navItem(
@@ -389,10 +397,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : undefined
             )}
             {navItem('calendar', 'Calendar & Holidays', <Calendar className="w-4 h-4" />)}
+            </>
+            )}
           </div>
 
           {/* HR Management (Only in Admin view) */}
-          {portalMode === 'admin' && (
+          {!resigned && portalMode === 'admin' && (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
                 <div className="my-2 border-t border-[#343a40]/20 mx-1" />
@@ -469,7 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {/* Company section */}
-          {portalMode === 'admin' ? (
+          {!resigned && (portalMode === 'admin' ? (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
                 <div className="my-2 border-t border-[#343a40]/20 mx-1" />
@@ -498,7 +508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {renderProfileNavItem()}
               {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
-          )}
+          ))}
         </div>
 
         {/* Compact Company Brand Footer */}

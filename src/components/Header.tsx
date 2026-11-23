@@ -94,7 +94,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { notices, dismissNotice, clearNotices } = useSocket();
+  const resigned = Boolean(user?.resigned);
+  const { notices, dismissNotice, clearNotices, showToast } = useSocket();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -206,10 +207,15 @@ export const Header: React.FC<HeaderProps> = ({
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
   // Dynamic Clock In / Clock Out Status & Actions from unified Work Session Context
-  const { status: punchStatus, checkIn, checkOut, actionLoading } = useWorkSession();
+  const { status: punchStatus, checkIn, checkOut, actionLoading, punchBlockMessage } = useWorkSession();
+  const clockClosed = Boolean(punchBlockMessage) && punchStatus !== 'working' && punchStatus !== 'on_break';
 
   const handleHeaderPunchClick = () => {
     if (actionLoading || punchStatus === 'on_break') return;
+    if (clockClosed) {
+      showToast({ title: 'Clock closed', message: punchBlockMessage || 'Clock in is not allowed today.', type: 'warning' });
+      return;
+    }
     if (punchStatus === 'working') {
       checkOut();
     } else {
@@ -492,15 +498,17 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <button
-                id="btn-header-apply-leave"
-                onClick={onOpenLeaveModal}
-                className={getBtnCls(isApplyLeaveActive)}
-                title="Apply Leave"
-              >
-                <Calendar className={`w-3.5 h-3.5 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Apply Leave</span>
-              </button>
+              {!resigned && (
+                <button
+                  id="btn-header-apply-leave"
+                  onClick={onOpenLeaveModal}
+                  className={getBtnCls(isApplyLeaveActive)}
+                  title="Apply Leave"
+                >
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Apply Leave</span>
+                </button>
+              )}
 
               <button
                 id="btn-header-payslips"
@@ -512,65 +520,86 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden md:inline">My Payslips</span>
               </button>
 
-              <button
-                id="btn-header-chat"
-                onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
-                className={getBtnCls(isChatActive)}
-                title="Team Chat"
-              >
-                <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Team Chat</span>
-              </button>
+              {!resigned && (
+                <button
+                  id="btn-header-chat"
+                  onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
+                  className={getBtnCls(isChatActive)}
+                  title="Team Chat"
+                >
+                  <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Team Chat</span>
+                </button>
+              )}
             </div>
           );
         })()}
 
         {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
         {portalMode !== 'admin' && (
-          <button
-            id="btn-header-punch-toggle"
-            type="button"
-            onClick={handleHeaderPunchClick}
-            disabled={actionLoading || punchStatus === 'on_break'}
-            className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors shrink-0 border ${punchStatus === 'on_break'
-              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed select-none opacity-80'
-              : punchStatus === 'working'
-                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 cursor-pointer disabled:opacity-50'
-                : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white border-[#2d6a4f] cursor-pointer disabled:opacity-50'
-              }`}
-            title={
-              punchStatus === 'on_break'
-                ? 'Clock Out is blocked while on break. Please resume work first.'
-                : punchStatus === 'working'
-                  ? 'Currently clocked in. Click to Clock Out immediately'
-                  : punchStatus === 'completed'
-                    ? 'Previous session clocked out. Click to Clock In again'
-                    : 'Click to Clock In and start your work timer'
-            }
-          >
-            {punchStatus === 'on_break' ? (
-              <>
-                <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="hidden min-[480px]:inline">On Break</span>
-              </>
-            ) : punchStatus === 'working' ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                <span className="hidden min-[480px]:inline">
-                  {actionLoading ? 'Clocking Out...' : 'Clock Out'}
-                </span>
-              </>
-            ) : (
-              <>
-                <Clock className="w-3.5 h-3.5 text-white shrink-0" />
-                <span className="hidden min-[480px]:inline">
-                  {actionLoading ? 'Clocking In...' : 'Clock In'}
-                </span>
-              </>
+          <div className="flex items-center gap-2 min-w-0">
+            {clockClosed && (
+              <span
+                className="hidden sm:inline max-w-[240px] truncate text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1"
+                title={punchBlockMessage || ''}
+              >
+                {punchBlockMessage}
+              </span>
             )}
-          </button>
+            <button
+              id="btn-header-punch-toggle"
+              type="button"
+              onClick={handleHeaderPunchClick}
+              disabled={actionLoading || punchStatus === 'on_break' || clockClosed}
+              className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors shrink-0 border ${punchStatus === 'on_break' || clockClosed
+                ? 'bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed select-none'
+                : punchStatus === 'working'
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 cursor-pointer disabled:opacity-50'
+                  : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white border-[#2d6a4f] cursor-pointer disabled:opacity-50'
+                }`}
+              title={
+                clockClosed
+                  ? punchBlockMessage || 'Clock in is not allowed today.'
+                  : punchStatus === 'on_break'
+                    ? 'Clock Out is blocked while on break. Please resume work first.'
+                    : punchStatus === 'working'
+                      ? 'Currently clocked in. Click to Clock Out immediately'
+                      : punchStatus === 'completed'
+                        ? 'Previous session clocked out. Click to Clock In again'
+                        : 'Click to Clock In and start your work timer'
+              }
+            >
+              {clockClosed ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span className="sm:hidden max-w-[120px] truncate">{punchBlockMessage}</span>
+                  <span className="hidden sm:inline">Clock closed</span>
+                </>
+              ) : punchStatus === 'on_break' ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="hidden min-[480px]:inline">On Break</span>
+                </>
+              ) : punchStatus === 'working' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                  <span className="hidden min-[480px]:inline">
+                    {actionLoading ? 'Clocking Out...' : 'Clock Out'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-white shrink-0" />
+                  <span className="hidden min-[480px]:inline">
+                    {actionLoading ? 'Clocking In...' : 'Clock In'}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         )}
 
+        {!resigned && (
         <div ref={noticeRef} className="relative shrink-0">
           <button
             type="button"
@@ -619,6 +648,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
+        )}
 
         {/* User Profile Dropdown */}
         <div ref={profileMenuRef} className="relative shrink-0">

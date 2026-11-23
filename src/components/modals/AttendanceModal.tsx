@@ -19,6 +19,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { useWorkSession } from '../../context/WorkSessionContext';
 import { api } from '../../lib/api';
 import {
   checkEmployeePunchEligibility,
@@ -49,6 +50,7 @@ interface AttendanceModalProps {
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user, role, portalMode } = useAuth();
+  const { punchBlockMessage } = useWorkSession();
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
@@ -256,6 +258,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Direct Check In (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckIn = async () => {
+    if (punchBlockMessage) {
+      alert(punchBlockMessage);
+      return;
+    }
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
@@ -512,6 +518,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       };
 
       if (selfieMode === 'check_in') {
+        if (punchBlockMessage) {
+          alert(punchBlockMessage);
+          setLoading(false);
+          return;
+        }
         const fullRemarks = remarks || 'Morning shift clock-in';
 
         const res = await api.checkIn(
@@ -960,6 +971,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
             {/* Action Buttons */}
             <div className="space-y-2">
+              {punchBlockMessage && punchState.status !== 'working' && punchState.status !== 'on_break' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-900">
+                  {punchBlockMessage}
+                </div>
+              )}
               {punchState.status === 'not_started' && (
                 <div className="space-y-2.5 mb-3">
                   <div>
@@ -977,7 +993,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading}
+                    disabled={loading || Boolean(punchBlockMessage)}
                     className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     <Play className="w-4 h-4 fill-current" />
@@ -1063,7 +1079,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading}
+                    disabled={loading || Boolean(punchBlockMessage)}
                     className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all cursor-pointer shadow-xs disabled:opacity-40"
                   >
                     <Play className="w-4 h-4 fill-current" />

@@ -42,6 +42,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [noticeDrafts, setNoticeDrafts] = useState<Record<string, string>>({});
 
   // Admin filter & search
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'completed'>('all');
@@ -79,13 +81,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
     setLoading(true);
     try {
       const [resData, empData] = await Promise.all([api.getResignations(), api.getEmployees()]);
-      setResignations(resData || []);
+      setResignations(Array.isArray(resData) ? resData.filter((row) => row && row.id) : []);
       setEmployees(empData || []);
       if (empData && empData.length > 0 && !resigningEmpId) {
         setResigningEmpId(user.employeeId || empData[0].id);
       }
-    } catch (err) {
-      console.error('Failed to load resignations:', err);
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Resignations',
+        message: err?.message || 'Could not load resignations.',
+      });
     } finally {
       setLoading(false);
     }
@@ -96,22 +102,24 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
   }, []);
 
   // Determine current logged in employee record
-  const currentEmpId = user.employeeId || user.id || '';
+  const currentEmpId = user?.employeeId || user?.id || '';
   const currentEmp = employees.find(
     (e) =>
-      e.id === currentEmpId ||
+      e &&
+      (e.id === currentEmpId ||
       e.employeeCode === currentEmpId ||
-      (user.email && e.email?.toLowerCase() === user.email.toLowerCase())
+      (user?.email && e.email?.toLowerCase() === user.email.toLowerCase()))
   );
   const effectiveEmpId = currentEmp?.id || currentEmpId;
 
   // Filter resignation for employee view
   const myResignation = resignations.find(
     (r) =>
-      r.employeeId === effectiveEmpId ||
+      r &&
+      (r.employeeId === effectiveEmpId ||
       r.employeeId === currentEmpId ||
-      r.employeeCode === (currentEmp?.employeeCode || (user as any).employeeCode) ||
-      (r.employeeName && user.firstName && r.employeeName.toLowerCase().includes(user.firstName.toLowerCase()))
+      r.employeeCode === (currentEmp?.employeeCode || (user as any)?.employeeCode) ||
+      (r.employeeName && user?.firstName && r.employeeName.toLowerCase().includes(user.firstName.toLowerCase())))
   );
 
   // Calculate projected last working day
@@ -179,6 +187,28 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
     }
   };
 
+  const handleAssignNotice = async (res: Resignation) => {
+    const days = Number(noticeDrafts[res.id] ?? res.noticePeriodDays);
+    if (!days || days < 1) {
+      showToast({ type: 'warning', title: 'Notice period', message: 'Enter the notice period in days.' });
+      return;
+    }
+    setAssigningId(res.id);
+    try {
+      const updated = await api.assignResignationNotice(res.id, days);
+      setResignations((prev) => prev.map((row) => (row.id === res.id ? { ...row, ...updated } : row)));
+      showToast({
+        type: 'success',
+        title: 'Notice period assigned',
+        message: `${updated.employeeName} can use every feature until ${updated.lastWorkingDay}.`,
+      });
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Assign failed', message: err.message || 'Could not assign notice period.' });
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
   // Individual clearance item toggle by Admin
   const handleToggleClearance = async (res: Resignation, key: keyof Resignation['clearance']) => {
     const updatedClearance = {
@@ -206,6 +236,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
 
   // Filtered resignations for Admin view
   const filteredResignations = resignations.filter((res) => {
+    if (!res?.id) return false;
     if (filterTab === 'pending' && res.status === 'Completed') return false;
     if (filterTab === 'completed' && res.status !== 'Completed') return false;
     if (searchQuery.trim()) {
@@ -219,8 +250,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
     return true;
   });
 
-  const pendingCount = resignations.filter((r) => r.status !== 'Completed').length;
-  const completedCount = resignations.filter((r) => r.status === 'Completed').length;
+  const pendingCount = resignations.filter((r) => r?.id && r.status !== 'Completed').length;
+  const completedCount = resignations.filter((r) => r?.status === 'Completed').length;
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
@@ -281,6 +312,11 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                   <span className="text-lg font-semibold tracking-tight text-slate-800">{myResignation.lastWorkingDay}</span>
                   <span className="text-xs text-emerald-600 font-bold block mt-0.5">
                     Notice: {myResignation.noticePeriodDays} Days
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-1 max-w-[240px]">
+                    {myResignation.noticeAssigned
+                      ? `All features stay open until ${myResignation.lastWorkingDay}. After that, only Attendance and Payroll remain.`
+                      : 'Admin or HR will assign your notice period.'}
                   </span>
                 </div>
               </div>
@@ -617,6 +653,33 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                       <p className="italic">&ldquo;{res.reason}&rdquo;</p>
                     </div>
 
+                    <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/50 flex flex-wrap items-end gap-3">
+                      <label className="text-xs font-bold text-slate-700">
+                        Notice period (days)
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={noticeDrafts[res.id] ?? String(res.noticePeriodDays || 30)}
+                          onChange={(event) => setNoticeDrafts((prev) => ({ ...prev, [res.id]: event.target.value }))}
+                          className="mt-1 block w-28 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={assigningId === res.id}
+                        onClick={() => handleAssignNotice(res)}
+                        className="px-4 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs cursor-pointer disabled:opacity-50"
+                      >
+                        {assigningId === res.id ? 'Saving...' : res.noticeAssigned ? 'Update notice period' : 'Assign notice period'}
+                      </button>
+                      <p className="text-[11px] text-slate-600 basis-full">
+                        {res.noticeAssigned
+                          ? `Assigned. Full access until ${res.lastWorkingDay}. After that day, only Attendance and Payroll stay open.`
+                          : 'Set how many days this employee must serve. They keep every feature until the last working day.'}
+                      </p>
+                    </div>
+
                     {/* Interactive Clearance Checklist for Admin */}
                     <div>
                       <div className="flex items-center justify-between mb-2.5">
@@ -672,7 +735,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
                             <CheckCircle className="w-4 h-4 text-emerald-600" /> Exit Clearances 100% Completed
                           </h5>
                           <p className="text-[11px] text-emerald-700 mt-0.5">
-                            Employee marked as Resigned in roster. Ready to generate Relieving and Service Certificate.
+                            Full access stays open until the last working day. After that, only Attendance and Payroll remain.
                           </p>
                         </div>
                         <button
