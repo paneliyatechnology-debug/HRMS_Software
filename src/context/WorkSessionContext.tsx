@@ -134,12 +134,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setLiveBreakWords(formatSecondsToWords(brk));
     setLiveBreakHMS(formatSecondsToHMS(brk));
 
-<<<<<<< HEAD
     const firstIn = punches.find((punch: { type?: string }) => punch.type === 'IN' || punch.type === 'CLOCK_IN' || punch.type === 'clock-in')?.punchedAt || attendance?.checkInAt || null;
-=======
-    const firstIn = punches.find((punch: { type?: string }) => punch.type === 'IN')?.punchedAt || attendance?.checkInAt || null;
-    const lastOut = punches.slice().reverse().find((punch: { type?: string }) => punch.type === 'OUT')?.punchedAt || attendance?.checkOutAt || null;
->>>>>>> 29c498226a3cf1db1bd711c8d8b533aff5c30cf6
+    const lastOut = punches.slice().reverse().find((punch: { type?: string }) => punch.type === 'OUT' || punch.type === 'CLOCK_OUT' || punch.type === 'clock-out')?.punchedAt || attendance?.checkOutAt || null;
     setActiveSession(resolved === 'working' || resolved === 'on_break' ? { status: onBreak ? 'ON_BREAK' : 'WORKING', startTime: firstIn, isOnBreak: onBreak } : null);
     setCurrentBreak(onBreak ? { startTime: breakStart } : null);
     setLastCompletedSession(resolved === 'completed' ? { startTime: firstIn, endTime: lastOut, durationSeconds: closedWork, totalBreakSeconds: closedBreak } : null);
@@ -443,7 +439,6 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         note: options?.note ?? '',
       });
 
-<<<<<<< HEAD
       const isClockOutAction = res?.action === 'clock-out';
       if (isClockOutAction) {
         setStatus('completed');
@@ -456,22 +451,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         baseBreakRef.current = 0;
         anchorTimeRef.current = Date.now();
         setElapsedSeconds(0);
+        setBreakSeconds(0);
         setLiveWorkedHMS('00:00:00');
         setLiveBreakWords('0s');
+        setLiveBreakHMS('00:00:00');
       }
-=======
-      // Fast optimistic UI update
-      setStatus('working');
-      statusRef.current = 'working';
-      baseWorkedRef.current = 0;
-      baseBreakRef.current = 0;
-      anchorTimeRef.current = Date.now();
-      setElapsedSeconds(0);
-      setBreakSeconds(0);
-      setLiveWorkedHMS('00:00:00');
-      setLiveBreakWords('0s');
-      setLiveBreakHMS('00:00:00');
->>>>>>> 29c498226a3cf1db1bd711c8d8b533aff5c30cf6
 
       // Sync backend state
       await refresh();

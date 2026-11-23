@@ -101,7 +101,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       .then((rows) => {
         if (!live) return;
         setNotices((prev) => {
-          const ids = new Set(rows.map((row) => row.id));
+          const ids = new Set((rows || []).map((row: any) => row.id));
           return [...prev.filter((item) => !ids.has(item.id)), ...rows].slice(0, 40);
         });
       })
