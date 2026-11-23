@@ -88,6 +88,7 @@ const EmployeePayslipsModule = dynamic(() => import('../modules/EmployeePayslips
 const RecruitmentModule = dynamic(() => import('../modules/RecruitmentModule').then((m) => m.RecruitmentModule), { loading: () => <ModuleLoadingSkeleton /> });
 const PerformanceModule = dynamic(() => import('../modules/PerformanceModule').then((m) => m.PerformanceModule), { loading: () => <ModuleLoadingSkeleton /> });
 const OrganizationModule = dynamic(() => import('../modules/OrganizationModule').then((m) => m.OrganizationModule), { loading: () => <ModuleLoadingSkeleton /> });
+const TasksModule = dynamic(() => import('../modules/TasksModule').then((m) => m.TasksModule), { loading: () => <ModuleLoadingSkeleton /> });
 const TrainingModule = dynamic(() => import('../modules/TrainingModule').then((m) => m.TrainingModule), { loading: () => <ModuleLoadingSkeleton /> });
 const DocumentsModule = dynamic(() => import('../modules/DocumentsModule').then((m) => m.DocumentsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AssetsModule = dynamic(() => import('../modules/AssetsModule').then((m) => m.AssetsModule), { loading: () => <ModuleLoadingSkeleton /> });
@@ -954,11 +955,20 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 departments={departments}
                 designations={designations}
                 locations={locations}
-                initialTab={(subTab as any) === 'designations' ? 'designations' : 'departments'}
+                initialTab={(subTab as any) === 'designations' ? 'designations' : (subTab as any) === 'teams' ? 'teams' : 'departments'}
                 onRefresh={loadData}
                 portalMode={portalMode}
                 employees={employees}
                 company={currentCompany}
+              />
+            )}
+
+            {activeModule === 'tasks' && (
+              <TasksModule
+                employees={employees}
+                departments={departments}
+                portalMode={portalMode}
+                onRefresh={loadData}
               />
             )}
 

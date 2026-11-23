@@ -20,6 +20,7 @@ export const VALID_MODULE_MAP: Record<string, { module: string; subTab?: string 
   'payroll': { module: 'payroll' },
   'payslips': { module: 'payslips' },
   'tasks': { module: 'tasks' },
+  'teams': { module: 'organization', subTab: 'teams' },
   'organization': { module: 'organization', subTab: 'about' },
   'departments': { module: 'organization', subTab: 'departments' },
   'designations': { module: 'organization', subTab: 'designations' },
@@ -45,6 +46,7 @@ export function getRouteForModule(moduleId: string, subTab?: string): string {
   if (moduleId === 'dashboard') return '/dashboard';
   if (moduleId === 'organization') {
     if (subTab === 'departments') return '/departments';
+    if (subTab === 'teams') return '/teams';
     if (subTab === 'designations') return '/designations';
     return '/organization';
   }
@@ -72,6 +74,7 @@ export function parseRoutePath(pathname: string): RouteResolution {
   // Nested organization routes: /organization/departments, /organization/designations, etc.
   if (first === 'organization') {
     if (second === 'departments') return { module: 'organization', subTab: 'departments', isValid: true };
+    if (second === 'teams') return { module: 'organization', subTab: 'teams', isValid: true };
     if (second === 'designations') return { module: 'organization', subTab: 'designations', isValid: true };
     if (second === 'about') return { module: 'organization', subTab: 'about', isValid: true };
     return { module: 'organization', subTab: 'about', isValid: true };

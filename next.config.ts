@@ -17,13 +17,13 @@ function getLocalIps(): string[] {
         }
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   return Array.from(new Set(ips));
 }
 
 const localIps = getLocalIps();
 
-const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.107:4000').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.108:4000').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
 const backendApiUrl = backendBase.endsWith('/api') ? backendBase : `${backendBase}/api`;
 
 const nextConfig: NextConfig = {

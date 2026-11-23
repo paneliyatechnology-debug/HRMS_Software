@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Eye,
 } from 'lucide-react';
 import { Department, Designation, Location, Role, Employee, DesignationMember } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -48,7 +49,7 @@ interface OrganizationModuleProps {
   departments: Department[];
   designations: Designation[];
   locations: Location[];
-  initialTab?: 'departments' | 'designations' | 'about' | 'hierarchy';
+  initialTab?: 'departments' | 'designations' | 'teams' | 'about' | 'hierarchy';
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
   employees?: any[];
@@ -77,8 +78,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const { user } = useAuth();
   const { showToast } = useSocket();
   const isAdmin = isUserAdminRole(user?.role);
-  const [activeTab, setActiveTab] = useState<'departments' | 'designations' | 'about' | 'hierarchy'>(() => {
-    return initialTab === 'designations' ? 'designations' : 'departments';
+  const [activeTab, setActiveTab] = useState<'departments' | 'designations' | 'teams' | 'about' | 'hierarchy'>(() => {
+    if (initialTab === 'designations') return 'designations';
+    if (initialTab === 'teams') return 'teams';
+    return 'departments';
   });
 
   // Dynamic Company State
@@ -202,6 +205,43 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [removingMember, setRemovingMember] = useState<{ member: any; currentDesId: string } | null>(null);
   const [removeMemberSubmitting, setRemoveMemberSubmitting] = useState(false);
 
+  // Department Edit & Delete states
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [editDeptName, setEditDeptName] = useState('');
+  const [savingDeptEdit, setSavingDeptEdit] = useState(false);
+  const [deletingDept, setDeletingDept] = useState<Department | null>(null);
+  const [deletingDeptSubmitting, setDeletingDeptSubmitting] = useState(false);
+
+  // Teams state
+  const [teams, setTeams] = useState<any[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
+
+  // Team Modals state
+  const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
+  const [teamName, setTeamName] = useState('');
+  const [teamDeptId, setTeamDeptId] = useState('');
+  const [submittingTeam, setSubmittingTeam] = useState(false);
+
+  const [editingTeam, setEditingTeam] = useState<any | null>(null);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamDeptId, setEditTeamDeptId] = useState('');
+  const [submittingEditTeam, setSubmittingEditTeam] = useState(false);
+
+  const [deletingTeam, setDeletingTeam] = useState<any | null>(null);
+  const [submittingDeleteTeam, setSubmittingDeleteTeam] = useState(false);
+
+  const [settingLeaderTeam, setSettingLeaderTeam] = useState<any | null>(null);
+  const [selectedLeaderUserId, setSelectedLeaderUserId] = useState('');
+  const [submittingLeader, setSubmittingLeader] = useState(false);
+
+  const [addingMemberTeam, setAddingMemberTeam] = useState<any | null>(null);
+  const [selectedMemberUserId, setSelectedMemberUserId] = useState('');
+  const [submittingAddMember, setSubmittingAddMember] = useState(false);
+
+  const [viewingTeam, setViewingTeam] = useState<any | null>(null);
+  const [loadingViewTeam, setLoadingViewTeam] = useState(false);
+
   // Assign Employee to Department state
   const [assignDeptId, setAssignDeptId] = useState<string>('');
   const [assignEmployeeId, setAssignEmployeeId] = useState<string>('');
@@ -216,7 +256,15 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       isAssignEmpModalOpen ||
       isAddMemberModalOpen ||
       !!editingMember ||
-      !!removingMember;
+      !!removingMember ||
+      !!editingDept ||
+      !!deletingDept ||
+      isAddTeamOpen ||
+      !!editingTeam ||
+      !!deletingTeam ||
+      !!settingLeaderTeam ||
+      !!addingMemberTeam ||
+      !!viewingTeam;
 
     if (!isAnyOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -230,6 +278,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         if (isAddMemberModalOpen) setIsAddMemberModalOpen(false);
         if (editingMember) setEditingMember(null);
         if (removingMember) setRemovingMember(null);
+        if (editingDept) setEditingDept(null);
+        if (deletingDept) setDeletingDept(null);
+        if (isAddTeamOpen) setIsAddTeamOpen(false);
+        if (editingTeam) setEditingTeam(null);
+        if (deletingTeam) setDeletingTeam(null);
+        if (settingLeaderTeam) setSettingLeaderTeam(null);
+        if (addingMemberTeam) setAddingMemberTeam(null);
+        if (viewingTeam) setViewingTeam(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -245,6 +301,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     isAddMemberModalOpen,
     editingMember,
     removingMember,
+    editingDept,
+    deletingDept,
+    isAddTeamOpen,
+    editingTeam,
+    deletingTeam,
+    settingLeaderTeam,
+    addingMemberTeam,
+    viewingTeam,
   ]);
 
   // Department form state
@@ -265,6 +329,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   useEffect(() => {
     if (initialTab === 'designations') setActiveTab('designations');
+    else if (initialTab === 'teams') setActiveTab('teams');
     else if (initialTab === 'departments') setActiveTab('departments');
   }, [initialTab]);
 
@@ -630,6 +695,244 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     }
   };
 
+  // Teams API Loader
+  const loadTeams = useCallback(async () => {
+    setLoadingTeams(true);
+    setTeamsError(null);
+    try {
+      const res = await api.listTeams();
+      const data = Array.isArray(res) ? res : (res as any)?.data || [];
+      setTeams(data);
+    } catch (err: any) {
+      console.warn('Could not load teams:', err);
+      setTeamsError(err.message || 'Failed to load teams');
+      setTeams([]);
+    } finally {
+      setLoadingTeams(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTeams();
+  }, [loadTeams]);
+
+  // Department Edit & Delete Handlers
+  const handleOpenEditDept = (dept: Department) => {
+    setEditingDept(dept);
+    setEditDeptName(dept.name);
+  };
+
+  const handleSaveEditDept = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDept || !editDeptName.trim()) return;
+    setSavingDeptEdit(true);
+    try {
+      await api.editDepartment(editingDept.id, { name: editDeptName.trim() });
+      showToast?.({
+        type: 'success',
+        title: 'Department Updated',
+        message: `${editDeptName} updated successfully.`,
+      });
+      setEditingDept(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Update Failed',
+        message: err.message || 'Could not update department.',
+      });
+    } finally {
+      setSavingDeptEdit(false);
+    }
+  };
+
+  const handleDeleteDept = async () => {
+    if (!deletingDept) return;
+    setDeletingDeptSubmitting(true);
+    try {
+      await api.deleteDepartment(deletingDept.id);
+      showToast?.({
+        type: 'success',
+        title: 'Department Deleted',
+        message: `${deletingDept.name} has been removed.`,
+      });
+      setDeletingDept(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete department.',
+      });
+    } finally {
+      setDeletingDeptSubmitting(false);
+    }
+  };
+
+  // Team Action Handlers
+  const handleCreateTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamName.trim()) return;
+    setSubmittingTeam(true);
+    try {
+      await api.createTeam({
+        name: teamName.trim(),
+        departmentId: teamDeptId || departments[0]?.id || undefined,
+      });
+      showToast?.({
+        type: 'success',
+        title: 'Team Created',
+        message: `${teamName} has been created.`,
+      });
+      setIsAddTeamOpen(false);
+      setTeamName('');
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Creation Failed',
+        message: err.message || 'Could not create team.',
+      });
+    } finally {
+      setSubmittingTeam(false);
+    }
+  };
+
+  const handleOpenEditTeam = (team: any) => {
+    setEditingTeam(team);
+    setEditTeamName(team.name || '');
+    setEditTeamDeptId(team.departmentId || (team.department as any)?.id || '');
+  };
+
+  const handleSaveEditTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeam || !editTeamName.trim()) return;
+    setSubmittingEditTeam(true);
+    try {
+      await api.editTeam(editingTeam.id, {
+        name: editTeamName.trim(),
+        departmentId: editTeamDeptId || undefined,
+      });
+      showToast?.({
+        type: 'success',
+        title: 'Team Updated',
+        message: 'Team details saved.',
+      });
+      setEditingTeam(null);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Update Failed',
+        message: err.message || 'Could not update team.',
+      });
+    } finally {
+      setSubmittingEditTeam(false);
+    }
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!deletingTeam) return;
+    setSubmittingDeleteTeam(true);
+    try {
+      await api.deleteTeam(deletingTeam.id);
+      showToast?.({
+        type: 'success',
+        title: 'Team Deleted',
+        message: 'Team has been removed.',
+      });
+      setDeletingTeam(null);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err.message || 'Could not delete team.',
+      });
+    } finally {
+      setSubmittingDeleteTeam(false);
+    }
+  };
+
+  const handleSetLeader = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingLeaderTeam || !selectedLeaderUserId) return;
+    setSubmittingLeader(true);
+    try {
+      await api.setTeamLeader(settingLeaderTeam.id, { userId: selectedLeaderUserId });
+      showToast?.({
+        type: 'success',
+        title: 'Team Leader Assigned',
+        message: 'Team leader updated.',
+      });
+      setSettingLeaderTeam(null);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Assignment Failed',
+        message: err.message || 'Could not set leader.',
+      });
+    } finally {
+      setSubmittingLeader(false);
+    }
+  };
+
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addingMemberTeam || !selectedMemberUserId) return;
+    setSubmittingAddMember(true);
+    try {
+      await api.addTeamMember(addingMemberTeam.id, { userId: selectedMemberUserId });
+      showToast?.({
+        type: 'success',
+        title: 'Member Added',
+        message: 'User added to team.',
+      });
+      setAddingMemberTeam(null);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Add Failed',
+        message: err.message || 'Could not add member.',
+      });
+    } finally {
+      setSubmittingAddMember(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (teamId: string, employeeId: string) => {
+    try {
+      await api.removeTeamMember(teamId, employeeId);
+      showToast?.({
+        type: 'success',
+        title: 'Member Removed',
+        message: 'Team member removed.',
+      });
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Remove Failed',
+        message: err.message || 'Could not remove member.',
+      });
+    }
+  };
+
+  const handleViewTeam = async (team: any) => {
+    setViewingTeam(team);
+    setLoadingViewTeam(true);
+    try {
+      const detailed = await api.getTeam(team.id);
+      if (detailed) setViewingTeam(detailed);
+    } catch (err) {
+      console.warn('Could not load detailed team:', err);
+    } finally {
+      setLoadingViewTeam(false);
+    }
+  };
+
   const totalEmployees = employees?.length || 0;
   const totalDepts = departments.length;
   const totalDesignations = designations.length;
@@ -642,6 +945,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm overflow-x-auto [scrollbar-width:none]">
           {[
             { key: 'departments', label: `Departments (${departments.length})`, icon: Layers },
+            { key: 'teams', label: `Teams (${teams.length})`, icon: Users },
             { key: 'designations', label: `Designations (${designations.length})`, icon: Briefcase },
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -1072,14 +1376,235 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
                       {/* Action Button: Add Employee to this Department */}
                       {portalMode === 'admin' && (
-                        <div className="mt-4 pt-3 border-t border-slate-100">
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenAssignEmpModal(dept.id)}
-                            className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-2xs"
+                            className="flex-1 py-2 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-2xs"
                           >
                             <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
                             <span>Add Employee</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditDept(dept)}
+                            className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-all cursor-pointer"
+                            title="Edit department"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingDept(dept)}
+                            className="p-2 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-300 transition-all cursor-pointer"
+                            title="Delete department"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          TAB: TEAMS (CROSS-FUNCTIONAL WORKGROUPS)
+      ═══════════════════════════════════════════════════════ */}
+      {activeTab === 'teams' && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-slate-500 font-medium">{teams.length} teams registered</p>
+              <p className="text-xs text-slate-400">Collaborative groups formed across departments</p>
+            </div>
+            {portalMode === 'admin' && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadTeams}
+                  disabled={loadingTeams}
+                  className="p-2 rounded-xl bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-2xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                  title="Refresh teams"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${loadingTeams ? 'animate-spin text-emerald-600' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddTeamOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Create Team</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {teamsError && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{teamsError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={loadTeams}
+                className="px-3 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold text-[11px] transition cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {loadingTeams ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center">
+              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-3" />
+              <p className="text-slate-600 font-bold text-xs">Loading teams from server...</p>
+            </div>
+          ) : teams.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-700 font-bold text-sm">No teams found</p>
+              <p className="text-slate-400 text-xs mt-1">
+                Create your first team using the button above to begin organizing cross-functional projects.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teams.map((team: any, idx: number) => {
+                const c = DEPT_COLORS[idx % DEPT_COLORS.length];
+                const teamMembers = Array.isArray(team.members) ? team.members : [];
+                const leaderName =
+                  team.leader?.fullName ||
+                  (team.leader?.firstName ? `${team.leader.firstName} ${team.leader.lastName || ''}`.trim() : null) ||
+                  employees.find((e) => e.id === team.leaderId)?.fullName ||
+                  'No leader assigned';
+
+                return (
+                  <div key={team.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
+                    <div className="p-5 flex flex-col flex-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
+                          {team.department?.name || departments.find((d) => d.id === team.departmentId)?.name || 'General Team'}
+                        </span>
+                        <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
+                          <Users className="w-3.5 h-3.5" /> {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
+                        </span>
+                      </div>
+
+                      <h3 className="text-base font-bold text-slate-900 mb-1">{team.name}</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                        {team.description || 'Cross-functional operational group within the organization.'}
+                      </p>
+
+                      {/* Team Leader Banner */}
+                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <div className="text-[11px] leading-tight">
+                            <span className="text-slate-400 block text-[9px] font-bold uppercase">Team Leader</span>
+                            <span className="font-bold text-slate-800">{leaderName}</span>
+                          </div>
+                        </div>
+                        {portalMode === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingLeaderTeam(team);
+                              setSelectedLeaderUserId(team.leaderId || '');
+                            }}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                          >
+                            Change
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Members section */}
+                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 flex-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                          <span>Team Members ({teamMembers.length})</span>
+                          {portalMode === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingMemberTeam(team);
+                                setSelectedMemberUserId(employees[0]?.id || '');
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer flex items-center gap-0.5"
+                            >
+                              <Plus className="w-3 h-3" /> Add Member
+                            </button>
+                          )}
+                        </div>
+
+                        {teamMembers.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {teamMembers.map((m: any) => {
+                              const mName = m.user?.fullName || m.fullName || `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'Member';
+                              const mId = m.id || m.userId;
+                              return (
+                                <span
+                                  key={mId}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200/80 text-[10px] font-semibold text-slate-700"
+                                >
+                                  <span className="w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-700 text-[8px] font-bold flex items-center justify-center">
+                                    {mName[0] || 'M'}
+                                  </span>
+                                  <span className="truncate max-w-[75px]">{mName}</span>
+                                  {portalMode === 'admin' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveTeamMember(team.id, mId)}
+                                      className="text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                      title="Remove from team"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 italic pt-0.5">
+                            No team members assigned yet.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Team Card Actions */}
+                      {portalMode === 'admin' && (
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleViewTeam(team)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                            title="View team details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTeam(team)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+                            title="Edit team"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingTeam(team)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete team"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -2250,6 +2775,535 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Department Modal ─────────────────────────── */}
+      {Boolean(editingDept) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setEditingDept(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Edit Department</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDept(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditDept} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Department Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editDeptName}
+                  onChange={(e) => setEditDeptName(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingDept(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDeptEdit}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {savingDeptEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Department Modal ───────────────────────── */}
+      {Boolean(deletingDept) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setDeletingDept(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete Department</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-5 leading-relaxed">
+              Are you sure you want to delete <span className="font-bold text-slate-800">{deletingDept?.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingDept(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingDeptSubmitting}
+                onClick={handleDeleteDept}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {deletingDeptSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Team Modal ────────────────────────────────── */}
+      {isAddTeamOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setIsAddTeamOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Create New Team</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddTeamOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateTeam} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Team Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  placeholder="e.g. Core Platform Engineers"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Department
+                </label>
+                <select
+                  value={teamDeptId}
+                  onChange={(e) => setTeamDeptId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="">General / Inter-departmental</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTeamOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingTeam}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {submittingTeam && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Create Team</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Team Modal ───────────────────────────────── */}
+      {Boolean(editingTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setEditingTeam(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Edit Team Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTeam(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditTeam} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Team Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTeamName}
+                  onChange={(e) => setEditTeamName(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Department
+                </label>
+                <select
+                  value={editTeamDeptId}
+                  onChange={(e) => setEditTeamDeptId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="">General</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingTeam(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEditTeam}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {submittingEditTeam && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Team Modal ─────────────────────────────── */}
+      {Boolean(deletingTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setDeletingTeam(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete Team</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-5 leading-relaxed">
+              Are you sure you want to delete <span className="font-bold text-slate-800">{deletingTeam?.name}</span>?
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingTeam(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submittingDeleteTeam}
+                onClick={handleDeleteTeam}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {submittingDeleteTeam && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Set Team Leader Modal ─────────────────────────── */}
+      {Boolean(settingLeaderTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setSettingLeaderTeam(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-500" />
+                <h3 className="text-sm font-bold text-slate-900">Assign Team Leader</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingLeaderTeam(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSetLeader} className="p-6 space-y-4 text-xs">
+              <p className="text-slate-500 leading-relaxed">
+                Select an employee to lead <span className="font-bold text-slate-800">{settingLeaderTeam?.name}</span>.
+              </p>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Choose Leader <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedLeaderUserId}
+                  onChange={(e) => setSelectedLeaderUserId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="">Select an employee...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={(emp as any).userId || emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.departmentName || 'Staff'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSettingLeaderTeam(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingLeader}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {submittingLeader && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Set as Leader</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Team Member Modal ─────────────────────────── */}
+      {Boolean(addingMemberTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setAddingMemberTeam(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Add Team Member</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingMemberTeam(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAddTeamMember} className="p-6 space-y-4 text-xs">
+              <p className="text-slate-500 leading-relaxed">
+                Add an active employee to <span className="font-bold text-slate-800">{addingMemberTeam?.name}</span>.
+              </p>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Select Employee <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedMemberUserId}
+                  onChange={(e) => setSelectedMemberUserId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="">Choose an employee...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={(emp as any).userId || emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.departmentName || 'Staff'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAddingMemberTeam(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAddMember}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
+                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                >
+                  {submittingAddMember && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Add to Team</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── View Team Details Modal ───────────────────────── */}
+      {Boolean(viewingTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setViewingTeam(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">Team Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingTeam(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              {loadingViewTeam ? (
+                <div className="py-8 text-center">
+                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <p className="text-slate-500 font-medium">Fetching team profile from backend...</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Team Name</span>
+                    <h4 className="text-base font-bold text-slate-900 mt-0.5">{viewingTeam?.name}</h4>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</span>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {viewingTeam?.department?.name || 'General Operations'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Leader</span>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {viewingTeam?.leader?.fullName || 'Unassigned'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Members ({viewingTeam?.members?.length || 0})
+                    </span>
+                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto">
+                      {(viewingTeam?.members || []).map((m: any) => (
+                        <div key={m.id || m.userId} className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                          <span className="font-medium text-slate-800">{m.fullName || m.user?.fullName || 'Member'}</span>
+                          <span className="text-[10px] text-slate-400">{m.role || 'Member'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setViewingTeam(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

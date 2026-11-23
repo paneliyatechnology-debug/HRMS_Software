@@ -76,13 +76,18 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
     const load = async () => {
       // Fetch live records directly from backend Database (Zero synthetic fallbacks)
       try {
-        if (currentEmpId) {
-          const apiRecords = await api.getPayroll({ employeeId: currentEmpId });
-          if (isMounted) {
-            setPayslips(Array.isArray(apiRecords) ? apiRecords : []);
+        let apiRecords: any[] = [];
+        try {
+          const res = await api.listPayslips();
+          apiRecords = Array.isArray(res) ? res : (res as any)?.data || [];
+        } catch {
+          if (currentEmpId) {
+            const fallback = await api.getPayroll({ employeeId: currentEmpId });
+            apiRecords = Array.isArray(fallback) ? fallback : [];
           }
-        } else if (isMounted) {
-          setPayslips([]);
+        }
+        if (isMounted) {
+          setPayslips(Array.isArray(apiRecords) ? apiRecords : []);
         }
       } catch (err) {
         console.warn('Could not fetch payroll records from backend API:', err);

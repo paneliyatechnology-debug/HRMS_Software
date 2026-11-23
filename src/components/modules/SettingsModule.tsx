@@ -43,6 +43,11 @@ import {
   MapPin,
   CalendarOff,
   CalendarDays,
+  Headphones,
+  Plus,
+  Pencil,
+  Package,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -76,7 +81,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'plans' | 'support'>('company');
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -87,6 +92,169 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [subData, setSubData] = useState(() => getCompanySubscription(adminCompanyId || 'comp-paneliya'));
   const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices(adminCompanyId || 'comp-paneliya'));
+
+  // Plans & Premium State
+  const [plansList, setPlansList] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [premiumStatus, setPremiumStatus] = useState<any>(null);
+  const [premiumOrders, setPremiumOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<any>(null);
+  const [deletingPlan, setDeletingPlan] = useState<any>(null);
+  const [sellingPlan, setSellingPlan] = useState<any>(null);
+  const [sellCompanyId, setSellCompanyId] = useState('');
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    price: 999,
+    durationMonths: 1,
+    description: '',
+    status: 'Active',
+  });
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [orderStatusVal, setOrderStatusVal] = useState('Active');
+
+  // Support State
+  const [supportList, setSupportList] = useState<any[]>([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [viewingSupport, setViewingSupport] = useState<any>(null);
+
+  const loadPlansAndPremium = async () => {
+    setPlansLoading(true);
+    setOrdersLoading(true);
+    try {
+      const [premRes, plansRes, ordersRes] = await Promise.allSettled([
+        api.getCompanyPremium(),
+        api.listPlans(),
+        api.listPremiumOrders(),
+      ]);
+      if (premRes.status === 'fulfilled' && premRes.value) {
+        setPremiumStatus(premRes.value?.data || premRes.value);
+      }
+      if (plansRes.status === 'fulfilled' && plansRes.value) {
+        const pList = Array.isArray(plansRes.value) ? plansRes.value : (plansRes.value?.data || []);
+        setPlansList(pList);
+      }
+      if (ordersRes.status === 'fulfilled' && ordersRes.value) {
+        const oList = Array.isArray(ordersRes.value) ? ordersRes.value : (ordersRes.value?.data || []);
+        setPremiumOrders(oList);
+      }
+    } finally {
+      setPlansLoading(false);
+      setOrdersLoading(false);
+    }
+  };
+
+  const loadSupportData = async () => {
+    setSupportLoading(true);
+    try {
+      const res = await api.listSupportRequests();
+      const sList = Array.isArray(res) ? res : (res?.data || []);
+      setSupportList(sList);
+    } catch {
+      setSupportList([]);
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminActiveTab === 'plans') {
+      loadPlansAndPremium();
+    } else if (adminActiveTab === 'support') {
+      loadSupportData();
+    }
+  }, [adminActiveTab]);
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingPlan) {
+        await api.editPlan(editingPlan.id, planForm);
+        showToast({ type: 'success', title: 'Plan Updated', message: `Plan ${planForm.name} updated successfully.` });
+      } else {
+        await api.createPlan(planForm);
+        showToast({ type: 'success', title: 'Plan Created', message: `Plan ${planForm.name} created successfully.` });
+      }
+      setIsCreatePlanOpen(false);
+      setEditingPlan(null);
+      setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed', message: err?.message || 'Error saving plan.' });
+    }
+  };
+
+  const handleDeletePlanConfirm = async () => {
+    if (!deletingPlan) return;
+    try {
+      await api.deletePlan(deletingPlan.id);
+      showToast({ type: 'success', title: 'Plan Deleted', message: 'Plan has been removed.' });
+      setDeletingPlan(null);
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Delete Failed', message: err?.message || 'Error deleting plan.' });
+    }
+  };
+
+  const handleSellPlanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sellingPlan || !sellCompanyId) return;
+    try {
+      await api.sellPlan(sellingPlan.id, { companyId: sellCompanyId });
+      showToast({ type: 'success', title: 'Plan Assigned', message: `Plan assigned to company ${sellCompanyId}.` });
+      setSellingPlan(null);
+      setSellCompanyId('');
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Sell Failed', message: err?.message || 'Could not assign plan.' });
+    }
+  };
+
+  const handlePlaceOrderDirect = async (planId: string) => {
+    try {
+      await api.placePremiumOrder({ planId });
+      showToast({ type: 'success', title: 'Order Placed', message: 'Premium order submitted.' });
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Order Failed', message: err?.message || 'Could not place order.' });
+    }
+  };
+
+  const handleUpdateOrderStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    try {
+      await api.updatePremiumOrder(editingOrder.id, { status: orderStatusVal });
+      showToast({ type: 'success', title: 'Order Updated', message: 'Order status updated.' });
+      setEditingOrder(null);
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err?.message || 'Could not update order.' });
+    }
+  };
+
+  const handleUpdateSupportReqStatus = async (supportId: string, status: string) => {
+    try {
+      await api.updateSupportRequest(supportId, { status });
+      showToast({ type: 'success', title: 'Status Updated', message: `Support request marked as ${status}.` });
+      if (viewingSupport && viewingSupport.id === supportId) {
+        setViewingSupport({ ...viewingSupport, status });
+      }
+      loadSupportData();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err?.message || 'Could not update status.' });
+    }
+  };
+
+  const handleViewSupportReq = async (item: any) => {
+    try {
+      const details = await api.getSupportRequest(item.id);
+      setViewingSupport(details?.data || details || item);
+    } catch {
+      setViewingSupport(item);
+    }
+  };
 
   const refreshSubscriptionData = () => {
     setSubData(getCompanySubscription(adminCompanyId || 'comp-paneliya'));
@@ -1017,6 +1185,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
     { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
     { id: 'leaves', label: 'Leave Quotas', desc: 'Annual quota allowances & carry forward', icon: CalendarOff },
+    { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
+    { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
   ];
 
   return (
@@ -1445,7 +1615,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <div>
                   <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                     <CalendarOff className="w-4 h-4 text-emerald-600" />
-                    Annual Leave Quotas & Carry-Forward
+                    Annual Leave Quotas &amp; Carry-Forward
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
@@ -1551,8 +1721,749 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               </div>
             </div>
           )}
+
+          {/* ── Tab 4: Plans & Premium (GET /premium, GET /plans, POST /plans, PATCH /plans/:id, DELETE /plans/:id, POST /plans/:id/sell, GET /premium/orders, POST /premium/orders, PATCH /premium/orders/:id) ── */}
+          {adminActiveTab === 'plans' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Active Plan Overview Card */}
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/80 shadow-xs">
+                      <Crown className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-black text-slate-900">
+                          {premiumStatus?.planName || subData?.plan?.name || 'Standard Enterprise'}
+                        </h3>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                          {premiumStatus?.status || 'Active'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Company Premium Tier &bull; Billed {subData?.billingCycle || 'Annual'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsUpgradeModalOpen(true)}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Upgrade / Renew Plan</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Max Employees</span>
+                    <span className="text-base font-black text-slate-800 mt-1 block">
+                      {premiumStatus?.maxEmployees || subData?.plan?.maxEmployees || 'Unlimited'}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Billing Cycle</span>
+                    <span className="text-base font-black text-slate-800 mt-1 block">
+                      {subData?.billingCycle || 'Annual'}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Gateway</span>
+                    <span className="text-base font-black text-slate-800 mt-1 block">
+                      Razorpay UPI/Cards
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Status</span>
+                    <span className="text-base font-black text-emerald-600 mt-1 block">
+                      Verified &amp; Paid
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Plans Catalog Section */}
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Package className="w-4 h-4 text-emerald-600" />
+                      System Subscription Plans
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Backend configured plans available for companies (POST /plans, GET /plans)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPlan(null);
+                      setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+                      setIsCreatePlanOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create New Plan</span>
+                  </button>
+                </div>
+
+                {plansLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                    <span className="text-xs font-semibold">Loading plans from backend...</span>
+                  </div>
+                ) : plansList.length === 0 ? (
+                  <div className="py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
+                      <Package className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-800">No Custom Plans Found</h4>
+                    <p className="text-xs text-slate-400 max-w-sm mt-1">
+                      No plans have been created in the backend database yet. You can create one now.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPlan(null);
+                        setPlanForm({ name: 'Premium Pro', price: 1499, durationMonths: 1, description: 'All-inclusive enterprise HRMS access', status: 'Active' });
+                        setIsCreatePlanOpen(true);
+                      }}
+                      className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                    >
+                      + Create First Plan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {plansList.map((plan: any) => (
+                      <div
+                        key={plan.id}
+                        className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition-all shadow-xs flex flex-col justify-between space-y-4"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm font-black text-slate-900 truncate">{plan.name}</h4>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {plan.status || 'Active'}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-baseline gap-1">
+                            <span className="text-2xl font-black text-slate-900">₹{plan.price}</span>
+                            <span className="text-xs text-slate-400 font-bold">/ {plan.durationMonths || 1} mo</span>
+                          </div>
+                          {plan.description && (
+                            <p className="text-xs text-slate-500 mt-2 line-clamp-2">{plan.description}</p>
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handlePlaceOrderDirect(plan.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition cursor-pointer"
+                            title="Place Order (POST /premium/orders)"
+                          >
+                            Order
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSellingPlan(plan);
+                              setSellCompanyId('');
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold transition cursor-pointer"
+                            title="Sell Plan (POST /plans/:id/sell)"
+                          >
+                            Sell
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPlan(plan);
+                              setPlanForm({
+                                name: plan.name || '',
+                                price: Number(plan.price) || 0,
+                                durationMonths: Number(plan.durationMonths) || 1,
+                                description: plan.description || '',
+                                status: plan.status || 'Active',
+                              });
+                              setIsCreatePlanOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+                            title="Edit Plan (PATCH /plans/:id)"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingPlan(plan)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete Plan (DELETE /plans/:id)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Premium Orders History (GET /premium/orders) */}
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-emerald-600" />
+                      Premium Orders
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Company order ledger (GET /premium/orders, PATCH /premium/orders/:id)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadPlansAndPremium}
+                    className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+                    title="Refresh Orders"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {ordersLoading ? (
+                  <div className="py-8 flex justify-center text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
+                  </div>
+                ) : premiumOrders.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    No premium orders recorded yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                        <tr>
+                          <th className="px-4 py-3">Order ID</th>
+                          <th className="px-4 py-3">Plan</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {premiumOrders.map((ord: any) => (
+                          <tr key={ord.id} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
+                              {ord.id?.slice(0, 12)}...
+                            </td>
+                            <td className="px-4 py-3 font-bold text-slate-800">
+                              {ord.planName || ord.planId || 'Plan Tier'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                {ord.status || 'Completed'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-500">
+                              {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingOrder(ord);
+                                  setOrderStatusVal(ord.status || 'Active');
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                              >
+                                Update Status
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab 5: Support Inquiries (GET /support, GET /support/:id, PATCH /support/:id) ── */}
+          {adminActiveTab === 'support' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <Headphones className="w-4 h-4 text-emerald-600" />
+                    Support &amp; Demo Inquiries
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Leads and demo requests submitted through the portal (GET /support, PATCH /support/:id)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadSupportData}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${supportLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {supportLoading ? (
+                <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                  <span className="text-xs font-semibold">Loading inquiries...</span>
+                </div>
+              ) : supportList.length === 0 ? (
+                <div className="py-16 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
+                    <Headphones className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">No Inquiries Found</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mt-1">
+                    When visitors submit demo bookings or contact requests on the website, they will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3">Message</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {supportList.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700">
+                              {item.kind || 'Demo'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-slate-900">{item.name}</p>
+                            <p className="text-[10px] text-slate-400">{item.email} &bull; {item.phone || 'No phone'}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium">
+                            {item.companyName || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
+                            {item.message || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.status === 'Resolved'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : item.status === 'Read'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {item.status || 'New'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleViewSupportReq(item)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                              >
+                                View
+                              </button>
+                              {item.status !== 'Resolved' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold transition cursor-pointer"
+                                >
+                                  Resolve
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Upgrade Plan Modal */}
+      {isUpgradeModalOpen && (
+        <UpgradePlanModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          onPlanUpdated={() => {
+            refreshSubscriptionData();
+            loadPlansAndPremium();
+          }}
+        />
+      )}
+
+      {/* Create / Edit Plan Modal (POST /plans, PATCH /plans/:id) */}
+      {isCreatePlanOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => {
+            setIsCreatePlanOpen(false);
+            setEditingPlan(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingPlan ? 'Edit System Plan' : 'Create System Plan'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatePlanOpen(false);
+                  setEditingPlan(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Plan Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={planForm.name}
+                  onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                  placeholder="e.g. Enterprise Pro"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    value={planForm.price}
+                    onChange={(e) => setPlanForm({ ...planForm, price: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Duration (Months)</label>
+                  <input
+                    type="number"
+                    required
+                    value={planForm.durationMonths}
+                    onChange={(e) => setPlanForm({ ...planForm, durationMonths: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={planForm.description}
+                  onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                  placeholder="Plan features and coverage description..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 resize-none font-semibold"
+                />
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatePlanOpen(false);
+                    setEditingPlan(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  {editingPlan ? 'Update Plan' : 'Save Plan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Plan Modal (DELETE /plans/:id) */}
+      {Boolean(deletingPlan) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setDeletingPlan(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Delete System Plan?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to remove <span className="font-bold text-slate-700">{deletingPlan.name}</span>? This cannot be undone.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setDeletingPlan(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePlanConfirm}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition cursor-pointer shadow-xs"
+              >
+                Delete Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Plan Modal (POST /plans/:id/sell) */}
+      {Boolean(sellingPlan) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setSellingPlan(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-bold text-slate-900">Sell Plan to Company</h3>
+              <button
+                type="button"
+                onClick={() => setSellingPlan(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs">
+              <p className="text-slate-500">
+                Assigning <span className="font-bold text-slate-800">{sellingPlan.name}</span> directly to a target company.
+              </p>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Target Company ID <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={sellCompanyId}
+                  onChange={(e) => setSellCompanyId(e.target.value)}
+                  placeholder="UUID e.g. 92744968-6ab2-4dd7-..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                />
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSellingPlan(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  Assign Plan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Update Order Status Modal (PATCH /premium/orders/:id) */}
+      {Boolean(editingOrder) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setEditingOrder(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-bold text-slate-900">Update Order Status</h3>
+              <button
+                type="button"
+                onClick={() => setEditingOrder(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Status</label>
+                <select
+                  value={orderStatusVal}
+                  onChange={(e) => setOrderStatusVal(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  Save Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Support Details Modal (GET /support/:id, PATCH /support/:id) */}
+      {Boolean(viewingSupport) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setViewingSupport(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {viewingSupport.kind || 'Demo'} Inquiry Details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingSupport(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Name</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.name}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Company</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.companyName || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Email</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.email}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Phone</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.phone || '—'}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Message</span>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {viewingSupport.message || 'No additional message provided.'}
+                </div>
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Status: <span className="font-bold text-slate-800">{viewingSupport.status || 'New'}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  {viewingSupport.status !== 'Read' && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSupportReqStatus(viewingSupport.id, 'Read')}
+                      className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold transition cursor-pointer"
+                    >
+                      Mark as Read
+                    </button>
+                  )}
+                  {viewingSupport.status !== 'Resolved' && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSupportReqStatus(viewingSupport.id, 'Resolved')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition cursor-pointer shadow-xs"
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewingSupport(null)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
