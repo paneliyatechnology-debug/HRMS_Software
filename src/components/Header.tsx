@@ -39,7 +39,7 @@ import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
-import { isModuleAllowedForUser, canUserPunch } from '../lib/rolePermissions';
+import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 
 interface HeaderProps {
@@ -440,26 +440,28 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <button
-                id="btn-header-admin-leaves"
-                type="button"
-                onClick={() => onNavigateModule?.('leaves')}
-                className={getBtnCls(isLeavesActive)}
-                title="Leave Requests"
-              >
-                <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Leave Requests</span>
-                {pendingLeavesCount > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
-                      }`}
-                  >
-                    {pendingLeavesCount}
-                  </span>
-                )}
-              </button>
+              {isModuleAllowedForUser('leaves', user) && (
+                <button
+                  id="btn-header-admin-leaves"
+                  type="button"
+                  onClick={() => onNavigateModule?.('leaves')}
+                  className={getBtnCls(isLeavesActive)}
+                  title="Leave Requests"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Leave Requests</span>
+                  {pendingLeavesCount > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
+                        }`}
+                    >
+                      {pendingLeavesCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              {isModuleAllowedForUser('employees', user) && (
+              {canCreateUser(user) && isModuleAllowedForUser('employees', user) && (
                 <button
                   id="btn-header-admin-add-staff"
                   type="button"
@@ -472,16 +474,18 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              <button
-                id="btn-header-admin-holidays"
-                type="button"
-                onClick={() => onNavigateModule?.('calendar')}
-                className={getBtnCls(isHolidaysActive)}
-                title="Holidays"
-              >
-                <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Holidays</span>
-              </button>
+              {isModuleAllowedForUser('calendar', user) && (
+                <button
+                  id="btn-header-admin-holidays"
+                  type="button"
+                  onClick={() => onNavigateModule?.('calendar')}
+                  className={getBtnCls(isHolidaysActive)}
+                  title="Holidays"
+                >
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Holidays</span>
+                </button>
+              )}
             </div>
           );
         })()}
@@ -498,7 +502,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {!resigned && (
+              {!resigned && isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-apply-leave"
                   onClick={onOpenLeaveModal}
@@ -510,17 +514,19 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              <button
-                id="btn-header-payslips"
-                onClick={() => onNavigateModule?.('payslips')}
-                className={getBtnCls(isPayslipsActive)}
-                title="My Payslips"
-              >
-                <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">My Payslips</span>
-              </button>
+              {isModuleAllowedForUser('payslips', user) && (
+                <button
+                  id="btn-header-payslips"
+                  onClick={() => onNavigateModule?.('payslips')}
+                  className={getBtnCls(isPayslipsActive)}
+                  title="My Payslips"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">My Payslips</span>
+                </button>
+              )}
 
-              {!resigned && (
+              {!resigned && isModuleAllowedForUser('chat', user) && (
                 <button
                   id="btn-header-chat"
                   onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}

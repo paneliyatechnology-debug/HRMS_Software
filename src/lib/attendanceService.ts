@@ -404,6 +404,21 @@ export function getLiveBreakSeconds(record: AttendanceRecord): number {
     });
   }
 
+  if (brk === 0 && Array.isArray(anyRec.punches) && anyRec.punches.length > 0) {
+    let breakStartMs: number | null = null;
+    for (const p of anyRec.punches) {
+      const type = normalizePunchType(p?.type);
+      const ts = parsePunchTimestamp(p);
+      if (!ts || ts <= 0) continue;
+      if (type === 'BREAK_START') {
+        breakStartMs = ts;
+      } else if ((type === 'BREAK_END' || type === 'IN' || type === 'OUT') && breakStartMs) {
+        brk += Math.max(0, Math.floor((ts - breakStartMs) / 1000));
+        breakStartMs = null;
+      }
+    }
+  }
+
   if (!record.isCompleted && !record.checkOut && record.isOnBreak && record.lastBreakTimestamp) {
     const elapsed = Math.max(0, Math.floor((Date.now() - record.lastBreakTimestamp) / 1000));
     brk += elapsed;

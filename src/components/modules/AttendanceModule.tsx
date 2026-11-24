@@ -53,6 +53,7 @@ import {
   getTodayDateString,
   normalizePunchType,
   parsePunchTimestamp,
+  parseTimeStringToTimestamp,
   performCheckIn,
   performTakeBreak,
   performResumeWork,
@@ -1138,6 +1139,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         return sessionWorkedHMS;
       }
     }
+
+    const breakSecs = getLiveBreakSeconds(rec) || secondsFromPunches(rec).breakSeconds;
+
+    // When clocked out, compute net duration strictly as (checkOut - checkIn - breakSecs)
+    if (rec.checkIn && rec.checkOut && rec.checkIn !== '—' && rec.checkOut !== '—') {
+      const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+      const outTs = parseTimeStringToTimestamp(rec.checkOut, rec.date);
+      if (inTs > 0 && outTs > inTs) {
+        const gross = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        const net = Math.max(0, gross - breakSecs);
+        return formatSecondsToHMS(net);
+      }
+    }
+
     const liveSecs = getLiveActiveSeconds(rec);
     if (liveSecs > 0) return formatSecondsToHMS(liveSecs);
 
@@ -1600,9 +1615,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       {resolvedTab === 'today' && (() => {
         const todayDate = getTodayDateString();
         const mergedRecords = Array.isArray(records) && records.length > 0 ? records : liveRecords;
+        const employeeTodayRecords = employees
+          .map((emp) => getEmpTodayRecord(emp))
+          .filter(Boolean) as AttendanceRecord[];
         const todayRecords = isEmployeeView
           ? mergedRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
-          : mergedRecords.filter((r) => r.date === todayDate);
+          : (employeeTodayRecords.length > 0 ? employeeTodayRecords : mergedRecords.filter((r) => r.date === todayDate));
         const isRecDone = (r: AttendanceRecord) =>
           Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== '' && r.checkOut !== '—') || (r as any).status === 'Completed');
         const isRecBreak = (r: AttendanceRecord) =>

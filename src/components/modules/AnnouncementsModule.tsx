@@ -24,6 +24,7 @@ import {
 import { Employee } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { canManageNotices } from '../../lib/rolePermissions';
 
 interface AnnouncementsModuleProps {
   employees?: Employee[];
@@ -58,7 +59,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const userRole = (user?.role || 'EMPLOYEE').toUpperCase();
-  const canPublish = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR' || userRole === 'MANAGER';
+  const canPublish = canManageNotices(user);
 
   const [activeTab, setActiveTab] = useState<'board' | 'alerts'>('board');
   const [boardNotices, setBoardNotices] = useState<NoticeBoardItem[]>([]);

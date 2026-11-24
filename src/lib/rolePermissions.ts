@@ -204,9 +204,27 @@ export function canUserPunch(user?: User | null): boolean {
 }
 
 /**
+ * Returns whether user can create staff/users in Directory (Admin and HR only).
+ */
+export function canCreateUser(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
  * Returns whether user can delete staff/users in Directory (Admin and HR only as per requirements).
  */
 export function canDeleteUser(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
+ * Returns whether user can approve or reject leaves (Admin, Super Admin, HR only).
+ */
+export function canApproveRejectLeave(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
   return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
@@ -228,6 +246,72 @@ export function canManageLeaveTypes(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
   return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
+ * Returns whether user can publish or delete notices/announcements (Admin, Super Admin, HR, Manager).
+ * Employee can view and dismiss notices, but cannot create or delete board notices.
+ */
+export function canManageNotices(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER';
+}
+
+/**
+ * Returns whether user can create or delete tasks (Admin, Super Admin, Manager).
+ * Employee can view and edit task status, but cannot create or delete tasks.
+ */
+export function canManageTasks(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'MANAGER';
+}
+
+/**
+ * Returns whether user can manage organization structure (Departments, Teams) (Admin, Super Admin, Manager).
+ */
+export function canManageOrganization(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'MANAGER';
+}
+
+/**
+ * Returns whether user can manage recruitment (Jobs, Candidates, Applications, Offers) (Admin, Super Admin, HR).
+ */
+export function canManageRecruitment(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
+ * Returns whether user can manage payroll (Generate payroll, set salary, mark paid) (Admin, Super Admin, HR).
+ * Employee and Manager can only view their personal payslips.
+ */
+export function canManagePayroll(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
+ * Returns whether user can configure attendance settings or biometric sync (Admin, Super Admin, HR).
+ */
+export function canManageAttendanceSettings(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
+ * Returns whether user can create or delete group chats (Admin, Super Admin, HR, Manager).
+ */
+export function canManageChatGroups(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER';
 }
 
 /**

@@ -41,6 +41,7 @@ import {
 } from '../../lib/leaveQuotaUtils';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { canApproveRejectLeave, canManageLeaveTypes } from '../../lib/rolePermissions';
 
 interface LeaveModuleProps {
   leaves: LeaveRequest[];
@@ -113,8 +114,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
 
   // Role permissions check (Admin & HR only)
-  const userRole = (user?.role || '').trim().toUpperCase();
-  const isAdminOrHr = ['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(userRole) || portalMode === 'admin';
+  const isAdminOrHr = canManageLeaveTypes(user);
 
   // Leave Types Modal State (Admin, HR, Employee, Manager)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
@@ -904,7 +904,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                   )}
 
-                  {portalMode === 'admin' && leave.status === 'Pending' && (
+                  {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={() => handleOpenApproveModal(leave)}
@@ -1151,7 +1151,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Action Column with Eye Toggle */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {portalMode === 'admin' && leave.status === 'Pending' && (
+                          {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                             <>
                               <button
                                 onClick={() => handleOpenApproveModal(leave)}

@@ -563,19 +563,25 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <div className="space-y-1.5">
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Employee Name:</span>
-                    <span className="font-extrabold text-slate-900">{selectedPayslip.employeeName}</span>
+                    <span className="font-extrabold text-slate-900">{selectedPayslip.employeeName || currentEmpName || 'Employee'}</span>
                   </p>
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Employee Code:</span>
-                    <span className="font-bold text-slate-800 font-mono">{selectedPayslip.employeeCode}</span>
+                    <span className="font-bold text-slate-800 font-mono">
+                      {selectedPayslip.employeeCode || employeeDetails?.employeeCode || (user as any).employeeCode || '—'}
+                    </span>
                   </p>
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Designation:</span>
-                    <span className="font-bold text-slate-800">{selectedPayslip.designationTitle}</span>
+                    <span className="font-bold text-slate-800">
+                      {selectedPayslip.designationTitle || employeeDetails?.designationTitle || (employeeDetails as any)?.designation || (user as any).designation || user?.role || 'EMPLOYEE'}
+                    </span>
                   </p>
                   <p className="flex justify-between">
                     <span className="font-bold text-slate-500">Department:</span>
-                    <span className="font-bold text-slate-800">{selectedPayslip.departmentName}</span>
+                    <span className="font-bold text-slate-800">
+                      {selectedPayslip.departmentName || employeeDetails?.departmentName || (user as any).departmentName || 'General'}
+                    </span>
                   </p>
                 </div>
 
