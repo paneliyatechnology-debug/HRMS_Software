@@ -607,6 +607,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
         const scopedAtt = scopeAttendance(attendanceData, activeEmps);
         setAttendance(scopedAtt);
+        setLiveAttendanceRecords(scopedAtt);
         const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);

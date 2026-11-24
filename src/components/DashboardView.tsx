@@ -346,13 +346,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Merge real backend attendance prop with live session attendance records (deduplicated by date + employeeId)
   const mergedAttendance = useMemo(() => {
     const map = new Map<string, AttendanceRecord>();
-    for (const rec of allAttendance) {
-      const key = `${(rec.employeeId || rec.id || '').toLowerCase()}__${rec.date}`;
+    // 1. Authoritative backend records (contains complete punches array, checkInAt, checkOutAt)
+    for (const rec of (attendance || [])) {
+      if (!rec) continue;
+      const empId = rec.employeeId || (rec as any).userId || rec.id || '';
+      const key = `${empId.trim().toLowerCase()}__${rec.date}`;
       map.set(key, rec);
     }
-    for (const rec of attendance) {
-      const key = `${(rec.employeeId || rec.id || '').toLowerCase()}__${rec.date}`;
-      if (!map.has(key)) {
+    // 2. Overlay live session records, preserving backend punches if local doesn't have them
+    for (const rec of (allAttendance || [])) {
+      if (!rec) continue;
+      const empId = rec.employeeId || (rec as any).userId || rec.id || '';
+      const key = `${empId.trim().toLowerCase()}__${rec.date}`;
+      const existing = map.get(key);
+      if (existing) {
+        map.set(key, {
+          ...existing,
+          ...rec,
+          punches: (Array.isArray(rec.punches) && rec.punches.length > 0)
+            ? rec.punches
+            : (Array.isArray(existing.punches) && existing.punches.length > 0)
+            ? existing.punches
+            : [],
+        });
+      } else {
         map.set(key, rec);
       }
     }
@@ -986,7 +1003,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </tr>
                   ) : (
                     employees.map((emp, index) => {
-                    const todayRec = getTodayRecordForEmployee(emp.id);
+                    const todayDate = getTodayDateString();
+                    const todayRec =
+                      mergedAttendance.find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
+                      (attendance || []).find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
+                      getTodayRecordForEmployee(emp.id, mergedAttendance);
                         const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
                         const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
                         const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');

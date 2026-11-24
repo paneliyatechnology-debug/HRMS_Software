@@ -742,6 +742,7 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
       return {
     id: a.id || `att-${Date.now()}`,
     employeeId: a.userId || a.employeeId || '',
+    userId: a.userId || a.employeeId || '',
     employeeName: userName,
     employeeCode: a.employeeCode || (a.user?.employeeCode) || 'EMP',
     departmentName: a.departmentName || (a.user?.departmentName) || 'General',

@@ -1064,8 +1064,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   // Helper to reliably extract and format break time for any attendance record
   const secondsFromPunches = (rec: AttendanceRecord) => {
-    const punches = Array.isArray((rec as any).punches) ? (rec as any).punches : [];
     const at = (punch: any) => parsePunchTimestamp(punch);
+    const punches = Array.isArray((rec as any).punches) ? [...(rec as any).punches].sort((a, b) => at(a) - at(b)) : [];
     let work = 0;
     let brk = 0;
     let open: number | null = null;
