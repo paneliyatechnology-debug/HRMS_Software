@@ -368,16 +368,16 @@ async function getUser(userId: string) {
 
 // 11. POST /companies/register
 export type CompanyRegisterInput = {
-  companyName: string;
+    companyName: string;
   email: string;
   phone?: string;
-  gstNumber?: string;
-  industrySector?: string;
-  state?: string;
+    gstNumber?: string;
+    industrySector?: string;
+    state?: string;
   city?: string;
   address?: string;
-  firstName: string;
-  lastName: string;
+    firstName: string;
+    lastName: string;
 };
 
 async function registerCompany(data: CompanyRegisterInput) {
@@ -739,7 +739,7 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
   else if (rawStatus.includes('leave')) status = 'On Leave';
   else status = 'Present';
 
-  return {
+      return {
     id: a.id || `att-${Date.now()}`,
     employeeId: a.userId || a.employeeId || '',
     employeeName: userName,
@@ -807,7 +807,7 @@ async function updateAttendance(attendanceId: string, data: { status?: string; w
 // 30. POST /attendance/:attendanceId/correction (Correct attendance)
 async function correctAttendance(attendanceId: string, data: {
   reason: string;
-  status?: string;
+    status?: string;
   workMode?: string;
   punches?: Array<{ type: string; punchedAt: string }>;
 }) {
@@ -1245,6 +1245,20 @@ async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[
   }
 }
 
+// 39b. POST /leaves/:leaveId/cancel (Cancel own leave)
+async function cancelLeave(leaveId: string, reason: string) {
+  try {
+    const response = await http.post(`/leaves/${leaveId}/cancel`, { reason }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/leaves');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to cancel leave.');
+  }
+}
+
 // 39. POST /leaves/:leaveId/reject (Reject leave)
 async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[]) {
   try {
@@ -1531,7 +1545,7 @@ async function updateResignationClearance(id: string, payload: { clearance: Reco
 }
 
 async function createAnnouncement(payload: {
-  title: string;
+    title: string;
   content: string;
   priority?: string;
   targetAudience?: string;
@@ -1823,7 +1837,7 @@ function fromApiTask(task: any) {
   if (!task || typeof task !== 'object') return task;
   const status = String(task.status || '');
   const priority = String(task.priority || '');
-  return {
+      return {
     ...task,
     status: status === 'Pending' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : status === 'Done' ? 'COMPLETED' : status,
     priority: priority === 'Low' ? 'LOW' : priority === 'Medium' ? 'MEDIUM' : priority === 'High' ? 'HIGH' : priority,
@@ -1831,7 +1845,7 @@ function fromApiTask(task: any) {
 }
 
 function taskPayload(payload: Record<string, unknown>) {
-  return {
+    return {
     ...payload,
     status: payload.status == null ? undefined : toApiTaskStatus(String(payload.status)),
     priority: payload.priority == null ? undefined : toApiTaskPriority(String(payload.priority)),
@@ -1867,7 +1881,7 @@ async function listTasks(params?: any) {
     const res = await deduplicatedGet('/tasks', { params });
     if (Array.isArray(res)) return res.map(fromApiTask);
     if (Array.isArray(res?.data)) return { ...res, data: res.data.map(fromApiTask) };
-    return res;
+        return res;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list tasks.');
@@ -2435,7 +2449,7 @@ async function updatePremiumOrder(premiumOrderId: string, payload: { status: str
 // 93. POST /support (Send demo or contact request)
 async function sendSupportRequest(payload: {
   kind?: string;
-  name: string;
+    name: string;
   email: string;
   phone?: string;
   companyName?: string;
@@ -2516,6 +2530,33 @@ function userToEmployee(u: any): any {
 function canListUsers() {
   const role = String(getCookie('hrms_current_role') || '').toUpperCase();
   return ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+}
+
+async function getDashboard() {
+  try {
+    const data = await deduplicatedGet('/dashboard');
+    const staff = Array.isArray(data?.staff) ? data.staff.map(userToEmployee) : [];
+    const leaves = (Array.isArray(data?.leaves) ? data.leaves : []).map(backendLeaveToFrontend);
+    const attendance = (Array.isArray(data?.attendance) ? data.attendance : []).map((row: any) => {
+      const record = backendAttendanceToFrontend(row);
+      return {
+        ...record,
+        isOnBreak: row.state === 'break',
+        isCompleted: row.state === 'done',
+      };
+    });
+    return {
+      role: data?.role,
+      stats: data?.stats || {},
+      employees: staff,
+      leaves,
+      attendance,
+      notices: Array.isArray(data?.notices) ? data.notices : [],
+    };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Dashboard could not be loaded.');
+  }
 }
 
 async function getEmployees() {
@@ -2719,6 +2760,7 @@ export const api = new Proxy({
   getMe,
   getMyCompany,
   getEmployees,
+  getDashboard,
   createEmployee,
   deleteEmployee,
   deleteUser,
@@ -2790,6 +2832,7 @@ export const api = new Proxy({
   acceptLeave,
   approveLeave,
   rejectLeave,
+  cancelLeave,
 
   // Health (1)
   getHealth,
