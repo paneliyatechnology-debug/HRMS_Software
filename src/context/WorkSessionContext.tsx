@@ -616,6 +616,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkIn = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
+      if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
+        return false;
+      }
       setActionLoading(true);
       try {
         if (punchBlockRef.current) {
@@ -876,6 +880,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkOut = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
+      if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
+        return false;
+      }
       if (statusRef.current === 'on_break') {
         showToast({
           title: 'Clock-Out Blocked',

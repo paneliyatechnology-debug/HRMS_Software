@@ -142,7 +142,7 @@ export function processBiometricPunch(payload: {
   deviceApiKey?: string;
   employeeCode: string;
   punchTime?: string;
-  verificationMode?: 'FINGERPRINT' | 'FACE' | 'RFID_CARD' | 'PASSWORD';
+  verificationMode?: 'FACE' | 'RFID_CARD' | 'PASSWORD';
 }): {
   success: boolean;
   message: string;
@@ -262,7 +262,7 @@ export function processBiometricPunch(payload: {
       createdAt: now.toISOString(),
       isGeofenceVerified: true,
       checkInDevice: biometricDeviceDesc,
-      remarks: `🛡️ Verified Biometric Check-In via ${device?.deviceName || 'Hardware Device'} [${payload.verificationMode || 'Fingerprint'}]`,
+      remarks: `🛡️ Verified Biometric Check-In via ${device?.deviceName || 'Hardware Device'} [${payload.verificationMode || 'FACE'}]`,
     };
     allRecords.unshift(updatedRecord);
   }
@@ -345,7 +345,7 @@ async function startAgent() {
           deviceId: DEVICE_ID,
           employeeCode: String(data.userId),
           punchTime: data.attTime || new Date().toISOString(),
-          verificationMode: data.verifyType === 1 ? 'FINGERPRINT' : 'FACE'
+          verificationMode: 'FACE'
         }, {
           headers: { 'Content-Type': 'application/json', 'x-device-key': API_KEY }
         });
@@ -408,7 +408,7 @@ def sync_punches():
                 "deviceId": DEVICE_ID,
                 "employeeCode": str(att.user_id),
                 "punchTime": att.timestamp.isoformat(),
-                "verificationMode": "FINGERPRINT" if att.punch == 0 else "FACE"
+                "verificationMode": "FACE"
             }
             res = requests.post(CLOUD_URL, json=payload, headers={"x-device-key": API_KEY})
             print(f"[Synced] Code {att.user_id}: {res.status_code}")

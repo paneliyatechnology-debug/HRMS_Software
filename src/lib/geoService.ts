@@ -1,7 +1,6 @@
 /**
  * Geofencing & Location Verification Service
- * Note: Geofence enforcement is disabled for Phase 1.
- * All verification checks return isAllowed: true so users can punch freely.
+ * Punch is allowed only inside the office radius, unless the check is turned off.
  */
 
 export interface OfficeGeofenceConfig {
@@ -63,15 +62,15 @@ export function setEmployeeWFHStatus(employeeId: string, enabled: boolean): void
 }
 
 /**
- * Default Office Location (Paneliya Technology HQ)
- * Geofence enforcement is disabled for Phase 1.
+ * Default Office Location (Paneliya Technology HQ, Surat).
+ * Employees must be inside this radius to punch, unless they are marked work-from-home.
  */
 export const DEFAULT_OFFICE_GEOFENCE: OfficeGeofenceConfig = {
   officeName: 'Paneliya Technology HQ',
   latitude: 21.1702,
   longitude: 72.8311,
   radiusMeters: 500,
-  enabled: false,
+  enabled: true,
 };
 
 let liveGeofenceConfig: OfficeGeofenceConfig = { ...DEFAULT_OFFICE_GEOFENCE };
@@ -108,13 +107,17 @@ export function calculateHaversineDistance(
   return Math.round(R * c);
 }
 
+function locationError(code: NonNullable<GeofenceVerificationResult['errorCode']>, message: string) {
+  const error = new Error(message);
+  (error as Error & { code: string }).code = code;
+  return error;
+}
+
 export function getCurrentGPSLocation(): Promise<UserCoordinates> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      return reject({
-        code: 'UNSUPPORTED',
-        message: 'Geolocation is not supported by your browser or device.',
-      });
+      reject(locationError('UNSUPPORTED', 'Geolocation is not supported by your browser or device.'));
+      return;
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -127,38 +130,65 @@ export function getCurrentGPSLocation(): Promise<UserCoordinates> {
         });
       },
       (err) => {
-        let code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' = 'POSITION_UNAVAILABLE';
-        let message = 'Unable to determine your GPS location.';
-
         if (err.code === err.PERMISSION_DENIED) {
-          code = 'PERMISSION_DENIED';
-          message = 'Location permission was denied.';
-        } else if (err.code === err.TIMEOUT) {
-          code = 'TIMEOUT';
-          message = 'GPS location request timed out.';
+          reject(locationError('PERMISSION_DENIED', 'Location permission was not granted.'));
+          return;
         }
-
-        reject({ code, message, nativeError: err });
+        if (err.code === err.TIMEOUT) {
+          reject(locationError('TIMEOUT', 'Location timed out. Turn on device location and try again.'));
+          return;
+        }
+        reject(locationError('POSITION_UNAVAILABLE', 'Location is off. Turn on location for this browser and try again.'));
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 15000,
-      }
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 0 },
     );
   });
 }
 
+export function measureOfficeDistance(userCoords: UserCoordinates): GeofenceVerificationResult {
+  const config = getOfficeGeofenceConfig();
+  if (!config.enabled) {
+    return { isAllowed: true, distanceMeters: null, userCoords, config, errorCode: 'DISABLED' };
+  }
+  const distanceMeters = calculateHaversineDistance(
+    userCoords.latitude,
+    userCoords.longitude,
+    config.latitude,
+    config.longitude,
+  );
+  const gpsSlack = Math.min(Math.max(userCoords.accuracy || 0, 0), config.radiusMeters);
+  const isAllowed = distanceMeters <= config.radiusMeters + gpsSlack;
+  return {
+    isAllowed,
+    distanceMeters,
+    userCoords,
+    config,
+    errorCode: isAllowed ? undefined : 'OUTSIDE_GEOFENCE',
+    errorMessage: isAllowed
+      ? undefined
+      : `You are ${distanceMeters} m from ${config.officeName}. Punch is allowed only within ${config.radiusMeters} m.`,
+  };
+}
+
 /**
  * Validate whether the current user is inside the designated office geofence.
- * Phase 1: Always returns isAllowed: true (Geofence bypassed).
  */
-export async function verifyCurrentGeofence(): Promise<GeofenceVerificationResult> {
+export async function verifyCurrentGeofence(already?: UserCoordinates): Promise<GeofenceVerificationResult> {
   const config = getOfficeGeofenceConfig();
-  return {
-    isAllowed: true,
-    distanceMeters: 0,
-    userCoords: null,
-    config: { ...config, enabled: false },
-  };
+  if (!config.enabled) {
+    return { isAllowed: true, distanceMeters: null, userCoords: already || null, config, errorCode: 'DISABLED' };
+  }
+  try {
+    return measureOfficeDistance(already || await getCurrentGPSLocation());
+  } catch (error: unknown) {
+    const failed = error as { code?: GeofenceVerificationResult['errorCode']; message?: string };
+    return {
+      isAllowed: false,
+      distanceMeters: null,
+      userCoords: null,
+      config,
+      errorCode: failed.code || 'POSITION_UNAVAILABLE',
+      errorMessage: failed.message || 'Location is required before attendance can be saved.',
+    };
+  }
 }

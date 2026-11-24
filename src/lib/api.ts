@@ -380,6 +380,16 @@ export type CompanyRegisterInput = {
     lastName: string;
 };
 
+async function getGeofence() {
+  const response = await http.get('/companies/geofence');
+  return response.data as { officeName: string; latitude: number; longitude: number; radiusMeters: number; enabled: boolean };
+}
+
+async function saveGeofence(data: { latitude: number; longitude: number; radiusMeters: number; enabled: boolean; companyId?: string }) {
+  const response = await http.put('/companies/geofence', data, { headers: { 'Content-Type': 'application/json' } });
+  return response.data as { officeName: string; latitude: number; longitude: number; radiusMeters: number; enabled: boolean };
+}
+
 async function registerCompany(data: CompanyRegisterInput) {
   try {
     const response = await http.post('/companies/register', {
@@ -533,13 +543,17 @@ async function deleteDocument(id: string) {
    ========================================================================== */
 
 // 17. POST /attendance/clock (Clock in, clock out, break in, break out)
-async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string }) {
+async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) {
   try {
     clearApiCache('/attendance');
     const payload = {
       flag: data?.flag,
       workMode: data?.workMode || 'Office',
       note: data?.note || '',
+      latitude: data?.latitude,
+      longitude: data?.longitude,
+      accuracy: data?.accuracy,
+      faceDescriptor: data?.faceDescriptor,
     };
     const response = await http.post('/attendance/clock', payload, {
       headers: { 'Content-Type': 'application/json' },
@@ -1116,8 +1130,8 @@ export interface ApplyLeaveInput {
   leaveType: string;
   reason: string;
   days?: Array<{ date: string; portion: string }>;
-  startDate?: string;
-  endDate?: string;
+    startDate?: string;
+    endDate?: string;
   isHalfDay?: boolean;
   halfDaySession?: string;
   dayBreakdown?: Array<{ date: string; session: string; duration?: number }>;
@@ -1133,7 +1147,7 @@ async function applyLeave(data: ApplyLeaveInput) {
           const isFirst = s === 'FIRST_HALF' || s === 'SESSION_1' || s.includes('FIRST');
           const isSecond = s === 'SECOND_HALF' || s === 'SESSION_2' || s.includes('SECOND');
           const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
-          return {
+      return {
             date: d.date,
             portion,
           };
@@ -1538,8 +1552,8 @@ async function createAnnouncement(payload: {
   priority?: string;
   targetAudience?: string;
   targetEmployeeId?: string;
-  departmentName?: string;
-}) {
+    departmentName?: string;
+  }) {
   try {
     const res = await http.post('/notices', {
       title: payload.title,
@@ -1844,7 +1858,7 @@ function taskPayload(payload: Record<string, unknown>) {
 async function createTask(payload: {
   teamId?: string;
   assigneeId?: string;
-  title: string;
+    title: string;
   description?: string;
   priority?: string;
   status?: string;
@@ -2270,7 +2284,7 @@ async function getPayslip(payslipId: string) {
 
 // 81. POST /plans (Create plan)
 async function createPlan(payload: {
-  name: string;
+    name: string;
   price: number;
   durationMonths: number;
   description?: string;
@@ -2590,6 +2604,24 @@ async function deleteEmployee(id: string) {
 
 const deleteUser = deleteEmployee;
 
+async function updateEmployee(id: string, data: Record<string, unknown>) {
+  const payload: Record<string, unknown> = {};
+  for (const key of ['firstName', 'lastName', 'email', 'phone', 'gender', 'address', 'role', 'status']) {
+    if (data[key] !== undefined) payload[key] = data[key];
+  }
+  if (!Object.keys(payload).length) {
+    return { message: 'Nothing to update.' };
+  }
+  try {
+    const response = await http.patch(`/users/${id}`, payload, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'User could not be updated.');
+  }
+}
+
 async function deactivateEmployee(id: string) {
   try {
     const response = await http.patch(`/users/${id}`, { status: 'Inactive' });
@@ -2616,15 +2648,18 @@ async function getNextEmployeeCode() {
   return `EMP-${Math.floor(100000 + Math.random() * 900000)}`;
 }
 
-async function uploadProfilePhoto(file: File) {
+async function uploadProfilePhoto(file: File, faceDescriptor?: number[]) {
   try {
+    const descriptor = faceDescriptor || await (await import('./faceMatch')).assertFaceInPhoto(file);
     const form = new FormData();
     form.append('photo', file);
-    const response = await http.post('/users/upload-photo', form);
+    form.append('faceDescriptor', JSON.stringify(descriptor));
+    const response = await http.post('/users/profile/photo', form);
     clearApiCache('/users');
-    return response.data;
-  } catch {
-    return { url: '' };
+    return response.data as { message?: string; avatarUrl?: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile photo could not be uploaded.');
   }
 }
 
@@ -2647,9 +2682,9 @@ async function verifyDocument(id: string, status: string) {
 }
 
 // Attendance aliases mapping directly to collection endpoints
-const clockIn = (data?: { workMode?: string; note?: string }) => clock({ flag: 'clock-in', ...data });
+const clockIn = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) => clock({ flag: 'clock-in', ...data });
 const checkIn = clockIn;
-const clockOut = (data?: { workMode?: string; note?: string }) => clock({ flag: 'clock-out', ...data });
+const clockOut = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) => clock({ flag: 'clock-out', ...data });
 const checkOut = clockOut;
 const startWork = clockIn;
 const stopWork = clockOut;
@@ -2750,6 +2785,7 @@ export const api = new Proxy({
   getEmployees,
   getDashboard,
   createEmployee,
+  updateEmployee,
   deleteEmployee,
   deleteUser,
   deactivateEmployee,
@@ -2759,6 +2795,8 @@ export const api = new Proxy({
 
   // Companies (1)
   registerCompany,
+  getGeofence,
+  saveGeofence,
 
   // Documents (5)
   createDocument,

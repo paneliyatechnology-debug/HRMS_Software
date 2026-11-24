@@ -1062,7 +1062,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               <span className="hidden sm:inline">Chat</span>
                             </button>
 
-                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                {(officeRole === 'ADMIN' || officeRole === 'SUPER_ADMIN') && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                             <button
                               id={`btn-dash-role-${emp.id}`}
                               onClick={() => setRoleTargetEmpDash(emp)}

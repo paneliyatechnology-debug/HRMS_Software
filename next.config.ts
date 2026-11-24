@@ -27,6 +27,7 @@ const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.102:40
 const backendApiUrl = backendBase.endsWith('/api') ? backendBase : `${backendBase}/api`;
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@vladmandic/face-api'],
   async rewrites() {
     return [
       {
@@ -44,6 +45,8 @@ const nextConfig: NextConfig = {
     "10.*.*.*",
     "172.16.*.*",
     "*.local",
+    "*.loca.lt",
+    "loca.lt",
     ...localIps,
   ],
   turbopack: {

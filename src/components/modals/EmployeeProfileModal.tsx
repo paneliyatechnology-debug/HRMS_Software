@@ -138,19 +138,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
     setUploadingPhoto(true);
     try {
-      let newAvatarUrl = '';
-      try {
-        const res = await api.uploadProfilePhoto(file);
-        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
-      } catch (uploadErr) {
-        console.warn('Backend photo upload failed, using local compression fallback:', uploadErr);
-      }
-
-      if (!newAvatarUrl) {
-        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
-      }
-
-      await api.updateEmployee(currentEmp.id, { avatarUrl: newAvatarUrl });
+      const saved = await api.uploadProfilePhoto(file);
+      const newAvatarUrl = saved.avatarUrl || '';
+      if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
       setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: newAvatarUrl } : null));
 
       // If logged in user is this employee (or updating their own profile)
@@ -181,7 +171,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     setPhotoError(null);
     setPhotoSuccess(null);
     try {
-      await api.updateEmployee(currentEmp.id, { avatarUrl: '' });
+      if (String(user?.role || currentEmp.role || '').toUpperCase() === 'EMPLOYEE') {
+        throw new Error('Employees cannot remove the profile photo.');
+      }
       setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: '' } : null));
 
       const isSelf =

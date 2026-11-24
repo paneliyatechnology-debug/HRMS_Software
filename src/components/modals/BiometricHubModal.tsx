@@ -66,7 +66,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
   // Form states for Add Device
   const [formName, setFormName] = useState('');
   const [formBrand, setFormBrand] = useState<BiometricDevice['brand']>('eSSL');
-  const [formModel, setFormModel] = useState('eSSL MB20 Face & Fingerprint');
+  const [formModel, setFormModel] = useState('eSSL MB20 Face');
   const [formSerial, setFormSerial] = useState('');
   const [formIp, setFormIp] = useState('192.168.1.201');
   const [formPort, setFormPort] = useState(4370);
@@ -75,7 +75,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
 
   // Simulator states
   const [simEmpCode, setSimEmpCode] = useState(employees[0]?.employeeCode || 'EMP-1');
-  const [simMode, setSimMode] = useState<'FINGERPRINT' | 'FACE' | 'RFID_CARD'>('FINGERPRINT');
+  const [simMode, setSimMode] = useState<'FACE' | 'RFID_CARD'>('FACE');
   const [simResult, setSimResult] = useState<{ success: boolean; message: string; punchType?: string } | null>(null);
   const [simLoading, setSimLoading] = useState(false);
 
@@ -287,7 +287,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                   <Cpu className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                   <p className="font-bold text-slate-700">No Biometric Devices Connected Yet</p>
                   <p className="text-slate-500 text-[11px] max-w-sm mx-auto mt-1">
-                    Connect your office eSSL, ZKTeco, or Realtime machine to start syncing live fingerprint and face punches.
+                    Connect your office eSSL, ZKTeco, or Realtime machine to start syncing live face punches.
                   </p>
                   <button
                     onClick={() => setActiveTab('add')}
@@ -681,7 +681,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
                   Live Biometric Hardware Punch Simulator
                 </h4>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  Test your setup without touching the physical device. Simulate a live fingerprint or facial recognition punch for any employee!
+                  Test your setup without touching the physical device. Simulate a live face scan or RFID punch for any employee!
                 </p>
               </div>
 
@@ -703,20 +703,7 @@ export const BiometricHubModal: React.FC<BiometricHubModalProps> = ({
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Verification Sensor Mode</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSimMode('FINGERPRINT')}
-                      className={`py-2 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer ${
-                        simMode === 'FINGERPRINT'
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <Fingerprint className="w-3.5 h-3.5" />
-                      <span>Fingerprint</span>
-                    </button>
-
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setSimMode('FACE')}

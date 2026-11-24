@@ -171,7 +171,7 @@ export const SUBSCRIPTION_FEATURES_MATRIX: SubscriptionFeature[] = [
     includedInStarter: false,
     includedInGrowth: false,
     includedInEnterprise: true,
-    description: 'Sync physical fingerprint and face-recognition machines via ADMS Cloud',
+    description: 'Sync physical face-recognition machines via ADMS Cloud',
   },
   {
     name: 'Leave Management & Quota Policies',

@@ -842,8 +842,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                         className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
                       >
                         Forgot Password?
-                      </button>
-                    </div>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Submit Button */}

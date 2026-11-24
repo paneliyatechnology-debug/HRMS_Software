@@ -45,6 +45,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   portalMode = 'admin',
 }) => {
   const { user } = useAuth();
+  const canChangeRole = ['ADMIN', 'SUPER_ADMIN'].includes(String(user?.role || '').toUpperCase());
   const { showToast } = useSocket();
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -137,6 +138,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [roleTargetEmp, setRoleTargetEmp] = useState<Employee | null>(null);
 
   const handleOpenRoleModal = (emp: Employee) => {
+    if (!canChangeRole) return;
     const isSelf =
       Boolean(user.email && emp.email && user.email.toLowerCase() === emp.email.toLowerCase()) ||
       Boolean(user.employeeId && (emp.id === user.employeeId || (emp as any).employeeId === user.employeeId)) ||
@@ -587,9 +589,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <span className="truncate text-[11px]">{emp.email}</span>
                     <button
                       type="button"
-                      disabled={portalMode !== 'admin' || isCurrentUser}
+                      disabled={portalMode !== 'admin' || isCurrentUser || !canChangeRole}
                       onClick={(e) => {
-                        if (portalMode === 'admin' && !isCurrentUser) {
+                        if (portalMode === 'admin' && !isCurrentUser && canChangeRole) {
                           e.stopPropagation();
                           handleOpenRoleModal(emp);
                         }
@@ -773,9 +775,9 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         return (
                           <button
                             type="button"
-                            disabled={portalMode !== 'admin' || isCurrentUser}
+                            disabled={portalMode !== 'admin' || isCurrentUser || !canChangeRole}
                             onClick={(e) => {
-                              if (portalMode === 'admin' && !isCurrentUser) {
+                              if (portalMode === 'admin' && !isCurrentUser && canChangeRole) {
                                 e.stopPropagation();
                                 handleOpenRoleModal(emp);
                               }
@@ -875,7 +877,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             <span className="hidden sm:inline">Chat</span>
                           </button>
 
-                          {!isCurrentUser && (
+                          {!isCurrentUser && canChangeRole && (
                             <button
                               id={`btn-role-${emp.id}`}
                               onClick={() => handleOpenRoleModal(emp)}

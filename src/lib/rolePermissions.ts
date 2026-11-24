@@ -105,22 +105,10 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'dashboard',
     'attendance',
     'leaves',
-    'employees',
+    'organization',
     'tasks',
-    'recruitment',
-    'reports',
-    'announcements',
-    'documents',
-    'chat',
-    'calendar',
-    'profile',
-  ],
-  SUPERVISOR: [
-    'dashboard',
-    'attendance',
-    'leaves',
-    'employees',
-    'reports',
+    'payslips',
+    'resignations',
     'announcements',
     'documents',
     'chat',
@@ -133,7 +121,6 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'leaves',
     'tasks',
     'payslips',
-    'reports',
     'resignations',
     'announcements',
     'documents',
@@ -152,8 +139,7 @@ export function normalizeRoleKey(role?: string): string {
   if (r === 'SUPER_ADMIN' || r === 'SUPERADMIN') return 'SUPER_ADMIN';
   if (r === 'ADMIN' || r === 'COMPANY_ADMIN' || r === 'ORG_ADMIN') return 'ADMIN';
   if (r === 'HR' || r === 'HR_ADMIN') return 'HR';
-  if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD' || r === 'PRODUCTION_MANAGER') return 'MANAGER';
-  if (r === 'SUPERVISOR') return 'SUPERVISOR';
+  if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD') return 'MANAGER';
   return 'EMPLOYEE';
 }
 
@@ -248,7 +234,7 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
 export function canUserPunch(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'EMPLOYEE' || role === 'HR' || role === 'MANAGER' || role === 'SUPERVISOR';
+  return role === 'EMPLOYEE' || role === 'HR' || role === 'MANAGER';
 }
 
 /**
@@ -261,22 +247,21 @@ export function canCreateUser(user?: User | null): boolean {
 }
 
 /**
- * Returns whether user can delete staff (Company Admin only).
+ * Returns whether user can delete staff/users in Directory (Admin and HR only as per requirements).
  */
 export function canDeleteUser(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
 }
 
 /**
- * Returns whether user can approve or reject leaves.
- * Company Admin and HR can do this for the company. Production Manager and Supervisor can do this for their team.
+ * Returns whether user can approve or reject leaves (Admin, Super Admin, HR only).
  */
 export function canApproveRejectLeave(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER' || role === 'SUPERVISOR';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
 }
 
 /**

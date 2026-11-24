@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { OfficeGeofenceCard } from './OfficeGeofenceCard';
 import {
   Settings,
   Shield,
@@ -29,7 +30,6 @@ import {
   TrendingUp,
   ArrowUpRight,
   Crown,
-  Fingerprint,
   FileText,
   RefreshCw,
   Receipt,
@@ -447,23 +447,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
     setUploadingAvatar(true);
     try {
-      let newAvatarUrl = '';
-      try {
-        const res = await api.uploadProfilePhoto(file);
-        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
-      } catch (err) {
-        console.warn('Backend photo upload failed, using local compression fallback:', err);
-      }
-
-      if (!newAvatarUrl) {
-        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
-      }
+      const { assertFaceInPhoto } = await import('../../lib/faceMatch');
+      const faceDescriptor = await assertFaceInPhoto(file);
+      const res = await api.uploadProfilePhoto(file, faceDescriptor);
+      const newAvatarUrl = res.avatarUrl || '';
+      if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
 
       updateUserProfile({ avatarUrl: newAvatarUrl });
-      const empId = user.employeeId || user.id;
-      if (empId) {
-        await api.updateEmployee(empId, { avatarUrl: newAvatarUrl });
-      }
       window.dispatchEvent(new Event('hrms_employees_updated'));
       showToast({ type: 'success', title: 'Profile Picture Updated', message: 'Your profile picture has been saved successfully.' });
     } catch (err: any) {
@@ -475,13 +465,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   };
 
   const handleAvatarRemove = async () => {
+    if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
+      showToast({ type: 'error', title: 'Photo required', message: 'Employees cannot remove the profile photo.' });
+      return;
+    }
     setUploadingAvatar(true);
     try {
       updateUserProfile({ avatarUrl: '' });
-      const empId = user.employeeId || user.id;
-      if (empId) {
-        await api.updateEmployee(empId, { avatarUrl: '' });
-      }
       window.dispatchEvent(new Event('hrms_employees_updated'));
       showToast({ type: 'success', title: 'Photo Removed', message: 'Your profile picture has been cleared.' });
     } catch (err: any) {
@@ -671,7 +661,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${isSelected
                         ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/20`
                         : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
-                      }`}
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
@@ -691,7 +681,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                         className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${isSelected
                             ? 'border-emerald-600 bg-emerald-600 text-white'
                             : 'border-slate-300 bg-white'
-                          }`}
+                        }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
                       </div>
@@ -716,7 +706,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '12h'
                     ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
+                }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">12-Hour Format (AM / PM)</h4>
@@ -726,7 +716,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '12h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
-                    }`}
+                  }`}
                 >
                   {empPreferences.timeFormat === '12h' && <Check className="w-3 h-3" />}
                 </div>
@@ -737,7 +727,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '24h'
                     ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
+                }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">24-Hour Military Format</h4>
@@ -747,7 +737,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '24h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
-                    }`}
+                  }`}
                 >
                   {empPreferences.timeFormat === '24h' && <Check className="w-3 h-3" />}
                 </div>
@@ -846,12 +836,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     return (
       <div className="space-y-5 w-full animate-in fade-in select-none">
         {/* Header */}
-        {savedMessage && (
+          {savedMessage && (
           <div className="flex justify-end pb-2">
             <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
               <Check className="w-3.5 h-3.5" /> Saved Successfully
             </span>
-          </div>
+        </div>
         )}
 
         {/* 2-Column Responsive Layout */}
@@ -871,11 +861,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
                       ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
+                  }`}
                 >
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                      }`}
+                    }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
@@ -901,7 +891,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     Personal Profile Details
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Update your display avatar, personal phone number, and emergency contact details.
+                    Profile photo is required for employees. Attendance matches this face.
                   </p>
                 </div>
 
@@ -917,14 +907,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-800">Profile Photo</p>
+                    <p className="text-xs font-bold text-slate-800">Profile Photo {String(user?.role || '').toUpperCase() === 'EMPLOYEE' ? '(required)' : ''}</p>
                     <div className="flex flex-wrap gap-2">
                       <label className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition inline-flex items-center gap-1.5 cursor-pointer">
                         <Camera className="w-3.5 h-3.5" />
                         <span>{uploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
                         <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
                       </label>
-                      {user.avatarUrl && (
+                      {user.avatarUrl && String(user?.role || '').toUpperCase() !== 'EMPLOYEE' && (
                         <button
                           type="button"
                           onClick={handleAvatarRemove}
@@ -1196,9 +1186,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-            {companyData.name || 'Admin Workspace'}
-          </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+              {companyData.name || 'Admin Workspace'}
+            </span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1218,6 +1208,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           </button>
         </div>
       </div>
+      <OfficeGeofenceCard />
 
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -1236,11 +1227,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
                     ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
+                }`}
               >
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                    }`}
+                  }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
@@ -1631,12 +1622,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           {adminActiveTab === 'leaves' && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <CalendarOff className="w-4 h-4 text-emerald-600" />
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <CalendarOff className="w-4 h-4 text-emerald-600" />
                     Annual Leave Quotas &amp; Carry-Forward
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
                     Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
                   </p>
                 </div>
@@ -1661,71 +1652,71 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.casualLeaveAnnual}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.casualLeaveAnnual}
                       onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.sickLeaveAnnual}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.paidLeaveAnnual}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="30"
-                      value={leavePolicyData.carryForwardLimit}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
-                  </div>
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
                 </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.sickLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.paidLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    value={leavePolicyData.carryForwardLimit}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                </div>
+              </div>
               )}
 
               <div className="pt-2 flex justify-end">
@@ -1751,20 +1742,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/80 shadow-xs">
                       <Crown className="w-6 h-6" />
                     </div>
-                    <div>
+              <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-black text-slate-900">
                           {premiumStatus?.planName || subData?.plan?.name || 'Standard Enterprise'}
-                        </h3>
+                </h3>
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
                           {premiumStatus?.status || 'Active'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                         Company Premium Tier &bull; Billed {subData?.billingCycle || 'Annual'}
-                      </p>
-                    </div>
-                  </div>
+                </p>
+              </div>
+              </div>
                   <button
                     type="button"
                     onClick={() => setIsUpgradeModalOpen(true)}
@@ -1773,20 +1764,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     <CreditCard className="w-4 h-4" />
                     <span>Upgrade / Renew Plan</span>
                   </button>
-                </div>
+            </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase">Max Employees</span>
                     <span className="text-base font-black text-slate-800 mt-1 block">
                       {premiumStatus?.maxEmployees || subData?.plan?.maxEmployees || 'Unlimited'}
-                    </span>
+                      </span>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase">Billing Cycle</span>
                     <span className="text-base font-black text-slate-800 mt-1 block">
                       {subData?.billingCycle || 'Annual'}
-                    </span>
+                      </span>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase">Gateway</span>
@@ -1801,7 +1792,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     </span>
                   </div>
                 </div>
-              </div>
+                    </div>
 
               {/* Plans Catalog Section */}
               <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
@@ -1833,7 +1824,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                     <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
                     <span className="text-xs font-semibold">Loading plans from backend...</span>
-                  </div>
+                      </div>
                 ) : plansList.length === 0 ? (
                   <div className="py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
                     <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
@@ -1862,34 +1853,34 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                         key={plan.id}
                         className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition-all shadow-xs flex flex-col justify-between space-y-4"
                       >
-                        <div>
+                      <div>
                           <div className="flex items-center justify-between gap-2">
                             <h4 className="text-sm font-black text-slate-900 truncate">{plan.name}</h4>
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                               {plan.status || 'Active'}
-                            </span>
-                          </div>
+                        </span>
+                      </div>
                           <div className="mt-2 flex items-baseline gap-1">
                             <span className="text-2xl font-black text-slate-900">₹{plan.price}</span>
                             <span className="text-xs text-slate-400 font-bold">/ {plan.durationMonths || 1} mo</span>
-                          </div>
+                      </div>
                           {plan.description && (
                             <p className="text-xs text-slate-500 mt-2 line-clamp-2">{plan.description}</p>
                           )}
-                        </div>
+                  </div>
 
                         <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
-                          <button
+                    <button
                             type="button"
                             onClick={() => handlePlaceOrderDirect(plan.id)}
                             className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition cursor-pointer"
                             title="Place Order (POST /premium/orders)"
                           >
                             Order
-                          </button>
-                          <button
+                    </button>
+                    <button
                             type="button"
-                            onClick={() => {
+                      onClick={() => {
                               setSellingPlan(plan);
                               setSellCompanyId('');
                             }}
@@ -1923,9 +1914,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                             title="Delete Plan (DELETE /plans/:id)"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                    </button>
+                  </div>
+                </div>
                     ))}
                   </div>
                 )}
@@ -1963,7 +1954,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                    <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                         <tr>
                           <th className="px-4 py-3">Order ID</th>
@@ -1971,9 +1962,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Date</th>
                           <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
                         {premiumOrders.map((ord: any) => (
                           <tr key={ord.id} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
@@ -1985,28 +1976,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                             <td className="px-4 py-3">
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
                                 {ord.status || 'Completed'}
-                              </span>
-                            </td>
+                            </span>
+                          </td>
                             <td className="px-4 py-3 text-slate-500">
                               {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <button
+                            <button
                                 type="button"
-                                onClick={() => {
+                              onClick={() => {
                                   setEditingOrder(ord);
                                   setOrderStatusVal(ord.status || 'Active');
                                 }}
                                 className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
                               >
                                 Update Status
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 )}
               </div>
             </div>
@@ -2127,9 +2118,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
       {/* Upgrade Plan Modal */}
       {isUpgradeModalOpen && (
-        <UpgradePlanModal
-          isOpen={isUpgradeModalOpen}
-          onClose={() => setIsUpgradeModalOpen(false)}
+      <UpgradePlanModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
           onPlanUpdated={() => {
             refreshSubscriptionData();
             loadPlansAndPremium();

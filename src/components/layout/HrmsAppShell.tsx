@@ -334,6 +334,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [portalMode, activeModule, user, setPortalMode]);
 
   useEffect(() => {
+    const openClock = () => setClockModalOpen(true);
+    window.addEventListener('hrms_open_clock_modal', openClock);
+    return () => window.removeEventListener('hrms_open_clock_modal', openClock);
+  }, []);
+
+  useEffect(() => {
     return subscribeChatUnread((counts) => {
       setUnreadChatCount(Object.values(counts).reduce((sum, count) => sum + count, 0));
     });
@@ -876,6 +882,18 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             : 'overflow-y-auto px-4 sm:px-6 py-5 pb-24 sm:pb-8'
             }`}
         >
+          {String(user?.role || '').toUpperCase() === 'EMPLOYEE' && !user?.avatarUrl && (
+            <div className="max-w-7xl mx-auto w-full mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-amber-950">Upload a profile photo with your face. Attendance stays closed until it is saved.</p>
+              <button
+                type="button"
+                onClick={() => navigateToModule('settings')}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+              >
+                Upload photo
+              </button>
+            </div>
+          )}
           <div
             key={`${activeModule}-${subTab || 'root'}`}
             className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' ? 'flex-1 min-h-0 flex flex-col' : ''

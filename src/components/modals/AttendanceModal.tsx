@@ -33,7 +33,7 @@ import {
   getLiveBreakSeconds,
   updateLocalRecordFromBackend,
 } from '../../lib/attendanceService';
-import { isEmployeeWFHEnabled } from '../../lib/geoService';
+import { getCurrentGPSLocation, isEmployeeWFHEnabled, saveOfficeGeofenceConfig, verifyCurrentGeofence } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
 import { ModernDigitClock } from '../common/ModernDigitClock';
 import { useModalOverlay } from '../../lib/useModalOverlay';
@@ -49,7 +49,7 @@ interface AttendanceModalProps {
 }
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
-  const { user, role, portalMode } = useAuth();
+  const { user, role, portalMode, updateUserProfile } = useAuth();
   const { punchBlockMessage } = useWorkSession();
   const currentEmpId = user.employeeId || user.id || '';
 
@@ -65,6 +65,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
   const [remarks, setRemarks] = useState('Morning shift clock-in');
+  const [punchNotice, setPunchNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [isWFH, setIsWFH] = useState(() => isEmployeeWFHEnabled(currentEmpId));
@@ -113,8 +114,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [faceState, setFaceState] = useState<'none' | 'checking' | 'match' | 'mismatch'>('none');
+  const [faceError, setFaceError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const captureRef = useRef<() => void>(() => {});
+  const captureLock = useRef(false);
+  const profileFaceRef = useRef<number[] | null>(null);
+  const matchedFaceRef = useRef<number[] | null>(null);
+  const punchRef = useRef<(photo: string, face: number[]) => void>(() => {});
+  const pendingCameraRef = useRef<Promise<MediaStream> | null>(null);
 
   // Stop camera helper
   const stopCameraStream = useCallback(() => {
@@ -158,27 +167,59 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
   }, [cameraStream, selfieMode]);
 
+  const requestCameraNow = () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.isSecureContext) return;
+    pendingCameraRef.current = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+  };
+
   // Start front camera
   const startCamera = async () => {
     setCameraStarting(true);
     setCameraError(null);
     setCameraReady(false);
     try {
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Camera is not supported on this browser or device.');
+      const phoneUrl = `https://${window.location.host}`;
+      if (!window.isSecureContext || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setCameraError(`On the phone, open ${phoneUrl} and allow the camera. A normal http://192.168 address cannot open the camera.`);
+        return;
       }
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'user' },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-        },
-        audio: false,
-      });
+      const pending = pendingCameraRef.current;
+      pendingCameraRef.current = null;
+      let stream: MediaStream | null = null;
+      if (pending) {
+        try {
+          stream = await pending;
+        } catch (error) {
+          const name = error instanceof Error ? error.name : '';
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') throw error;
+        }
+      }
+      if (!stream) {
+        const attempts: MediaStreamConstraints[] = [
+          { video: { facingMode: 'user' }, audio: false },
+          { video: true, audio: false },
+        ];
+        let lastError: unknown;
+        for (const constraints of attempts) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            break;
+          } catch (error) {
+            lastError = error;
+            const name = error instanceof Error ? error.name : '';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') throw error;
+          }
+        }
+        if (!stream) throw lastError instanceof Error ? lastError : new Error('Failed to start camera.');
+      }
       setCameraStream(stream);
+      setCameraReady(true);
       if (videoRef.current) {
         const vid = videoRef.current;
         vid.muted = true;
@@ -189,10 +230,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         }).catch((err) => console.warn('Video play err:', err));
       }
     } catch (err: any) {
-      console.error('Camera access error:', err);
       setCameraError(
         err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'Camera permission was denied. Please allow camera access in your browser or upload a photo below.'
+          ? 'Allow camera when the phone asks. If it was blocked, open the browser lock icon and set Camera to Allow.'
           : err.message || 'Failed to start camera.'
       );
     } finally {
@@ -243,6 +283,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }
     };
 
+    api.getGeofence().then((fence) => {
+      if (!fence?.latitude || !fence?.longitude) return;
+      saveOfficeGeofenceConfig({
+        officeName: fence.officeName || 'Office',
+        latitude: Number(fence.latitude),
+        longitude: Number(fence.longitude),
+        radiusMeters: Number(fence.radiusMeters) || 500,
+        enabled: fence.enabled !== false,
+      });
+    }).catch(() => {});
+
     tick();
     const interval = setInterval(tick, 1000);
     return () => {
@@ -263,12 +314,76 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     };
   }, [selfieMode, capturedPhoto]);
 
+  useEffect(() => {
+    if (selfieMode === 'idle') {
+      captureLock.current = false;
+      matchedFaceRef.current = null;
+      profileFaceRef.current = null;
+      setFaceState('none');
+      setFaceError(null);
+      return;
+    }
+    if (!capturedPhoto) {
+      captureLock.current = false;
+      matchedFaceRef.current = null;
+      setFaceState('none');
+    }
+  }, [selfieMode, capturedPhoto]);
+
+  useEffect(() => {
+    if (!cameraReady || selfieMode === 'idle' || capturedPhoto || !user.avatarUrl) return;
+    let stopped = false;
+    let steady = 0;
+    setFaceState('checking');
+    const timer = window.setInterval(async () => {
+      const video = videoRef.current;
+      if (!video || stopped || captureLock.current) return;
+      try {
+        const { profileDescriptor, matchLiveFace } = await import('../../lib/faceMatch');
+        if (!profileFaceRef.current) {
+          profileFaceRef.current = await profileDescriptor(user.avatarUrl as string);
+        }
+        const result = await matchLiveFace(video, profileFaceRef.current);
+        if (stopped || captureLock.current) return;
+        if (result.match && result.descriptor) {
+          setFaceState('match');
+          setFaceError(null);
+          steady += 1;
+          if (steady >= 2) {
+            stopped = true;
+            window.clearInterval(timer);
+            captureRef.current();
+          }
+        } else if (result.aligned) {
+          setFaceState('mismatch');
+          setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+          steady = 0;
+        } else {
+          setFaceState('none');
+          steady = 0;
+        }
+      } catch (error) {
+        if (!stopped) {
+          setFaceState('none');
+          setFaceError(error instanceof Error ? error.message : 'Face check failed.');
+        }
+        steady = 0;
+      }
+    }, 600);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [cameraReady, selfieMode, capturedPhoto, user.avatarUrl]);
+
   useModalOverlay({ isOpen, onClose: handleModalClose });
 
   if (!isOpen) return null;
 
   // Step 1: Direct Check In (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckIn = async () => {
+    requestCameraNow();
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchBlockMessage) {
       alert(punchBlockMessage);
       return;
@@ -277,6 +392,28 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
       alert(currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
+      return;
+    }
+
+    if (rawRole === 'EMPLOYEE') {
+      if (!user.avatarUrl) {
+        alert('Upload your profile photo first. It must clearly show your face.');
+        return;
+      }
+      if (locationRequest) {
+        try {
+          const geo = await verifyCurrentGeofence(await locationRequest);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+            return;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
+      setPunchNotice(null);
+      setCapturedPhoto(null);
+      setSelfieMode('check_in');
       return;
     }
 
@@ -309,8 +446,31 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Direct Clock Out (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckOut = async () => {
+    requestCameraNow();
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchState.status === 'on_break') {
       alert('Cannot clock out while on break. Please click "Resume Work" first.');
+      return;
+    }
+    if (rawRole === 'EMPLOYEE') {
+      if (!user.avatarUrl) {
+        alert('Upload your profile photo first. It must clearly show your face.');
+        return;
+      }
+      if (locationRequest) {
+        try {
+          const geo = await verifyCurrentGeofence(await locationRequest);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+            return;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
+      setPunchNotice(null);
+      setCapturedPhoto(null);
+      setSelfieMode('check_out');
       return;
     }
     setLoading(true);
@@ -375,134 +535,71 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     ctx.fillText(`${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
   };
 
-  // Capture video frame to canvas with burned-in geotag, black-frame prevention, & timestamp watermark
-  const handleCaptureSelfie = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
-
+  const drawMatchedSelfie = (video: HTMLVideoElement) => {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh || video.readyState < 2) return null;
     const canvas = document.createElement('canvas');
     canvas.width = vw;
     canvas.height = vh;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Fill dark background to prevent transparent JPEG conversion artifacts
+    if (!ctx) return null;
     ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let hasDrawnVideo = false;
-    try {
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        ctx.save();
-        // Mirror selfie horizontally
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
-        hasDrawnVideo = true;
-      }
-    } catch (e) {
-      console.warn('Could not render video frame onto canvas:', e);
-    }
-
-    const bannerHeight = 105;
-    let isPitchBlack = true;
-
-    if (hasDrawnVideo) {
-      try {
-        const checkW = Math.min(canvas.width, 160);
-        const checkH = Math.min(canvas.height - bannerHeight, 160);
-        const imgData = ctx.getImageData(10, 10, checkW, checkH);
-        let sampleSum = 0;
-        let samples = 0;
-        for (let i = 0; i < imgData.data.length; i += 24) {
-          sampleSum += imgData.data[i] + imgData.data[i + 1] + imgData.data[i + 2];
-          samples++;
-        }
-        const avg = samples > 0 ? sampleSum / (samples * 3) : 0;
-        if (avg >= 8) {
-          isPitchBlack = false;
-        }
-      } catch (e) {
-        // Fallback if canvas is tainted
-        isPitchBlack = false;
-      }
-    }
-
-    // If camera feed was completely black (webcam shutter closed or uninitialized frame):
-    // Render a high-aesthetic Biometric Verified Employee ID Card portrait!
-    if (isPitchBlack) {
-      const photoAreaHeight = canvas.height - bannerHeight;
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-      grad.addColorStop(0, '#343a40');
-      grad.addColorStop(0.6, '#212529');
-      grad.addColorStop(1, '#343a40');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
-
-      // Decorative ambient glow
-      ctx.beginPath();
-      ctx.arc(canvas.width * 0.8, photoAreaHeight * 0.3, 140, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(99, 102, 241, 0.12)';
-      ctx.fill();
-
-      // Avatar circle
-      const avatarX = canvas.width / 2;
-      const avatarY = photoAreaHeight / 2 - 24;
-      const avatarRadius = Math.min(canvas.width, canvas.height) * 0.16;
-
-      ctx.beginPath();
-      ctx.arc(avatarX, avatarY, avatarRadius + 4, 0, Math.PI * 2);
-      ctx.fillStyle = isWFH ? '#adb5bd' : '#adb5bd';
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
-      ctx.fillStyle = '#343a40';
-      ctx.fill();
-
-      // Employee initials
-      const fInitial = (user.firstName || 'E')[0].toUpperCase();
-      const lInitial = (user.lastName || '')[0]?.toUpperCase() || '';
-      const initials = `${fInitial}${lInitial}`;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.round(avatarRadius * 0.9)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(initials, avatarX, avatarY + 2);
-
-      // Employee name
-      const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(empName, avatarX, avatarY + avatarRadius + 32);
-
-      // Employee Code & Role
-      const empCode = (user as any).employeeCode || user.employeeId || currentEmpId;
-      ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = isWFH ? '#e9ecef' : '#dee2e6';
-      ctx.fillText(`EMP ID: ${empCode} • ${rawRole}`, avatarX, avatarY + avatarRadius + 54);
-
-      // Status caption
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#6c757d';
-      ctx.fillText('HRMS DIGITAL IDENTITY VERIFIED', avatarX, avatarY + avatarRadius + 75);
-
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-    }
-
-    // Burn-in bottom watermark banner
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
     drawWatermarkBanner(ctx, canvas.width, canvas.height);
-
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.9);
-    setCapturedPhoto(photoBase64);
-    stopCameraStream();
+    return canvas.toDataURL('image/jpeg', 0.9);
   };
+
+  const handleMatchAndPunch = async () => {
+    if (captureLock.current || !videoRef.current) return;
+    if (rawRole === 'EMPLOYEE' && !user.avatarUrl) {
+      setFaceError('Upload your profile photo first. It must clearly show your face.');
+      return;
+    }
+    captureLock.current = true;
+    try {
+      const { profileDescriptor, matchLiveFace } = await import('../../lib/faceMatch');
+      if (!user.avatarUrl) {
+        setFaceError('Upload your profile photo first. It must clearly show your face.');
+        captureLock.current = false;
+        return;
+      }
+      if (!profileFaceRef.current) {
+        profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+      }
+      const result = await matchLiveFace(videoRef.current, profileFaceRef.current);
+      if (!result.match || !result.descriptor) {
+        setFaceState(result.aligned ? 'mismatch' : 'none');
+        setFaceError(result.aligned
+          ? 'This face does not match your profile photo. Clock in and clock out are blocked.'
+          : 'Keep your face inside the circle.');
+        captureLock.current = false;
+        return;
+      }
+      const photo = drawMatchedSelfie(videoRef.current);
+      if (!photo) {
+        setFaceError('Camera frame was not ready. Look at the camera and try again.');
+        captureLock.current = false;
+        return;
+      }
+      matchedFaceRef.current = result.descriptor;
+      setFaceState('match');
+      setFaceError(null);
+      setCapturedPhoto(photo);
+      stopCameraStream();
+      punchRef.current(photo, result.descriptor);
+    } catch (error) {
+      captureLock.current = false;
+      setFaceState('none');
+      setFaceError(error instanceof Error ? error.message : 'Face check failed.');
+    }
+  };
+  captureRef.current = () => { void handleMatchAndPunch(); };
 
   // Retake selfie
   const handleRetakeSelfie = () => {
@@ -511,38 +608,82 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   };
 
   // Final Step: Confirm Punch with verified Selfie and GPS coordinates
-  const handleConfirmPunch = async () => {
-    if (!capturedPhoto) {
-      alert('Selfie photo is required before punching attendance.');
+  const handleConfirmPunch = async (photoArg?: string, faceArg?: number[]) => {
+    const photo = typeof photoArg === 'string' ? photoArg : capturedPhoto;
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (!photo) {
+      setFaceError('Selfie photo is required before punching attendance.');
       return;
     }
 
     setLoading(true);
     try {
+      if (!user.avatarUrl) {
+        setFaceError('Upload your profile photo first. It must clearly show your face.');
+        captureLock.current = false;
+        return;
+      }
+      const punchFace = faceArg || matchedFaceRef.current || undefined;
+      if (!punchFace) {
+        setFaceState('mismatch');
+        setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+        captureLock.current = false;
+        return;
+      }
       const detectedDevice = detectUserDevice();
+      let punchLatitude: number | undefined;
+      let punchLongitude: number | undefined;
+      let punchAccuracy: number | undefined;
+      if (rawRole === 'EMPLOYEE') {
+        if (locationRequest) {
+          try {
+            const geo = await verifyCurrentGeofence(await locationRequest);
+            if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+              setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+              setCapturedPhoto(null);
+              captureLock.current = false;
+              setSelfieMode('idle');
+              return;
+            }
+            if (geo.userCoords) {
+              punchLatitude = geo.userCoords.latitude;
+              punchLongitude = geo.userCoords.longitude;
+              punchAccuracy = geo.userCoords.accuracy;
+            }
+          } catch {
+            // Browser did not share a location. Punch still continues.
+          }
+        }
+      }
       const geoData = {
         locationAddress: isWFH ? 'Work From Home' : 'Office',
-        isGeofenceVerified: true,
+        isGeofenceVerified: !isWFH,
         isWFH: isWFH,
-        photo: capturedPhoto,
+        photo,
         device: detectedDevice,
       };
 
       if (selfieMode === 'check_in') {
         if (punchBlockMessage) {
           alert(punchBlockMessage);
+          captureLock.current = false;
           setLoading(false);
           return;
         }
         const fullRemarks = remarks || 'Morning shift clock-in';
 
         const res = await api.checkIn({
-          workMode: 'Office',
+          workMode: isWFH ? 'Work From Home' : 'Office',
           note: fullRemarks,
+          latitude: punchLatitude,
+          longitude: punchLongitude,
+          accuracy: punchAccuracy,
+          faceDescriptor: punchFace,
         });
 
-        if (!res.success) {
-          alert(res.message);
+        if (res && res.success === false) {
+          captureLock.current = false;
+          setFaceError(res.message || 'Clock in was blocked.');
         } else {
           if (res.record) {
             updateLocalRecordFromBackend(res.record);
@@ -568,18 +709,23 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       } else if (selfieMode === 'check_out') {
         const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
         const res = await api.checkOut({
-          workMode: 'Office',
+          workMode: isWFH ? 'Work From Home' : 'Office',
           note: fullRemarks,
+          latitude: punchLatitude,
+          longitude: punchLongitude,
+          accuracy: punchAccuracy,
+          faceDescriptor: punchFace,
         });
 
-        if (!res.success) {
-          alert(res.message);
+        if (res && res.success === false) {
+          captureLock.current = false;
+          setFaceError(res.message || 'Clock out was blocked.');
         } else {
           if (res.record) {
             updateLocalRecordFromBackend(res.record);
           } else {
             performCheckOut(currentEmpId, {
-              photo: capturedPhoto,
+              photo,
               device: detectedDevice,
               remarks: fullRemarks,
             });
@@ -592,12 +738,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         }
       }
     } catch (err: any) {
-      alert(err.message || 'Punch submission failed');
+      captureLock.current = false;
+      const message = err?.message || 'Punch submission failed';
+      setFaceError(message);
+      if (/does not match|profile photo/i.test(message)) setFaceState('mismatch');
     } finally {
       setLoading(false);
       stopCameraStream();
     }
   };
+  punchRef.current = (photo, face) => { void handleConfirmPunch(photo, face); };
 
   const handleTakeBreak = async () => {
     setLoading(true);
@@ -682,6 +832,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     autoPlay
                     playsInline
                     muted
+                    {...{ 'webkit-playsinline': 'true' }}
                     onLoadedMetadata={() => {
                       if (videoRef.current) {
                         videoRef.current.play().catch(() => { });
@@ -702,9 +853,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Face outline guide */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed animate-pulse flex items-end justify-center pb-2">
-                      <span className="text-[10px] font-bold text-white/90 bg-black/50 px-2.5 py-0.5 rounded-full">
-                        Align Face Here
+                    <div className={`w-44 h-52 rounded-full border-4 flex items-end justify-center pb-2 transition-colors ${faceState === 'match' ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.85)]' : faceState === 'mismatch' ? 'border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)]' : 'border-white/70 border-dashed animate-pulse'}`}>
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${faceState === 'match' ? 'bg-emerald-500 text-white' : faceState === 'mismatch' ? 'bg-rose-600 text-white' : 'text-white/90 bg-black/50'}`}>
+                        {faceState === 'match' ? 'Face matched' : faceState === 'mismatch' ? 'Face does not match' : faceState === 'checking' ? 'Checking face...' : 'Align Face Here'}
                       </span>
                     </div>
                   </div>
@@ -716,17 +867,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         {isWFH ? <Home className="w-3 h-3 shrink-0" /> : <MapPin className="w-3 h-3 shrink-0" />}
                         {isWFH ? 'Work From Home' : 'Corporate Office'}
                       </span>
-                      <span className="text-emerald-400 font-mono text-[10px]">
-                        {isWFH ? 'WFH Active' : 'Attendance Verified'}
+                      <span className={`font-mono text-[10px] ${faceState === 'match' ? 'text-emerald-400' : faceState === 'mismatch' ? 'text-rose-400' : 'text-amber-300'}`}>
+                        {faceState === 'match' ? 'Profile matched' : faceState === 'mismatch' ? 'Different face' : 'Match profile to punch'}
                       </span>
                     </div>
-                    <p className="text-[10px] font-mono text-emerald-300 mt-0.5">
-                      Presence: Verified by Paneliya HRMS
+                    <p className="text-[10px] font-mono text-slate-300 mt-0.5">
+                      Clock in and clock out run only when this face matches your profile photo.
                     </p>
                   </div>
 
                   {/* Camera loading state */}
-                  {(!cameraReady || cameraStarting) && !cameraError && (
+                  {cameraStarting && !cameraReady && !cameraError && (
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-xs gap-2.5 z-10">
                       <RefreshCw className="w-7 h-7 animate-spin text-indigo-400" />
                       <span className="font-bold text-sm">Starting Camera Stream...</span>
@@ -748,30 +899,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         >
                           Retry Camera
                         </button>
-                        <button
-                          onClick={() => {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = 640;
-                            canvas.height = 480;
-                            const ctx = canvas.getContext('2d');
-                            if (ctx) {
-                              const bannerHeight = 105;
-                              const photoAreaHeight = canvas.height - bannerHeight;
-                              const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-                              grad.addColorStop(0, '#343a40');
-                              grad.addColorStop(0.6, '#212529');
-                              grad.addColorStop(1, '#343a40');
-                              ctx.fillStyle = grad;
-                              ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
-                              drawWatermarkBanner(ctx, canvas.width, canvas.height);
-                              setCapturedPhoto(canvas.toDataURL('image/jpeg', 0.9));
-                              stopCameraStream();
-                            }
-                          }}
-                          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition cursor-pointer"
-                        >
-                          Use Digital ID Verification
-                        </button>
                       </div>
                     </div>
                   )}
@@ -781,11 +908,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
             {/* Action Buttons for Live Selfie Only */}
             <div className="space-y-2">
+              {faceError && (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {faceError}
+                </p>
+              )}
               {!capturedPhoto ? (
                 <button
                   type="button"
-                  onClick={handleCaptureSelfie}
-                  disabled={!cameraReady || cameraStarting || Boolean(cameraError)}
+                  onClick={() => { void handleMatchAndPunch(); }}
+                  disabled={!cameraReady || cameraStarting || Boolean(cameraError) || loading}
                   className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!cameraReady ? (
@@ -796,7 +928,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Camera className="w-4 h-4" />
-                      <span>Take Live Selfie &amp; Punch Attendance</span>
+                      <span>Match Profile Face &amp; Punch</span>
                     </>
                   )}
                 </button>
@@ -813,7 +945,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   </button>
                   <button
                     type="button"
-                    onClick={handleConfirmPunch}
+                    onClick={() => { void handleConfirmPunch(); }}
                     disabled={loading}
                     className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
                   >
@@ -967,8 +1099,47 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               </div>
             )}
 
+            {rawRole === 'EMPLOYEE' && !user.avatarUrl && (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                <p className="text-xs font-bold text-amber-950">Profile photo is required</p>
+                <p className="text-[11px] text-amber-900">Upload a clear front-facing photo. Attendance stays closed until your face is saved.</p>
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{loading ? 'Checking photo...' : 'Upload profile photo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={loading}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      setLoading(true);
+                      try {
+                        const { assertFaceInPhoto } = await import('../../lib/faceMatch');
+                        const faceDescriptor = await assertFaceInPhoto(file);
+                        const saved = await api.uploadProfilePhoto(file, faceDescriptor);
+                        if (!saved.avatarUrl) throw new Error('Profile photo was not saved.');
+                        updateUserProfile({ avatarUrl: saved.avatarUrl });
+                      } catch (err: any) {
+                        alert(err.message || 'Profile photo could not be saved.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-2">
+              {punchNotice && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-950">
+                  {punchNotice}
+                </div>
+              )}
               {punchBlockMessage && punchState.status !== 'working' && punchState.status !== 'on_break' && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-900">
                   {punchBlockMessage}
