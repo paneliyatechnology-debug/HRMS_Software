@@ -77,6 +77,7 @@ import {
 import { verifyShiftTimeWindow, getWorkScheduleConfig } from '../lib/shiftScheduleService';
 import { ModernDigitClock } from './common/ModernDigitClock';
 import { DailyShiftConsole } from './common/DailyShiftConsole';
+import { canUserPunch, canDeleteUser } from '../lib/rolePermissions';
 import { useWorkSession } from '../context/WorkSessionContext';
 
 function formatDisplayName(first?: string, last?: string): string {
@@ -531,9 +532,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const handleConfirmRemoveEmpDashboard = async () => {
     if (!removingEmpDashboard) return;
+    if (!canDeleteUser(user)) {
+      showToast({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Only Admin and HR have permission to delete users.',
+      });
+      return;
+    }
     setRemoveEmpLoading(true);
     try {
-      const empIdToDelete = removingEmpDashboard.id || (removingEmpDashboard as any).employeeId || '';
+      const empIdToDelete = removingEmpDashboard.id || (removingEmpDashboard as any).userId || (removingEmpDashboard as any)._id || (removingEmpDashboard as any).employeeId || '';
       const payload = {
         firstName: removingEmpDashboard.firstName || '',
         lastName: removingEmpDashboard.lastName || '',
@@ -664,6 +673,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
+          {/* Personal Shift Clock Console for HR / Manager */}
+          {canUserPunch(user) && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                      My Daily Shift &amp; Attendance Clock
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Clock in to track your work hours and breaks for today
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full lg:w-auto lg:min-w-[420px]">
+                  <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* KPI Stats Row */}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 animate-pulse">
@@ -1027,11 +1060,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   <span className="hidden sm:inline">Notice</span>
                                 </button>
 
-                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                                   <button
                                     id={`btn-dash-remove-${emp.id}`}
                                     onClick={() => setRemovingEmpDashboard(emp)}
-                                    className="btn-danger text-xs py-1 px-2"
+                                    className="btn-danger text-xs py-1 px-2 cursor-pointer"
                                     title="Remove employee from staff"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />

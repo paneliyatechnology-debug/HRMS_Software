@@ -20,6 +20,47 @@ export function syncServerClock(serverTime?: string | null) {
   serverOffsetMs = Date.now() - parsed;
 }
 
+export function getServerOffsetMs(): number {
+  return serverOffsetMs;
+}
+
+export type NormalizedPunchType = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'UNKNOWN';
+
+/**
+ * Universal punch type normalizer to handle all backend string variants
+ */
+export function normalizePunchType(rawType?: string): NormalizedPunchType {
+  if (!rawType) return 'UNKNOWN';
+  const t = String(rawType).trim().toUpperCase().replace(/[-_\s]+/g, '_');
+  if (t === 'IN' || t === 'CLOCK_IN' || t === 'CHECK_IN' || t === 'START') {
+    return 'IN';
+  }
+  if (t === 'OUT' || t === 'CLOCK_OUT' || t === 'CHECK_OUT' || t === 'END') {
+    return 'OUT';
+  }
+  if (t === 'BREAK_START' || t === 'BREAK_IN' || t === 'START_BREAK' || t === 'TAKE_BREAK' || t === 'BREAK') {
+    return 'BREAK_START';
+  }
+  if (t === 'BREAK_END' || t === 'BREAK_OUT' || t === 'END_BREAK' || t === 'RESUME' || t === 'RESUME_WORK') {
+    return 'BREAK_END';
+  }
+  return 'UNKNOWN';
+}
+
+/**
+ * Universal punch timestamp extractor (supports ISO, epoch number, string dates, punchTime)
+ */
+export function parsePunchTimestamp(punch: any): number {
+  if (!punch) return 0;
+  if (typeof punch === 'number' && Number.isFinite(punch) && punch > 0) return punch;
+  const raw = punch.punchedAt || punch.punchTime || punch.time || punch.timestamp || punch.at || punch.createdAt;
+  if (!raw) return 0;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  const parsed = new Date(raw).getTime();
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return parseTimeStringToTimestamp(String(raw));
+}
+
 function serverNow(): number {
   return Date.now() - serverOffsetMs;
 }

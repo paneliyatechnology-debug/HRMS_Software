@@ -123,6 +123,7 @@ import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import { getRouteForModule, parseRoutePath } from '../../lib/routes';
+import { isModuleAllowedForUser } from '../../lib/rolePermissions';
 import {
   Employee,
   Department,
@@ -240,24 +241,36 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const currentPath = window.location.pathname;
       const parsed = parseRoutePath(currentPath);
       if (parsed.isValid) {
-        setActiveModule(parsed.module);
-        setSubTab(parsed.subTab || '');
+        if (!isModuleAllowedForUser(parsed.module, user)) {
+          router.replace(getRouteForModule('dashboard'));
+          setActiveModule('dashboard');
+          setSubTab('');
+        } else {
+          setActiveModule(parsed.module);
+          setSubTab(parsed.subTab || '');
+        }
       }
     }
-  }, [pathname, searchParams, router]);
+  }, [pathname, searchParams, router, user]);
 
   // Browser Back and Forward navigation handling
   useEffect(() => {
     const handlePopState = () => {
       const parsed = parseRoutePath(window.location.pathname);
       if (parsed.isValid) {
-        setActiveModule(parsed.module);
-        setSubTab(parsed.subTab || '');
+        if (!isModuleAllowedForUser(parsed.module, user)) {
+          router.replace(getRouteForModule('dashboard'));
+          setActiveModule('dashboard');
+          setSubTab('');
+        } else {
+          setActiveModule(parsed.module);
+          setSubTab(parsed.subTab || '');
+        }
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [user, router]);
 
   useEffect(() => {
     // Enforce live database data: purge all stale cached business records
@@ -314,26 +327,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       return;
     }
 
-    if (portalMode === 'employee') {
-      const allowedInEmployee = [
-        'dashboard',
-        'calendar',
-        'attendance',
-        'leaves',
-        'payslips',
-        'resignations',
-        'organization',
-        'documents',
-        'announcements',
-        'chat',
-        'settings',
-        'profile',
-      ];
-      if (!allowedInEmployee.includes(activeModule)) {
-        navigateToModule('dashboard');
-      }
+    if (!isModuleAllowedForUser(activeModule, user)) {
+      navigateToModule('dashboard');
     }
-  }, [portalMode, activeModule, user?.role, user?.resigned, setPortalMode]);
+  }, [portalMode, activeModule, user, setPortalMode]);
 
   useEffect(() => {
     return subscribeChatUnread((counts) => {
@@ -763,13 +760,15 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Clean Path-Based Navigation (no full-page reloads, clean history updates)
   const navigateToModule = (mod: string, tab?: string) => {
-    const route = getRouteForModule(mod, tab);
-    setActiveModule(mod);
-    setSubTab(tab || '');
+    const targetModule = isModuleAllowedForUser(mod, user) ? mod : 'dashboard';
+    const targetTab = targetModule === mod ? tab || '' : '';
+    const route = getRouteForModule(targetModule, targetTab);
+    setActiveModule(targetModule);
+    setSubTab(targetTab);
 
     if (typeof window !== 'undefined') {
       try {
-        window.history.pushState({ module: mod, subTab: tab }, '', route);
+        window.history.pushState({ module: targetModule, subTab: targetTab }, '', route);
       } catch (_) { }
     }
   };
@@ -903,7 +902,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' ? 'flex-1 min-h-0 flex flex-col' : ''
               }`}
           >
-            {activeModule === 'dashboard' && (
+            {(activeModule === 'dashboard' || !isModuleAllowedForUser(activeModule, user)) && (
               <DashboardView
                 loading={dashboardLoading}
                 stats={stats}

@@ -535,6 +535,7 @@ async function deleteDocument(id: string) {
 // 17. POST /attendance/clock (Clock in, clock out, break in, break out)
 async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string }) {
   try {
+    clearApiCache('/attendance');
     const payload = {
       flag: data?.flag,
       workMode: data?.workMode || 'Office',
@@ -554,7 +555,8 @@ async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'bre
 // 19. GET /attendance/logic (Attendance logic)
 async function getAttendanceLogic() {
   try {
-    return await deduplicatedGet('/attendance/logic');
+    // Attendance logic represents live shifts and punch timing — never serve stale TTL cache
+    return await deduplicatedGet('/attendance/logic', undefined, 0);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance status could not be loaded.');
@@ -2522,6 +2524,8 @@ async function deleteEmployee(id: string) {
   }
 }
 
+const deleteUser = deleteEmployee;
+
 async function deactivateEmployee(id: string) {
   try {
     const response = await http.patch(`/users/${id}`, { status: 'Inactive' });
@@ -2682,6 +2686,7 @@ export const api = new Proxy({
   getEmployees,
   createEmployee,
   deleteEmployee,
+  deleteUser,
   deactivateEmployee,
   activateEmployee,
   getNextEmployeeCode,

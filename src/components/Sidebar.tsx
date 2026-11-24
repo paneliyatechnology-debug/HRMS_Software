@@ -32,6 +32,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getAllCompanies } from '../lib/companyService';
 import { api } from '../lib/api';
+import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
 
 interface SidebarProps {
   activeModule: string;
@@ -217,6 +218,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     badge?: React.ReactNode,
     subTab?: string
   ) => {
+    if (!isModuleAllowedForUser(id, user)) {
+      return null;
+    }
+
     let isActive = activeModule === id;
     if (id === 'organization') {
       if (subTab) {
@@ -380,10 +385,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               ) : undefined
             )}
-            {portalMode === 'employee' && (
-              navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)
-            )}
-            {portalMode === 'employee' && (
+            {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
+            {navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)}
+            {(user?.role === 'EMPLOYEE' || user?.role === 'MANAGER') && (
               navItem('resignations', 'My Resignation', <LogOut className="w-4 h-4" />)
             )}
             {navItem(
@@ -401,8 +405,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* HR Management (Only in Admin view) */}
-          {!resigned && portalMode === 'admin' && (
+          {/* HR & Workforce Management (Shown to any role with workforce permissions) */}
+          {!resigned && (
+            isModuleAllowedForUser('employees', user) ||
+            isModuleAllowedForUser('organization', user) ||
+            isModuleAllowedForUser('payroll', user) ||
+            isModuleAllowedForUser('recruitment', user) ||
+            (canManageResignations(user) && isModuleAllowedForUser('resignations', user)) ||
+            isModuleAllowedForUser('reports', user)
+          ) && (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
                 <div className="my-2 border-t border-[#343a40]/20 mx-1" />
@@ -416,70 +427,95 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
                   {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
-                  {navItem('tasks', 'Tasks', <CheckSquare className="w-4 h-4" />)}
+                  {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
+                  {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
+                  {canManageResignations(user) &&
+                    navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
+                  }
+                  {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
                 </>
               ) : (
                 <div>
-                  <button
-                    onClick={() => toggleSection('people')}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-[#f8f9fa] hover:text-[#343a40] transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#343a40]">
-                        <Users className="w-4 h-4" />
-                      </span>
-                      <span>Employees</span>
-                    </div>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-[#6c757d] transition-transform ${openSections.people ? 'rotate-180' : ''
-                        }`}
-                    />
-                  </button>
+                  {/* Both employees & organization allowed (Admin) */}
+                  {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
+                    <div>
+                      <button
+                        onClick={() => toggleSection('people')}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-[#f8f9fa] hover:text-[#343a40] transition-colors cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#343a40]">
+                            <Users className="w-4 h-4" />
+                          </span>
+                          <span>Employees</span>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-[#6c757d] transition-transform ${openSections.people ? 'rotate-180' : ''
+                            }`}
+                        />
+                      </button>
 
-                  {openSections.people && (
-                    <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
-                      <button
-                        onClick={() => handleNav('employees')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'employees'
-                          ? 'text-white font-bold bg-[#2d6a4f]'
-                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
-                          }`}
-                      >
-                        Directory
-                      </button>
-                      <button
-                        onClick={() => handleNav('organization', 'departments')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
-                          ? 'text-white font-bold bg-[#2d6a4f]'
-                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
-                          }`}
-                      >
-                        Departments
-                      </button>
-                      <button
-                        onClick={() => handleNav('organization', 'teams')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
-                          ? 'text-white font-bold bg-[#2d6a4f]'
-                          : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
-                          }`}
-                      >
-                        Teams
-                      </button>
+                      {openSections.people && (
+                        <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
+                          <button
+                            onClick={() => handleNav('employees')}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'employees'
+                              ? 'text-white font-bold bg-[#2d6a4f]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              }`}
+                          >
+                            Directory
+                          </button>
+                          <button
+                            onClick={() => handleNav('organization', 'departments')}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
+                              ? 'text-white font-bold bg-[#2d6a4f]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              }`}
+                          >
+                            Departments
+                          </button>
+                          <button
+                            onClick={() => handleNav('organization', 'teams')}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
+                              ? 'text-white font-bold bg-[#2d6a4f]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              }`}
+                          >
+                            Teams
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <>
+                      {/* HR: Employees only */}
+                      {isModuleAllowedForUser('employees', user) && (
+                        navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)
+                      )}
+                      {/* Manager: Departments & Teams only */}
+                      {isModuleAllowedForUser('organization', user) && (
+                        <>
+                          {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                          {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
+                        </>
+                      )}
+                    </>
                   )}
+
+                  {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
+                  {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
+                  {canManageResignations(user) &&
+                    navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
+                  }
+                  {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
                 </div>
               )}
-
-              {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
-              {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
-              {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
-              {navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)}
-              {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
             </div>
           )}
 
           {/* Company section */}
-          {!resigned && (portalMode === 'admin' ? (
+          {!resigned && (
             <div className="space-y-0.5">
               {effectiveCollapsed ? (
                 <div className="my-2 border-t border-[#343a40]/20 mx-1" />
@@ -488,27 +524,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Company
                 </p>
               )}
-              {navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')}
-              {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
-              {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
-              {renderProfileNavItem()}
-              {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#343a40]/20 mx-1" />
-              ) : (
-                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
-                  Company
-                </p>
+              {isModuleAllowedForUser('organization', user) && (
+                navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')
               )}
               {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
               {renderProfileNavItem()}
               {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
-          ))}
+          )}
         </div>
 
         {/* Compact Company Brand Footer */}

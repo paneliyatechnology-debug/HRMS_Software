@@ -51,6 +51,8 @@ import {
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
+  normalizePunchType,
+  parsePunchTimestamp,
   performCheckIn,
   performTakeBreak,
   performResumeWork,
@@ -72,6 +74,7 @@ import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 import { ModernDigitClock } from '../common/ModernDigitClock';
 import { DailyShiftConsole } from '../common/DailyShiftConsole';
 import { isDateWeekend, getWorkScheduleConfig } from '../../lib/shiftScheduleService';
+import { canUserPunch } from '../../lib/rolePermissions';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -97,6 +100,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     liveWorkedHMS: sessionWorkedHMS,
     liveBreakWords: sessionBreakWords,
     liveBreakHMS: sessionBreakHMS,
+    totalWorkedHMS,
+    totalBreakHMS,
     activeSession,
     lastCompletedSession,
     punches: sessionPunches,
@@ -1053,39 +1058,54 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       const bTime = (b as any).createdAt || b.date || '';
       return String(bTime).localeCompare(String(aTime));
     });
-  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, sessionPunches, sessionAttendanceLogic]);
+  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, totalWorkedHMS, totalBreakHMS, sessionPunches, sessionAttendanceLogic]);
 
   // Helper to reliably extract and format break time for any attendance record
   const secondsFromPunches = (rec: AttendanceRecord) => {
     const punches = Array.isArray((rec as any).punches) ? (rec as any).punches : [];
-    const at = (punch: any) => new Date(punch.punchedAt || punch.at || punch.time || 0).getTime();
+    const at = (punch: any) => parsePunchTimestamp(punch);
     let work = 0;
     let brk = 0;
     let open: number | null = null;
     let breakOpen: number | null = null;
     const now = Date.now();
     for (const punch of punches) {
-      const type = String(punch.type || '');
+      const type = normalizePunchType(punch?.type);
       const time = at(punch);
-      if (!Number.isFinite(time)) continue;
+      if (!Number.isFinite(time) || time <= 0) continue;
       if (type === 'BREAK_END') {
         if (breakOpen) brk += Math.max(0, time - breakOpen);
         open = time;
         breakOpen = null;
       } else if (type === 'IN') {
+        if (open) work += Math.max(0, time - open);
+        if (breakOpen) {
+          brk += Math.max(0, time - breakOpen);
+          breakOpen = null;
+        }
         open = time;
-        breakOpen = null;
-      } else if (type === 'BREAK_START' && open) {
-        work += Math.max(0, time - open);
+      } else if (type === 'BREAK_START') {
+        if (open) {
+          work += Math.max(0, time - open);
+          open = null;
+        }
         breakOpen = time;
-        open = null;
-      } else if (type === 'OUT' && open) {
-        work += Math.max(0, time - open);
-        open = null;
+      } else if (type === 'OUT') {
+        if (open) {
+          work += Math.max(0, time - open);
+          open = null;
+        }
+        if (breakOpen) {
+          brk += Math.max(0, time - breakOpen);
+          breakOpen = null;
+        }
       }
     }
-    if (open) work += Math.max(0, now - open);
-    if (breakOpen) brk += Math.max(0, now - breakOpen);
+    const isCompleted = Boolean(rec.isCompleted || (rec.checkOut && rec.checkOut !== '—'));
+    if (!isCompleted) {
+      if (open) work += Math.max(0, now - open);
+      if (breakOpen) brk += Math.max(0, now - breakOpen);
+    }
     if (!punches.length) {
       work = Number((rec as any).totalMinutes || 0) * 60000;
     }
@@ -1110,8 +1130,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
     const mine = isMyAttendanceRecord(rec);
     const isToday = rec.date === getTodayDateString();
-    if (mine && isToday && sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
-      return sessionWorkedHMS;
+    if (mine && isToday) {
+      if (totalWorkedHMS && totalWorkedHMS !== '00:00:00') {
+        return totalWorkedHMS;
+      }
+      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        return sessionWorkedHMS;
+      }
     }
     const liveSecs = getLiveActiveSeconds(rec);
     if (liveSecs > 0) return formatSecondsToHMS(liveSecs);
@@ -1563,8 +1588,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Compact Daily Shift Console for Employee */}
-        {resolvedTab === 'today' && isEmployeeView && (
+        {/* Right: Compact Daily Shift Console for Employee, HR & Manager */}
+        {resolvedTab === 'today' && canUserPunch(user) && (
           <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
             <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
           </div>

@@ -39,6 +39,7 @@ import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
+import { isModuleAllowedForUser, canUserPunch } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 
 interface HeaderProps {
@@ -458,16 +459,18 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </button>
 
-              <button
-                id="btn-header-admin-add-staff"
-                type="button"
-                onClick={onOpenAddEmployeeModal}
-                className={getBtnCls(isAddStaffActive)}
-                title="Add Staff"
-              >
-                <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Add Staff</span>
-              </button>
+              {isModuleAllowedForUser('employees', user) && (
+                <button
+                  id="btn-header-admin-add-staff"
+                  type="button"
+                  onClick={onOpenAddEmployeeModal}
+                  className={getBtnCls(isAddStaffActive)}
+                  title="Add Staff"
+                >
+                  <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Add Staff</span>
+                </button>
+              )}
 
               <button
                 id="btn-header-admin-holidays"
@@ -533,7 +536,7 @@ export const Header: React.FC<HeaderProps> = ({
         })()}
 
         {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
-        {portalMode !== 'admin' && (
+        {canUserPunch(user) && (
           <div className="flex items-center gap-2 min-w-0">
             {clockClosed && (
               <span

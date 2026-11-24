@@ -17,6 +17,7 @@ import {
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { ModernDigitClock } from './ModernDigitClock';
 import { verifyShiftTimeWindow } from '../../lib/shiftScheduleService';
+import { formatSecondsToHMS } from '../../lib/attendanceService';
 
 interface DailyShiftConsoleProps {
   className?: string;
@@ -36,7 +37,12 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
     liveWorkedHMS,
     liveBreakWords,
     liveBreakHMS,
+    elapsedSeconds,
     breakSeconds,
+    totalWorkedHMS,
+    totalBreakHMS,
+    totalWorkedSeconds,
+    totalBreakSeconds,
     activeSession,
     lastCompletedSession,
     todaySummary,
@@ -217,7 +223,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold max-w-full truncate">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                     <span className="truncate">
-                      Shift Active • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
+                      Shift Active{activeSession?.sessionIndex ? ` (Session ${activeSession.sessionIndex + 1})` : ''} • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
                     </span>
                   </div>
                   <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md shrink-0">
@@ -243,7 +249,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveWorkedHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-emerald-700 font-medium mt-0.5 truncate">
-                      Active shift counting
+                      {totalWorkedSeconds > elapsedSeconds && totalWorkedSeconds > 0
+                        ? `Today's Total: ${totalWorkedHMS || formatSecondsToHMS(totalWorkedSeconds)}`
+                        : 'Active shift counting'}
                     </span>
                   </div>
 
@@ -272,7 +280,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveBreakHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      {breakSeconds > 0 ? `${liveBreakWords} taken today` : 'No breaks taken'}
+                      {totalBreakSeconds > breakSeconds && totalBreakSeconds > 0
+                        ? `Today's Break: ${totalBreakHMS || formatSecondsToHMS(totalBreakSeconds)}`
+                        : (breakSeconds > 0 ? `${liveBreakWords} taken today` : 'No breaks taken')}
                     </span>
                   </div>
                 </div>
@@ -334,7 +344,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveWorkedHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      Timer paused on break
+                      {totalWorkedSeconds > elapsedSeconds && totalWorkedSeconds > 0
+                        ? `Today's Total: ${totalWorkedHMS || formatSecondsToHMS(totalWorkedSeconds)} (Paused)`
+                        : 'Timer paused on break'}
                     </span>
                   </div>
 
