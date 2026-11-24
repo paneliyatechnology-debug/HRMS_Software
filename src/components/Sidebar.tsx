@@ -303,25 +303,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 id="btn-sidebar-logo-expand"
                 onClick={toggleCollapse}
-                className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#52b788] to-[#2d6a4f] flex items-center justify-center font-black text-white text-xl shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer overflow-hidden"
+                className="w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs hover:scale-105 active:scale-95 transition-transform cursor-pointer overflow-hidden p-1"
                 title={`Expand sidebar — ${displayCompanyName}`}
               >
-                {companyLogo ? (
-                  <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
-                ) : (
-                  companyInitial
-                )}
+                <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
               </button>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2.5 min-w-0 pr-1">
-                <div className="w-[38px] h-[38px] rounded-[12px] bg-gradient-to-tr from-[#52b788] to-[#2d6a4f] flex items-center justify-center font-black text-white text-xl shadow-md shrink-0 overflow-hidden">
-                  {companyLogo ? (
-                    <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-1" />
-                  ) : (
-                    companyInitial
-                  )}
+                <div className="w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs shrink-0 overflow-hidden p-1">
+                  <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#212529] block leading-tight font-semibold truncate" title={displayCompanyName}>

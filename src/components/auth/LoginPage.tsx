@@ -684,8 +684,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                 {/* Brand Header Inside Card */}
                 <div className="mb-7">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center shadow-xs">
-                      <Building2 className="w-6 h-6 text-[#d8f3dc]" />
+                    <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-xs p-1">
+                      <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <div>
                       <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
@@ -898,8 +898,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               {/* Internal Brand Header Row */}
               <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 mb-6 pb-5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center shadow-xs">
-                    <Building2 className="w-6 h-6 text-[#d8f3dc]" />
+                  <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-xs p-1">
+                    <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
