@@ -222,6 +222,15 @@ export function canManageResignations(user?: User | null): boolean {
 }
 
 /**
+ * Returns whether user can manage (create, edit, delete) leave types (Admin, Super Admin, HR)
+ */
+export function canManageLeaveTypes(user?: User | null): boolean {
+  if (!user) return false;
+  const role = normalizeRoleKey(user.role);
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+}
+
+/**
  * Returns the complete list of allowed modules for a given user
  */
 export function getAllowedModulesForUser(user?: User | null): HrmsModuleId[] {

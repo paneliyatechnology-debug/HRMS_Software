@@ -248,7 +248,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
   };
 
-  const handleDeleteLeaveType = async (id: string, name?: string) => {
+  const handleDeleteLeaveType = async (id: string, name?: string, rawLt?: any) => {
     if (!isAdminOrHr) {
       showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can delete leave types.' });
       return;
@@ -259,7 +259,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
     setDeletingLeaveTypeId(id);
     try {
-      await api.deleteLeaveType(id);
+      const deleteIdentifier = rawLt?.slug || rawLt?._id || rawLt?.id || id;
+      await api.deleteLeaveType(deleteIdentifier);
       showToast({ type: 'success', title: 'Leave Type Deleted', message: `Leave type${nameStr} removed successfully.` });
       await loadLeaveTypes();
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hrms_leave_types_updated'));
@@ -1664,12 +1665,12 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteLeaveType(lt.id, lt.name)}
+                                onClick={() => handleDeleteLeaveType((lt as any).slug || lt.id, lt.name, lt)}
                                 disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
                                 className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer transition-colors"
                                 title="Delete leave type"
                               >
-                                {deletingLeaveTypeId === lt.id ? (
+                                {deletingLeaveTypeId === lt.id || (Boolean((lt as any).slug) && deletingLeaveTypeId === (lt as any).slug) ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
                                 ) : (
                                   <Trash2 className="w-3.5 h-3.5" />
