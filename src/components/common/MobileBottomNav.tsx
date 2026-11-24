@@ -13,6 +13,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isModuleAllowedForUser } from '../../lib/rolePermissions';
 
 interface MobileBottomNavProps {
   activeModule: string;
@@ -109,9 +110,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Tracker</span>
       </button>
 
-      {/* 3. Center Elevated Quick Button (Punch for Employee, Staff for Admin) */}
+      {/* 3. Center Elevated Quick Button (Punch for Employee/Manager, Staff for Admin) */}
       <div className="relative -mt-5 flex flex-col items-center">
-        {portalMode === 'admin' ? (
+        {portalMode === 'admin' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && isModuleAllowedForUser('employees', user) ? (
           <button
             id="btn-mobile-nav-center-staff"
             type="button"
@@ -142,7 +143,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         )}
         <span className="text-[10px] font-extrabold text-[#343a40] tracking-tight mt-0.5">
-          {portalMode === 'admin'
+          {portalMode === 'admin' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && isModuleAllowedForUser('employees', user)
             ? 'Staff'
             : punchStatus === 'working'
               ? 'Out'

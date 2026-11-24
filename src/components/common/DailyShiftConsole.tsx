@@ -17,6 +17,7 @@ import {
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { ModernDigitClock } from './ModernDigitClock';
 import { verifyShiftTimeWindow } from '../../lib/shiftScheduleService';
+import { formatSecondsToHMS } from '../../lib/attendanceService';
 
 interface DailyShiftConsoleProps {
   className?: string;
@@ -36,7 +37,12 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
     liveWorkedHMS,
     liveBreakWords,
     liveBreakHMS,
+    elapsedSeconds,
     breakSeconds,
+    totalWorkedHMS,
+    totalBreakHMS,
+    totalWorkedSeconds,
+    totalBreakSeconds,
     activeSession,
     lastCompletedSession,
     todaySummary,
@@ -217,7 +223,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold max-w-full truncate">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                     <span className="truncate">
-                      Shift Active • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
+                      Shift Active{activeSession?.sessionIndex ? ` (Session ${activeSession.sessionIndex + 1})` : ''} • In at {formatTimeStr(activeSession?.startTime) || 'Recently'}
                     </span>
                   </div>
                   <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md shrink-0">
@@ -243,7 +249,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveWorkedHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-emerald-700 font-medium mt-0.5 truncate">
-                      Active shift counting
+                      {totalWorkedSeconds > elapsedSeconds && totalWorkedSeconds > 0
+                        ? `Today's Total: ${totalWorkedHMS || formatSecondsToHMS(totalWorkedSeconds)}`
+                        : 'Active shift counting'}
                     </span>
                   </div>
 
@@ -272,7 +280,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveBreakHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      {breakSeconds > 0 ? `${liveBreakWords} taken today` : 'No breaks taken'}
+                      {totalBreakSeconds > breakSeconds && totalBreakSeconds > 0
+                        ? `Today's Break: ${totalBreakHMS || formatSecondsToHMS(totalBreakSeconds)}`
+                        : (breakSeconds > 0 ? `${liveBreakWords} taken today` : 'No breaks taken')}
                     </span>
                   </div>
                 </div>
@@ -334,7 +344,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                       {liveWorkedHMS || '00:00:00'}
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      Timer paused on break
+                      {totalWorkedSeconds > elapsedSeconds && totalWorkedSeconds > 0
+                        ? `Today's Total: ${totalWorkedHMS || formatSecondsToHMS(totalWorkedSeconds)} (Paused)`
+                        : 'Timer paused on break'}
                     </span>
                   </div>
 
@@ -415,41 +427,41 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
 
                 {/* Final Work & Break Summary Timers */}
                 <div className="grid grid-cols-2 gap-2">
-                  {/* TOTAL WORKED */}
-                  <div className="p-2.5 rounded-xl border bg-white border-emerald-200 text-emerald-950 flex flex-col justify-between">
+                  {/* WORK TIMER (RESET TO 00:00:00) */}
+                  <div className="p-2.5 rounded-xl border bg-white border-slate-200 text-slate-700 flex flex-col justify-between">
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 text-slate-700 truncate">
-                        <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span>Total Worked</span>
+                      <span className="text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 text-slate-600 truncate">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Work Timer</span>
                       </span>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
-                        FINAL
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 shrink-0">
+                        RESET
                       </span>
                     </div>
-                    <div className="font-mono font-extrabold text-lg sm:text-2xl tracking-tight text-slate-900">
-                      {todaySummary?.totalDurationFormatted || liveWorkedHMS || '00:00:00'}
+                    <div className="font-mono font-extrabold text-lg sm:text-2xl tracking-tight text-slate-700">
+                      00:00:00
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      Completed shift duration
+                      {`Total: ${todaySummary?.totalDurationFormatted || totalWorkedHMS || '00:00:00'}`}
                     </span>
                   </div>
 
-                  {/* TOTAL BREAK */}
+                  {/* BREAK TIMER (RESET TO 00:00:00) */}
                   <div className="p-2.5 rounded-xl border bg-white border-slate-200 text-slate-700 flex flex-col justify-between">
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 text-slate-700 truncate">
-                        <Coffee className="w-3 h-3 text-amber-600 shrink-0" />
-                        <span>Total Break</span>
+                      <span className="text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 text-slate-600 truncate">
+                        <Coffee className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Break Timer</span>
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 shrink-0">
-                        FINAL
+                        RESET
                       </span>
                     </div>
-                    <div className="font-mono font-extrabold text-lg sm:text-2xl tracking-tight text-slate-900">
-                      {todaySummary?.totalBreakFormatted || liveBreakHMS || '00:00:00'}
+                    <div className="font-mono font-extrabold text-lg sm:text-2xl tracking-tight text-slate-700">
+                      00:00:00
                     </div>
                     <span className="text-[9px] text-slate-500 font-medium mt-0.5 truncate">
-                      {todaySummary?.totalBreakFormatted || (breakSeconds > 0 ? `${liveBreakWords} break` : '0m break')}
+                      {`Total: ${todaySummary?.totalBreakFormatted || totalBreakHMS || '00:00:00'}`}
                     </span>
                   </div>
                 </div>

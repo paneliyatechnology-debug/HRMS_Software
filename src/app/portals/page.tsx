@@ -306,8 +306,8 @@ export default function PortalsPage() {
                 <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-md space-y-5">
                   <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold">
-                        <Building2 className="w-5 h-5 text-[#d8f3dc]" />
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-2xs">
+                        <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                       </div>
                       <div>
                         <span className="text-sm font-bold text-slate-900 block">Admin Command Console</span>
