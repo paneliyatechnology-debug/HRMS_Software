@@ -17,7 +17,7 @@ export const dynamicParams = true;
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'My Own HRMS — Enterprise Workforce & Talent Management System',
+  title: 'myown hrms — Enterprise Workforce & Talent Management System',
   description: 'Production-ready Human Resource Management System with complete employee lifecycle management, biometric attendance, payroll calculation, ATS recruitment, and compliance reporting.',
   icons: {
     icon: [

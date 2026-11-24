@@ -316,9 +316,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#212529] block leading-tight font-semibold truncate" title={displayCompanyName}>
-                    {displayCompanyName}
-                  </b>
+                  {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (
+                    <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
+                  ) : (
+                    <b className="text-[14px] sm:text-[15px] tracking-[0.2px] text-[#212529] block leading-tight font-semibold truncate" title={displayCompanyName}>
+                      {displayCompanyName}
+                    </b>
+                  )}
                 </div>
               </div>
 

@@ -688,9 +688,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                       <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <div>
-                      <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
-                        MyOwn HRMS
-                      </span>
+                      <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-1" />
                       <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
                         Workforce Portal
                       </span>
@@ -902,9 +900,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                   </div>
                   <div>
-                    <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
-                      MyOwn HRMS
-                    </span>
+                    <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-1" />
                     <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
                       {viewMode === 'signup' ? 'Company Workspace Setup' : 'Registration Status'}
                     </span>

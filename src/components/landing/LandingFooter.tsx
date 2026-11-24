@@ -12,7 +12,7 @@ export const LandingFooter: React.FC = () => {
           <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-0.5 shadow-2xs">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <span className="font-extrabold text-slate-900">MyOwn HRMS</span>
+          <img src="/brand-name.png" alt="myown hrms" className="h-4.5 w-auto object-contain" />
           <span>&bull;</span>
           <span>Enterprise Workforce Platform</span>
         </div>

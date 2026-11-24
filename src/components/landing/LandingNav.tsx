@@ -31,9 +31,7 @@ export const LandingNav: React.FC<LandingNavProps> = ({ activePage = 'home', onO
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <span className="text-base sm:text-lg font-black text-slate-900 tracking-tight block leading-tight">
-                MyOwn HRMS
-              </span>
+              <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-0.5" />
               <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
                 Workforce Platform
               </span>

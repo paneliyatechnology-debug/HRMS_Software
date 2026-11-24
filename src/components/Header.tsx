@@ -388,9 +388,13 @@ export const Header: React.FC<HeaderProps> = ({
             <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
           </div>
           <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
-            <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
-              {displayCompanyName}
-            </span>
+            {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (
+              <img src="/brand-name.png" alt="myown hrms" className="h-3.5 w-auto object-contain" />
+            ) : (
+              <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
+                {displayCompanyName}
+              </span>
+            )}
           </div>
         </div>
 
