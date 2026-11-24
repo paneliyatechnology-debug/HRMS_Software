@@ -285,7 +285,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [jobs, setJobs] = useState<JobOpening[]>([]);

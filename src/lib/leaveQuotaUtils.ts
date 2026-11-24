@@ -48,9 +48,18 @@ export const sumLeaveDaysByType = (
 ): number => {
   const total = leaves
     .filter((l) => {
-      const type = (l.leaveType || '').toLowerCase();
-      const status = (l.status || '').toLowerCase();
-      const matchesType = typeKeywords.some((kw) => type.includes(kw.toLowerCase()));
+      const type = (l.leaveType || '').toLowerCase().trim();
+      const status = (l.status || '').toLowerCase().trim();
+      const matchesType = typeKeywords.some((kw) => {
+        const kwLower = kw.toLowerCase().trim();
+        if (kwLower === 'paid') {
+          return (type === 'paid' || type.includes('paid')) && !type.includes('unpaid');
+        }
+        if (kwLower === 'unpaid') {
+          return type === 'unpaid' || type.includes('unpaid');
+        }
+        return type === kwLower || type.includes(kwLower);
+      });
       return matchesType && status === targetStatus.toLowerCase();
     })
     .reduce((sum, l) => {
@@ -66,7 +75,7 @@ export const resolveLeaveQuotaSummary = (
   settingsPayload: any | null,
   balancePayload: any | null,
   employeeLeaves?: LeaveRequest[],
-  leaveTypesList?: Array<{ name?: string; daysPerYear?: number; daysAllowed?: number }>
+  leaveTypesList?: Array<{ name?: string; daysPerYear?: number; daysAllowed?: number; usedDays?: number; remainingDays?: number }>
 ): ResolvedLeaveQuotaSummary => {
   const settingsObj = unwrapData(settingsPayload);
   const balanceObj = unwrapData(balancePayload);
@@ -106,15 +115,20 @@ export const resolveLeaveQuotaSummary = (
   let otherQuota = 0;
   let otherTaken = 0;
   let otherPending = 0;
+  let otherAvailable = 0;
+
+  let casualLt: any = null;
+  let sickLt: any = null;
+  let paidLt: any = null;
 
   if (Array.isArray(leaveTypesList) && leaveTypesList.length > 0) {
-    const casualLt = leaveTypesList.find((lt) => (lt.name || '').toLowerCase().includes('casual'));
+    casualLt = leaveTypesList.find((lt) => (lt.name || '').toLowerCase().includes('casual'));
     if (casualQuota === 0 && casualLt) {
       casualQuota = toNonNegativeNumber(casualLt.daysPerYear ?? casualLt.daysAllowed);
       if (source === 'none') source = 'settings';
     }
 
-    const sickLt = leaveTypesList.find(
+    sickLt = leaveTypesList.find(
       (lt) => (lt.name || '').toLowerCase().includes('sick') || (lt.name || '').toLowerCase().includes('med')
     );
     if (sickQuota === 0 && sickLt) {
@@ -122,25 +136,23 @@ export const resolveLeaveQuotaSummary = (
       if (source === 'none') source = 'settings';
     }
 
-    const paidLt = leaveTypesList.find(
-      (lt) =>
-        (lt.name || '').toLowerCase().includes('paid') ||
-        (lt.name || '').toLowerCase().includes('annual') ||
-        (lt.name || '').toLowerCase().includes('earn')
-    );
+    paidLt = leaveTypesList.find((lt) => {
+      const n = (lt.name || '').toLowerCase().trim();
+      return (n.includes('paid') && !n.includes('unpaid')) || n.includes('annual') || n.includes('earn');
+    });
     if (paidQuota === 0 && paidLt) {
       paidQuota = toNonNegativeNumber(paidLt.daysPerYear ?? paidLt.daysAllowed);
       if (source === 'none') source = 'settings';
     }
 
-    // Account for any other configured categories (e.g. Gwewef) in total quota
+    // Account for any other configured categories (e.g. Unpaid, Custom) in total quota
     const otherTypes = leaveTypesList.filter((lt) => {
-      const n = (lt.name || '').toLowerCase();
+      const n = (lt.name || '').toLowerCase().trim();
       return (
         !n.includes('casual') &&
         !n.includes('sick') &&
         !n.includes('med') &&
-        !n.includes('paid') &&
+        !(n.includes('paid') && !n.includes('unpaid')) &&
         !n.includes('annual') &&
         !n.includes('earn')
       );
@@ -149,42 +161,63 @@ export const resolveLeaveQuotaSummary = (
     for (const lt of otherTypes) {
       const q = toNonNegativeNumber(lt.daysPerYear ?? lt.daysAllowed);
       otherQuota += q;
-      const tName = (lt.name || '').toLowerCase();
-      const tk = employeeLeaves ? sumLeaveDaysByType(employeeLeaves, [tName], 'Approved') : 0;
+      const tName = (lt.name || '').toLowerCase().trim();
+      const rawUsed = (lt as any).usedDays ?? (lt as any).used;
+      const tk = typeof rawUsed === 'number' && Number.isFinite(rawUsed)
+        ? rawUsed
+        : (employeeLeaves ? sumLeaveDaysByType(employeeLeaves, [tName], 'Approved') : 0);
       const pnd = employeeLeaves ? sumLeaveDaysByType(employeeLeaves, [tName], 'Pending') : 0;
+      const rawRem = (lt as any).remainingDays ?? (lt as any).remaining ?? (lt as any).available;
+      const av = typeof rawRem === 'number' && Number.isFinite(rawRem)
+        ? rawRem
+        : Math.max(0, q - tk);
+
       otherTaken += tk;
       otherPending += pnd;
+      otherAvailable += av;
     }
   }
 
-  const casualTaken = employeeLeaves
-    ? sumLeaveDaysByType(employeeLeaves, ['casual'], 'Approved')
-    : toNonNegativeNumber(balanceObj?.casualLeave?.used);
+  const casualTaken = (casualLt && typeof (casualLt as any).usedDays === 'number')
+    ? toNonNegativeNumber((casualLt as any).usedDays)
+    : (employeeLeaves
+      ? sumLeaveDaysByType(employeeLeaves, ['casual'], 'Approved')
+      : toNonNegativeNumber(balanceObj?.casualLeave?.used));
   const casualPending = employeeLeaves
     ? sumLeaveDaysByType(employeeLeaves, ['casual'], 'Pending')
     : 0;
-  const casualAvailable = toNonNegativeNumber(Math.max(0, casualQuota - casualTaken));
+  const casualAvailable = (casualLt && typeof (casualLt as any).remainingDays === 'number')
+    ? toNonNegativeNumber((casualLt as any).remainingDays)
+    : toNonNegativeNumber(Math.max(0, casualQuota - casualTaken));
 
-  const sickTaken = employeeLeaves
-    ? sumLeaveDaysByType(employeeLeaves, ['sick', 'medical'], 'Approved')
-    : toNonNegativeNumber(balanceObj?.sickLeave?.used);
+  const sickTaken = (sickLt && typeof (sickLt as any).usedDays === 'number')
+    ? toNonNegativeNumber((sickLt as any).usedDays)
+    : (employeeLeaves
+      ? sumLeaveDaysByType(employeeLeaves, ['sick', 'medical'], 'Approved')
+      : toNonNegativeNumber(balanceObj?.sickLeave?.used));
   const sickPending = employeeLeaves
     ? sumLeaveDaysByType(employeeLeaves, ['sick', 'medical'], 'Pending')
     : 0;
-  const sickAvailable = toNonNegativeNumber(Math.max(0, sickQuota - sickTaken));
+  const sickAvailable = (sickLt && typeof (sickLt as any).remainingDays === 'number')
+    ? toNonNegativeNumber((sickLt as any).remainingDays)
+    : toNonNegativeNumber(Math.max(0, sickQuota - sickTaken));
 
-  const paidTaken = employeeLeaves
-    ? sumLeaveDaysByType(employeeLeaves, ['paid', 'annual', 'earned'], 'Approved')
-    : toNonNegativeNumber(balanceObj?.paidLeave?.used);
+  const paidTaken = (paidLt && typeof (paidLt as any).usedDays === 'number')
+    ? toNonNegativeNumber((paidLt as any).usedDays)
+    : (employeeLeaves
+      ? sumLeaveDaysByType(employeeLeaves, ['paid', 'annual', 'earned'], 'Approved')
+      : toNonNegativeNumber(balanceObj?.paidLeave?.used));
   const paidPending = employeeLeaves
     ? sumLeaveDaysByType(employeeLeaves, ['paid', 'annual', 'earned'], 'Pending')
     : 0;
-  const paidAvailable = toNonNegativeNumber(Math.max(0, paidQuota - paidTaken));
+  const paidAvailable = (paidLt && typeof (paidLt as any).remainingDays === 'number')
+    ? toNonNegativeNumber((paidLt as any).remainingDays)
+    : toNonNegativeNumber(Math.max(0, paidQuota - paidTaken));
 
   const totalQuota = toNonNegativeNumber(casualQuota + sickQuota + paidQuota + otherQuota);
   const totalTaken = toNonNegativeNumber(casualTaken + sickTaken + paidTaken + otherTaken);
   const totalPending = toNonNegativeNumber(casualPending + sickPending + paidPending + otherPending);
-  const totalAvailable = toNonNegativeNumber(casualAvailable + sickAvailable + paidAvailable + Math.max(0, otherQuota - otherTaken));
+  const totalAvailable = toNonNegativeNumber(casualAvailable + sickAvailable + paidAvailable + otherAvailable);
 
   return {
     casual: { quota: casualQuota, taken: casualTaken, pending: casualPending, available: casualAvailable },
@@ -279,12 +312,14 @@ export const calculateEmployeeLeaveBalances = (
     code?: string;
     color?: string;
     isPaid?: boolean;
+    usedDays?: number;
+    remainingDays?: number;
   }>,
   employeeLeaves: LeaveRequest[],
   quotaSettings?: any,
   quotaBalances?: any
 ): EmployeeLeaveBalanceResult => {
-  const quotaSummary = resolveLeaveQuotaSummary(quotaSettings, quotaBalances, employeeLeaves);
+  const quotaSummary = resolveLeaveQuotaSummary(quotaSettings, quotaBalances, employeeLeaves, leaveTypes);
   const CASUAL_QUOTA = quotaSummary.casual.quota;
   const SICK_QUOTA = quotaSummary.sick.quota;
   const PAID_QUOTA = quotaSummary.paid.quota;
@@ -315,38 +350,65 @@ export const calculateEmployeeLeaveBalances = (
   const cards: LeaveTypeCardItem[] = sorted.map((lt, idx) => {
     const tName = (lt.name || '').trim().toLowerCase();
 
+    // 1. Quota: strictly prefer exact daysPerYear / daysAllowed directly from this leaveType object
     let quota = 0;
-    if (tName.includes('casual') && CASUAL_QUOTA > 0) {
+    if (typeof (lt as any).daysPerYear === 'number' && (lt as any).daysPerYear >= 0) {
+      quota = (lt as any).daysPerYear;
+    } else if (typeof (lt as any).daysAllowed === 'number' && (lt as any).daysAllowed >= 0) {
+      quota = (lt as any).daysAllowed;
+    } else if (tName.includes('casual') && CASUAL_QUOTA > 0) {
       quota = CASUAL_QUOTA;
     } else if ((tName.includes('sick') || tName.includes('med')) && SICK_QUOTA > 0) {
       quota = SICK_QUOTA;
-    } else if ((tName.includes('paid') || tName.includes('annual') || tName.includes('earn')) && PAID_QUOTA > 0) {
+    } else if ((tName === 'paid' || (tName.includes('paid') && !tName.includes('unpaid')) || tName.includes('annual') || tName.includes('earn')) && PAID_QUOTA > 0) {
       quota = PAID_QUOTA;
-    } else if (typeof (lt as any).daysAllowed === 'number' && (lt as any).daysAllowed > 0) {
-      quota = (lt as any).daysAllowed;
-    } else if (typeof (lt as any).daysPerYear === 'number' && (lt as any).daysPerYear >= 0) {
-      quota = (lt as any).daysPerYear;
     } else {
       quota = 0;
     }
 
-    const taken = (employeeLeaves || [])
-      .filter((l) => {
-        const lType = (l.leaveType || '').trim().toLowerCase();
-        const isApproved = (l.status || '').toLowerCase() === 'approved';
-        return isApproved && (lType === tName || lType.includes(tName) || tName.includes(lType));
-      })
-      .reduce((sum, l) => {
-        const count = Number(l.daysCount);
-        if (Number.isFinite(count) && count > 0) return sum + count;
-        return sum + (l.isHalfDay ? 0.5 : 1);
-      }, 0);
+    // 2. Used / Taken: STRICTLY use backend response value if provided (usedDays / used)!
+    let taken = 0;
+    const rawBackendUsed = (lt as any).usedDays ?? (lt as any).used;
+    if (typeof rawBackendUsed === 'number' && Number.isFinite(rawBackendUsed) && rawBackendUsed >= 0) {
+      taken = rawBackendUsed;
+    } else {
+      taken = (employeeLeaves || [])
+        .filter((l) => {
+          const lType = (l.leaveType || '').trim().toLowerCase();
+          const isApproved = (l.status || '').toLowerCase() === 'approved';
+          if (!isApproved) return false;
+          // Exact match
+          if (lType === tName) return true;
+          // Safe match ensuring "unpaid" never matches "paid"
+          if (tName === 'unpaid' || tName.includes('unpaid')) {
+            return lType === 'unpaid' || lType.includes('unpaid');
+          }
+          if (tName === 'paid' || (tName.includes('paid') && !tName.includes('unpaid'))) {
+            return (lType === 'paid' || lType.includes('paid')) && !lType.includes('unpaid');
+          }
+          return lType.includes(tName) || tName.includes(lType);
+        })
+        .reduce((sum, l) => {
+          const count = Number(l.daysCount);
+          if (Number.isFinite(count) && count > 0) return sum + count;
+          return sum + (l.isHalfDay ? 0.5 : 1);
+        }, 0);
+    }
 
+    // 3. Pending
     const pending = (employeeLeaves || [])
       .filter((l) => {
         const lType = (l.leaveType || '').trim().toLowerCase();
         const isPending = (l.status || '').toLowerCase() === 'pending';
-        return isPending && (lType === tName || lType.includes(tName) || tName.includes(lType));
+        if (!isPending) return false;
+        if (lType === tName) return true;
+        if (tName === 'unpaid' || tName.includes('unpaid')) {
+          return lType === 'unpaid' || lType.includes('unpaid');
+        }
+        if (tName === 'paid' || (tName.includes('paid') && !tName.includes('unpaid'))) {
+          return (lType === 'paid' || lType.includes('paid')) && !lType.includes('unpaid');
+        }
+        return lType.includes(tName) || tName.includes(lType);
       })
       .reduce((sum, l) => {
         const count = Number(l.daysCount);
@@ -354,21 +416,36 @@ export const calculateEmployeeLeaveBalances = (
         return sum + (l.isHalfDay ? 0.5 : 1);
       }, 0);
 
-    const available = Math.max(0, quota - taken);
+    // 4. Available / Remaining: STRICTLY use backend response value if provided (remainingDays / remaining / available)!
+    let available = 0;
+    const rawBackendRemaining = (lt as any).remainingDays ?? (lt as any).remaining ?? (lt as any).available;
+    if (typeof rawBackendRemaining === 'number' && Number.isFinite(rawBackendRemaining) && rawBackendRemaining >= 0) {
+      available = rawBackendRemaining;
+    } else {
+      available = Math.max(0, quota - taken);
+    }
 
     totalQuota += quota;
     totalTaken += taken;
     totalPending += pending;
     totalAvailable += available;
 
+    // 5. Badge: "UNPAID" must be assigned properly, NOT "EARNED"
     let badge = (lt as any).code || '';
     if (!badge) {
-      if (tName.includes('casual')) badge = 'CASUAL';
-      else if (tName.includes('sick') || tName.includes('med')) badge = 'MEDICAL';
-      else if (tName.includes('paid') || tName.includes('annual')) badge = 'EARNED';
-      else if (tName.includes('privilege')) badge = 'PRIVILEGE';
-      else if ((lt as any).isPaid === false) badge = 'UNPAID';
-      else badge = (lt.name || '').toUpperCase().slice(0, 10);
+      if (tName === 'unpaid' || tName.includes('unpaid') || (lt as any).isPaid === false) {
+        badge = 'UNPAID';
+      } else if (tName.includes('casual')) {
+        badge = 'CASUAL';
+      } else if (tName.includes('sick') || tName.includes('med')) {
+        badge = 'MEDICAL';
+      } else if (tName.includes('paid') || tName.includes('annual') || tName.includes('earn')) {
+        badge = 'EARNED';
+      } else if (tName.includes('privilege')) {
+        badge = 'PRIVILEGE';
+      } else {
+        badge = (lt.name || '').toUpperCase().slice(0, 10);
+      }
     }
 
     return {

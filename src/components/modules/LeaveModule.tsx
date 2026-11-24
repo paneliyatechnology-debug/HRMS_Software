@@ -45,7 +45,7 @@ import { canApproveRejectLeave, canManageLeaveTypes } from '../../lib/rolePermis
 
 interface LeaveModuleProps {
   leaves: LeaveRequest[];
-  leaveTypes?: Array<{ id: string; name: string; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean }>;
+  leaveTypes?: Array<{ id: string; name: string; daysPerYear?: number; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean; usedDays?: number; remainingDays?: number }>;
   onOpenApplyModal: () => void;
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
@@ -118,7 +118,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   // Leave Types Modal State (Admin, HR, Employee, Manager)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
-  const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string; daysPerYear?: number; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean }>>(initialLeaveTypes || []);
+  const [leaveTypesList, setLeaveTypesList] = useState<Array<{ id: string; name: string; daysPerYear?: number; daysAllowed?: number; code?: string; color?: string; isPaid?: boolean; usedDays?: number; remainingDays?: number }>>(initialLeaveTypes || []);
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
   const [newLeaveTypeName, setNewLeaveTypeName] = useState('');
   const [newLeaveTypeDays, setNewLeaveTypeDays] = useState<string>('12');
@@ -346,7 +346,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const quotaSummary = resolveLeaveQuotaSummary(
     quotaData?.settings ?? null,
     quotaData?.balances ?? null,
-    relevantLeaves
+    relevantLeaves,
+    leaveTypesList
   );
 
   const empLeaveResult = useMemo(() => {

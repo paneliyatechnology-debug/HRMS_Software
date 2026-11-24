@@ -839,6 +839,16 @@ function backendLeaveTypeToFrontend(lt: any) {
 
   const rawId = lt.id || lt._id || lt.slug || lt.leaveTypeId || lt.key || lt.code || '';
 
+  const rawUsed = lt.usedDays !== undefined
+    ? Number(lt.usedDays)
+    : (lt.used !== undefined ? Number(lt.used) : undefined);
+
+  const rawRemaining = lt.remainingDays !== undefined
+    ? Number(lt.remainingDays)
+    : (lt.remaining !== undefined
+      ? Number(lt.remaining)
+      : (lt.available !== undefined ? Number(lt.available) : undefined));
+
   return {
     id: rawId || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     _id: lt._id || rawId,
@@ -851,6 +861,8 @@ function backendLeaveTypeToFrontend(lt: any) {
     code: lt.code || '',
     color: lt.color || '',
     isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
+    usedDays: rawUsed !== undefined && !isNaN(rawUsed) ? rawUsed : undefined,
+    remainingDays: rawRemaining !== undefined && !isNaN(rawRemaining) ? rawRemaining : undefined,
   };
 }
 

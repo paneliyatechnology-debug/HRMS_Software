@@ -39,6 +39,8 @@ export interface ConfiguredLeaveType {
   code?: string;
   color?: string;
   isPaid?: boolean;
+  usedDays?: number;
+  remainingDays?: number;
 }
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
