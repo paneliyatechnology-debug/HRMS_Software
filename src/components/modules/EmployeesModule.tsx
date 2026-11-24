@@ -33,6 +33,7 @@ interface EmployeesModuleProps {
   onRefresh?: () => void;
   onOpenChatWithEmployee?: (empId: string) => void;
   portalMode?: 'employee' | 'admin';
+  loading?: boolean;
 }
 
 export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
@@ -43,6 +44,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   onRefresh,
   onOpenChatWithEmployee,
   portalMode = 'admin',
+  loading = false,
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
@@ -459,7 +461,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
         {/* Mobile Cards Roster (< md) */}
         <div className="md:hidden divide-y divide-slate-100">
-          {filtered.length === 0 ? (
+          {(loading || fetchLoading) && localEmployees.length === 0 ? (
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={`skel-emp-m-${idx}`} className="p-3.5 space-y-2.5 animate-pulse">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-full bg-slate-200 shrink-0" />
+                      <div className="space-y-1">
+                        <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                        <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                    <div className="w-14 h-5 bg-slate-100 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="p-8 text-center space-y-3">
               <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <Search className="w-5 h-5" />
@@ -675,7 +694,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {filtered.length === 0 ? (
+              {(loading || fetchLoading) && localEmployees.length === 0 ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={`skel-emp-d-${idx}`} className="animate-pulse">
+                    <td className="py-3 px-4 flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                      <div className="space-y-1">
+                        <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                        <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                      </div>
+                    </td>
+                    <td className="py-3 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3 px-4"><div className="w-16 h-5 bg-slate-100 rounded-full" /></td>
+                    <td className="py-3 px-4 text-right"><div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" /></td>
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={portalMode === 'admin' ? 7 : 6} className="py-14 text-center">
                     <div className="max-w-sm mx-auto space-y-3">

@@ -234,6 +234,7 @@ export interface AttendancePunchLog {
 
 export interface AttendanceRecord {
   id: string;
+  companyId?: string;
   userId?: string;
   employeeId: string;
   employeeName?: string;

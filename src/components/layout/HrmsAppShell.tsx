@@ -279,6 +279,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Data state
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [moduleLoading, setModuleLoading] = useState<Record<string, boolean>>(() => {
+    const initialMod = initialModule || (typeof window !== 'undefined' ? parseRoutePath(window.location.pathname).module : 'dashboard') || 'dashboard';
+    return { [initialMod]: true };
+  });
   const [dashboardNotices, setDashboardNotices] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -447,6 +451,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [activeCompanyId]);
 
   const scopeAttendance = useCallback((rawAtt: AttendanceRecord[], scopedEmps: Employee[], workStatusData?: any): AttendanceRecord[] => {
+    // In employee portal mode, backend already returns the employee's own records
+    if (portalMode === 'employee') {
+      const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmps);
+      return [...(Array.isArray(rawAtt) ? rawAtt : []), ...workStatusRecords];
+    }
+
     const scopedEmpIds = new Set<string>();
     scopedEmps.forEach((e) => {
       if (e.id) {
@@ -459,6 +469,15 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     });
 
+    if (user?.id) {
+      scopedEmpIds.add(user.id);
+      scopedEmpIds.add(user.id.replace(/^(emp-|user-)/, ''));
+    }
+    if ((user as any)?.employeeId) {
+      scopedEmpIds.add((user as any).employeeId);
+      scopedEmpIds.add((user as any).employeeId.replace(/^(emp-|user-)/, ''));
+    }
+
     const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmps);
     const combined = [...(Array.isArray(rawAtt) ? rawAtt : []), ...workStatusRecords];
     return combined.filter((a) => {
@@ -467,11 +486,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const cleanUserId = ((a as any).userId || '').replace(/^(emp-|user-)/, '');
       if (scopedEmpIds.has(a.employeeId) || (cleanEmpId && scopedEmpIds.has(cleanEmpId))) return true;
       if (cleanUserId && scopedEmpIds.has(cleanUserId)) return true;
-      if ((a as any).companyId && (a as any).companyId === activeCompanyId) return true;
+      if (!activeCompanyId || ((a as any).companyId && (a as any).companyId === activeCompanyId)) return true;
       if (workStatusRecords.some((wr) => wr.id === a.id)) return true;
       return false;
     });
-  }, [activeCompanyId]);
+  }, [activeCompanyId, portalMode, user?.id, (user as any)?.employeeId]);
 
   // Company Brand Data - fetched once on authentication
   useEffect(() => {
@@ -494,6 +513,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       return;
     }
     isFetchingDataRef.current[targetModule] = true;
+    setModuleLoading((prev) => ({ ...prev, [targetModule]: true }));
 
     try {
       if (targetModule === 'dashboard') {
@@ -627,6 +647,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       console.warn(`Could not load data for module ${targetModule}:`, err);
     } finally {
       isFetchingDataRef.current[targetModule] = false;
+      setModuleLoading((prev) => ({ ...prev, [targetModule]: false }));
       if (pendingReloadRef.current[targetModule]) {
         pendingReloadRef.current[targetModule] = false;
         void loadDataForModule(targetModule);
@@ -927,6 +948,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                   navigateToModule('chat');
                 }}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['employees'] || employees.length === 0)}
               />
             )}
 
@@ -944,6 +966,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenPunchModal={() => setClockModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['attendance'] || (portalMode === 'admin' && employees.length === 0))}
               />
             )}
 
@@ -954,6 +977,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenApplyModal={() => setLeaveModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['leaves'] || (leaves.length === 0 && moduleLoading['leaves'] !== false))}
               />
             )}
 
@@ -964,6 +988,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 <PayrollModule
                   payrollRecords={payroll}
                   onRefresh={loadData}
+                  loading={Boolean(moduleLoading['payroll'] || moduleLoading['payslips'])}
                 />
               )
             )}
