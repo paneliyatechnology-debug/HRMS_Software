@@ -30,7 +30,7 @@ export function getApiBaseUrl(): string {
     return cleanEnv.endsWith('/api') ? cleanEnv : `${cleanEnv}/api`;
   }
 
-  return 'http://192.168.1.108:4000/api';
+  return 'http://192.168.1.102:4000/api';
 }
 
 export function getSocketBaseUrl(): string {
@@ -48,6 +48,6 @@ export function getSocketBaseUrl(): string {
   }
 
   // 3. Fallback only if no environment variable is provided in .env
-  return 'http://192.168.1.108:4000';
+  return 'http://192.168.1.102:4000';
 }
 
