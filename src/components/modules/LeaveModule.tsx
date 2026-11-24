@@ -49,6 +49,7 @@ interface LeaveModuleProps {
   onOpenApplyModal: () => void;
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
+  loading?: boolean;
 }
 
 export const LeaveModule: React.FC<LeaveModuleProps> = ({
@@ -57,6 +58,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   onOpenApplyModal,
   onRefresh,
   portalMode = 'admin',
+  loading = false,
 }) => {
   const { user } = useAuth();
   const { showToast, emitLeaveStatusUpdated } = useSocket();
@@ -772,7 +774,21 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
         {/* Mobile Leave Requests Cards (< md) */}
         <div className="md:hidden divide-y divide-slate-100">
-          {displayedLeaves.length === 0 ? (
+          {loading && leaves.length === 0 ? (
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={`skel-lv-m-${idx}`} className="p-3.5 space-y-2.5 animate-pulse">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-1">
+                      <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                      <div className="w-20 h-2.5 bg-slate-100 rounded" />
+                    </div>
+                    <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : displayedLeaves.length === 0 ? (
             leaves.length === 0 ? (
               <div className="py-12 px-4 text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-200">
@@ -948,7 +964,20 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {displayedLeaves.length === 0 ? (
+              {loading && leaves.length === 0 ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={`skel-lv-d-${idx}`} className="animate-pulse">
+                    <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-200 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-12 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-16 h-5 bg-slate-100 rounded-full" /></td>
+                    <td className="py-3.5 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-28 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4 text-right"><div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" /></td>
+                  </tr>
+                ))
+              ) : displayedLeaves.length === 0 ? (
                 <tr>
                   <td
                     colSpan={8}

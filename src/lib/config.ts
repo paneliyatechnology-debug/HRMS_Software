@@ -14,7 +14,8 @@ function cleanUrl(raw?: string): string {
 }
 
 export function getApiBaseUrl(): string {
-  // In the browser, route requests through frontend reverse proxy (/hrms-api) to maintain same-origin cookies and prevent 401 CORS issues
+  // In the browser, route requests through frontend reverse proxy (/hrms-api) to maintain same-origin cookies and prevent 401 CORS issues.
+  // Next.js rewrites in next.config.ts automatically and dynamically forward /hrms-api to the backend IP configured in .env (NEXT_PUBLIC_API_URL).
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/hrms-api`;
   }

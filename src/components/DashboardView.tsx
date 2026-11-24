@@ -196,7 +196,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const {
     status: currentStatus,
     liveWorkedHMS,
+    liveBreakHMS,
     liveBreakWords,
+    breakSeconds,
     activeSession,
     lastCompletedSession,
     todaySummary,
@@ -305,6 +307,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (user?.id) ids.add(user.id.toLowerCase());
     if (user?.employeeId) ids.add(user.employeeId.toLowerCase());
     if (currentEmp?.employeeCode) ids.add(currentEmp.employeeCode.toLowerCase());
+    if ((user as any)?.employeeCode) ids.add((user as any).employeeCode.toLowerCase());
+    [...ids].forEach((id) => {
+      const clean = id.replace(/^(emp-|user-)/, '');
+      if (clean) ids.add(clean);
+    });
     return ids;
   }, [activeEmpId, currentEmp, user]);
 
@@ -356,12 +363,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return Array.from(map.values());
   }, [attendance, allAttendance]);
 
-  // Real employee full attendance history (for 7d/14d daily graph)
+  // Real employee full attendance history (for 7d/14d daily graph & recent attendance)
   const myAllAttendance = useMemo(() => {
-    return mergedAttendance
-      .filter((a) => myCandidateIds.has((a.employeeId || '').toLowerCase()))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [mergedAttendance, myCandidateIds]);
+    const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+    const empFullName = `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim().toLowerCase();
+    const userEmail = (user.email || '').trim().toLowerCase();
+
+    const isMatch = (a: any) => {
+      // In employee view, if backend scoped it to employee, accept all
+      if (portalMode === 'employee') return true;
+
+      const empId = (a.employeeId || '').toLowerCase();
+      const userId = ((a.userId || (a as any).user?.id || '')).toLowerCase();
+      const cleanEmpId = empId.replace(/^(emp-|user-)/, '');
+      const cleanUserId = userId.replace(/^(emp-|user-)/, '');
+
+      if (empId && myCandidateIds.has(empId)) return true;
+      if (cleanEmpId && myCandidateIds.has(cleanEmpId)) return true;
+      if (userId && myCandidateIds.has(userId)) return true;
+      if (cleanUserId && myCandidateIds.has(cleanUserId)) return true;
+
+      const aEmail = ((a.email || (a as any).user?.email || (a as any).employeeEmail || '')).toLowerCase();
+      if (userEmail && aEmail && aEmail === userEmail) return true;
+
+      const aName = (a.employeeName || (a as any).userName || '').trim().toLowerCase();
+      if (userFullName && aName && aName === userFullName) return true;
+      if (empFullName && aName && aName === empFullName) return true;
+
+      return false;
+    };
+
+    const list = mergedAttendance.filter(isMatch);
+
+    // If today has active or completed live session from WorkSessionContext, synthesize today's entry if missing
+    const todayStr = getTodayDateString();
+    const hasToday = list.some((a) => a.date === todayStr);
+
+    if (!hasToday && (currentStatus === 'working' || currentStatus === 'on_break' || currentStatus === 'completed')) {
+      const formatIso = (iso?: string) => {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          return isNaN(d.getTime()) ? iso : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        } catch {
+          return iso;
+        }
+      };
+
+      const checkInTime = formatIso(activeSession?.startTime || lastCompletedSession?.startTime);
+      const checkOutTime = currentStatus === 'completed' ? formatIso(lastCompletedSession?.endTime) : undefined;
+      const todayTotalHours = currentStatus === 'completed' ? (todaySummary?.totalDurationFormatted || '00:00:00') : liveWorkedHMS;
+
+      const liveTodayRec: AttendanceRecord = {
+        id: `live-session-${todayStr}`,
+        employeeId: user?.id || currentEmp?.id || 'emp-self',
+        employeeName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Me',
+        date: todayStr,
+        checkIn: checkInTime || '—',
+        checkOut: checkOutTime,
+        status: 'Present',
+        totalHours: todayTotalHours,
+        workingHours: 0,
+        overtimeHours: 0,
+        breakDurationMinutes: breakSeconds ? Math.floor(breakSeconds / 60) : 0,
+        remarks: 'Live Work Session',
+        createdAt: new Date().toISOString(),
+      };
+      list.unshift(liveTodayRec);
+    }
+
+    return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [mergedAttendance, myCandidateIds, portalMode, user, currentEmp, currentStatus, activeSession, lastCompletedSession, todaySummary, liveWorkedHMS, liveBreakHMS]);
 
   // Real employee recent attendance (last 5 records)
   const myRecentAttendance = useMemo(() => {
@@ -681,26 +753,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-5">
           {/* Personal Shift Clock Console for HR / Manager */}
           {canUserPunch(user) && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5">
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
-                      My Daily Shift &amp; Attendance Clock
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Clock in to track your work hours and breaks for today
-                    </p>
-                  </div>
-                </div>
-                <div className="w-full lg:w-auto lg:min-w-[420px]">
-                  <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
-                </div>
-              </div>
-            </div>
+            <DailyShiftConsole variant="banner" clockSize="sm" showHeaderClock={false} />
           )}
 
           {/* KPI Stats Row */}
@@ -1276,7 +1329,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             const recDate = new Date(rec.date);
                             const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
                             const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                            const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
+                            const workedStr = rec.totalHours || (rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—'));
                             const bSecs = getLiveBreakSeconds(rec);
                             const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
 
@@ -1286,8 +1339,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   <span>{dayName}</span>
                                   <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
                                 </td>
-                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn || '—'}</td>
-                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut || '—'}</td>
+                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn && rec.checkIn !== '--:--' ? rec.checkIn : '—'}</td>
+                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut && rec.checkOut !== '--:--' ? rec.checkOut : '—'}</td>
                                 <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
                                 <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
                                 <td className="py-1.5 px-2 text-right whitespace-nowrap">

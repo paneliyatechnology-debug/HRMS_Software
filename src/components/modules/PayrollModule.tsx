@@ -27,10 +27,12 @@ import { useSocket } from '../../context/SocketContext';
 interface PayrollModuleProps {
   payrollRecords: PayrollRecord[];
   onRefresh: () => void;
+  loading?: boolean;
 }
 
 export const PayrollModule: React.FC<PayrollModuleProps> = ({
   onRefresh,
+  loading: parentLoading = false,
 }) => {
   const { user, hasPermission } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -651,7 +653,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         </div>
       )}
 
-      {loadingSalaries ? (
+      {loadingSalaries || (parentLoading && salaries.length === 0) ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-2xs">
           <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">Loading compensation records...</p>

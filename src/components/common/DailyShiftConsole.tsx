@@ -24,6 +24,7 @@ interface DailyShiftConsoleProps {
   showFooterBadges?: boolean;
   clockSize?: 'sm' | 'md' | 'lg' | 'xl';
   showHeaderClock?: boolean;
+  variant?: 'card' | 'banner';
 }
 
 export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
@@ -31,6 +32,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   showFooterBadges = true,
   clockSize = 'sm',
   showHeaderClock = true,
+  variant = 'card',
 }) => {
   const {
     status,
@@ -91,6 +93,214 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   };
 
   const shiftCheck = verifyShiftTimeWindow();
+
+  // Ultra-compact banner layout for dashboard header without unwanted vertical height or gaps
+  if (variant === 'banner') {
+    return (
+      <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-xs px-4 py-3 sm:px-5 sm:py-3 ${className}`}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4">
+          {/* Left: Status Icon, Title & Dynamic Subtitle */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                status === 'working'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : status === 'on_break'
+                  ? 'bg-amber-50 text-amber-700'
+                  : status === 'completed'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              {status === 'on_break' ? (
+                <Coffee className="w-4 h-4" />
+              ) : status === 'completed' ? (
+                <Check className="w-4 h-4 stroke-[2.5]" />
+              ) : (
+                <Clock className="w-4 h-4" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                  Daily Shift Clock
+                </h3>
+                {status === 'working' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span>Active</span>
+                  </span>
+                )}
+                {status === 'on_break' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span>On Break</span>
+                  </span>
+                )}
+                {status === 'completed' && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Shift Done
+                  </span>
+                )}
+                {status === 'not_started' && (
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    shiftCheck.isAllowed
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {shiftCheck.isAllowed ? 'Ready' : 'Locked'}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                {status === 'working'
+                  ? `In at ${formatTimeStr(activeSession?.startTime) || 'Recently'} • Target: 9.0h`
+                  : status === 'on_break'
+                  ? 'Break in progress • Work timer paused'
+                  : status === 'completed'
+                  ? `In: ${formatTimeStr(lastCompletedSession?.startTime) || '—'} • Out: ${formatTimeStr(lastCompletedSession?.endTime) || '—'}`
+                  : `Office Shift: ${shiftCheck.shiftStart} – ${shiftCheck.shiftEnd}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Center: Dual Timers in sleek compact badges */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 flex-wrap">
+            {/* Work Timer Badge */}
+            <div
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${
+                status === 'working'
+                  ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Work</span>
+              </div>
+              <span className="font-mono font-bold text-sm text-slate-900">
+                {status === 'completed'
+                  ? '00:00:00'
+                  : liveWorkedHMS || '00:00:00'}
+              </span>
+              {status === 'working' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+              {status === 'completed' && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  ({todaySummary?.totalDurationFormatted || totalWorkedHMS || '00:00:00'})
+                </span>
+              )}
+            </div>
+
+            {/* Break Timer Badge */}
+            <div
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${
+                status === 'on_break'
+                  ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+                  : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <Coffee className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Break</span>
+              </div>
+              <span className="font-mono font-bold text-sm text-slate-900">
+                {status === 'completed'
+                  ? '00:00:00'
+                  : liveBreakHMS || '00:00:00'}
+              </span>
+              {status === 'on_break' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              )}
+              {status === 'completed' && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  ({todaySummary?.totalBreakFormatted || totalBreakHMS || '00:00:00'})
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Compact Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {status === 'not_started' && (
+              <button
+                id="btn-shift-check-in-banner"
+                onClick={() => checkIn()}
+                disabled={actionLoading}
+                className={`px-3.5 py-2 rounded-xl active:scale-95 font-bold text-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap ${
+                  !shiftCheck.isAllowed
+                    ? 'bg-rose-700 hover:bg-rose-800 text-white'
+                    : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                <span>{actionLoading ? 'Starting...' : 'Clock In Now'}</span>
+              </button>
+            )}
+
+            {status === 'working' && (
+              <>
+                <button
+                  id="btn-shift-take-break-banner"
+                  onClick={() => takeBreak()}
+                  disabled={actionLoading}
+                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Coffee className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>{actionLoading ? 'Pausing...' : 'Take Break'}</span>
+                </button>
+                <button
+                  id="btn-shift-check-out-banner"
+                  onClick={() => checkOut()}
+                  disabled={actionLoading}
+                  className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current text-rose-600 shrink-0" />
+                  <span>{actionLoading ? 'Clocking out...' : 'Clock Out'}</span>
+                </button>
+              </>
+            )}
+
+            {status === 'on_break' && (
+              <>
+                <button
+                  id="btn-shift-resume-work-banner"
+                  onClick={() => resumeWork()}
+                  disabled={actionLoading}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+                  <span>{actionLoading ? 'Resuming...' : 'Resume Work'}</span>
+                </button>
+                <button
+                  id="btn-shift-check-out-disabled-banner"
+                  disabled={true}
+                  title="Clock-out is blocked during break. Please resume work first."
+                  className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                >
+                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Clock Out</span>
+                </button>
+              </>
+            )}
+
+            {status === 'completed' && (
+              <button
+                id="btn-shift-check-in-again-banner"
+                onClick={() => checkIn()}
+                disabled={actionLoading}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all active:scale-95 inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                <span>{actionLoading ? 'Starting...' : 'Clock In Again'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Determine top bar gradient based on status
   const topBarGradient =

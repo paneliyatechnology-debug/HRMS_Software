@@ -84,6 +84,7 @@ interface AttendanceModuleProps {
   onOpenPunchModal: () => void;
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
+  loading?: boolean;
 }
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
@@ -93,6 +94,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   onOpenPunchModal,
   onRefresh,
   portalMode = 'admin',
+  loading = false,
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
@@ -236,6 +238,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
   const [expandedPunchId, setExpandedPunchId] = useState<string | null>(null);
   const [expandedAdminEmpId, setExpandedAdminEmpId] = useState<string | null>(null);
+
+  const hasLoadedDataRef = useRef(false);
+  useEffect(() => {
+    if (employees.length > 0 || records.length > 0) {
+      hasLoadedDataRef.current = true;
+    }
+  }, [employees, records]);
+
+  const isDataLoading = Boolean(
+    loading || (!hasLoadedDataRef.current && portalMode === 'admin' && employees.length === 0)
+  );
 
   const getPunchTypeBadge = (type: string) => {
     const t = String(type || '').toUpperCase();
@@ -1649,34 +1662,50 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
-                  <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1">{todayRecords.length} / {employees.length}</p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-20 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1">{todayRecords.length} / {employees.length}</p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
-                  <p className="text-xl font-semibold tracking-tight text-emerald-600 mt-1 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    {workingCount}
-                  </p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-emerald-600 mt-1 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      {workingCount}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
-                  <p className="text-xl font-semibold tracking-tight text-amber-600 mt-1 flex items-center gap-1.5">
-                    <Pause className="w-3.5 h-3.5 text-amber-600" />
-                    {onBreakCount}
-                  </p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-amber-600 mt-1 flex items-center gap-1.5">
+                      <Pause className="w-3.5 h-3.5 text-amber-600" />
+                      {onBreakCount}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
-                  <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1 flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-slate-600" />
-                    {completedCount}
-                  </p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1 flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-slate-600" />
+                      {completedCount}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Clocked out</p>
                 </div>
               </div>
@@ -1711,9 +1740,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         : "Today's Live Workforce Shift Log"}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {isEmployeeView
-                        ? `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day' : 'Days'} Logged`
-                        : `${visibleEmployees.length} Employees`}
+                      {isDataLoading ? (
+                        <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          Loading...
+                        </span>
+                      ) : isEmployeeView ? (
+                        `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day' : 'Days'} Logged`
+                      ) : (
+                        `${visibleEmployees.length} Employees`
+                      )}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -2049,7 +2085,34 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <>
                   {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
                   <div className="md:hidden divide-y divide-slate-100">
-                    {visibleEmployees.length === 0 ? (
+                    {isDataLoading ? (
+                      <div className="divide-y divide-slate-100">
+                        {Array.from({ length: 4 }).map((_, idx) => (
+                          <div key={`skel-m-${idx}`} className="p-3.5 space-y-2.5 animate-pulse">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1">
+                                  <div className="w-24 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </div>
+                              <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                              <div className="space-y-1">
+                                <div className="w-10 h-2 bg-slate-200 rounded" />
+                                <div className="w-20 h-3 bg-slate-200 rounded" />
+                              </div>
+                              <div className="space-y-1">
+                                <div className="w-14 h-2 bg-slate-200 rounded" />
+                                <div className="w-16 h-3 bg-slate-200 rounded" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : visibleEmployees.length === 0 ? (
                       <div className="p-8 text-center space-y-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                           <Search className="w-5 h-5" />
@@ -2194,7 +2257,40 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.length === 0 ? (
+                        {isDataLoading ? (
+                          Array.from({ length: 6 }).map((_, idx) => (
+                            <tr key={`skel-d-${idx}`} className="animate-pulse">
+                              <td className="py-3 px-4 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1 min-w-0">
+                                  <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-20 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        ) : visibleEmployees.length === 0 ? (
                           <tr>
                             <td colSpan={8} className="py-12 text-center">
                               <div className="max-w-sm mx-auto space-y-3">
@@ -2512,7 +2608,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </span>
               </div>
 
-              {visibleEmployees.length === 0 ? (
+              {isDataLoading ? (
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <div key={`skel-sc-${idx}`} className="p-4 rounded-xl border border-slate-100 bg-white space-y-3 animate-pulse">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                        <div className="space-y-1">
+                          <div className="w-24 h-3.5 bg-slate-200 rounded" />
+                          <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                        <div className="h-6 bg-slate-100 rounded" />
+                        <div className="h-6 bg-slate-100 rounded" />
+                        <div className="h-6 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : visibleEmployees.length === 0 ? (
                 <div className="py-16 text-center text-slate-500">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
                     <Users className="w-6 h-6" />
@@ -2645,7 +2760,40 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {visibleEmployees.length === 0 ? (
+                        {isDataLoading ? (
+                          Array.from({ length: 6 }).map((_, idx) => (
+                            <tr key={`skel-d-${idx}`} className="animate-pulse">
+                              <td className="py-3 px-4 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1 min-w-0">
+                                  <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-20 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        ) : visibleEmployees.length === 0 ? (
                           <tr>
                             <td colSpan={7} className="py-12 text-center">
                               <div className="max-w-sm mx-auto space-y-3">

@@ -114,7 +114,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User>(emptyUser);
+  const [user, setUser] = useState<User>(() => {
+    if (typeof window !== 'undefined') {
+      const cachedUserStr = getCookie('hrms_auth_user');
+      if (cachedUserStr) {
+        try {
+          const parsed = JSON.parse(cachedUserStr);
+          if (parsed && parsed.id) return parsed;
+        } catch {}
+      }
+    }
+    return emptyUser;
+  });
   const [portalMode, setPortalModeState] = useState<PortalMode>(() => {
     if (typeof window !== 'undefined') {
       const savedMode = getCookie('hrms_portal_mode');
@@ -122,8 +133,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return 'employee';
   });
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const storedAuth = getCookie('hrms_is_authenticated');
+      const cachedUserStr = getCookie('hrms_auth_user');
+      return storedAuth === 'true' && Boolean(cachedUserStr);
+    }
+    return false;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const storedAuth = getCookie('hrms_is_authenticated');
+      const cachedUserStr = getCookie('hrms_auth_user');
+      if (storedAuth === 'true' && Boolean(cachedUserStr)) return false;
+    }
+    return true;
+  });
 
   const enrichUserData = async (baseUser: any) => {
     if (!baseUser) return baseUser;
