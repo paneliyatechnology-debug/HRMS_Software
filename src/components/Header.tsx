@@ -39,6 +39,7 @@ import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
+import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 
 interface HeaderProps {
@@ -383,17 +384,17 @@ export const Header: React.FC<HeaderProps> = ({
           <Menu className="w-5 h-5" />
         </button>
         <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
-          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
-            {companyLogo ? (
-              <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-0.5" />
-            ) : (
-              companyInitial
-            )}
+          <div className="w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden p-0.5">
+            <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
           </div>
           <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
-            <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
-              {displayCompanyName}
-            </span>
+            {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (
+              <img src="/brand-name.png" alt="myown hrms" className="h-3.5 w-auto object-contain" />
+            ) : (
+              <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
+                {displayCompanyName}
+              </span>
+            )}
           </div>
         </div>
 
@@ -439,46 +440,52 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <button
-                id="btn-header-admin-leaves"
-                type="button"
-                onClick={() => onNavigateModule?.('leaves')}
-                className={getBtnCls(isLeavesActive)}
-                title="Leave Requests"
-              >
-                <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Leave Requests</span>
-                {pendingLeavesCount > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
-                      }`}
-                  >
-                    {pendingLeavesCount}
-                  </span>
-                )}
-              </button>
+              {isModuleAllowedForUser('leaves', user) && (
+                <button
+                  id="btn-header-admin-leaves"
+                  type="button"
+                  onClick={() => onNavigateModule?.('leaves')}
+                  className={getBtnCls(isLeavesActive)}
+                  title="Leave Requests"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Leave Requests</span>
+                  {pendingLeavesCount > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
+                        }`}
+                    >
+                      {pendingLeavesCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              <button
-                id="btn-header-admin-add-staff"
-                type="button"
-                onClick={onOpenAddEmployeeModal}
-                className={getBtnCls(isAddStaffActive)}
-                title="Add Staff"
-              >
-                <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Add Staff</span>
-              </button>
+              {canCreateUser(user) && isModuleAllowedForUser('employees', user) && (
+                <button
+                  id="btn-header-admin-add-staff"
+                  type="button"
+                  onClick={onOpenAddEmployeeModal}
+                  className={getBtnCls(isAddStaffActive)}
+                  title="Add Staff"
+                >
+                  <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Add Staff</span>
+                </button>
+              )}
 
-              <button
-                id="btn-header-admin-holidays"
-                type="button"
-                onClick={() => onNavigateModule?.('calendar')}
-                className={getBtnCls(isHolidaysActive)}
-                title="Holidays"
-              >
-                <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">Holidays</span>
-              </button>
+              {isModuleAllowedForUser('calendar', user) && (
+                <button
+                  id="btn-header-admin-holidays"
+                  type="button"
+                  onClick={() => onNavigateModule?.('calendar')}
+                  className={getBtnCls(isHolidaysActive)}
+                  title="Holidays"
+                >
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Holidays</span>
+                </button>
+              )}
             </div>
           );
         })()}
@@ -495,7 +502,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {!resigned && (
+              {!resigned && isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-apply-leave"
                   onClick={onOpenLeaveModal}
@@ -507,17 +514,19 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              <button
-                id="btn-header-payslips"
-                onClick={() => onNavigateModule?.('payslips')}
-                className={getBtnCls(isPayslipsActive)}
-                title="My Payslips"
-              >
-                <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                <span className="hidden md:inline">My Payslips</span>
-              </button>
+              {isModuleAllowedForUser('payslips', user) && (
+                <button
+                  id="btn-header-payslips"
+                  onClick={() => onNavigateModule?.('payslips')}
+                  className={getBtnCls(isPayslipsActive)}
+                  title="My Payslips"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">My Payslips</span>
+                </button>
+              )}
 
-              {!resigned && (
+              {!resigned && isModuleAllowedForUser('chat', user) && (
                 <button
                   id="btn-header-chat"
                   onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
@@ -533,7 +542,7 @@ export const Header: React.FC<HeaderProps> = ({
         })()}
 
         {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
-        {portalMode !== 'admin' && (
+        {canUserPunch(user) && (
           <div className="flex items-center gap-2 min-w-0">
             {clockClosed && (
               <span

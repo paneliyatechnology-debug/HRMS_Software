@@ -227,9 +227,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const permissions = profile.permissions || [];
               const portal = portalFromPermissions(permissions) || 'employee';
               const companyProfile = role === 'ADMIN' ? profile.company || null : null;
+              const dynamicModules =
+                profile.allowedModules ||
+                profile.user?.allowedModules ||
+                profile.modules ||
+                profile.user?.modules ||
+                cachedUser.allowedModules;
               const next = {
                 ...cachedUser,
                 ...profile.user,
+                allowedModules: dynamicModules,
+                modules: profile.modules || profile.user?.modules || cachedUser.modules,
                 permissions: permissions.length ? permissions : cachedUser.permissions || [],
                 companyProfile,
                 companyName: companyProfile?.name || cachedUser.companyName || '',
@@ -292,9 +300,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const permissions = profile?.permissions || [];
         const targetPortal = portalFromPermissions(permissions) || 'employee';
         const companyProfile = userRole === 'ADMIN' ? profile?.company || null : null;
+        const dynamicModules =
+          profile?.allowedModules ||
+          profile?.user?.allowedModules ||
+          profile?.modules ||
+          profile?.user?.modules;
         const enriched = await enrichUserData({
           ...res.user,
           ...profile?.user,
+          allowedModules: dynamicModules,
+          modules: profile?.modules || profile?.user?.modules,
           permissions,
           companyProfile,
           companyId: profile?.user?.companyId || res.user.companyId || org.companyId || '',

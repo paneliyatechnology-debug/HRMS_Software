@@ -41,6 +41,7 @@ import {
 } from '../../lib/leaveQuotaUtils';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { canApproveRejectLeave, canManageLeaveTypes } from '../../lib/rolePermissions';
 
 interface LeaveModuleProps {
   leaves: LeaveRequest[];
@@ -113,8 +114,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
 
   // Role permissions check (Admin & HR only)
-  const userRole = (user?.role || '').trim().toUpperCase();
-  const isAdminOrHr = ['SUPER_ADMIN', 'ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(userRole) || portalMode === 'admin';
+  const isAdminOrHr = canManageLeaveTypes(user);
 
   // Leave Types Modal State (Admin, HR, Employee, Manager)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
@@ -248,7 +248,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
   };
 
-  const handleDeleteLeaveType = async (id: string, name?: string) => {
+  const handleDeleteLeaveType = async (id: string, name?: string, rawLt?: any) => {
     if (!isAdminOrHr) {
       showToast({ type: 'error', title: 'Unauthorized', message: 'Only Admin and HR can delete leave types.' });
       return;
@@ -259,7 +259,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     }
     setDeletingLeaveTypeId(id);
     try {
-      await api.deleteLeaveType(id);
+      const deleteIdentifier = rawLt?.slug || rawLt?._id || rawLt?.id || id;
+      await api.deleteLeaveType(deleteIdentifier);
       showToast({ type: 'success', title: 'Leave Type Deleted', message: `Leave type${nameStr} removed successfully.` });
       await loadLeaveTypes();
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hrms_leave_types_updated'));
@@ -903,7 +904,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                   )}
 
-                  {portalMode === 'admin' && leave.status === 'Pending' && (
+                  {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={() => handleOpenApproveModal(leave)}
@@ -1150,7 +1151,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Action Column with Eye Toggle */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {portalMode === 'admin' && leave.status === 'Pending' && (
+                          {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                             <>
                               <button
                                 onClick={() => handleOpenApproveModal(leave)}
@@ -1664,12 +1665,12 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteLeaveType(lt.id, lt.name)}
+                                onClick={() => handleDeleteLeaveType((lt as any).slug || lt.id, lt.name, lt)}
                                 disabled={isSubmittingLeaveType || deletingLeaveTypeId !== null}
                                 className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer transition-colors"
                                 title="Delete leave type"
                               >
-                                {deletingLeaveTypeId === lt.id ? (
+                                {deletingLeaveTypeId === lt.id || (Boolean((lt as any).slug) && deletingLeaveTypeId === (lt as any).slug) ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
                                 ) : (
                                   <Trash2 className="w-3.5 h-3.5" />

@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import { getRoleDefinition } from '../../lib/roleConfig';
+import { canDeleteUser } from '../../lib/rolePermissions';
 import { ChangeRoleModal } from '../modals/ChangeRoleModal';
 
 interface EmployeesModuleProps {
@@ -215,16 +216,24 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
   const handleConfirmRemoveEmployee = async () => {
     if (!removingEmp) return;
+    if (!canDeleteUser(user)) {
+      showToast({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Only Admin and HR have permission to delete users.',
+      });
+      return;
+    }
     setRemoveLoading(true);
     try {
-      const empIdToDelete = removingEmp.id || (removingEmp as any).employeeId || '';
+      const empIdToDelete = removingEmp.id || (removingEmp as any).userId || (removingEmp as any)._id || (removingEmp as any).employeeId || '';
       const payload = {
         firstName: removingEmp.firstName || '',
         lastName: removingEmp.lastName || '',
         phone: removingEmp.phone || '',
         status: removingEmp.status || 'Active',
       };
-      const res = await api.deleteEmployee(empIdToDelete, payload);
+      const res = await api.deleteEmployee(empIdToDelete);
 
       showToast({
         type: 'success',
@@ -623,14 +632,16 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <Bell className="w-3.5 h-3.5 text-amber-600" />
                         <span>Notice</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRemoveModal(emp)}
-                        className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold"
-                        title="Remove Employee"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canDeleteUser(user) && !isCurrentUser && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRemoveModal(emp)}
+                          className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold cursor-pointer"
+                          title="Remove Employee"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -886,11 +897,11 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             <span className="hidden sm:inline">Notice</span>
                           </button>
 
-                          {!isCurrentUser && (
+                          {canDeleteUser(user) && !isCurrentUser && (
                             <button
                               id={`btn-remove-${emp.id}`}
                               onClick={() => handleOpenRemoveModal(emp)}
-                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                               title="Remove employee from staff"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

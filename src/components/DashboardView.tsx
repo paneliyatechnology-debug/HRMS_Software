@@ -77,6 +77,13 @@ import {
 import { verifyShiftTimeWindow, getWorkScheduleConfig } from '../lib/shiftScheduleService';
 import { ModernDigitClock } from './common/ModernDigitClock';
 import { DailyShiftConsole } from './common/DailyShiftConsole';
+import {
+  canUserPunch,
+  canDeleteUser,
+  canCreateUser,
+  canApproveRejectLeave,
+  isModuleAllowedForUser,
+} from '../lib/rolePermissions';
 import { useWorkSession } from '../context/WorkSessionContext';
 
 function formatDisplayName(first?: string, last?: string): string {
@@ -531,9 +538,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const handleConfirmRemoveEmpDashboard = async () => {
     if (!removingEmpDashboard) return;
+    if (!canDeleteUser(user)) {
+      showToast({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Only Admin and HR have permission to delete users.',
+      });
+      return;
+    }
     setRemoveEmpLoading(true);
     try {
-      const empIdToDelete = removingEmpDashboard.id || (removingEmpDashboard as any).employeeId || '';
+      const empIdToDelete = removingEmpDashboard.id || (removingEmpDashboard as any).userId || (removingEmpDashboard as any)._id || (removingEmpDashboard as any).employeeId || '';
       const payload = {
         firstName: removingEmpDashboard.firstName || '',
         lastName: removingEmpDashboard.lastName || '',
@@ -664,6 +679,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
+          {/* Personal Shift Clock Console for HR / Manager */}
+          {canUserPunch(user) && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                      My Daily Shift &amp; Attendance Clock
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Clock in to track your work hours and breaks for today
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full lg:w-auto lg:min-w-[420px]">
+                  <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* KPI Stats Row */}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 animate-pulse">
@@ -680,61 +719,69 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              <div
-                onClick={() => onNavigateModule('employees')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <Users className="w-5 h-5" />
+              {isModuleAllowedForUser('employees', user) && (
+                <div
+                  onClick={() => onNavigateModule('employees')}
+                  className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                >
+                  <div className="stat-icon">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <small>Total Employees</small>
+                    <strong>{employees.length}</strong>
+                    <small>Active workforce</small>
+                  </div>
                 </div>
-                <div>
-                  <small>Total Employees</small>
-                  <strong>{employees.length}</strong>
-                  <small>Active workforce</small>
-                </div>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigateModule('attendance')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <Clock className="w-5 h-5" />
+              {isModuleAllowedForUser('attendance', user) && (
+                <div
+                  onClick={() => onNavigateModule('attendance')}
+                  className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                >
+                  <div className="stat-icon">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <small>Present Today</small>
+                    <strong>{todayRecords.length}</strong>
+                    <small>{activeWorkingCount} working, {onBreakCount} break</small>
+                  </div>
                 </div>
-                <div>
-                  <small>Present Today</small>
-                  <strong>{todayRecords.length}</strong>
-                  <small>{activeWorkingCount} working, {onBreakCount} break</small>
-                </div>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigateModule('leaves')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <Shield className="w-5 h-5" />
+              {isModuleAllowedForUser('leaves', user) && (
+                <div
+                  onClick={() => onNavigateModule('leaves')}
+                  className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                >
+                  <div className="stat-icon">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <small>Pending Leaves</small>
+                    <strong>{pendingLeaves.length}</strong>
+                    <small>Need review</small>
+                  </div>
                 </div>
-                <div>
-                  <small>Pending Leaves</small>
-                  <strong>{pendingLeaves.length}</strong>
-                  <small>Need review</small>
-                </div>
-              </div>
+              )}
 
-              <div
-                onClick={() => onNavigateModule('chat')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <MessageSquare className="w-5 h-5" />
+              {isModuleAllowedForUser('chat', user) && (
+                <div
+                  onClick={() => onNavigateModule('chat')}
+                  className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+                >
+                  <div className="stat-icon">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <small>Team Hub</small>
+                    <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
+                    <small>Real-time collaboration</small>
+                  </div>
                 </div>
-                <div>
-                  <small>Team Hub</small>
-                  <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                  <small>Real-time collaboration</small>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -834,20 +881,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                          <button
-                            onClick={() => handleDashboardOpenApproveModal(leave)}
-                            disabled={isProcessing}
-                            className="btn-primary text-xs py-1.5 px-3"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
-                            disabled={isProcessing}
-                            className="btn-danger text-xs py-1.5 px-3"
-                          >
-                            Reject
-                          </button>
+                          {canApproveRejectLeave(user) && (
+                            <>
+                              <button
+                                onClick={() => handleDashboardOpenApproveModal(leave)}
+                                disabled={isProcessing}
+                                className="btn-primary text-xs py-1.5 px-3"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
+                                disabled={isProcessing}
+                                className="btn-danger text-xs py-1.5 px-3"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
                           {/* Static Eye/EyeOff View Mode Toggle (Placed at the last) */}
                           <button
                             type="button"
@@ -873,6 +924,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               )}
             </section>
 
+            {isModuleAllowedForUser('employees', user) && (
             <div className="panel space-y-3 col-span-full">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
                 <div>
@@ -892,13 +944,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
                     <span>Timesheets</span>
                   </button>
-                  <button
-                    onClick={onOpenAddEmployeeModal}
-                    className="btn-primary text-xs"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Add Employee</span>
-                  </button>
+                  {canCreateUser(user) && (
+                    <button
+                      onClick={onOpenAddEmployeeModal}
+                      className="btn-primary text-xs"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Add Employee</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1027,11 +1081,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   <span className="hidden sm:inline">Notice</span>
                                 </button>
 
-                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                                   <button
                                     id={`btn-dash-remove-${emp.id}`}
                                     onClick={() => setRemovingEmpDashboard(emp)}
-                                    className="btn-danger text-xs py-1 px-2"
+                                    className="btn-danger text-xs py-1 px-2 cursor-pointer"
                                     title="Remove employee from staff"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -1047,6 +1101,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </table>
               </div>
             </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1096,63 +1151,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             return (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
-                      <p className="text-sm font-semibold text-slate-800 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
-                      <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                {isModuleAllowedForUser('attendance', user) && (
+                  <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
+                        <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                      <Shield className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
-                      </p>
-                      <p className="text-[11px] text-emerald-600 font-semibold">
-                        {leaveQuotaLoading
-                          ? 'Fetching quota...'
-                          : `${empTakenDays} Used • ${empTotalQuota} Total`}
-                      </p>
+                {isModuleAllowedForUser('leaves', user) && (
+                  <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Leave Balance</p>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
+                        </p>
+                        <p className="text-[11px] text-emerald-600 font-semibold">
+                          {leaveQuotaLoading
+                            ? 'Fetching quota...'
+                            : `${empTakenDays} Used • ${empTotalQuota} Total`}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
-                      <p className="text-sm font-semibold text-slate-800">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
+                {isModuleAllowedForUser('payslips', user) && (
+                  <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Receipt className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
+                        <p className="text-sm font-semibold text-slate-800">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
+                        <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-semibold text-slate-800 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                      <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
+                {isModuleAllowedForUser('chat', user) && (
+                  <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                        <Briefcase className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Reports To</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
+                        <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })()}

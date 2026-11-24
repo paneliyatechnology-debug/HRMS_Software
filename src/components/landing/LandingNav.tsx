@@ -27,13 +27,11 @@ export const LandingNav: React.FC<LandingNavProps> = ({ activePage = 'home', onO
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-200">
-              <Building2 className="w-5 h-5 text-[#d8f3dc]" />
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-200 p-1">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <span className="text-base sm:text-lg font-black text-slate-900 tracking-tight block leading-tight">
-                MyOwn HRMS
-              </span>
+              <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-0.5" />
               <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
                 Workforce Platform
               </span>

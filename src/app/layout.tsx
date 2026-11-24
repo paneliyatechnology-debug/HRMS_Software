@@ -17,8 +17,18 @@ export const dynamicParams = true;
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'My Own HRMS — Enterprise Workforce & Talent Management System',
+  title: 'myown hrms — Enterprise Workforce & Talent Management System',
   description: 'Production-ready Human Resource Management System with complete employee lifecycle management, biometric attendance, payroll calculation, ATS recruitment, and compliance reporting.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/apple-icon.png' },
+    ],
+  },
 };
 
 import fs from 'fs';

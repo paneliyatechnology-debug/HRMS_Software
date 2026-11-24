@@ -535,6 +535,7 @@ async function deleteDocument(id: string) {
 // 17. POST /attendance/clock (Clock in, clock out, break in, break out)
 async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string }) {
   try {
+    clearApiCache('/attendance');
     const payload = {
       flag: data?.flag,
       workMode: data?.workMode || 'Office',
@@ -554,7 +555,8 @@ async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'bre
 // 19. GET /attendance/logic (Attendance logic)
 async function getAttendanceLogic() {
   try {
-    return await deduplicatedGet('/attendance/logic');
+    // Attendance logic represents live shifts and punch timing — never serve stale TTL cache
+    return await deduplicatedGet('/attendance/logic', undefined, 0);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance status could not be loaded.');
@@ -835,8 +837,12 @@ function backendLeaveTypeToFrontend(lt: any) {
         ? Number(lt.quota)
         : (lt.days !== undefined ? Number(lt.days) : 0)));
 
+  const rawId = lt.id || lt._id || lt.slug || lt.leaveTypeId || lt.key || lt.code || '';
+
   return {
-    id: lt.id || lt._id || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: rawId || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    _id: lt._id || rawId,
+    slug: lt.slug || (typeof lt.id === 'string' && !lt.id.startsWith('lt-') ? lt.id : ''),
     name: lt.name || lt.title || lt.leaveType || '',
     daysPerYear: days,
     daysAllowed: days,
@@ -992,13 +998,32 @@ async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string; 
 }
 
 // 34. DELETE /leave-types/:leaveTypeId (Delete leave type - Admin/HR)
-async function deleteLeaveType(leaveTypeId: string) {
+async function deleteLeaveType(leaveTypeId: string | { id?: string; _id?: string; slug?: string; code?: string }) {
+  const targetId = typeof leaveTypeId === 'object' && leaveTypeId !== null
+    ? (leaveTypeId.slug || leaveTypeId.id || leaveTypeId._id || leaveTypeId.code || '')
+    : String(leaveTypeId || '').trim();
+
+  if (!targetId) {
+    throw new Error('Leave type ID is required.');
+  }
+
   try {
-    const response = await http.delete(`/leave-types/${leaveTypeId}`);
+    const response = await http.delete(`/leave-types/${encodeURIComponent(targetId)}`);
     clearApiCache('/leave-types');
     return response.data;
   } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    // If targetId failed and an alternative identifier is present, try fallback
+    if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 400) && typeof leaveTypeId === 'object') {
+      const altId = leaveTypeId.id || leaveTypeId._id || leaveTypeId.slug || leaveTypeId.code;
+      if (altId && altId !== targetId) {
+        try {
+          const altResponse = await http.delete(`/leave-types/${encodeURIComponent(altId)}`);
+          clearApiCache('/leave-types');
+          return altResponse.data;
+        } catch (_) {}
+      }
+    }
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be deleted.');
   }
 }
@@ -2522,6 +2547,8 @@ async function deleteEmployee(id: string) {
   }
 }
 
+const deleteUser = deleteEmployee;
+
 async function deactivateEmployee(id: string) {
   try {
     const response = await http.patch(`/users/${id}`, { status: 'Inactive' });
@@ -2682,6 +2709,7 @@ export const api = new Proxy({
   getEmployees,
   createEmployee,
   deleteEmployee,
+  deleteUser,
   deactivateEmployee,
   activateEmployee,
   getNextEmployeeCode,

@@ -27,6 +27,7 @@ import {
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { canManageTasks } from '../../lib/rolePermissions';
 import { Employee, Department } from '../../types/hrms';
 
 interface TasksModuleProps {
@@ -408,15 +409,17 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 hover:opacity-90 cursor-pointer"
-            style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Add New Task</span>
-          </button>
+          {canManageTasks(user) && (
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 hover:opacity-90 cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Add New Task</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -538,7 +541,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                 <span>Clear Filters</span>
               </button>
             </div>
-          ) : (
+          ) : canManageTasks(user) ? (
             <div className="mt-4">
               <button
                 type="button"
@@ -549,7 +552,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                 <span>Create New Task</span>
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
@@ -660,14 +663,16 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingTaskId(task.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title="Delete task"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canManageTasks(user) && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingTaskId(task.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Delete task"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
