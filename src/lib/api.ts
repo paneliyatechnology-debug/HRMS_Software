@@ -71,7 +71,12 @@ const notConnected = async (..._args: unknown[]) => null;
 http.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
   if (typeof window !== 'undefined') {
-    const token = getCookie('hrms_auth_token') || getCookie('bearerToken') || getCookie('accessToken');
+    const token =
+      getCookie('hrms_auth_token') ||
+      getCookie('bearerToken') ||
+      getCookie('accessToken') ||
+      getCookie('token') ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken') || localStorage.getItem('accessToken') : null);
     if (token && !config.headers.Authorization) {
       config.headers.set('Authorization', `Bearer ${token}`);
     }
@@ -755,15 +760,17 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
 
       return {
     id: a.id || `att-${Date.now()}`,
+    companyId: a.companyId || '',
     employeeId: a.userId || a.employeeId || '',
+    userId: a.userId || a.employeeId || '',
     employeeName: userName,
     employeeCode: a.employeeCode || (a.user?.employeeCode) || 'EMP',
     departmentName: a.departmentName || (a.user?.departmentName) || 'General',
     date: String(a.workDate || a.date || '').slice(0, 10) || new Date().toISOString().split('T')[0],
-    checkIn: checkIn || '--:--',
-    checkOut: checkOut || undefined,
+    checkIn: checkIn && checkIn !== '--:--' ? checkIn : undefined,
+    checkOut: checkOut && checkOut !== '--:--' ? checkOut : undefined,
     breakDurationMinutes: a.breakDurationMinutes || a.breakMinutes || 0,
-    workingHours: a.workingHours || a.workHours || Number(a.totalMinutes || 0) / 60,
+    workingHours: a.workingHours || a.workHours || (a.totalMinutes ? Math.round((Number(a.totalMinutes) / 60) * 100) / 100 : 0),
     overtimeHours: a.overtimeHours || 0,
     status: status,
     remarks: a.note || a.remarks || '',
@@ -853,6 +860,16 @@ function backendLeaveTypeToFrontend(lt: any) {
 
   const rawId = lt.id || lt._id || lt.slug || lt.leaveTypeId || lt.key || lt.code || '';
 
+  const rawUsed = lt.usedDays !== undefined
+    ? Number(lt.usedDays)
+    : (lt.used !== undefined ? Number(lt.used) : undefined);
+
+  const rawRemaining = lt.remainingDays !== undefined
+    ? Number(lt.remainingDays)
+    : (lt.remaining !== undefined
+      ? Number(lt.remaining)
+      : (lt.available !== undefined ? Number(lt.available) : undefined));
+
   return {
     id: rawId || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     _id: lt._id || rawId,
@@ -865,6 +882,8 @@ function backendLeaveTypeToFrontend(lt: any) {
     code: lt.code || '',
     color: lt.color || '',
     isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
+    usedDays: rawUsed !== undefined && !isNaN(rawUsed) ? rawUsed : undefined,
+    remainingDays: rawRemaining !== undefined && !isNaN(rawRemaining) ? rawRemaining : undefined,
   };
 }
 

@@ -39,6 +39,8 @@ export interface ConfiguredLeaveType {
   code?: string;
   color?: string;
   isPaid?: boolean;
+  usedDays?: number;
+  remainingDays?: number;
 }
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
@@ -232,6 +234,8 @@ export interface AttendancePunchLog {
 
 export interface AttendanceRecord {
   id: string;
+  companyId?: string;
+  userId?: string;
   employeeId: string;
   employeeName?: string;
   employeeCode?: string;

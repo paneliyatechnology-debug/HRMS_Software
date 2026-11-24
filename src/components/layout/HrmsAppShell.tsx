@@ -147,11 +147,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [activeModule, setActiveModule] = useState<string>(() => {
     if (initialModule) return initialModule;
-    if (typeof window !== 'undefined') {
-      const parsed = parseRoutePath(window.location.pathname);
+    if (pathname) {
+      const parsed = parseRoutePath(pathname);
       if (parsed.isValid) return parsed.module;
     }
     return 'dashboard';
@@ -159,8 +164,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   const [subTab, setSubTab] = useState<string>(() => {
     if (initialSubTab) return initialSubTab;
-    if (typeof window !== 'undefined') {
-      const parsed = parseRoutePath(window.location.pathname);
+    if (pathname) {
+      const parsed = parseRoutePath(pathname);
       return parsed.subTab || '';
     }
     return '';
@@ -279,6 +284,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Data state
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [moduleLoading, setModuleLoading] = useState<Record<string, boolean>>(() => {
+    const initialMod = initialModule || (typeof window !== 'undefined' ? parseRoutePath(window.location.pathname).module : 'dashboard') || 'dashboard';
+    return { [initialMod]: true };
+  });
   const [dashboardNotices, setDashboardNotices] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -286,7 +295,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [jobs, setJobs] = useState<JobOpening[]>([]);
@@ -453,6 +462,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [activeCompanyId]);
 
   const scopeAttendance = useCallback((rawAtt: AttendanceRecord[], scopedEmps: Employee[], workStatusData?: any): AttendanceRecord[] => {
+    // In employee portal mode, backend already returns the employee's own records
+    if (portalMode === 'employee') {
+      const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmps);
+      return [...(Array.isArray(rawAtt) ? rawAtt : []), ...workStatusRecords];
+    }
+
     const scopedEmpIds = new Set<string>();
     scopedEmps.forEach((e) => {
       if (e.id) {
@@ -465,6 +480,15 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     });
 
+    if (user?.id) {
+      scopedEmpIds.add(user.id);
+      scopedEmpIds.add(user.id.replace(/^(emp-|user-)/, ''));
+    }
+    if ((user as any)?.employeeId) {
+      scopedEmpIds.add((user as any).employeeId);
+      scopedEmpIds.add((user as any).employeeId.replace(/^(emp-|user-)/, ''));
+    }
+
     const workStatusRecords = extractRecordsFromWorkStatus(workStatusData, scopedEmps);
     const combined = [...(Array.isArray(rawAtt) ? rawAtt : []), ...workStatusRecords];
     return combined.filter((a) => {
@@ -473,11 +497,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const cleanUserId = ((a as any).userId || '').replace(/^(emp-|user-)/, '');
       if (scopedEmpIds.has(a.employeeId) || (cleanEmpId && scopedEmpIds.has(cleanEmpId))) return true;
       if (cleanUserId && scopedEmpIds.has(cleanUserId)) return true;
-      if ((a as any).companyId && (a as any).companyId === activeCompanyId) return true;
+      if (!activeCompanyId || ((a as any).companyId && (a as any).companyId === activeCompanyId)) return true;
       if (workStatusRecords.some((wr) => wr.id === a.id)) return true;
       return false;
     });
-  }, [activeCompanyId]);
+  }, [activeCompanyId, portalMode, user?.id, (user as any)?.employeeId]);
 
   // Company Brand Data - fetched once on authentication
   useEffect(() => {
@@ -500,6 +524,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       return;
     }
     isFetchingDataRef.current[targetModule] = true;
+    setModuleLoading((prev) => ({ ...prev, [targetModule]: true }));
 
     try {
       if (targetModule === 'dashboard') {
@@ -613,6 +638,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
         const scopedAtt = scopeAttendance(attendanceData, activeEmps);
         setAttendance(scopedAtt);
+        setLiveAttendanceRecords(scopedAtt);
         const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
@@ -632,6 +658,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       console.warn(`Could not load data for module ${targetModule}:`, err);
     } finally {
       isFetchingDataRef.current[targetModule] = false;
+      setModuleLoading((prev) => ({ ...prev, [targetModule]: false }));
       if (pendingReloadRef.current[targetModule]) {
         pendingReloadRef.current[targetModule] = false;
         void loadDataForModule(targetModule);
@@ -811,16 +838,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Redirect to login if user is not authenticated (performed inside useEffect to avoid updating Router during render)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (mounted && !isLoading && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [mounted, isLoading, isAuthenticated, router]);
 
-  if (isLoading || !isAuthenticated) {
+  if (!mounted || isLoading || !isAuthenticated) {
     return (
       <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-        {isLoading ? (
+        {!mounted || isLoading ? (
           <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
         ) : (
           <span className="text-xs font-semibold text-slate-700">Redirecting to login...</span>
@@ -944,6 +971,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                   navigateToModule('chat');
                 }}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['employees'] || employees.length === 0)}
               />
             )}
 
@@ -961,6 +989,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenPunchModal={() => setClockModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['attendance'] || (portalMode === 'admin' && employees.length === 0))}
               />
             )}
 
@@ -971,6 +1000,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenApplyModal={() => setLeaveModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+                loading={Boolean(moduleLoading['leaves'] || (leaves.length === 0 && moduleLoading['leaves'] !== false))}
               />
             )}
 
@@ -981,6 +1011,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 <PayrollModule
                   payrollRecords={payroll}
                   onRefresh={loadData}
+                  loading={Boolean(moduleLoading['payroll'] || moduleLoading['payslips'])}
                 />
               )
             )}

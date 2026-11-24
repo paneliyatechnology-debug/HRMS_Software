@@ -276,6 +276,114 @@ export function computeShiftClock(
 }
 
 /**
+ * Accurately extracts break duration and net worked duration from an attendance record's punches array.
+ * Uses strict chronological ordering and punch type state transitions.
+ */
+export function calculateBreakAndWorkedSecondsFromPunches(rec: AttendanceRecord | any): {
+  workSeconds: number;
+  breakSeconds: number;
+} {
+  if (!rec) return { workSeconds: 0, breakSeconds: 0 };
+  const punches = Array.isArray(rec.punches) ? rec.punches : [];
+
+  if (punches.length === 0) {
+    const rawBreak =
+      rec.breakSeconds ||
+      rec.totalBreakSeconds ||
+      (rec.breakDurationMinutes ? rec.breakDurationMinutes * 60 : 0) ||
+      (rec.breakTime ? parseBreakTimeToSeconds(rec.breakTime) : 0) ||
+      0;
+    const rawWork =
+      rec.activeSeconds ||
+      (rec.workingHours ? Math.round(rec.workingHours * 3600) : 0) ||
+      (rec.totalMinutes ? Math.round(rec.totalMinutes * 60) : 0) ||
+      0;
+    return { workSeconds: Math.max(0, rawWork), breakSeconds: Math.max(0, rawBreak) };
+  }
+
+  // Sort punches strictly chronologically (oldest punch first)
+  const sorted = [...punches].sort((a, b) => parsePunchTimestamp(a) - parsePunchTimestamp(b));
+
+  let workMs = 0;
+  let breakMs = 0;
+  let workOpenTs: number | null = null;
+  let breakOpenTs: number | null = null;
+  const now = serverNow();
+
+  for (const punch of sorted) {
+    const type = normalizePunchType(punch?.type);
+    const ts = parsePunchTimestamp(punch);
+    if (!Number.isFinite(ts) || ts <= 0) continue;
+
+    if (type === 'IN') {
+      if (workOpenTs) {
+        workMs += Math.max(0, ts - workOpenTs);
+      }
+      if (breakOpenTs) {
+        breakMs += Math.max(0, ts - breakOpenTs);
+        breakOpenTs = null;
+      }
+      workOpenTs = ts;
+    } else if (type === 'BREAK_START') {
+      if (workOpenTs) {
+        workMs += Math.max(0, ts - workOpenTs);
+        workOpenTs = null;
+      }
+      breakOpenTs = ts;
+    } else if (type === 'BREAK_END') {
+      if (breakOpenTs) {
+        breakMs += Math.max(0, ts - breakOpenTs);
+        breakOpenTs = null;
+      }
+      workOpenTs = ts;
+    } else if (type === 'OUT') {
+      if (workOpenTs) {
+        workMs += Math.max(0, ts - workOpenTs);
+        workOpenTs = null;
+      }
+      if (breakOpenTs) {
+        breakMs += Math.max(0, ts - breakOpenTs);
+        breakOpenTs = null;
+      }
+    }
+  }
+
+  const isCompleted = Boolean(
+    rec.isCompleted ||
+    (rec.checkOut && rec.checkOut.trim() !== '' && rec.checkOut !== '—') ||
+    rec.status === 'Completed'
+  );
+
+  // If session is still active (not checked out), accumulate open segments up to now
+  if (!isCompleted) {
+    if (workOpenTs) {
+      workMs += Math.max(0, now - workOpenTs);
+    }
+    if (breakOpenTs) {
+      breakMs += Math.max(0, now - breakOpenTs);
+    }
+  }
+
+  const calculatedBreakSecs = Math.floor(breakMs / 1000);
+  let calculatedWorkSecs = Math.floor(workMs / 1000);
+
+  // If completed with known checkIn & checkOut, reconcile net work with gross duration minus break
+  if (isCompleted && rec.checkIn && rec.checkOut && rec.checkIn !== '—' && rec.checkOut !== '—') {
+    const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+    const outTs = parseTimeStringToTimestamp(rec.checkOut, rec.date);
+    if (inTs > 0 && outTs > inTs) {
+      const grossSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
+      calculatedWorkSecs = Math.max(0, grossSecs - calculatedBreakSecs);
+    }
+  }
+
+  return {
+    workSeconds: calculatedWorkSecs,
+    breakSeconds: calculatedBreakSecs,
+  };
+}
+
+/**
  * Computes live active worked seconds for a record across all sessions today:
  * 1. If Checked In & working: timer calculates live and ticks every second.
  * 2. If On Break: timer stops / pauses work time calculation.
@@ -284,7 +392,7 @@ export function computeShiftClock(
 export function getLiveActiveSeconds(record: AttendanceRecord): number {
   if (!record) return 0;
   const sharedClock = computeShiftClock(record);
-  if (sharedClock) return sharedClock.worked;
+  if (sharedClock && sharedClock.worked > 0) return sharedClock.worked;
 
   const isCheckedOut = Boolean(
     record.isCompleted ||
@@ -301,15 +409,13 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
       const outTs = parseTimeStringToTimestamp(record.checkOut, record.date);
       if (inTs > 0 && outTs > 0 && outTs >= inTs) {
         const grossSecs = Math.max(0, Math.floor((outTs - inTs) / 1000));
-        const netSecs = Math.max(0, grossSecs - breakSecs);
-        if (record.activeSeconds && record.activeSeconds > 0) {
-          if (record.activeSeconds >= grossSecs - 60) {
-            return netSecs;
-          }
-          return Math.min(record.activeSeconds, netSecs);
-        }
-        return netSecs;
+        return Math.max(0, grossSecs - breakSecs);
       }
+    }
+
+    if (Array.isArray((record as any).punches) && (record as any).punches.length > 0) {
+      const fromPunches = calculateBreakAndWorkedSecondsFromPunches(record).workSeconds;
+      if (fromPunches > 0) return fromPunches;
     }
 
     if (record.activeSeconds && record.activeSeconds > 0) {
@@ -328,15 +434,12 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
       const breakStart = record.lastBreakTimestamp || Date.now();
       if (inTs > 0 && breakStart >= inTs) {
         const elapsedToBreak = Math.max(0, Math.floor((breakStart - inTs) / 1000));
-        const netSecs = Math.max(0, elapsedToBreak - breakSecs);
-        if (record.activeSeconds && record.activeSeconds > 0) {
-          if (record.activeSeconds >= elapsedToBreak - 60) {
-            return netSecs;
-          }
-          return Math.min(record.activeSeconds, netSecs);
-        }
-        return netSecs;
+        return Math.max(0, elapsedToBreak - breakSecs);
       }
+    }
+    if (Array.isArray((record as any).punches) && (record as any).punches.length > 0) {
+      const fromPunches = calculateBreakAndWorkedSecondsFromPunches(record).workSeconds;
+      if (fromPunches > 0) return fromPunches;
     }
     if (record.activeSeconds && record.activeSeconds > 0) {
       return Math.max(0, record.activeSeconds - breakSecs);
@@ -367,8 +470,15 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
 export function getLiveBreakSeconds(record: AttendanceRecord): number {
   if (!record) return 0;
   const sharedClock = computeShiftClock(record);
-  if (sharedClock) return sharedClock.breakSeconds;
+  if (sharedClock && sharedClock.breakSeconds > 0) return sharedClock.breakSeconds;
   const anyRec = record as any;
+
+  // 1. Authoritative calculation from real punch events
+  if (Array.isArray(anyRec.punches) && anyRec.punches.length > 0) {
+    const fromPunches = calculateBreakAndWorkedSecondsFromPunches(record).breakSeconds;
+    if (fromPunches > 0) return fromPunches;
+  }
+
   let brk =
     record.breakSeconds ||
     anyRec.totalBreakSeconds ||
@@ -402,21 +512,6 @@ export function getLiveBreakSeconds(record: AttendanceRecord): number {
         brk += Math.max(0, (new Date(b.end).getTime() - new Date(b.start).getTime()) / 1000);
       }
     });
-  }
-
-  if (brk === 0 && Array.isArray(anyRec.punches) && anyRec.punches.length > 0) {
-    let breakStartMs: number | null = null;
-    for (const p of anyRec.punches) {
-      const type = normalizePunchType(p?.type);
-      const ts = parsePunchTimestamp(p);
-      if (!ts || ts <= 0) continue;
-      if (type === 'BREAK_START') {
-        breakStartMs = ts;
-      } else if ((type === 'BREAK_END' || type === 'IN' || type === 'OUT') && breakStartMs) {
-        brk += Math.max(0, Math.floor((ts - breakStartMs) / 1000));
-        breakStartMs = null;
-      }
-    }
   }
 
   if (!record.isCompleted && !record.checkOut && record.isOnBreak && record.lastBreakTimestamp) {
@@ -477,11 +572,18 @@ export function isMatchEmployee(rec: any, targetId?: string | null): boolean {
 }
 
 /**
- * Find today's attendance record for an employee
+ * Find today's attendance record for an employee (supports checking merged/backend records first)
  */
-export function getTodayRecordForEmployee(employeeId: string): AttendanceRecord | null {
+export function getTodayRecordForEmployee(
+  employeeId: string,
+  records?: AttendanceRecord[]
+): AttendanceRecord | null {
   if (!employeeId) return null;
   const today = getTodayDateString();
+  if (Array.isArray(records) && records.length > 0) {
+    const found = records.find((r) => r && r.date === today && isMatchEmployee(r, employeeId));
+    if (found) return found;
+  }
   const all = getAllAttendanceRecords();
   return (
     all.find((r) => r && r.date === today && isMatchEmployee(r, employeeId)) || null
