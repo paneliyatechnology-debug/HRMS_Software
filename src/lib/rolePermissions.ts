@@ -26,7 +26,7 @@ export type HrmsModuleId =
  * Strict role-based module accessibility based on Postman API specifications:
  * - Admin: Full access across all administration, workforce, and company modules.
  * - HR: Attendance, Leaves, Employees (Users), Payroll, Recruitment, Resignations, Notices, Documents, Chat, Calendar, Reports.
- *       (Excludes: Organization/Departments/Teams which are Admin/Manager only; Tasks which are Admin/Employee/Manager only).
+ *       Tasks are included. Organization stays with Admin and Manager.
  * - Manager: Dashboard, Attendance, Leaves, Organization (Departments/Teams), Tasks, Payslips, Resignations, Notices, Documents, Chat, Calendar.
  *       (Excludes: Employees directory, Recruitment, Admin Payroll Management, Reports, Settings).
  * - Employee: Dashboard, Attendance, Leaves, Tasks, Payslips, Resignations, Notices, Documents, Chat, Calendar, Profile.
@@ -74,6 +74,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -89,6 +90,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -103,10 +105,22 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'dashboard',
     'attendance',
     'leaves',
-    'organization',
+    'employees',
     'tasks',
-    'payslips',
-    'resignations',
+    'recruitment',
+    'reports',
+    'announcements',
+    'documents',
+    'chat',
+    'calendar',
+    'profile',
+  ],
+  SUPERVISOR: [
+    'dashboard',
+    'attendance',
+    'leaves',
+    'employees',
+    'reports',
     'announcements',
     'documents',
     'chat',
@@ -119,6 +133,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'leaves',
     'tasks',
     'payslips',
+    'reports',
     'resignations',
     'announcements',
     'documents',
@@ -137,8 +152,34 @@ export function normalizeRoleKey(role?: string): string {
   if (r === 'SUPER_ADMIN' || r === 'SUPERADMIN') return 'SUPER_ADMIN';
   if (r === 'ADMIN' || r === 'COMPANY_ADMIN' || r === 'ORG_ADMIN') return 'ADMIN';
   if (r === 'HR' || r === 'HR_ADMIN') return 'HR';
-  if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD') return 'MANAGER';
+  if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD' || r === 'PRODUCTION_MANAGER') return 'MANAGER';
+  if (r === 'SUPERVISOR') return 'SUPERVISOR';
   return 'EMPLOYEE';
+}
+
+const SHARED_MODULES = new Set([
+  'dashboard',
+  'profile',
+  'announcements',
+  'documents',
+  'chat',
+  'calendar',
+  'resignations',
+  'reports',
+  'settings',
+]);
+
+function industryAllowsModule(moduleId: string, keys: string[]) {
+  if (SHARED_MODULES.has(moduleId)) return true;
+  const has = (...names: string[]) => names.some((name) => keys.includes(name));
+  if (moduleId === 'employees') return has('employee', 'staff', 'store-employees');
+  if (moduleId === 'attendance') return has('attendance', 'shift', 'roster', 'staff-scheduling');
+  if (moduleId === 'leaves') return has('leave');
+  if (moduleId === 'payroll' || moduleId === 'payslips') return has('payroll');
+  if (moduleId === 'recruitment') return has('recruitment');
+  if (moduleId === 'organization') return has('departments', 'teams');
+  if (moduleId === 'tasks') return has('tasks', 'performance');
+  return false;
 }
 
 /**
@@ -155,6 +196,13 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
 
   // 1. Strict base check by role
   if (!allowedList.includes(moduleId as HrmsModuleId)) {
+    return false;
+  }
+
+  const industryKeys = Array.isArray((user as User & { industryModules?: string[] }).industryModules)
+    ? (user as User & { industryModules?: string[] }).industryModules!.map((key) => String(key).toLowerCase())
+    : [];
+  if (industryKeys.length > 0 && !industryAllowsModule(moduleId, industryKeys)) {
     return false;
   }
 
@@ -200,7 +248,7 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
 export function canUserPunch(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'EMPLOYEE' || role === 'HR' || role === 'MANAGER';
+  return role === 'EMPLOYEE' || role === 'HR' || role === 'MANAGER' || role === 'SUPERVISOR';
 }
 
 /**
@@ -213,21 +261,22 @@ export function canCreateUser(user?: User | null): boolean {
 }
 
 /**
- * Returns whether user can delete staff/users in Directory (Admin and HR only as per requirements).
+ * Returns whether user can delete staff (Company Admin only).
  */
 export function canDeleteUser(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
 }
 
 /**
- * Returns whether user can approve or reject leaves (Admin, Super Admin, HR only).
+ * Returns whether user can approve or reject leaves.
+ * Company Admin and HR can do this for the company. Production Manager and Supervisor can do this for their team.
  */
 export function canApproveRejectLeave(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER' || role === 'SUPERVISOR';
 }
 
 /**
@@ -259,13 +308,13 @@ export function canManageNotices(user?: User | null): boolean {
 }
 
 /**
- * Returns whether user can create or delete tasks (Admin, Super Admin, Manager).
+ * Returns whether user can create or delete tasks (Admin, Super Admin, HR, Manager).
  * Employee can view and edit task status, but cannot create or delete tasks.
  */
 export function canManageTasks(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'MANAGER';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER';
 }
 
 /**

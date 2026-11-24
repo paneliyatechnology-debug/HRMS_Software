@@ -939,7 +939,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                   )}
 
-<<<<<<< HEAD
                   {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
                     <div className="pt-1">
                       <button
@@ -955,10 +954,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                   )}
 
-                  {portalMode === 'admin' && leave.status === 'Pending' && (
-=======
                   {canApproveRejectLeave(user) && leave.status === 'Pending' && (
->>>>>>> 11995e549c093af1adc9e8418aa90f34a4e5e36e
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={() => handleOpenApproveModal(leave)}
@@ -1207,7 +1203,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Action Column with Eye Toggle */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-<<<<<<< HEAD
                           {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
                             <button
                               onClick={() => {
@@ -1220,10 +1215,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                               {isProcessing ? 'Cancelling...' : 'Cancel'}
                             </button>
                           )}
-                          {portalMode === 'admin' && leave.status === 'Pending' && (
-=======
                           {canApproveRejectLeave(user) && leave.status === 'Pending' && (
->>>>>>> 11995e549c093af1adc9e8418aa90f34a4e5e36e
                             <>
                               <button
                                 onClick={() => handleOpenApproveModal(leave)}

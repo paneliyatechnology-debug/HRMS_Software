@@ -131,7 +131,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast, emitLeaveStatusUpdated } = useSocket();
-  const officeDashboard = portalMode === 'admin' || String(user?.role || '').toUpperCase() === 'MANAGER';
+  const officeRole = String(user?.role || '').toUpperCase();
+  const officeDashboard = portalMode === 'admin' || officeRole === 'MANAGER' || officeRole === 'SUPERVISOR';
 
   // Current system clock
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -720,21 +721,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))}
             </div>
           ) : (
-<<<<<<< HEAD
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div
-              onClick={() => onNavigateModule('employees')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-                <div className="stat-icon">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Total Employees</small>
-                <strong>{employees.length}</strong>
-                <small>Active workforce</small>
-              </div>
-=======
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {isModuleAllowedForUser('employees', user) && (
                 <div
@@ -799,51 +785,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 </div>
               )}
->>>>>>> 11995e549c093af1adc9e8418aa90f34a4e5e36e
             </div>
-
-            <div
-              onClick={() => onNavigateModule('attendance')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-                <div className="stat-icon">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Present Today</small>
-                <strong>{todayRecords.length}</strong>
-                <small>{activeWorkingCount} working, {onBreakCount} break</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('leaves')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-                <div className="stat-icon">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Pending Leaves</small>
-                <strong>{pendingLeaves.length}</strong>
-                <small>Need review</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('chat')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-            >
-                <div className="stat-icon">
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Team Hub</small>
-                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                <small>Real-time collaboration</small>
-              </div>
-            </div>
-          </div>
           )}
 
           {/* Main Dashboard Grid */}
@@ -993,10 +935,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Staff Directory &amp; Live Time Tracking
                 </h3>
                   <p className="text-xs text-[#6c757d] mt-0.5">
-<<<<<<< HEAD
-                  Live status, recorded punches, and direct messaging
-                </p>
-=======
                     Live status, recorded punches, and direct messaging
                   </p>
                 </div>
@@ -1019,28 +957,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </button>
                   )}
                 </div>
->>>>>>> 11995e549c093af1adc9e8418aa90f34a4e5e36e
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onNavigateModule('attendance')}
-                  className="btn-ghost text-xs"
-                >
-                    <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
-                  <span>Timesheets</span>
-                </button>
-                {String(user?.role || '').toUpperCase() !== 'MANAGER' && (
-                <button
-                  onClick={onOpenAddEmployeeModal}
-                  className="btn-primary text-xs"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Add Employee</span>
-                </button>
-                )}
-              </div>
-            </div>
 
             <div className="tablewrap">
               <table className="data">
@@ -1167,26 +1084,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               <span className="hidden sm:inline">Notice</span>
                             </button>
 
-<<<<<<< HEAD
-                            {String(user?.role || '').toUpperCase() !== 'MANAGER' && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                              <button
-                                id={`btn-dash-remove-${emp.id}`}
-                                onClick={() => setRemovingEmpDashboard(emp)}
-                                className="btn-danger text-xs py-1 px-2"
-                                title="Remove employee from staff"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-                </tbody>
-              </table>
-=======
                                 {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                                   <button
                                     id={`btn-dash-remove-${emp.id}`}
@@ -1205,7 +1102,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     )}
                   </tbody>
                 </table>
->>>>>>> 11995e549c093af1adc9e8418aa90f34a4e5e36e
               </div>
             </div>
             )}
