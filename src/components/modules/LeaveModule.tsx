@@ -114,6 +114,8 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   // Rejection modal / prompt state
   const [rejectingLeave, setRejectingLeave] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [cancellingLeave, setCancellingLeave] = useState<LeaveRequest | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   // Role permissions check (Admin & HR only)
   const isAdminOrHr = canManageLeaveTypes(user);
@@ -435,6 +437,37 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         type: 'error',
         title: 'Approval Failed',
         message: err.message || 'Could not approve leave. Please check server connection.',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const todayKey = new Date().toLocaleDateString('en-CA');
+
+  const handleCancelLeave = async () => {
+    if (!cancellingLeave) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      showToast({ type: 'error', title: 'Reason required', message: 'Write why this leave is being cancelled.' });
+      return;
+    }
+    setProcessingId(cancellingLeave.id);
+    try {
+      await api.cancelLeave(cancellingLeave.id, reason);
+      showToast({
+        type: 'success',
+        title: 'Leave cancelled',
+        message: `${cancellingLeave.leaveType} from ${cancellingLeave.startDate} to ${cancellingLeave.endDate} was cancelled.`,
+      });
+      setCancellingLeave(null);
+      setCancelReason('');
+      onRefresh();
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Cancel failed',
+        message: err.message || 'Could not cancel leave.',
       });
     } finally {
       setProcessingId(null);
@@ -858,7 +891,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : leave.status === 'Pending'
                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : leave.status === 'Cancelled'
+                              ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                       >
                         {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -914,9 +949,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase tracking-wider block">
-                        {leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}
+                        {leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}
                       </span>
                       <p className="font-semibold">&ldquo;{leave.response || leave.comments}&rdquo;</p>
+                    </div>
+                  )}
+
+                  {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
+                    <div className="pt-1">
+                      <button
+                        onClick={() => {
+                          setCancellingLeave(leave);
+                          setCancelReason('');
+                        }}
+                        disabled={isProcessing}
+                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isProcessing ? 'Cancelling...' : 'Cancel leave'}
+                      </button>
                     </div>
                   )}
 
@@ -1141,7 +1191,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : leave.status === 'Pending'
                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : leave.status === 'Cancelled'
+                                ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
                             }`}
                         >
                           {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -1163,10 +1215,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                     ? 'bg-rose-50 text-rose-800 border-rose-200'
                                     : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 }`}
-                                title={`${leave.status === 'Rejected' ? 'Rejection Reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                                title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
                               >
                                 <span className="font-bold shrink-0">
-                                  {leave.status === 'Rejected' ? 'Reject Reason:' : 'Admin Note:'}
+                                  {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
                                 </span>
                                 <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
                               </div>
@@ -1180,6 +1232,18 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       {/* Action Column with Eye Toggle */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
+                            <button
+                              onClick={() => {
+                                setCancellingLeave(leave);
+                                setCancelReason('');
+                              }}
+                              disabled={isProcessing}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                            >
+                              {isProcessing ? 'Cancelling...' : 'Cancel'}
+                            </button>
+                          )}
                           {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                             <>
                               <button
@@ -1428,6 +1492,53 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     <span>Confirm Approve</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancellingLeave && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancellingLeave(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Cancel leave</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{cancellingLeave.leaveType} · {cancellingLeave.startDate} to {cancellingLeave.endDate}</p>
+              </div>
+              <button type="button" onClick={() => setCancellingLeave(null)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Reason</label>
+              <textarea
+                rows={3}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400"
+                placeholder="Why are you cancelling this leave?"
+              />
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <button type="button" onClick={() => setCancellingLeave(null)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer">
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelLeave}
+                disabled={processingId === cancellingLeave.id || !cancelReason.trim()}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+              >
+                {processingId === cancellingLeave.id ? 'Cancelling...' : 'Confirm cancel'}
               </button>
             </div>
           </div>

@@ -32,6 +32,11 @@ export const determinePortalMode = (role?: string): PortalMode => {
   return isUserAdminRole(role) ? 'admin' : 'employee';
 };
 
+function industryModuleKeys(industry: { modules?: { key?: string }[] } | null | undefined) {
+  if (!Array.isArray(industry?.modules)) return [];
+  return industry.modules.map((module) => String(module?.key || '')).filter(Boolean);
+}
+
 export function portalFromPermissions(permissions?: { key: string }[]): PortalMode | null {
   const keys = new Set((permissions || []).map((permission) => permission.key));
   if (keys.has('workspace.admin')) return 'admin';
@@ -261,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const next = {
                 ...cachedUser,
                 ...profile.user,
+                industryModules: industryModuleKeys(profile.industry),
                 allowedModules: dynamicModules,
                 modules: profile.modules || profile.user?.modules || cachedUser.modules,
                 permissions: permissions.length ? permissions : cachedUser.permissions || [],
@@ -333,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const enriched = await enrichUserData({
           ...res.user,
           ...profile?.user,
+          industryModules: industryModuleKeys(profile?.industry),
           allowedModules: dynamicModules,
           modules: profile?.modules || profile?.user?.modules,
           permissions,

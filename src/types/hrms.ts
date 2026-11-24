@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'MANAGER' | 'SUPERVISOR' | 'EMPLOYEE';
 
 export type EmployeeStatus =
   | 'Active'
@@ -85,6 +85,7 @@ export interface User {
   resigned?: boolean;
   workStatus?: string;
   permissions?: { key: string; label: string }[];
+  industryModules?: string[];
   companyProfile?: {
     id: string;
     name: string;
