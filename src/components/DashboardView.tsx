@@ -94,6 +94,7 @@ interface DashboardViewProps {
   leaves: LeaveRequest[];
   attendance: AttendanceRecord[];
   leaveTypes?: any[];
+  notices?: any[];
   onNavigateModule: (moduleName: string, subTab?: string) => void;
   onOpenClockModal: () => void;
   onOpenLeaveModal: () => void;
@@ -111,6 +112,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   leaves,
   leaveTypes,
   attendance,
+  notices,
   onNavigateModule,
   onOpenClockModal,
   onOpenLeaveModal,
@@ -122,6 +124,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast, emitLeaveStatusUpdated } = useSocket();
+  const officeDashboard = portalMode === 'admin' || String(user?.role || '').toUpperCase() === 'MANAGER';
 
   // Current system clock
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -218,7 +221,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, []);
 
   // Real announcements, holidays, and admin-configured leave quota/balance states
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>(notices || []);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [leaveTypesList, setLeaveTypesList] = useState<any[]>(leaveTypes || []);
   const [leaveQuotaData, setLeaveQuotaData] = useState<RawLeaveQuotaPayload | null>(null);
@@ -234,13 +237,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     let isMounted = true;
     const fetchExtraData = async () => {
       try {
-        const [annRes, holRes, ltRes] = await Promise.all([
-          api.getAnnouncements(),
+        const [holRes, ltRes] = await Promise.all([
           api.getHolidays(),
           api.listLeaveTypes(user?.companyId ? { companyId: user.companyId } : undefined).catch(() => []),
         ]);
         if (isMounted) {
-          setAnnouncements(Array.isArray(annRes) ? annRes : []);
+          if (Array.isArray(notices)) setAnnouncements(notices);
           setHolidays(Array.isArray(holRes) ? holRes : []);
           if (Array.isArray(ltRes) && ltRes.length > 0) {
             setLeaveTypesList(ltRes);
@@ -627,7 +629,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-5 w-full overflow-x-clip">
       {/* Welcome & Section Head (Admin Only) */}
-      {portalMode === 'admin' && (
+      {officeDashboard && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
           <div>
             <h1 className="text-2xl sm:text-[28px] font-bold leading-tight tracking-[-0.025em] text-[#0f172a] flex items-baseline gap-1.5 flex-wrap">
@@ -659,7 +661,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {portalMode === 'admin' ? (
+      {officeDashboard ? (
         /* ============================================================== */
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
@@ -679,63 +681,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              <div
-                onClick={() => onNavigateModule('employees')}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div
+              onClick={() => onNavigateModule('employees')}
                 className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
+            >
                 <div className="stat-icon">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <small>Total Employees</small>
-                  <strong>{employees.length}</strong>
-                  <small>Active workforce</small>
-                </div>
+                <Users className="w-5 h-5" />
               </div>
-
-              <div
-                onClick={() => onNavigateModule('attendance')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <small>Present Today</small>
-                  <strong>{todayRecords.length}</strong>
-                  <small>{activeWorkingCount} working, {onBreakCount} break</small>
-                </div>
-              </div>
-
-              <div
-                onClick={() => onNavigateModule('leaves')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div>
-                  <small>Pending Leaves</small>
-                  <strong>{pendingLeaves.length}</strong>
-                  <small>Need review</small>
-                </div>
-              </div>
-
-              <div
-                onClick={() => onNavigateModule('chat')}
-                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
-              >
-                <div className="stat-icon">
-                  <MessageSquare className="w-5 h-5" />
-                </div>
-                <div>
-                  <small>Team Hub</small>
-                  <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                  <small>Real-time collaboration</small>
-                </div>
+              <div>
+                <small>Total Employees</small>
+                <strong>{employees.length}</strong>
+                <small>Active workforce</small>
               </div>
             </div>
+
+            <div
+              onClick={() => onNavigateModule('attendance')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+                <div className="stat-icon">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Present Today</small>
+                <strong>{todayRecords.length}</strong>
+                <small>{activeWorkingCount} working, {onBreakCount} break</small>
+              </div>
+            </div>
+
+            <div
+              onClick={() => onNavigateModule('leaves')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+                <div className="stat-icon">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Pending Leaves</small>
+                <strong>{pendingLeaves.length}</strong>
+                <small>Need review</small>
+              </div>
+            </div>
+
+            <div
+              onClick={() => onNavigateModule('chat')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+            >
+                <div className="stat-icon">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <small>Team Hub</small>
+                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
+                <small>Real-time collaboration</small>
+              </div>
+            </div>
+          </div>
           )}
 
           {/* Main Dashboard Grid */}
@@ -747,7 +749,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 totalEmployees={employees.length}
                 onViewFullLog={() => onNavigateModule('attendance')}
               />
-            </div>
+                  </div>
 
             <section className="panel h-full">
               <h3>
@@ -829,7 +831,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           {isDetailed && (
                             <p className="text-xs text-[#6c757d]">
                               Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
-                            </p>
+                          </p>
                           )}
                         </div>
 
@@ -875,176 +877,178 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="panel space-y-3 col-span-full">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
-                <div>
+              <div>
                   <h3 className="text-sm font-bold text-[#343a40] m-0">
-                    Staff Directory &amp; Live Time Tracking
-                  </h3>
+                  Staff Directory &amp; Live Time Tracking
+                </h3>
                   <p className="text-xs text-[#6c757d] mt-0.5">
-                    Live status, recorded punches, and direct messaging
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onNavigateModule('attendance')}
-                    className="btn-ghost text-xs"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
-                    <span>Timesheets</span>
-                  </button>
-                  <button
-                    onClick={onOpenAddEmployeeModal}
-                    className="btn-primary text-xs"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Add Employee</span>
-                  </button>
-                </div>
+                  Live status, recorded punches, and direct messaging
+                </p>
               </div>
 
-              <div className="tablewrap">
-                <table className="data">
-                  <thead>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigateModule('attendance')}
+                  className="btn-ghost text-xs"
+                >
+                    <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
+                  <span>Timesheets</span>
+                </button>
+                {String(user?.role || '').toUpperCase() !== 'MANAGER' && (
+                <button
+                  onClick={onOpenAddEmployeeModal}
+                  className="btn-primary text-xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Add Employee</span>
+                </button>
+                )}
+              </div>
+            </div>
+
+            <div className="tablewrap">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>EMPLOYEE</th>
+                    <th>ID</th>
+                    <th>DESIGNATION</th>
+                    <th>TODAY&apos;S SHIFT</th>
+                    <th>WORKED TIME</th>
+                    <th>BREAK</th>
+                    <th>STATUS</th>
+                    <th className="text-right">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.length === 0 ? (
                     <tr>
-                      <th>EMPLOYEE</th>
-                      <th>ID</th>
-                      <th>DESIGNATION</th>
-                      <th>TODAY&apos;S SHIFT</th>
-                      <th>WORKED TIME</th>
-                      <th>BREAK</th>
-                      <th>STATUS</th>
-                      <th className="text-right">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employees.length === 0 ? (
-                      <tr>
                         <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
-                          <div className="flex flex-col items-center justify-center gap-1.5">
-                            <Users className="w-8 h-8 text-emerald-500/50" />
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <Users className="w-8 h-8 text-emerald-500/50" />
                             <p className="font-bold text-[#343a40]">No employees in this company yet</p>
                             <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      employees.map((emp, index) => {
-                        const todayRec = getTodayRecordForEmployee(emp.id);
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    employees.map((emp, index) => {
+                    const todayRec = getTodayRecordForEmployee(emp.id);
                         const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
                         const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
                         const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');
 
-                        const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
-                        const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
+                    const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
+                    const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
 
-                        return (
-                          <tr
-                            key={emp.id ? `${emp.id}-${index}` : index}
-                            onClick={() => onSelectEmployee(emp)}
+                    return (
+                      <tr
+                        key={emp.id ? `${emp.id}-${index}` : index}
+                        onClick={() => onSelectEmployee(emp)}
                             className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
-                          >
+                      >
                             <td className="font-semibold text-[#343a40]">
-                              <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2.5">
                                 <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
-                                  {emp.firstName?.[0] || 'E'}
-                                </div>
-                                <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                              </div>
-                            </td>
+                              {emp.firstName?.[0] || 'E'}
+                            </div>
+                            <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                          </div>
+                        </td>
                             <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
                             <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
                             <td className="text-[#6c757d] font-mono text-xs">
-                              {todayRec?.checkIn ? (
-                                <span>
-                                  {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
-                                </span>
-                              ) : (
+                          {todayRec?.checkIn ? (
+                            <span>
+                              {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
+                            </span>
+                          ) : (
                                 <span className="text-[#dee2e6]">—</span>
-                              )}
-                            </td>
+                          )}
+                        </td>
                             <td className="font-mono font-bold text-[#343a40] text-xs">
-                              {todayRec ? formatSecondsToWords(liveSecs) : '—'}
-                            </td>
+                          {todayRec ? formatSecondsToWords(liveSecs) : '—'}
+                        </td>
                             <td className="text-[#6c757d] font-mono text-xs">
-                              {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
-                            </td>
-                            <td>
-                              {isWorking ? (
-                                <span className="tag green">
+                          {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                        </td>
+                        <td>
+                          {isWorking ? (
+                            <span className="tag green">
                                   <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
-                                  Working
-                                </span>
-                              ) : isOnBreak ? (
-                                <span className="tag orange">
+                              Working
+                            </span>
+                          ) : isOnBreak ? (
+                            <span className="tag orange">
                                   <Pause className="w-3 h-3 text-[#6c757d]" />
-                                  On Break
-                                </span>
-                              ) : isDone ? (
-                                <span className="tag">
-                                  <Check className="w-3 h-3" />
-                                  Completed
-                                </span>
-                              ) : (
+                              On Break
+                            </span>
+                          ) : isDone ? (
+                            <span className="tag">
+                              <Check className="w-3 h-3" />
+                              Completed
+                            </span>
+                          ) : (
                                 <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
-                                  Not Punched
-                                </span>
-                              )}
-                            </td>
-                            <td className="text-right">
-                              <div
-                                className="flex items-center justify-end gap-1.5"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  id={`btn-dash-chat-${emp.id}`}
-                                  onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                                  className="btn-ghost text-xs py-1 px-2.5"
-                                  title="Chat with employee"
-                                >
+                              Not Punched
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-right">
+                          <div
+                            className="flex items-center justify-end gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              id={`btn-dash-chat-${emp.id}`}
+                              onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                              className="btn-ghost text-xs py-1 px-2.5"
+                              title="Chat with employee"
+                            >
                                   <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                  <span className="hidden sm:inline">Chat</span>
-                                </button>
+                              <span className="hidden sm:inline">Chat</span>
+                            </button>
 
                                 {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                                  <button
-                                    id={`btn-dash-role-${emp.id}`}
-                                    onClick={() => setRoleTargetEmpDash(emp)}
+                            <button
+                              id={`btn-dash-role-${emp.id}`}
+                              onClick={() => setRoleTargetEmpDash(emp)}
                                     className="btn-secondary text-xs py-1 px-2.5"
-                                    title="Change employee role"
-                                  >
+                              title="Change employee role"
+                            >
                                     <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                    <span className="hidden sm:inline">Role</span>
-                                  </button>
+                              <span className="hidden sm:inline">Role</span>
+                            </button>
                                 )}
 
-                                <button
-                                  id={`btn-dash-notice-${emp.id}`}
-                                  onClick={() => handleOpenNoticeModalDashboard(emp)}
-                                  className="btn-secondary text-xs py-1 px-2.5"
-                                  title="Send notice to employee"
-                                >
+                            <button
+                              id={`btn-dash-notice-${emp.id}`}
+                              onClick={() => handleOpenNoticeModalDashboard(emp)}
+                              className="btn-secondary text-xs py-1 px-2.5"
+                              title="Send notice to employee"
+                            >
                                   <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                                  <span className="hidden sm:inline">Notice</span>
-                                </button>
+                              <span className="hidden sm:inline">Notice</span>
+                            </button>
 
-                                {emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                                  <button
-                                    id={`btn-dash-remove-${emp.id}`}
-                                    onClick={() => setRemovingEmpDashboard(emp)}
-                                    className="btn-danger text-xs py-1 px-2"
-                                    title="Remove employee from staff"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                            {String(user?.role || '').toUpperCase() !== 'MANAGER' && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                              <button
+                                id={`btn-dash-remove-${emp.id}`}
+                                onClick={() => setRemovingEmpDashboard(emp)}
+                                className="btn-danger text-xs py-1 px-2"
+                                title="Remove employee from staff"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+                </tbody>
+              </table>
               </div>
             </div>
           </div>
@@ -1078,7 +1082,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const empLeftDays = empLeaveSummary.total.available;
 
             if (loading) {
-              return (
+            return (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 animate-pulse">
                   {[0, 1, 2, 3].map((idx) => (
                     <div key={idx} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 h-full flex items-center gap-3">
@@ -1170,24 +1174,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                         <CalendarCheck className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0">
+                    </div>
+                    <div className="min-w-0">
                         <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
                           My Recent Attendance
-                        </h3>
+                      </h3>
                         <p className="text-[10px] text-slate-400 leading-tight truncate">
                           Daily clock in/out timestamps &amp; worked duration
-                        </p>
-                      </div>
+                      </p>
                     </div>
-                    <button
-                      onClick={() => onNavigateModule('attendance')}
-                      className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
-                    >
-                      <span>Full Log</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
                   </div>
+                  <button
+                    onClick={() => onNavigateModule('attendance')}
+                      className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
+                  >
+                    <span>Full Log</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
                   <div className="mt-2.5 flex-1 overflow-auto max-h-[145px] [scrollbar-width:thin]">
                     <table className="w-full text-left text-[11px] border-collapse">
@@ -1199,47 +1203,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <th className="py-1.5 px-2">BREAK</th>
                           <th className="py-1.5 px-2">WORKED</th>
                           <th className="py-1.5 px-2 text-right">STATUS</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {myRecentAttendance.length === 0 ? (
-                          <tr>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {myRecentAttendance.length === 0 ? (
+                        <tr>
                             <td colSpan={6} className="py-4 text-center text-slate-400 text-[11px]">
                               No attendance history recorded yet. Clock in to begin tracking your work hours!
-                            </td>
-                          </tr>
-                        ) : (
-                          myRecentAttendance.map((rec: any) => {
-                            const recDate = new Date(rec.date);
+                          </td>
+                        </tr>
+                      ) : (
+                        myRecentAttendance.map((rec: any) => {
+                          const recDate = new Date(rec.date);
                             const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
                             const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                            const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
-                            const bSecs = getLiveBreakSeconds(rec);
-                            const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+                          const workedStr = rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—');
+                          const bSecs = getLiveBreakSeconds(rec);
+                          const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
 
-                            return (
-                              <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
+                          return (
+                            <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
                                 <td className="py-1.5 px-2 font-semibold text-slate-900 whitespace-nowrap">
                                   <span>{dayName}</span>
                                   <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
-                                </td>
+                              </td>
                                 <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn || '—'}</td>
                                 <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut || '—'}</td>
                                 <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
                                 <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
                                 <td className="py-1.5 px-2 text-right whitespace-nowrap">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-semibold ${rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                                    }`}>
-                                    {rec.status || 'Present'}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                                }`}>
+                                  {rec.status || 'Present'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
                 </div>
               </div>
             </div>
@@ -1256,12 +1260,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         View All
                       </button>
-                      <button
-                        onClick={onOpenLeaveModal}
+                    <button
+                      onClick={onOpenLeaveModal}
                         className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                      >
-                        + Apply Leave
-                      </button>
+                    >
+                      + Apply Leave
+                    </button>
                     </div>
                   </div>
 
@@ -1333,35 +1337,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     }
 
                     return (
-                      <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                  <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
                         <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Casual</span>
                           <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.casual.available} Left
-                          </span>
+                      </span>
                           <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.casual.quota} Total
-                          </span>
-                        </div>
+                      </span>
+                    </div>
                         <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sick</span>
                           <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.sick.available} Left
-                          </span>
+                      </span>
                           <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.sick.quota} Total
-                          </span>
-                        </div>
+                      </span>
+                    </div>
                         <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Annual</span>
                           <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
                             {empSummary.paid.available} Left
-                          </span>
+                      </span>
                           <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                             of {empSummary.paid.quota} Total
-                          </span>
-                        </div>
-                      </div>
+                      </span>
+                    </div>
+                  </div>
                     );
                   })()}
                 </div>
@@ -1427,13 +1431,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                  <Square className="w-5 h-5 fill-current" />
-                </div>
-                <div>
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Square className="w-5 h-5 fill-current" />
+              </div>
+              <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Clock Out for Today?</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Attendance shift finalization</p>
-                </div>
+              </div>
               </div>
               <button
                 onClick={() => setCheckOutModalOpen(false)}
@@ -1605,15 +1609,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                   Rejection Reason (Shared with Employee) *
-                </label>
-                <textarea
-                  id="reject-reason-input"
-                  rows={3}
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Enter rejection reason..."
+              </label>
+              <textarea
+                id="reject-reason-input"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter rejection reason..."
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                />
+              />
               </div>
             </div>
 
@@ -1656,13 +1660,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                  <Trash2 className="w-5 h-5" />
-                </div>
-                <div>
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Remove Employee?</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Staff roster modification</p>
-                </div>
+              </div>
               </div>
               <button
                 onClick={() => setRemovingEmpDashboard(null)}

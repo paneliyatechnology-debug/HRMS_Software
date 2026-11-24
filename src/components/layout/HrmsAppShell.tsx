@@ -266,6 +266,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Data state
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardNotices, setDashboardNotices] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -501,39 +502,15 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       if (targetModule === 'dashboard') {
         setDashboardLoading(true);
         try {
-          const needEmployees = employeesRef.current.length === 0;
-          const [statsData, employeesData, leavesData, attendanceData, workStatusData] = await Promise.all([
-            api.getDashboardStats().catch(() => null),
-            needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
-            api.getLeaves().catch(() => []),
-            api.getAttendance().catch(() => []),
-            portalMode !== 'admin' ? api.getWorkStatus().catch(() => null) : Promise.resolve(null),
-          ]);
-
-          const scopedEmps = needEmployees && Array.isArray(employeesData) ? scopeEmployees(employeesData) : employeesRef.current;
-          if (needEmployees) {
-            setEmployees(scopedEmps);
-            setLiveEmployees(scopedEmps);
-          }
-
-          const scopedLvs = scopeLeaves(leavesData, scopedEmps);
-          setLeaves(scopedLvs);
-          setLiveLeaves(scopedLvs);
-
-          const scopedAtt = scopeAttendance(attendanceData, scopedEmps, workStatusData);
-          setAttendance(scopedAtt);
-          setLiveAttendanceRecords(scopedAtt);
-
-          const anyStats = statsData as any;
-          if (anyStats) {
-            setStats({
-              ...anyStats,
-              totalEmployees: scopedEmps.length,
-              activeEmployees: scopedEmps.filter((e) => e.status === 'Active').length,
-              attendanceRate: scopedEmps.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
-              totalHours: scopedEmps.length > 0 ? (anyStats?.totalHours || 0) : 0,
-            });
-          }
+          const dash = await api.getDashboard();
+          setEmployees(dash.employees);
+          setLiveEmployees(dash.employees);
+          setLeaves(dash.leaves);
+          setLiveLeaves(dash.leaves);
+          setAttendance(dash.attendance);
+          setLiveAttendanceRecords(dash.attendance);
+          setDashboardNotices(dash.notices);
+          setStats(dash.stats);
         } finally {
           setDashboardLoading(false);
         }
@@ -911,6 +888,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 leaves={leaves}
                 leaveTypes={leaveTypes}
                 attendance={attendance}
+                notices={dashboardNotices}
                 onNavigateModule={navigateToModule}
                 onOpenClockModal={() => setClockModalOpen(true)}
                 onOpenLeaveModal={() => setLeaveModalOpen(true)}
