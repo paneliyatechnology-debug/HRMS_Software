@@ -315,19 +315,17 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
               {/* Status Indicator */}
               <span
-                className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full ring-2 ring-white shadow-xs ${
-                  (currentEmp.status || 'Active').toLowerCase() === 'active'
+                className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full ring-2 ring-white shadow-xs ${(currentEmp.status || 'Active').toLowerCase() === 'active'
                     ? 'bg-emerald-500'
                     : 'bg-rose-500'
-                }`}
+                  }`}
                 title={`Status: ${currentEmp.status || 'Active'}`}
               />
 
               {/* Camera Upload Overlay */}
               <label
-                className={`absolute inset-0 rounded-2xl bg-black/60 text-white flex flex-col items-center justify-center transition-opacity backdrop-blur-2xs ${
-                  uploadingPhoto ? 'opacity-100 pointer-events-none' : 'opacity-0 group-hover/avatar:opacity-100 cursor-pointer'
-                }`}
+                className={`absolute inset-0 rounded-2xl bg-black/60 text-white flex flex-col items-center justify-center transition-opacity backdrop-blur-2xs ${uploadingPhoto ? 'opacity-100 pointer-events-none' : 'opacity-0 group-hover/avatar:opacity-100 cursor-pointer'
+                  }`}
                 title="Change profile picture"
               >
                 {uploadingPhoto ? (
@@ -379,18 +377,16 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </span>
 
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${
-                    (currentEmp.status || 'Active').toLowerCase() === 'active'
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${(currentEmp.status || 'Active').toLowerCase() === 'active'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : 'bg-rose-50 text-rose-700 border border-rose-200'
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      (currentEmp.status || 'Active').toLowerCase() === 'active'
+                    className={`w-1.5 h-1.5 rounded-full ${(currentEmp.status || 'Active').toLowerCase() === 'active'
                         ? 'bg-emerald-500 animate-pulse'
                         : 'bg-rose-500'
-                    }`}
+                      }`}
                   />
                   {currentEmp.status || 'Active'}
                 </span>
@@ -492,11 +488,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     setActiveTab(tab.id);
                     e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
                   }}
-                  className={`flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                    isActive
+                  className={`flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${isActive
                       ? 'bg-[#1b4332] text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200'
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{tab.label}</span>

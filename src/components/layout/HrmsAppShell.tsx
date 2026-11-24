@@ -147,11 +147,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [activeModule, setActiveModule] = useState<string>(() => {
     if (initialModule) return initialModule;
-    if (typeof window !== 'undefined') {
-      const parsed = parseRoutePath(window.location.pathname);
+    if (pathname) {
+      const parsed = parseRoutePath(pathname);
       if (parsed.isValid) return parsed.module;
     }
     return 'dashboard';
@@ -159,8 +164,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   const [subTab, setSubTab] = useState<string>(() => {
     if (initialSubTab) return initialSubTab;
-    if (typeof window !== 'undefined') {
-      const parsed = parseRoutePath(window.location.pathname);
+    if (pathname) {
+      const parsed = parseRoutePath(pathname);
       return parsed.subTab || '';
     }
     return '';
@@ -827,16 +832,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Redirect to login if user is not authenticated (performed inside useEffect to avoid updating Router during render)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (mounted && !isLoading && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [mounted, isLoading, isAuthenticated, router]);
 
-  if (isLoading || !isAuthenticated) {
+  if (!mounted || isLoading || !isAuthenticated) {
     return (
       <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-        {isLoading ? (
+        {!mounted || isLoading ? (
           <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
         ) : (
           <span className="text-xs font-semibold text-slate-700">Redirecting to login...</span>
