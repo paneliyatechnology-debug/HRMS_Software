@@ -240,6 +240,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const userIdRef = useRef<string | undefined>(undefined);
   const serverOffsetRef = useRef<number>(0);
 
+  // User action timestamps to guarantee that user-triggered state transitions start at 0s
+  // and do not jump due to API latency / roundtrip time
+  const recentClockInAnchorMs = useRef<number | null>(null);
+  const recentBreakAnchorMs = useRef<number | null>(null);
+  const recentResumeAnchorMs = useRef<number | null>(null);
+
   const liveClockRef = useRef<LiveShiftClockState>({
     status: 'not_started',
     sessionStartTimeMs: null,
@@ -309,11 +315,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const totalWorked = clock.finalDayWorkedSeconds;
       const totalBreak = clock.finalDayBreakSeconds;
 
-      setElapsedSeconds(totalWorked);
-      setLiveWorkedHMS(formatSecondsToHMS(totalWorked));
-      setBreakSeconds(totalBreak);
-      setLiveBreakWords(formatSecondsToWords(totalBreak));
-      setLiveBreakHMS(formatSecondsToHMS(totalBreak));
+      // When shift is completed, the live session timer resets cleanly to 00:00:00
+      setElapsedSeconds(0);
+      setLiveWorkedHMS('00:00:00');
+      setBreakSeconds(0);
+      setLiveBreakWords('0s');
+      setLiveBreakHMS('00:00:00');
 
       setTotalWorkedSeconds(totalWorked);
       setTotalWorkedHMS(formatSecondsToHMS(totalWorked));
@@ -393,10 +400,21 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     );
 
     if (resolved === 'working') {
-      const startMs =
+      let startMs =
         segmented.activeSession?.startTimeMs ||
         (data.attendance?.checkInAt ? parsePunchTimestamp(data.attendance.checkInAt) : nowMs);
-      const closedBreaks = segmented.activeSession?.closedBreakSeconds || 0;
+
+      // If user clocked in recently within this browser session (< 45s), anchor startMs to the user's action
+      // so the work timer begins strictly from 00:00:00 and ticks smoothly up, without jumping by API latency!
+      if (recentClockInAnchorMs.current && Date.now() - recentClockInAnchorMs.current < 45000) {
+        startMs = recentClockInAnchorMs.current - offset;
+      }
+
+      let closedBreaks = segmented.activeSession?.closedBreakSeconds || 0;
+      if (recentResumeAnchorMs.current && Date.now() - recentResumeAnchorMs.current < 45000) {
+        closedBreaks = Math.max(closedBreaks, liveClockRef.current.sessionClosedBreaksSeconds);
+      }
+
       liveClockRef.current = {
         status: 'working',
         sessionStartTimeMs: startMs,
@@ -411,8 +429,15 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } else if (resolved === 'on_break') {
       const startMs = segmented.activeSession?.startTimeMs || nowMs;
       const closedBreaks = segmented.activeSession?.closedBreakSeconds || 0;
-      const brkStartMs = segmented.activeSession?.currentBreakStartTimeMs || nowMs;
-      const frozenWorked = Math.max(0, Math.floor((brkStartMs - startMs) / 1000) - closedBreaks);
+      let brkStartMs = segmented.activeSession?.currentBreakStartTimeMs || nowMs;
+      let frozenWorked = Math.max(0, Math.floor((brkStartMs - startMs) / 1000) - closedBreaks);
+
+      if (recentBreakAnchorMs.current && Date.now() - recentBreakAnchorMs.current < 45000) {
+        brkStartMs = recentBreakAnchorMs.current - offset;
+        if (liveClockRef.current.sessionFrozenWorkedSeconds !== null) {
+          frozenWorked = liveClockRef.current.sessionFrozenWorkedSeconds;
+        }
+      }
 
       liveClockRef.current = {
         status: 'on_break',
@@ -440,6 +465,16 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         finalDayWorkedSeconds: finalWorked,
         finalDayBreakSeconds: finalBreak,
       };
+
+      setElapsedSeconds(0);
+      setLiveWorkedHMS('00:00:00');
+      setBreakSeconds(0);
+      setLiveBreakWords('0s');
+      setLiveBreakHMS('00:00:00');
+      setTotalWorkedSeconds(finalWorked);
+      setTotalWorkedHMS(formatSecondsToHMS(finalWorked));
+      setTotalBreakSeconds(finalBreak);
+      setTotalBreakHMS(formatSecondsToHMS(finalBreak));
     } else {
       liveClockRef.current = {
         status: 'not_started',
@@ -516,6 +551,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         punchesList.filter((p: any) => normalizePunchType(p?.type) === 'IN').length
       ),
     });
+    tick();
   }, [tick]);
 
   /**
@@ -608,6 +644,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
             : liveClockRef.current.priorSessionsBreakSeconds;
 
         // Immediate optimistic UI update: Session work timer starts clean at 00:00:00!
+        recentClockInAnchorMs.current = Date.now();
+        recentBreakAnchorMs.current = null;
+        recentResumeAnchorMs.current = null;
+
         liveClockRef.current = {
           status: 'working',
           sessionStartTimeMs: nowMs,
@@ -628,6 +668,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           isOnBreak: false,
           sessionIndex: 0,
         });
+        setElapsedSeconds(0);
+        setLiveWorkedHMS('00:00:00');
+        setBreakSeconds(0);
+        setLiveBreakHMS('00:00:00');
+        setLiveBreakWords('0s');
         tick();
 
         const res = await api.clockIn({
@@ -662,6 +707,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return true;
       } catch (err: any) {
+        recentClockInAnchorMs.current = null;
         const message = String(err?.message || '');
         if (/already clocked in/i.test(message)) {
           await refresh();
@@ -706,6 +752,9 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         frozenWorked = Math.max(0, gross - clock.sessionClosedBreaksSeconds);
       }
 
+      recentBreakAnchorMs.current = Date.now();
+      recentResumeAnchorMs.current = null;
+
       liveClockRef.current = {
         ...clock,
         status: 'on_break',
@@ -715,6 +764,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       setStatus('on_break');
       statusRef.current = 'on_break';
+      setElapsedSeconds(frozenWorked);
+      setLiveWorkedHMS(formatSecondsToHMS(frozenWorked));
+      setBreakSeconds(clock.sessionClosedBreaksSeconds);
+      setLiveBreakHMS('00:00:00');
+      setLiveBreakWords('0s');
       tick();
 
       const res = await api.startBreak({});
@@ -737,6 +791,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
+      recentBreakAnchorMs.current = null;
       const message = String(err?.message || '');
       console.warn('[WorkSessionContext] Take break notice:', message);
       showToast({
@@ -766,6 +821,9 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const extraBreak = clock.currentBreakStartTimeMs
         ? Math.max(0, Math.floor((nowMs - clock.currentBreakStartTimeMs) / 1000))
         : 0;
+
+      recentResumeAnchorMs.current = Date.now();
+      recentBreakAnchorMs.current = null;
 
       liveClockRef.current = {
         ...clock,
@@ -799,6 +857,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       return true;
     } catch (err: any) {
+      recentResumeAnchorMs.current = null;
       const message = String(err?.message || '');
       console.warn('[WorkSessionContext] Resume work notice:', message);
       showToast({
@@ -842,6 +901,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const finalDayWorked = clock.priorSessionsWorkedSeconds + finalSessionWorked;
         const finalDayBreak = clock.priorSessionsBreakSeconds + clock.sessionClosedBreaksSeconds;
 
+        recentClockInAnchorMs.current = null;
+        recentBreakAnchorMs.current = null;
+        recentResumeAnchorMs.current = null;
+
         liveClockRef.current = {
           status: 'completed',
           sessionStartTimeMs: null,
@@ -856,6 +919,17 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         setStatus('completed');
         statusRef.current = 'completed';
+
+        // Explicitly reset the live session timer to 00:00:00
+        setElapsedSeconds(0);
+        setLiveWorkedHMS('00:00:00');
+        setBreakSeconds(0);
+        setLiveBreakHMS('00:00:00');
+        setLiveBreakWords('0s');
+        setTotalWorkedSeconds(finalDayWorked);
+        setTotalWorkedHMS(formatSecondsToHMS(finalDayWorked));
+        setTotalBreakSeconds(finalDayBreak);
+        setTotalBreakHMS(formatSecondsToHMS(finalDayBreak));
         tick();
 
         const res = await api.clockOut({
@@ -882,6 +956,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return true;
       } catch (err: any) {
+        recentClockInAnchorMs.current = null;
         const message = String(err?.message || '');
         console.warn('[WorkSessionContext] Check out notice:', message);
         showToast({

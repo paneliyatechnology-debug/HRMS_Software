@@ -97,6 +97,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const { user } = useAuth();
   const { showToast } = useSocket();
   const {
+    status: sessionWorkStatus,
     todaySummary,
     liveWorkedHMS: sessionWorkedHMS,
     liveBreakWords: sessionBreakWords,
@@ -1283,16 +1284,25 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       const myRec = getEmpTodayRecord(selfEmployee);
       if (myRec) {
-        const active = getLiveActiveSeconds(myRec);
-        const brk = getLiveBreakSeconds(myRec);
-        const activeStr =
-          active > 0
-            ? formatSecondsToHMS(active)
-            : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
-              ? sessionWorkedHMS
-              : '00:00:00';
-        setLiveWorkedHMS(activeStr);
-        setLiveBreakWords(formatSecondsToWords(brk));
+        const isDone = Boolean(myRec.isCompleted || (myRec.checkOut && myRec.checkOut !== '—') || (myRec as any).status === 'Completed');
+        if (isDone) {
+          setLiveWorkedHMS('00:00:00');
+          setLiveBreakWords('0s');
+        } else {
+          const active = getLiveActiveSeconds(myRec);
+          const brk = getLiveBreakSeconds(myRec);
+          const activeStr =
+            active > 0
+              ? formatSecondsToHMS(active)
+              : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+                ? sessionWorkedHMS
+                : '00:00:00';
+          setLiveWorkedHMS(activeStr);
+          setLiveBreakWords(formatSecondsToWords(brk));
+        }
+      } else if (sessionWorkStatus === 'completed') {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
       } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
         setLiveWorkedHMS(sessionWorkedHMS);
         setLiveBreakWords(sessionBreakWords || '0s');

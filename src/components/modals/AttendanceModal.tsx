@@ -222,10 +222,21 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       setPunchState(eligibility);
 
       if (eligibility.record) {
-        const active = getLiveActiveSeconds(eligibility.record);
-        const brk = getLiveBreakSeconds(eligibility.record);
-        setLiveWorkedHMS(formatSecondsToHMS(active));
-        setLiveBreakWords(formatSecondsToWords(brk));
+        const isCompleted = Boolean(
+          eligibility.status === 'completed' ||
+          eligibility.record.isCompleted ||
+          (eligibility.record.checkOut && eligibility.record.checkOut !== '—') ||
+          (eligibility.record as any).status === 'Completed'
+        );
+        if (isCompleted) {
+          setLiveWorkedHMS('00:00:00');
+          setLiveBreakWords('0s');
+        } else {
+          const active = getLiveActiveSeconds(eligibility.record);
+          const brk = getLiveBreakSeconds(eligibility.record);
+          setLiveWorkedHMS(formatSecondsToHMS(active));
+          setLiveBreakWords(formatSecondsToWords(brk));
+        }
       } else {
         setLiveWorkedHMS('00:00:00');
         setLiveBreakWords('0s');
@@ -852,7 +863,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
               <ModernDigitClock
                 time={punchState.status === 'not_started' ? time : undefined}
-                timeString={punchState.status !== 'not_started' ? liveWorkedHMS : undefined}
+                timeString={punchState.status === 'working' || punchState.status === 'on_break' ? liveWorkedHMS : punchState.status === 'completed' ? '00:00:00' : undefined}
                 size="sm"
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
                 showSweepRing={punchState.status === 'working'}
@@ -862,14 +873,14 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     : punchState.status === 'on_break'
                       ? 'Timer Paused (On Break)'
                       : punchState.status === 'completed'
-                        ? 'Shift Completed (Timer Stopped)'
+                        ? 'Shift Completed (Timer Reset)'
                         : 'Live GPS Shift Chronometer'
                 }
                 subText={
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
                     : punchState.status === 'completed'
-                      ? `Total worked: ${liveWorkedHMS} • Shift Finalized`
+                      ? `Shift Finalized • Total: ${punchState.record ? formatSecondsToHMS(getLiveActiveSeconds(punchState.record)) : '00:00:00'}`
                       : time
                         ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
                         : 'October 28, 2026'
