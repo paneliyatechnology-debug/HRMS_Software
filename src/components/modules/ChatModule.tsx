@@ -696,28 +696,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     inputRef.current?.focus({ preventScroll: true });
   };
 
-  const handleQuickReply = (text: string) => {
-    if (!activeConversation) return;
-    if (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id)) {
-      void sendTeamText(text);
-      return;
-    }
-    const other = getOtherParticipantInfo(activeConversation);
-
-    const sent = sendChatMessage({
-      conversationId: activeConversation.id,
-      senderId: currentUserId,
-      senderName: currentUserName,
-      senderRole: currentUserRole,
-      recipientId: other.id,
-      recipientName: other.name,
-      content: text,
-    });
-
-    api.saveChatMessage(sent).catch(() => { });
-    emitChatMessage(sent);
-  };
-
   const handleOpenAttachFile = (accept: string) => {
     setAttachmentError(null);
     setFileInputAccept(accept);
@@ -988,22 +966,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     const date = new Date(isoString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  // Quick reply options depending on portal mode
-  const quickReplies =
-    portalMode === 'admin'
-      ? [
-        'Please share your daily progress update.',
-        'Approved, you may proceed.',
-        'Regarding your leave request: please check your email.',
-        'Acknowledged',
-      ]
-      : [
-        'Good morning sir, task completed.',
-        'Please review my leave application.',
-        'I have uploaded the verification document.',
-        'Understood, thank you!',
-      ];
 
   const avatarClass = (kind: 'broadcast' | 'admin' | 'staff') =>
     kind === 'broadcast'
@@ -1669,19 +1631,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 })
               )}
               <div ref={messagesEndRef} />
-            </div>
-
-            {/* Quick Reply Suggestions */}
-            <div className="px-3 py-2 bg-white border-t border-[#dee2e6] flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
-              {quickReplies.map((reply, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleQuickReply(reply)}
-                  className="px-3 py-1 rounded-full bg-[#f8f9fa] border border-[#dee2e6] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2] text-[12px] whitespace-nowrap transition-colors shrink-0 cursor-pointer"
-                >
-                  {reply}
-                </button>
-              ))}
             </div>
 
             {/* Attachment preparation / error status */}
