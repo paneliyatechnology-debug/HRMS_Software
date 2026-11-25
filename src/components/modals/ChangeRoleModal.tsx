@@ -155,8 +155,14 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
                   {getRoleIcon(currentRoleDef.iconName, 'w-3 h-3')}
                   {currentRoleDef.label}
                 </span>
-                <span>•</span>
-                <span>{employee.designationTitle || 'Staff'}</span>
+                {employee.designationTitle &&
+                  employee.designationTitle.toLowerCase() !== currentRoleDef.label.toLowerCase() &&
+                  employee.designationTitle.toLowerCase() !== (employee.role || '').toLowerCase() && (
+                    <>
+                      <span>•</span>
+                      <span>{employee.designationTitle}</span>
+                    </>
+                  )}
               </p>
             </div>
           </div>
@@ -194,55 +200,55 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {ASSIGNABLE_ROLE_DEFINITIONS.map((def) => {
                 const isSelected = selectedRole === def.role;
                 const isCurrent = (employee.role || 'EMPLOYEE') === def.role;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={def.role}
                     onClick={() => setSelectedRole(def.role)}
-                    className={`relative p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                    className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
                       isSelected
-                        ? 'border-emerald-600 bg-emerald-50/30 ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50'
+                        ? 'border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${def.bgLight} ${def.borderClass} ${def.textColor}`}
-                        >
-                          {getRoleIcon(def.iconName, 'w-4 h-4')}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-xs text-slate-900">{def.label}</span>
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                      </div>
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${def.bgLight} ${def.borderClass} ${def.textColor}`}
+                    >
+                      {getRoleIcon(def.iconName, 'w-4 h-4')}
                     </div>
 
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                      {def.description}
-                    </p>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                          <span className="font-bold text-sm text-slate-900">{def.label}</span>
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                              Current
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                        {def.description}
+                      </p>
+                    </div>
+                  </button>
                 );
               })}
             </div>

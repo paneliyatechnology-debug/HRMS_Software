@@ -426,9 +426,9 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onScrollToTop}
                 title="Click to scroll to top"
-                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-[10px] bg-[#f8f9fa] hover:bg-[#e9ecef] border border-[#dee2e6] hover:border-[#ced4da] shadow-2xs transition-all active:scale-95 cursor-pointer text-left group"
+                className="flex items-center gap-2 px-1.5 sm:px-2 py-1.5 rounded-[10px] hover:bg-[#f8f9fa] transition-all active:scale-95 cursor-pointer text-left group"
               >
-                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 border border-[#b7e4c7] transition-colors">
+                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 transition-colors">
                   {resolvedPageIcon}
                 </span>
                 <span className="hrms-header-page-title text-xs sm:text-sm font-semibold tracking-tight text-[#0f172a] truncate max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-[280px] md:max-w-[360px]">

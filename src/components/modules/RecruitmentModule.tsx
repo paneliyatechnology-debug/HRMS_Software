@@ -584,11 +584,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         </div>
 
       {/* Published Requisitions Cards */}
-      {jobs.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-8 text-center text-slate-400 text-xs">
-          No job openings posted yet. Click &quot;Post Job Opening&quot; to create a new hiring requisition.
-        </div>
-      ) : (
+      {jobs.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {jobs.map((job) => (
           <div
