@@ -360,7 +360,10 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setAttendanceLogic(data);
 
     const serverNowStr = data?.serverNow || data?.serverTime;
-    if (serverNowStr) syncServerClock(serverNowStr);
+    if (serverNowStr) {
+      syncServerClock(serverNowStr);
+      setServerTime(serverNowStr);
+    }
     const offset = getServerOffsetMs();
     serverOffsetRef.current = offset;
     const nowMs = Date.now() - offset;
@@ -368,18 +371,16 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const segmented = segmentPunches(punchesList);
 
     const onBreak = Boolean(logic.onBreak || logic.next === 'break-end' || segmented.activeSession?.isOnBreak);
+    const hasClosedSession =
+      segmented.sessions.length > 0 ||
+      punchesList.some((p: any) => normalizePunchType(p?.type) === 'OUT');
     let resolved: WorkPunchStatus = 'not_started';
 
     if (onBreak) {
       resolved = 'on_break';
     } else if (logic.next === 'check-out' || logic.next === 'clock-out' || segmented.activeSession) {
       resolved = 'working';
-    } else if (
-      logic.next === 'check-in' ||
-      logic.next === 'clock-in' ||
-      segmented.sessions.length > 0 ||
-      punchesList.some((p: any) => normalizePunchType(p?.type) === 'OUT')
-    ) {
+    } else if (hasClosedSession) {
       resolved = 'completed';
     } else {
       resolved = 'not_started';
@@ -586,6 +587,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     window.addEventListener('hrms_work_status_updated', handleExternalUpdate);
+    const handleTick = (event: Event) => {
+      const serverNow = (event as CustomEvent).detail?.serverNow;
+      if (!serverNow) return;
+      syncServerClock(serverNow);
+      setServerTime(serverNow);
+    };
     const handleLive = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (!detail?.logic) return;
@@ -594,9 +601,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       applyAttendanceLogic(detail);
     };
     window.addEventListener('hrms_attendance_live', handleLive);
+    window.addEventListener('hrms_attendance_tick', handleTick);
     return () => {
       window.removeEventListener('hrms_work_status_updated', handleExternalUpdate);
       window.removeEventListener('hrms_attendance_live', handleLive);
+      window.removeEventListener('hrms_attendance_tick', handleTick);
     };
   }, [isAuthenticated, refresh, applyAttendanceLogic]);
 

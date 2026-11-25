@@ -142,6 +142,94 @@ interface HrmsAppShellProps {
   initialSubTab?: string;
 }
 
+function punchClock(value?: string | null) {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function attendanceKey(record: { employeeId?: string; userId?: string; date?: string }) {
+  const id = String(record.employeeId || record.userId || '').trim().toLowerCase();
+  return `${id}__${String(record.date || '').slice(0, 10)}`;
+}
+
+function liveAttendanceRow(detail: any): AttendanceRecord | null {
+  const attendance = detail?.attendance || {};
+  const employeeId = String(detail?.employeeId || attendance.userId || '');
+  if (!employeeId) return null;
+  const punches = Array.isArray(detail?.punches) ? detail.punches : [];
+  const firstIn = punches.find((punch: any) => String(punch?.type || '').toUpperCase() === 'IN');
+  const lastOut = [...punches].reverse().find((punch: any) => String(punch?.type || '').toUpperCase() === 'OUT');
+  const lastType = String(punches.at(-1)?.type || '').toUpperCase();
+  const onBreak = lastType === 'BREAK_START' || Boolean(detail?.logic?.onBreak);
+  const completed = lastType === 'OUT';
+  const date = String(detail?.date || attendance.workDate || '').slice(0, 10);
+  return {
+    id: String(attendance.id || `live-${employeeId}-${date}`),
+    companyId: String(detail?.companyId || attendance.companyId || ''),
+    employeeId,
+    userId: employeeId,
+    employeeName: String(attendance.userName || detail?.employeeName || 'Employee'),
+    employeeCode: 'EMP',
+    departmentName: 'General',
+    date,
+    checkIn: punchClock(firstIn?.punchedAt || attendance.checkInAt),
+    checkOut: completed ? punchClock(lastOut?.punchedAt || attendance.checkOutAt) : undefined,
+    breakDurationMinutes: Number(detail?.logic?.breakMinutes || 0),
+    workingHours: Number(detail?.logic?.totalMinutes || attendance.totalMinutes || 0) / 60,
+    overtimeHours: Number(detail?.logic?.overtimeMinutes || 0) / 60,
+    status: 'Present',
+    remarks: '',
+    createdAt: new Date().toISOString(),
+    punches,
+    isOnBreak: onBreak,
+    isCompleted: completed,
+    checkInAt: attendance.checkInAt || firstIn?.punchedAt || null,
+    checkOutAt: completed ? attendance.checkOutAt || lastOut?.punchedAt || null : null,
+  } as AttendanceRecord;
+}
+
+function mergeLiveAttendance(current: AttendanceRecord[], incoming: AttendanceRecord) {
+  const key = attendanceKey(incoming);
+  const next = current.filter((row) => attendanceKey(row) !== key);
+  const previous = current.find((row) => attendanceKey(row) === key);
+  next.unshift({
+    ...(previous || {}),
+    ...incoming,
+    employeeName: previous?.employeeName && previous.employeeName !== 'Employee' ? previous.employeeName : incoming.employeeName,
+    employeeCode: previous?.employeeCode || incoming.employeeCode,
+    departmentName: previous?.departmentName || incoming.departmentName,
+  });
+  return next;
+}
+
+function keepNewerPunch(serverRows: AttendanceRecord[], currentRows: AttendanceRecord[]) {
+  const current = new Map(currentRows.map((row) => [attendanceKey(row), row]));
+  const seen = new Set<string>();
+  const merged = serverRows.map((row) => {
+    const key = attendanceKey(row);
+    seen.add(key);
+    const live = current.get(key);
+    if (!live?.checkIn) return row;
+    if (!row.checkIn || (live.checkOut && !row.checkOut)) {
+      return {
+        ...row,
+        checkIn: row.checkIn || live.checkIn,
+        checkOut: row.checkOut || live.checkOut,
+        isOnBreak: (row as any).isOnBreak ?? (live as any).isOnBreak,
+        isCompleted: (row as any).isCompleted ?? (live as any).isCompleted,
+        punches: Array.isArray(row.punches) && row.punches.length ? row.punches : live.punches,
+      };
+    }
+    return row;
+  });
+  for (const row of currentRows) {
+    if (!seen.has(attendanceKey(row)) && row.checkIn) merged.unshift(row);
+  }
+  return merged;
+}
+
 export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -535,8 +623,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           setLiveEmployees(dash.employees);
           setLeaves(dash.leaves);
           setLiveLeaves(dash.leaves);
-          setAttendance(dash.attendance);
-          setLiveAttendanceRecords(dash.attendance);
+          setAttendance((current) => keepNewerPunch(dash.attendance, current));
+          setLiveAttendanceRecords((current) => keepNewerPunch(dash.attendance, current));
           setDashboardNotices(dash.notices);
           setStats(dash.stats);
         } finally {
@@ -564,8 +652,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         }
         const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
         const scopedAtt = scopeAttendance(attendanceData, activeEmps);
-        setAttendance(scopedAtt);
-        setLiveAttendanceRecords(scopedAtt);
+        setAttendance((current) => keepNewerPunch(scopedAtt, current));
+        setLiveAttendanceRecords((current) => keepNewerPunch(scopedAtt, current));
       } else if (targetModule === 'leaves') {
         const needEmployees = employeesRef.current.length === 0;
         const [leavesData, employeesData, leaveTypesData] = await Promise.all([
@@ -677,7 +765,13 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   activeModuleRef.current = activeModule;
 
   useEffect(() => {
-    const reloadLiveAttendance = () => {
+    const reloadLiveAttendance = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      const row = liveAttendanceRow(detail);
+      if (row?.employeeId && row.date) {
+        setAttendance((current) => mergeLiveAttendance(current, row));
+        setLiveAttendanceRecords((current) => mergeLiveAttendance(current, row));
+      }
       const moduleName = activeModuleRef.current;
       if (moduleName === 'dashboard' || moduleName === 'attendance') {
         void loadDataForModuleRef.current(moduleName);

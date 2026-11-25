@@ -369,9 +369,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const key = `${empId.trim().toLowerCase()}__${rec.date}`;
       const existing = map.get(key);
       if (existing) {
+        const localIn = Boolean(rec.checkIn && rec.checkIn !== '—' && rec.checkIn !== '--:--');
         map.set(key, {
           ...existing,
           ...rec,
+          checkIn: localIn ? rec.checkIn : existing.checkIn,
+          checkOut: rec.checkOut || existing.checkOut,
+          isOnBreak: rec.isOnBreak ?? existing.isOnBreak,
+          isCompleted: rec.isCompleted ?? existing.isCompleted,
           punches: (Array.isArray(rec.punches) && rec.punches.length > 0)
             ? rec.punches
             : (Array.isArray(existing.punches) && existing.punches.length > 0)
