@@ -402,7 +402,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }
       if (locationRequest) {
         try {
-          const geo = await verifyCurrentGeofence(await locationRequest);
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
           if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
             setPunchNotice(geo.errorMessage || 'You are outside the office area.');
             return;
@@ -459,7 +460,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       }
       if (locationRequest) {
         try {
-          const geo = await verifyCurrentGeofence(await locationRequest);
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
           if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
             setPunchNotice(geo.errorMessage || 'You are outside the office area.');
             return;
@@ -637,7 +639,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       if (rawRole === 'EMPLOYEE') {
         if (locationRequest) {
           try {
-            const geo = await verifyCurrentGeofence(await locationRequest);
+            const coords = (await locationRequest) || undefined;
+            const geo = await verifyCurrentGeofence(coords);
             if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
               setPunchNotice(geo.errorMessage || 'You are outside the office area.');
               setCapturedPhoto(null);
