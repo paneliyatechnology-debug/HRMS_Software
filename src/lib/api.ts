@@ -560,7 +560,7 @@ async function verifyFace(faceDescriptor: number[]) {
 }
 
 // 17. POST /attendance/clock (Clock in, clock out, break in, break out)
-async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) {
+async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) {
   try {
     clearApiCache('/attendance');
     const payload = {
@@ -571,6 +571,7 @@ async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'bre
       longitude: data?.longitude,
       accuracy: data?.accuracy,
       faceDescriptor: data?.faceDescriptor,
+      photo: data?.photo,
     };
     const response = await http.post('/attendance/clock', payload, {
       headers: { 'Content-Type': 'application/json' },
@@ -2720,9 +2721,9 @@ async function verifyDocument(id: string, status: string) {
 }
 
 // Attendance aliases mapping directly to collection endpoints
-const clockIn = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) => clock({ flag: 'clock-in', ...data });
+const clockIn = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) => clock({ flag: 'clock-in', ...data });
 const checkIn = clockIn;
-const clockOut = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) => clock({ flag: 'clock-out', ...data });
+const clockOut = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) => clock({ flag: 'clock-out', ...data });
 const checkOut = clockOut;
 const startWork = clockIn;
 const stopWork = clockOut;

@@ -742,6 +742,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           longitude: punchLongitude,
           accuracy: punchAccuracy,
           faceDescriptor: punchFace,
+          photo,
         });
 
         if (res && res.success === false) {
@@ -777,6 +778,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           longitude: punchLongitude,
           accuracy: punchAccuracy,
           faceDescriptor: punchFace,
+          photo,
         });
 
         if (res && res.success === false) {

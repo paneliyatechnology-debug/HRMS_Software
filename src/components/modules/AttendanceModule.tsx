@@ -411,6 +411,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <tr>
                     <th className="py-2.5 px-3.5 w-12 text-center">#</th>
                     <th className="py-2.5 px-3.5">Action</th>
+                    <th className="py-2.5 px-3.5">Face</th>
                     <th className="py-2.5 px-3.5">Punch Time</th>
                     <th className="py-2.5 px-3.5">Date</th>
                     <th className="py-2.5 px-3.5">Activity Description</th>
@@ -426,6 +427,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
                       : (titleDate || 'Today');
                     const desc = badge.title || (p.type === 'IN' ? 'Clock In / Work Started' : p.type === 'OUT' ? 'Clock Out / Work Ended' : p.type === 'BREAK' ? 'Break Interval Started' : 'Active Work Resumed');
+                    const faceUrl = (p.type === 'IN' || p.type === 'OUT') ? (p.photoUrl || p.photo || '') : '';
 
                     return (
                       <tr key={p.id || `punch-list-${idx}`} className="hover:bg-slate-50/80 transition-colors">
@@ -437,6 +439,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
                             {badge.label}
                           </span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          {faceUrl ? (
+                            <a href={faceUrl} target="_blank" rel="noreferrer" title={p.type === 'IN' ? 'Clock in face' : 'Clock out face'}>
+                              <img src={faceUrl} alt={p.type === 'IN' ? 'Clock in face' : 'Clock out face'} className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 text-xs">
                           {timeStr}
@@ -466,10 +477,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 const badge = getPunchTypeBadge(p.type);
                 const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
                 const desc = badge.title || (p.type === 'IN' ? 'Clock In' : p.type === 'OUT' ? 'Clock Out' : p.type === 'BREAK' ? 'Break' : 'Resumed');
+                const faceUrl = (p.type === 'IN' || p.type === 'OUT') ? (p.photoUrl || p.photo || '') : '';
 
                 return (
                   <div key={p.id || `punch-m-list-${idx}`} className="py-2.5 px-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
                     <div className="flex items-center gap-2 min-w-0">
+                      {faceUrl ? (
+                        <a href={faceUrl} target="_blank" rel="noreferrer">
+                          <img src={faceUrl} alt={p.type === 'IN' ? 'Clock in face' : 'Clock out face'} className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0" />
+                        </a>
+                      ) : null}
                       <span className="font-mono font-bold text-slate-400 text-xs shrink-0">#{idx + 1}</span>
                       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${badge.color}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
