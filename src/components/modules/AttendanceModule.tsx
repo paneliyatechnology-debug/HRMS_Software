@@ -1576,63 +1576,56 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none animate-in fade-in">
-      {/* Top Header, Action Buttons & Compact Shift Console */}
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 pt-1">
-        {/* Left: Action Buttons Row (for Admin Search or Month Filters) */}
-        {(!isEmployeeView || (resolvedTab as string) === 'summary') ? (
-          <div className="space-y-3 flex-1 min-w-0">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {/* Quick Attendance Employee Search */}
-                {!isEmployeeView && (
-                  <div className="relative min-w-[210px]">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={attendanceSearch}
-                      onChange={(e) => setAttendanceSearch(e.target.value)}
-                      placeholder="Filter staff by name/ID..."
-                      className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
-                    />
-                    {attendanceSearch && (
-                      <button
-                        onClick={() => setAttendanceSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        title="Clear"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+      {/* Compact Daily Shift Clock Banner (same as Dashboard) */}
+      {resolvedTab === 'today' && canUserPunch(user) && (
+        <DailyShiftConsole variant="banner" clockSize="sm" showHeaderClock={false} />
+      )}
+
+      {/* Top Action / Filter Bar */}
+      {(!isEmployeeView || (resolvedTab as string) === 'summary') && (
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Quick Attendance Employee Search */}
+            {!isEmployeeView && (
+              <div className="relative min-w-[210px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={attendanceSearch}
+                  onChange={(e) => setAttendanceSearch(e.target.value)}
+                  placeholder="Filter staff by name/ID..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                />
+                {attendanceSearch && (
+                  <button
+                    onClick={() => setAttendanceSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    title="Clear"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
+            )}
+          </div>
 
-              {/* Filters dropdowns for Summary */}
-              {(resolvedTab as string) === 'summary' && (
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-500">Month:</span>
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
-                  >
-                    <option value="October">October 2026</option>
-                    <option value="November">November 2026</option>
-                    <option value="December">December 2026</option>
-                  </select>
-                </div>
-              )}
+          {/* Filters dropdowns for Summary */}
+          {(resolvedTab as string) === 'summary' && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-slate-500">Month:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
+              >
+                <option value="October">October 2026</option>
+                <option value="November">November 2026</option>
+                <option value="December">December 2026</option>
+              </select>
             </div>
-          </div>
-        ) : null}
-
-        {/* Right: Compact Daily Shift Console for Employee, HR & Manager */}
-        {resolvedTab === 'today' && canUserPunch(user) && (
-          <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
-            <DailyShiftConsole clockSize="sm" showHeaderClock={false} />
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* TAB: Today's Live Attendance & Break Tracker */}
       {resolvedTab === 'today' && (() => {

@@ -871,6 +871,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         pendingLeavesCount={pendingLeavesCount}
         unreadChatCount={unreadChatCount}
         company={currentCompany}
+        employees={employees}
         onOpenProfile={handleOpenMyProfile}
       />
 
@@ -904,7 +905,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
         <main
           ref={mainScrollRef}
-          className={`flex-1 w-full [scrollbar-width:thin] bg-transparent relative z-10 ${activeModule === 'chat'
+          className={`flex-1 w-full [scrollbar-width:thin] bg-transparent relative z-10 ${activeModule === 'chat' || activeModule === 'announcements'
             ? 'overflow-hidden flex flex-col px-4 sm:px-6 py-4 pb-20 sm:pb-5'
             : 'overflow-y-auto px-4 sm:px-6 py-5 pb-24 sm:pb-8'
             }`}
@@ -923,7 +924,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           )}
           <div
             key={`${activeModule}-${subTab || 'root'}`}
-            className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' ? 'flex-1 min-h-0 flex flex-col' : ''
+            className={`max-w-7xl mx-auto w-full animate-module-fade-in ${activeModule === 'chat' || activeModule === 'announcements' ? 'flex-1 min-h-0 flex flex-col' : ''
               }`}
           >
             {(activeModule === 'dashboard' || !isModuleAllowedForUser(activeModule, user)) && (

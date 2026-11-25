@@ -121,37 +121,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-slate-900 leading-tight">
-                  Daily Shift Clock
-                </h3>
-                {status === 'working' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    <span>Active</span>
-                  </span>
-                )}
-                {status === 'on_break' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                    <span>On Break</span>
-                  </span>
-                )}
-                {status === 'completed' && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                    Shift Done
-                  </span>
-                )}
-                {status === 'not_started' && (
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    shiftCheck.isAllowed
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-rose-100 text-rose-800'
-                  }`}>
-                    {shiftCheck.isAllowed ? 'Ready' : 'Locked'}
-                  </span>
-                )}
-              </div>
+              <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                Daily Shift Clock
+              </h3>
               <p className="text-xs text-slate-500 truncate mt-0.5">
                 {status === 'working'
                   ? `In at ${formatTimeStr(activeSession?.startTime) || 'Recently'} • Target: 9.0h`

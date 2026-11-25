@@ -37,7 +37,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
-import { getAllCompanies } from '../lib/companyService';
+import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
@@ -224,9 +224,19 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
+  const displayCompanyName = (
+    companyInfo.name ||
+    company?.name ||
+    user?.companyName ||
+    (user as any)?.companyProfile?.name ||
+    'My Organization'
+  ).replace(/\s+Inc\.?$/i, '').trim();
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
-  const companyLogo = companyInfo.logoUrl;
+  const companyLogo = resolveCompanyBrandAvatar(
+    { ...company, logoUrl: company?.logoUrl || companyInfo.logoUrl },
+    user,
+    employees
+  );
 
   const isDashboard = !activeModule || activeModule === 'dashboard';
 
@@ -384,8 +394,12 @@ export const Header: React.FC<HeaderProps> = ({
           <Menu className="w-5 h-5" />
         </button>
         <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
-          <div className="w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden p-0.5">
-            <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
+          <div className={`w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-0.5'}`}>
+            {companyLogo ? (
+              <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[11px] font-bold text-slate-700">{companyInitial}</span>
+            )}
           </div>
           <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
             {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (

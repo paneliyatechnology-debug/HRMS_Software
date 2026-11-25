@@ -30,7 +30,7 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAllCompanies } from '../lib/companyService';
+import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { api } from '../lib/api';
 import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
 
@@ -47,6 +47,7 @@ interface SidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
   company?: any;
+  employees?: any[];
   onOpenProfile?: () => void;
 }
 
@@ -63,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed: propIsCollapsed,
   onToggleCollapse,
   company,
+  employees = [],
   onOpenProfile,
 }) => {
   const { user } = useAuth();
@@ -156,9 +158,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, setIsOpen]);
 
-  const displayCompanyName = companyInfo.name || user?.companyName || 'My Organization';
+  const displayCompanyName = (
+    companyInfo.name ||
+    company?.name ||
+    user?.companyName ||
+    (user as any)?.companyProfile?.name ||
+    'My Organization'
+  ).replace(/\s+Inc\.?$/i, '').trim();
   const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
-  const companyLogo = companyInfo.logoUrl;
+  const companyLogo = resolveCompanyBrandAvatar(
+    { ...company, logoUrl: company?.logoUrl || companyInfo.logoUrl },
+    user,
+    employees
+  );
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -303,17 +315,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 id="btn-sidebar-logo-expand"
                 onClick={toggleCollapse}
-                className="w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs hover:scale-105 active:scale-95 transition-transform cursor-pointer overflow-hidden p-1"
+                className={`w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs hover:scale-105 active:scale-95 transition-transform cursor-pointer overflow-hidden ${companyLogo ? '' : 'p-1'}`}
                 title={`Expand sidebar — ${displayCompanyName}`}
               >
-                <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
+                {companyLogo ? (
+                  <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-slate-700">{companyInitial}</span>
+                )}
               </button>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2.5 min-w-0 pr-1">
-                <div className="w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs shrink-0 overflow-hidden p-1">
-                  <img src={companyLogo || '/logo.png'} alt={displayCompanyName} className="w-full h-full object-contain" />
+                <div className={`w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-1'}`}>
+                  {companyLogo ? (
+                    <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-slate-700">{companyInitial}</span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (

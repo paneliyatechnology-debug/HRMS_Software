@@ -267,7 +267,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   };
 
   return (
-    <div className="space-y-6 w-full max-w-6xl mx-auto select-none">
+    <div className="flex flex-col flex-1 min-h-0 gap-4 w-full max-w-6xl mx-auto select-none">
       {/* Toast Notification */}
       {successToast && (
         <div className="fixed top-5 right-5 z-50 p-4 rounded-2xl bg-emerald-900 text-white shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in slide-in-from-top-4">
@@ -276,8 +276,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+      {/* Top Header Card (Fixed) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs shrink-0">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#52b788] to-[#2d6a4f] text-white flex items-center justify-center shadow-md shrink-0">
@@ -390,7 +390,8 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content Area (Scrollable List Only) */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-4 [scrollbar-width:thin]">
       {isLoading ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
           <Loader2 className="w-7 h-7 text-emerald-600 animate-spin mx-auto" />
@@ -544,6 +545,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
           </div>
         )
       )}
+      </div>
 
       {/* Publish Notice Modal */}
       {isCreateModalOpen && (

@@ -780,6 +780,8 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
     checkOutAt: a.checkOutAt || null,
     totalMinutes: Number(a.totalMinutes || 0),
     totalHours: a.totalHours || '',
+    lateMinutes: Number(a.lateMinutes || 0),
+    earlyMinutes: Number(a.earlyMinutes || 0),
     missingPunch: Boolean(a.missingPunch),
   };
 }
@@ -2777,7 +2779,18 @@ async function getMe() {
 async function getMyCompany() {
   try {
     const profile = await getProfile();
-    return profile?.company || null;
+    if (!profile?.company) return null;
+    const company = { ...profile.company };
+    const role = String(profile?.user?.role || '').trim().toUpperCase();
+    if (
+      ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role) &&
+      profile?.user?.avatarUrl &&
+      !company.adminAvatarUrl &&
+      !company.logoUrl
+    ) {
+      company.adminAvatarUrl = profile.user.avatarUrl;
+    }
+    return company;
   } catch {
     return null;
   }

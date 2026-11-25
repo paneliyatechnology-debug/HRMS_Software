@@ -42,6 +42,47 @@ const TENANT_EMPLOYEES_STORAGE_KEY = 'hrms_tenant_company_employees';
 
 export const initialCompanies: CompanyTenant[] = [];
 
+const ADMIN_BRAND_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN']);
+
+/**
+ * Resolve the top-left brand avatar from the company Admin's profile picture
+ * (or backend-provided company logo/adminAvatarUrl), without falling back to a generic HRMS logo.
+ */
+export function resolveCompanyBrandAvatar(
+  company: any,
+  user: any,
+  employees: Employee[] = []
+): string {
+  const fromCompany =
+    company?.adminAvatarUrl ||
+    company?.logoUrl ||
+    company?.avatarUrl ||
+    company?.admin?.avatarUrl ||
+    company?.adminUser?.avatarUrl;
+  if (fromCompany && String(fromCompany).trim()) {
+    return String(fromCompany).trim();
+  }
+
+  const userRole = String(user?.role || '').trim().toUpperCase();
+  if (ADMIN_BRAND_ROLES.has(userRole) && user?.avatarUrl && String(user.avatarUrl).trim()) {
+    return String(user.avatarUrl).trim();
+  }
+
+  if (Array.isArray(employees) && employees.length > 0) {
+    const adminEmp = employees.find(
+      (e) =>
+        ADMIN_BRAND_ROLES.has(String(e?.role || '').trim().toUpperCase()) &&
+        e?.avatarUrl &&
+        String(e.avatarUrl).trim()
+    );
+    if (adminEmp?.avatarUrl) {
+      return String(adminEmp.avatarUrl).trim();
+    }
+  }
+
+  return '';
+}
+
 // Pure In-Memory Company and Tenant Employee Storage
 let liveCompaniesStore: CompanyTenant[] = [];
 let liveTenantEmployeesStore: Record<string, Employee[]> = {};

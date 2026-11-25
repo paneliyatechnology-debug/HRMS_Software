@@ -256,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const role = profile.user.role || cachedUser.role;
               const permissions = profile.permissions || [];
               const portal = portalFromPermissions(permissions) || 'employee';
-              const companyProfile = role === 'ADMIN' ? profile.company || null : null;
+              const companyProfile = profile.company || null;
               const dynamicModules =
                 profile.allowedModules ||
                 profile.user?.allowedModules ||
@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 modules: profile.modules || profile.user?.modules || cachedUser.modules,
                 permissions: permissions.length ? permissions : cachedUser.permissions || [],
                 companyProfile,
-                companyName: companyProfile?.name || cachedUser.companyName || '',
+                companyName: companyProfile?.name || profile.user?.companyName || cachedUser.companyName || '',
               };
               setUser(next);
               setPortalModeState(portal);
@@ -330,7 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userRole = profile?.user?.role || res.user.role || org.role || 'EMPLOYEE';
         const permissions = profile?.permissions || [];
         const targetPortal = portalFromPermissions(permissions) || 'employee';
-        const companyProfile = userRole === 'ADMIN' ? profile?.company || null : null;
+        const companyProfile = profile?.company || null;
         const dynamicModules =
           profile?.allowedModules ||
           profile?.user?.allowedModules ||
@@ -345,7 +345,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           permissions,
           companyProfile,
           companyId: profile?.user?.companyId || res.user.companyId || org.companyId || '',
-          companyName: companyProfile?.name || res.user.companyName || org.companyName || '',
+          companyName: companyProfile?.name || profile?.user?.companyName || res.user.companyName || org.companyName || '',
         });
 
         setUser(enriched);

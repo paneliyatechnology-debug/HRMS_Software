@@ -263,6 +263,8 @@ export interface AttendanceRecord {
   formattedTotalBreak?: string;
   isOnBreak?: boolean;
   isCompleted?: boolean;
+  lateMinutes?: number;
+  earlyMinutes?: number;
   lastActiveTimestamp?: number;
   checkInAt?: string | null;
   checkOutAt?: string | null;
