@@ -8,17 +8,11 @@ import {
   CalendarCheck,
   CalendarOff,
   CreditCard,
-  FileText,
-  TrendingUp,
-  GraduationCap,
-  HardDrive,
-  History,
   Phone,
   Mail,
   MapPin,
   Building2,
   Shield,
-  Download,
   Smartphone,
   Laptop,
   Camera,
@@ -28,13 +22,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Award,
   ChevronLeft,
   ChevronRight,
   Copy,
   Check,
   UserCheck,
-  Calendar,
 } from 'lucide-react';
 import { Employee, LeaveRequest } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
@@ -222,19 +214,25 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     )
   );
 
+  const hasSalaryData = Boolean(
+    currentEmp?.salary &&
+      (Number(currentEmp.salary.net || 0) > 0 ||
+        Number(currentEmp.salary.gross || 0) > 0 ||
+        Number(currentEmp.salary.basic || 0) > 0 ||
+        Number(currentEmp.salary.hra || 0) > 0 ||
+        Number(currentEmp.salary.allowances || 0) > 0)
+  );
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
-    { id: 'personal', label: 'Personal Info', icon: UserCheck },
+    { id: 'personal', label: 'Personal & Photo', icon: UserCheck },
     { id: 'employment', label: 'Employment', icon: Briefcase },
     { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
     { id: 'leave', label: 'Leave', icon: CalendarOff },
-    { id: 'payroll', label: 'Payroll', icon: CreditCard },
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'performance', label: 'Performance', icon: TrendingUp },
-    { id: 'training', label: 'Training', icon: GraduationCap },
-    { id: 'assets', label: 'Assets', icon: HardDrive },
-    { id: 'activity', label: 'Activity History', icon: History },
+    ...(hasSalaryData ? [{ id: 'payroll', label: 'Salary', icon: CreditCard }] : []),
   ];
+
+  const effectiveTab = tabs.some((t) => t.id === activeTab) ? activeTab : 'overview';
 
   const firstLetter = (currentEmp.firstName || 'E').trim().charAt(0).toUpperCase();
   const lastLetter = (currentEmp.lastName || '').trim().charAt(0).toUpperCase();
@@ -252,11 +250,11 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       className={
         isPageMode
           ? 'bg-white rounded-2xl w-full shadow-sm flex flex-col border border-slate-200 overflow-hidden cursor-default'
-          : 'bg-white rounded-2xl max-w-5xl w-full h-[90vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom'
+          : 'bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] sm:h-[85vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom'
       }
     >
       {/* ═══ CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW ═══ */}
-      <div className="p-5 sm:p-6 bg-white border-b border-slate-100 shrink-0">
+      <div className="p-4 sm:p-6 bg-white border-b border-slate-100 shrink-0">
         {/* Status Message Banners */}
         {photoSuccess && (
           <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs">
@@ -471,7 +469,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         >
           <div className="flex items-center gap-1 min-w-max">
             {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
+              const isActive = effectiveTab === tab.id;
               const Icon = tab.icon;
               return (
                 <button
@@ -504,234 +502,212 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       </div>
 
       {/* ═══ TAB CONTENT BODY ═══ */}
-      <div className={`${isPageMode ? 'p-5 sm:p-6' : 'flex-1 overflow-y-auto p-5 sm:p-6'} text-xs text-slate-700 space-y-5 bg-white`}>
-        {/* ── 1. Overview ── */}
-        {activeTab === 'overview' && (
-          <div className="space-y-5">
-            {/* 3 Overview Highlight Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-all shadow-xs">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employment Type</span>
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
-                    <Briefcase className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <p className="text-base font-bold text-slate-900 capitalize">{currentEmp.employmentType || 'Full-time'}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp.shift || 'General Shift (9 AM - 6 PM)'}</p>
-              </div>
+      <div className={`${isPageMode ? 'p-4 sm:p-6' : 'flex-1 overflow-y-auto p-4 sm:p-6'} text-xs text-slate-700 space-y-5 bg-white`}>
+        {/* ── 1. Overview (Only real, non-empty employee data) ── */}
+        {effectiveTab === 'overview' && (() => {
+          const overviewFields = [
+            { label: 'Company', value: currentEmp.companyName },
+            { label: 'Department', value: currentEmp.departmentName },
+            { label: 'Designation', value: currentEmp.designationTitle },
+            { label: 'Employment Type', value: currentEmp.employmentType },
+            { label: 'Joining Date', value: currentEmp.joiningDate },
+            { label: 'Assigned Shift', value: currentEmp.shift },
+            { label: 'Work Location', value: currentEmp.workLocationName },
+            { label: 'Reporting Manager', value: currentEmp.reportingManagerName },
+            { label: 'Gender', value: currentEmp.gender },
+            { label: 'Date of Birth', value: currentEmp.dateOfBirth },
+            { label: 'Address', value: currentEmp.address },
+          ].filter((item) => item.value && String(item.value).trim() !== '' && item.value !== '—');
 
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-all shadow-xs">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Joining Date</span>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
-                    <CalendarCheck className="w-3.5 h-3.5" />
+          return (
+            <div className="space-y-4">
+              {hasSalaryData && (
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Net Monthly Salary</span>
+                    <p className="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">
+                      ₹{(currentEmp?.salary?.net ?? 0).toLocaleString()}
+                    </p>
                   </div>
+                  {(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0) > 0 && (
+                    <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-emerald-200/70">
+                      Gross: ₹{(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0).toLocaleString()}
+                    </span>
+                  )}
                 </div>
-                <p className="text-base font-bold text-slate-900">{currentEmp.joiningDate || 'Recent Onboarding'}</p>
-                <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">Active Workspace Member</p>
-              </div>
+              )}
 
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-all shadow-xs">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net Monthly Salary</span>
-                  <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100">
-                    <CreditCard className="w-3.5 h-3.5" />
+              {overviewFields.length > 0 ? (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#1b4332]" />
+                    <span>Employee Details</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    {overviewFields.map((field) => (
+                      <div
+                        key={field.label}
+                        className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all min-w-0"
+                      >
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">{field.label}</span>
+                        <span className="font-bold text-slate-800 text-sm break-words block">{field.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <p className="text-base font-bold text-slate-900">₹{(currentEmp?.salary?.net ?? 0).toLocaleString()}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Gross: ₹{(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0).toLocaleString()}
-                </p>
-              </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                  No additional profile details recorded yet. Use the tabs above to manage photo, attendance, or leaves.
+                </div>
+              )}
+
+              {(currentEmp?.skills || []).length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+                  <h4 className="font-bold text-slate-900 text-sm mb-3">Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentEmp.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold text-xs"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+          );
+        })()}
 
-            {/* Organizational Summary Card */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#1b4332]" />
-                <span>Organizational Summary</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Department</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.departmentName || 'General Staff'}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Designation / Title</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.designationTitle || 'Employee'}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Assigned Shift</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.shift || 'General Shift'}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Work Location</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.workLocationName || currentEmp.companyName || 'Headquarters'}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Manager</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.reportingManagerName || 'Executive Leadership'}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Gender &amp; DOB</span>
-                  <span className="font-bold text-slate-800 text-sm">{currentEmp.gender || '—'} {currentEmp.dateOfBirth ? `• ${currentEmp.dateOfBirth}` : ''}</span>
-                </div>
-              </div>
-            </div>
+        {/* ── 2. Personal Information & Photo ── */}
+        {effectiveTab === 'personal' && (() => {
+          const personalFields = [
+            { label: 'Full Name', value: `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim() },
+            { label: 'Email', value: currentEmp.email },
+            { label: 'Phone', value: currentEmp.phone },
+            { label: 'Date of Birth', value: currentEmp.dateOfBirth },
+            { label: 'Gender', value: currentEmp.gender },
+            { label: 'Residential Address', value: currentEmp.address, fullSpan: true },
+            {
+              label: 'Emergency Contact',
+              value: currentEmp?.emergencyContact?.name
+                ? `${currentEmp.emergencyContact.name}${currentEmp.emergencyContact.relationship ? ` (${currentEmp.emergencyContact.relationship})` : ''}${currentEmp.emergencyContact.phone ? ` — ${currentEmp.emergencyContact.phone}` : ''}`
+                : '',
+              fullSpan: true,
+            },
+          ].filter((f) => f.value && String(f.value).trim() !== '');
 
-            {/* Core Skills */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-              <h4 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#1b4332]" />
-                <span>Core Skills &amp; Competencies</span>
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {(currentEmp?.skills || []).length > 0 ? (
-                  currentEmp.skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold text-xs"
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Profile Photo Management Card */}
+              <div className="col-span-1 sm:col-span-2 p-4 sm:p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+                    {currentEmp.avatarUrl ? (
+                      <img src={currentEmp.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[#1b4332] font-bold text-lg">{initials}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-slate-900">Profile Picture</h4>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      PNG, JPG, JPEG, WEBP supported.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
+                    {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    <span>{currentEmp.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingPhoto}
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {currentEmp.avatarUrl && String(currentEmp.role || '').toUpperCase() !== 'EMPLOYEE' && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={uploadingPhoto}
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95 cursor-pointer"
                     >
-                      {skill}
-                    </span>
-                  ))
-                ) : (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center w-full">
-                    <p className="text-slate-400 text-xs italic">No specific skills listed for this employee profile.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── 2. Personal Information ── */}
-        {activeTab === 'personal' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Profile Photo Management Card */}
-            <div className="col-span-1 sm:col-span-2 p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
-                  {currentEmp.avatarUrl ? (
-                    <img src={currentEmp.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[#1b4332] font-bold text-lg">
-                      {initials}
-                    </span>
+                      Remove
+                    </button>
                   )}
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Employee Profile Picture</h4>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Used for attendance clocking identification, team chat, and employee directory.
-                  </p>
-                  <span className="text-[10px] text-slate-500 mt-1 inline-block">
-                    Supported formats: PNG, JPG, JPEG, WEBP (Auto-optimized)
-                  </span>
+              </div>
+
+              {personalFields.map((field) => (
+                <div
+                  key={field.label}
+                  className={`${field.fullSpan ? 'col-span-1 sm:col-span-2' : ''} p-4 rounded-2xl bg-slate-50 border border-slate-200/80 min-w-0`}
+                >
+                  <span className="text-[10px] font-bold uppercase text-slate-400">{field.label}</span>
+                  <p className="text-sm font-bold text-slate-900 mt-1 break-words">{field.value}</p>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
-                  {uploadingPhoto ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  <span>{currentEmp.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingPhoto}
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
-                </label>
-                {currentEmp.avatarUrl && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveAvatar}
-                    disabled={uploadingPhoto}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95 cursor-pointer"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
+              ))}
             </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Date of Birth</span>
-              <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.dateOfBirth || 'Not provided'}</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Gender</span>
-              <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.gender || 'Not specified'}</p>
-            </div>
-            <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Residential Address</span>
-              <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.address || 'No residential address on file'}</p>
-            </div>
-            <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Emergency Contact</span>
-              <p className="text-sm font-bold text-slate-900 mt-1">
-                {currentEmp?.emergencyContact?.name
-                  ? `${currentEmp.emergencyContact.name} (${currentEmp.emergencyContact.relationship || 'Contact'}) — ${currentEmp.emergencyContact.phone || ''}`
-                  : 'Not provided'}
-              </p>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── 3. Employment ── */}
-        {activeTab === 'employment' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400">System Access Role</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 ${roleDef.badgeClass}`}>
-                      <Shield className="w-3.5 h-3.5" />
-                      <span>{roleDef.label}</span>
-                    </span>
-                    <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
-                  </div>
-                </div>
-                {portalMode === 'admin' && !isCurrentUser && (
-                  <button
-                    type="button"
-                    onClick={() => setRoleModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition cursor-pointer"
-                  >
-                    Change Role
-                  </button>
-                )}
-              </div>
+        {effectiveTab === 'employment' && (() => {
+          const employmentFields = [
+            { label: 'Employee ID', value: currentEmp.employeeCode },
+            { label: 'Company', value: currentEmp.companyName },
+            { label: 'Department', value: currentEmp.departmentName },
+            { label: 'Designation', value: currentEmp.designationTitle },
+            { label: 'Reporting Manager', value: currentEmp.reportingManagerName },
+            { label: 'Assigned Shift', value: currentEmp.shift },
+            { label: 'Employment Type', value: currentEmp.employmentType },
+            { label: 'Joining Date', value: currentEmp.joiningDate },
+            { label: 'Work Location', value: currentEmp.workLocationName },
+          ].filter((f) => f.value && String(f.value).trim() !== '');
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Reporting Manager</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.reportingManagerName || 'Executive Leadership'}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Assigned Shift</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.shift || 'General Shift'}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Employment Type</span>
-                <p className="text-sm font-bold text-slate-900 mt-1 capitalize">{currentEmp.employmentType || 'Full-time'}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Work Location</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.workLocationName || currentEmp.companyName || 'Main Office'}</p>
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">System Role</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 ${roleDef.badgeClass}`}>
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>{roleDef.label}</span>
+                      </span>
+                      <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
+                    </div>
+                  </div>
+                  {portalMode === 'admin' && !isCurrentUser && (
+                    <button
+                      type="button"
+                      onClick={() => setRoleModalOpen(true)}
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition cursor-pointer shrink-0"
+                    >
+                      Change Role
+                    </button>
+                  )}
+                </div>
+
+                {employmentFields.map((field) => (
+                  <div key={field.label} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">{field.label}</span>
+                    <p className="text-sm font-bold text-slate-900 mt-1 break-words">{field.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── 4. Attendance ── */}
-        {activeTab === 'attendance' && (() => {
+        {effectiveTab === 'attendance' && (() => {
           const todayRec = getTodayRecordForEmployee(currentEmp.id);
           return (
             <div className="space-y-4">
@@ -818,7 +794,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         })()}
 
         {/* ── 5. Leave ── */}
-        {activeTab === 'leave' && (
+        {effectiveTab === 'leave' && (
           <div className="space-y-4">
             {empLeaveLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-pulse">
@@ -870,11 +846,11 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           </div>
         )}
 
-        {/* ── 6. Payroll ── */}
-        {activeTab === 'payroll' && (
+        {/* ── 6. Salary ── */}
+        {effectiveTab === 'payroll' && hasSalaryData && (
           <div className="space-y-3">
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <h4 className="font-bold text-slate-900 text-sm mb-3">Salary Structure Breakdown</h4>
+            <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+              <h4 className="font-bold text-slate-900 text-sm mb-3">Salary Breakdown</h4>
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <span className="text-slate-500">Basic Salary:</span>
                 <span className="font-bold">₹{(currentEmp?.salary?.basic ?? 0).toLocaleString()}</span>
@@ -882,71 +858,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 <span className="font-bold">₹{(currentEmp?.salary?.hra ?? 0).toLocaleString()}</span>
                 <span className="text-slate-500">Special Allowances:</span>
                 <span className="font-bold">₹{(currentEmp?.salary?.allowances ?? 0).toLocaleString()}</span>
-                <span className="text-slate-500">PF Deduction (12%):</span>
+                <span className="text-slate-500">PF Deduction:</span>
                 <span className="font-bold text-rose-500">-₹{(currentEmp?.salary?.pf ?? 0).toLocaleString()}</span>
                 <span className="text-slate-500">Net Take-Home:</span>
                 <span className="font-extrabold text-emerald-600 text-sm">₹{(currentEmp?.salary?.net ?? 0).toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── 7. Documents ── */}
-        {activeTab === 'documents' && (
-          <div className="space-y-2">
-            <div className="p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-              <div>
-                <h5 className="font-bold text-slate-900">Passport &amp; Identity Document.pdf</h5>
-                <span className="text-[11px] text-slate-400">Verified by HR • 2.4 MB</span>
-              </div>
-              <button className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
-                <Download className="w-3.5 h-3.5" /> Download
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── 8. Performance ── */}
-        {activeTab === 'performance' && (
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Q3-Q4 Performance Appraisal</span>
-            <p className="text-base font-bold text-slate-900 mt-1">Score: 4.8 / 5.0 &mdash; Exceeds Expectations</p>
-            <p className="text-xs text-slate-600 mt-2">
-              &ldquo;Outstanding initiative in design and engineering collaboration with high product velocity.&rdquo;
-            </p>
-          </div>
-        )}
-
-        {/* ── 9. Training ── */}
-        {activeTab === 'training' && (
-          <div className="p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <h5 className="font-bold text-slate-900">Enterprise Cybersecurity &amp; Data Privacy Standards</h5>
-              <span className="text-[11px] text-slate-400">Progress: 100% Completed</span>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">Certificate Issued</span>
-          </div>
-        )}
-
-        {/* ── 10. Assets ── */}
-        {activeTab === 'assets' && (
-          <div className="p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <h5 className="font-bold text-slate-900">MacBook Pro 16&quot; M3 Max (36GB, 1TB)</h5>
-              <span className="text-[11px] text-slate-400">Tag: AST-MBP-001 • Condition: Excellent</span>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">Assigned</span>
-          </div>
-        )}
-
-        {/* ── 11. Activity History ── */}
-        {activeTab === 'activity' && (
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 mt-1 shrink-0" />
-              <div>
-                <p className="font-bold text-slate-800">User Profile Authenticated</p>
-                <span className="text-[11px] text-slate-400">Active Session via Workspace</span>
               </div>
             </div>
           </div>

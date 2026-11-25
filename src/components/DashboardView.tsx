@@ -57,8 +57,6 @@ import {
 } from '../lib/leaveQuotaUtils';
 import { getRoleDefinition } from '../lib/roleConfig';
 import { ChangeRoleModal } from './modals/ChangeRoleModal';
-import { TrackedHoursChart } from './attendance/TrackedHoursChart';
-import { DailyAttendanceGraph } from './attendance/DailyAttendanceGraph';
 import {
   checkEmployeePunchEligibility,
   performCheckIn,
@@ -319,38 +317,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     });
     return ids;
   }, [activeEmpId, currentEmp, user]);
-
-  // Real 7-day attendance turnout for admin panel
-  const sevenDaysData = useMemo(() => {
-    const result = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      const isToday = i === 0;
-
-      const dayLabel = isToday
-        ? 'Today'
-        : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-
-      const dayRecords = allAttendance.filter((a) => a.date === dateStr);
-      const totalEmps = Math.max(1, employees.length);
-      const percentage = employees.length > 0 ? Math.min(100, Math.round((dayRecords.length / totalEmps) * 100)) : 0;
-
-      result.push({
-        day: dayLabel,
-        date: dateStr,
-        val: percentage,
-        count: `${dayRecords.length} Present`,
-        isToday,
-      });
-    }
-    return result;
-  }, [allAttendance, employees.length]);
 
   // Merge real backend attendance prop with live session attendance records (deduplicated by date + employeeId)
   const mergedAttendance = useMemo(() => {
@@ -921,16 +887,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Main Dashboard Grid */}
           <div className="dashboard-grid">
-            <div className="md:col-span-2">
-              <DailyAttendanceGraph
-                mode="admin"
-                records={mergedAttendance}
-                totalEmployees={employees.length}
-                onViewFullLog={() => onNavigateModule('attendance')}
-              />
-                  </div>
-
-            <section className="panel h-full">
+            <section className="panel col-span-full">
               <h3>
                 <span className="flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
@@ -1344,49 +1301,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
+                              type="button"
                               id={`btn-dash-chat-${emp.id}`}
                               onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              className="btn-ghost text-xs py-1 px-2.5"
-                              title="Chat with employee"
+                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
+                              title="Chat"
                             >
-                                  <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Chat</span>
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Chat
+                              </span>
                             </button>
 
-                                {(officeRole === 'ADMIN' || officeRole === 'SUPER_ADMIN') && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                             <button
-                              id={`btn-dash-role-${emp.id}`}
-                              onClick={() => setRoleTargetEmpDash(emp)}
-                                    className="btn-secondary text-xs py-1 px-2.5"
-                              title="Change employee role"
-                            >
-                                    <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Role</span>
-                            </button>
-                                )}
-
-                            <button
+                              type="button"
                               id={`btn-dash-notice-${emp.id}`}
                               onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5"
-                              title="Send notice to employee"
+                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
+                              title="Notice"
                             >
-                                  <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Notice</span>
+                              <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Notice
+                              </span>
                             </button>
 
-                                {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                                  <button
-                                    id={`btn-dash-remove-${emp.id}`}
-                                    onClick={() => setRemovingEmpDashboard(emp)}
-                                    className="btn-danger text-xs py-1 px-2 cursor-pointer"
-                                    title="Remove employee from staff"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
+                            {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                              <button
+                                type="button"
+                                id={`btn-dash-remove-${emp.id}`}
+                                onClick={() => setRemovingEmpDashboard(emp)}
+                                className="group inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                  Remove
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
                           </tr>
                         );
                       })
