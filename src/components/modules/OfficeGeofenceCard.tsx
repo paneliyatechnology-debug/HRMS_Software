@@ -6,9 +6,9 @@ import { api } from '../../lib/api';
 import { getCurrentGPSLocation, saveOfficeGeofenceConfig } from '../../lib/geoService';
 
 type Fence = {
-  officeName: string;
-  latitude: number;
-  longitude: number;
+  officeName?: string;
+  latitude: number | string | null;
+  longitude: number | string | null;
   radiusMeters: number;
   enabled: boolean;
 };
@@ -115,17 +115,26 @@ export function OfficeGeofenceCard() {
   useEffect(() => {
     let cancelled = false;
     const placeHere = (data: Fence) => {
-      const latitude = Number(data.latitude);
-      const longitude = Number(data.longitude);
-      const suratPlaceholder = Math.abs(latitude - 21.1702) < 0.01 && Math.abs(longitude - 72.8311) < 0.01;
-      const missing = !Number.isFinite(latitude) || !Number.isFinite(longitude);
+      const rawLat = (data as any)?.latitude;
+      const rawLng = (data as any)?.longitude;
+      const hasCoords = rawLat !== null && rawLat !== undefined && rawLat !== '' && rawLng !== null && rawLng !== undefined && rawLng !== '';
+      const latitude = hasCoords ? Number(rawLat) : NaN;
+      const longitude = hasCoords ? Number(rawLng) : NaN;
+      const suratPlaceholder = Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude - 21.1702) < 0.01 && Math.abs(longitude - 72.8311) < 0.01;
+      const missing = !Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0);
       if (!suratPlaceholder && !missing) {
-        setFence(data);
-        saveOfficeGeofenceConfig({
-          officeName: data.officeName,
+        setFence({
+          ...data,
           latitude,
           longitude,
-          radiusMeters: Number(data.radiusMeters) || 500,
+          radiusMeters: Number(data.radiusMeters) || 100,
+          enabled: data.enabled !== false,
+        });
+        saveOfficeGeofenceConfig({
+          officeName: data.officeName || '',
+          latitude,
+          longitude,
+          radiusMeters: Number(data.radiusMeters) || 100,
           enabled: data.enabled !== false,
         });
         return;
@@ -156,6 +165,8 @@ export function OfficeGeofenceCard() {
           ...data,
           latitude: Number.isFinite(latitude) ? latitude : 23.0225,
           longitude: Number.isFinite(longitude) ? longitude : 72.5714,
+          radiusMeters: Number(data.radiusMeters) || 100,
+          enabled: data.enabled !== false,
         });
         setMessage(error.message || 'Allow location so the map can use where you are now.');
       });
@@ -172,21 +183,27 @@ export function OfficeGeofenceCard() {
 
   const save = async () => {
     if (!fence) return;
+    const lat = Number(fence.latitude);
+    const lng = Number(fence.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setMessage('Please enter valid latitude and longitude coordinates.');
+      return;
+    }
     setSaving(true);
     setMessage('');
     try {
       const saved = await api.saveGeofence({
-        latitude: Number(fence.latitude),
-        longitude: Number(fence.longitude),
-        radiusMeters: Number(fence.radiusMeters),
-        enabled: fence.enabled,
+        latitude: lat,
+        longitude: lng,
+        radiusMeters: Number(fence.radiusMeters) || 100,
+        enabled: fence.enabled !== false,
       });
       setFence(saved);
       saveOfficeGeofenceConfig({
         officeName: saved.officeName,
         latitude: Number(saved.latitude),
         longitude: Number(saved.longitude),
-        radiusMeters: Number(saved.radiusMeters) || 500,
+        radiusMeters: Number(saved.radiusMeters) || 100,
         enabled: saved.enabled !== false,
       });
       setMessage('Office area saved.');
@@ -248,8 +265,11 @@ export function OfficeGeofenceCard() {
           <input
             type="number"
             step="0.000001"
-            value={fence.latitude}
-            onChange={(event) => setFence({ ...fence, latitude: Number(event.target.value) })}
+            value={fence.latitude ?? ''}
+            onChange={(event) => {
+              const val = event.target.value;
+              setFence({ ...fence, latitude: val === '' ? '' : Number(val) });
+            }}
             className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
           />
         </label>
@@ -258,8 +278,11 @@ export function OfficeGeofenceCard() {
           <input
             type="number"
             step="0.000001"
-            value={fence.longitude}
-            onChange={(event) => setFence({ ...fence, longitude: Number(event.target.value) })}
+            value={fence.longitude ?? ''}
+            onChange={(event) => {
+              const val = event.target.value;
+              setFence({ ...fence, longitude: val === '' ? '' : Number(val) });
+            }}
             className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
           />
         </label>
