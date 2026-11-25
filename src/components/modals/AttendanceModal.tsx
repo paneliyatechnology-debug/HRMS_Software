@@ -1129,7 +1129,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   Today's Punches ({punchState.record.punches.length} recorded)
                 </span>
                 <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                  {punchState.record.punches.map((p, idx) => (
+                  {punchState.record.punches.map((p: any, idx: number) => (
                     <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />

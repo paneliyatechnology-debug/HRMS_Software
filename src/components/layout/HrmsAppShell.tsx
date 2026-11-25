@@ -623,8 +623,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           setLiveEmployees(dash.employees);
           setLeaves(dash.leaves);
           setLiveLeaves(dash.leaves);
-          setAttendance((current) => keepNewerPunch(dash.attendance, current));
-          setLiveAttendanceRecords((current) => keepNewerPunch(dash.attendance, current));
+          setAttendance((current) => {
+            const updated = keepNewerPunch(dash.attendance, current);
+            setLiveAttendanceRecords(updated);
+            return updated;
+          });
           setDashboardNotices(dash.notices);
           setStats(dash.stats);
         } finally {
@@ -652,8 +655,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         }
         const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
         const scopedAtt = scopeAttendance(attendanceData, activeEmps);
-        setAttendance((current) => keepNewerPunch(scopedAtt, current));
-        setLiveAttendanceRecords((current) => keepNewerPunch(scopedAtt, current));
+        setAttendance((current) => {
+          const updated = keepNewerPunch(scopedAtt, current);
+          setLiveAttendanceRecords(updated);
+          return updated;
+        });
       } else if (targetModule === 'leaves') {
         const needEmployees = employeesRef.current.length === 0;
         const [leavesData, employeesData, leaveTypesData] = await Promise.all([
@@ -769,8 +775,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       const detail = (event as CustomEvent).detail;
       const row = liveAttendanceRow(detail);
       if (row?.employeeId && row.date) {
-        setAttendance((current) => mergeLiveAttendance(current, row));
-        setLiveAttendanceRecords((current) => mergeLiveAttendance(current, row));
+        setAttendance((current) => {
+          const updated = mergeLiveAttendance(current, row);
+          setLiveAttendanceRecords(updated);
+          return updated;
+        });
       }
       const moduleName = activeModuleRef.current;
       if (moduleName === 'dashboard' || moduleName === 'attendance') {

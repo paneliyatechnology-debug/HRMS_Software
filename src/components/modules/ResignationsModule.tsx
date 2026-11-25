@@ -102,25 +102,6 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
     try {
       const data = await api.getResignations();
       const rows = Array.isArray(data) ? data : [];
-<<<<<<< HEAD
-      const formatted: ResignationItem[] = rows.map((r: any) => ({
-        id: String(r.id || r._id || Math.random()),
-        employeeId: String(r.employeeId || r.userId || ''),
-        employeeName: r.employeeName || (r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'Staff Member'),
-        employeeCode: r.employeeCode || r.user?.employeeCode || 'EMP',
-        departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
-        designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
-        reason: r.reason || 'No reason provided',
-        status: r.status === 'Completed' || r.approvedAt ? 'Completed' : r.noticeAssigned ? 'Notice Period' : (r.status || 'Submitted'),
-        noticePeriodDays: Number(r.noticePeriodDays || 0),
-        noticeAssigned: Boolean(r.noticeAssigned),
-        submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
-        lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
-        clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
-        approvedAt: r.approvedAt,
-        approvedBy: r.approvedBy,
-      }));
-=======
       const formatted: ResignationItem[] = rows.map((r: any) => {
         const rawStatus = String(r.status || r.approvalStatus || r.state || '').toUpperCase();
         const hasApprovalFlag =
@@ -145,7 +126,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
           resolvedStatus = 'Clearance';
         } else if (
           rawStatus.includes('NOTICE') ||
-          rawStatus.includes('ON_NOTICE')
+          rawStatus.includes('ON_NOTICE') ||
+          Boolean(r.noticeAssigned)
         ) {
           resolvedStatus = 'Notice Period';
         } else if (rawStatus.includes('REJECT')) {
@@ -163,7 +145,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
           designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
           reason: r.reason || 'No reason provided',
           status: resolvedStatus,
-          noticePeriodDays: Number(r.noticePeriodDays || 30),
+          noticePeriodDays: Number(r.noticePeriodDays || 0),
+          noticeAssigned: Boolean(r.noticeAssigned),
           submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
           lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
           clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
@@ -171,7 +154,6 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
           approvedBy: r.approvedBy || (hasApprovalFlag ? (r.approverName || 'HR Admin') : undefined),
         };
       });
->>>>>>> 4a807cbf32ced2b51abcf458acf4ccddcb4539b9
       setResignations(formatted);
     } catch (err: any) {
       setError(err?.message || 'Could not load resignations from server.');
