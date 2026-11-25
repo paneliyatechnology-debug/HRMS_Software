@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { Department, Designation, Location, Role, Employee, DesignationMember } from '../../types/hrms';
 import { api } from '../../lib/api';
+import { resolveCompanyBrandAvatar } from '../../lib/companyService';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { ASSIGNABLE_ROLE_DEFINITIONS, getRoleDefinition } from '../../lib/roleConfig';
@@ -754,6 +755,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             const rawCompName = currentCompany?.companyName || currentCompany?.name || user?.companyName || user?.companyCode;
             const compName = getSafeString(rawCompName, 'Company Workspace');
             const compInitial = (compName[0] || 'C').toUpperCase();
+            const compLogo = resolveCompanyBrandAvatar(currentCompany, user, employees);
             const compIndustry = getSafeString(currentCompany?.industry || currentCompany?.industrySector, 'Corporate Workspace');
             const compDesc = getSafeString(currentCompany?.description, 'Corporate workspace structure and workforce management identity.');
             const compEmail = getSafeString(currentCompany?.email || currentCompany?.contactEmail || (isUserAdminRole(user?.role) ? user?.email : ''), 'Not provided');
@@ -788,10 +790,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       <div className="flex items-center gap-5 min-w-0">
                         <div className="relative shrink-0">
                           <div
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center font-black text-white text-4xl shadow-2xl border border-white/20"
-                            style={{ background: 'linear-gradient(135deg, #52b788, #40916c, #2d6a4f)' }}
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center font-black text-white text-4xl shadow-2xl border border-white/20 overflow-hidden bg-white"
+                            style={compLogo ? undefined : { background: 'linear-gradient(135deg, #52b788, #40916c, #2d6a4f)' }}
                           >
-                            {compInitial}
+                            {compLogo ? (
+                              <img src={compLogo} alt={compName} className="w-full h-full object-cover" />
+                            ) : (
+                              compInitial
+                            )}
                           </div>
                           <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center">
                             <span className="w-2 h-2 rounded-full bg-white"></span>

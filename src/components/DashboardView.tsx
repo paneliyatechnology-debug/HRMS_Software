@@ -57,8 +57,6 @@ import {
 } from '../lib/leaveQuotaUtils';
 import { getRoleDefinition } from '../lib/roleConfig';
 import { ChangeRoleModal } from './modals/ChangeRoleModal';
-import { TrackedHoursChart } from './attendance/TrackedHoursChart';
-import { DailyAttendanceGraph } from './attendance/DailyAttendanceGraph';
 import {
   checkEmployeePunchEligibility,
   performCheckIn,
@@ -319,38 +317,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     });
     return ids;
   }, [activeEmpId, currentEmp, user]);
-
-  // Real 7-day attendance turnout for admin panel
-  const sevenDaysData = useMemo(() => {
-    const result = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      const isToday = i === 0;
-
-      const dayLabel = isToday
-        ? 'Today'
-        : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-
-      const dayRecords = allAttendance.filter((a) => a.date === dateStr);
-      const totalEmps = Math.max(1, employees.length);
-      const percentage = employees.length > 0 ? Math.min(100, Math.round((dayRecords.length / totalEmps) * 100)) : 0;
-
-      result.push({
-        day: dayLabel,
-        date: dateStr,
-        val: percentage,
-        count: `${dayRecords.length} Present`,
-        isToday,
-      });
-    }
-    return result;
-  }, [allAttendance, employees.length]);
 
   // Merge real backend attendance prop with live session attendance records (deduplicated by date + employeeId)
   const mergedAttendance = useMemo(() => {
@@ -916,16 +882,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Main Dashboard Grid */}
           <div className="dashboard-grid">
-            <div className="md:col-span-2">
-              <DailyAttendanceGraph
-                mode="admin"
-                records={mergedAttendance}
-                totalEmployees={employees.length}
-                onViewFullLog={() => onNavigateModule('attendance')}
-              />
-                  </div>
-
-            <section className="panel h-full">
+            <section className="panel col-span-full">
               <h3>
                 <span className="flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
