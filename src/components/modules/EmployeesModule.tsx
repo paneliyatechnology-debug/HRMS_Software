@@ -637,30 +637,37 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenChatWithEmployee(emp.id)}
-                          className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1"
+                          className="group inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
                           title="Chat"
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Chat</span>
+                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                            Chat
+                          </span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => handleOpenNoticeModal(emp)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1"
+                        className="group inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-amber-50 hover:border-amber-200 text-slate-600 hover:text-amber-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
                         title="Send Notice"
                       >
-                        <Bell className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Notice</span>
+                        <Bell className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                          Notice
+                        </span>
                       </button>
                       {canDeleteUser(user) && !isCurrentUser && (
                         <button
                           type="button"
                           onClick={() => handleOpenRemoveModal(emp)}
-                          className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold cursor-pointer"
+                          className="group inline-flex items-center justify-center p-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold transition-all duration-200 cursor-pointer"
                           title="Remove Employee"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                          <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                            Remove
+                          </span>
                         </button>
                       )}
                     </div>
@@ -904,46 +911,58 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
+                            type="button"
                             id={`btn-chat-${emp.id}`}
                             onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            className="group inline-flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
                             title="Chat with employee"
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Chat</span>
+                            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                            <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              Chat
+                            </span>
                           </button>
 
                           {!isCurrentUser && canChangeRole && (
                             <button
+                              type="button"
                               id={`btn-role-${emp.id}`}
                               onClick={() => handleOpenRoleModal(emp)}
-                              className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                              className="group inline-flex items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
                               title="Change system role (Admin/HR/Manager/Team Leader/Employee)"
                             >
-                              <Shield className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Role</span>
+                              <Shield className="w-3.5 h-3.5 shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Role
+                              </span>
                             </button>
                           )}
 
                           <button
+                            type="button"
                             id={`btn-notice-${emp.id}`}
                             onClick={() => handleOpenNoticeModal(emp)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                            className="group inline-flex items-center justify-center p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
                             title="Send notice to employee"
                           >
-                            <Bell className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Notice</span>
+                            <Bell className="w-3.5 h-3.5 shrink-0" />
+                            <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              Notice
+                            </span>
                           </button>
 
                           {canDeleteUser(user) && !isCurrentUser && (
                             <button
+                              type="button"
                               id={`btn-remove-${emp.id}`}
                               onClick={() => handleOpenRemoveModal(emp)}
-                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                              className="group inline-flex items-center justify-center p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition-all duration-200 cursor-pointer"
                               title="Remove employee from staff"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Remove</span>
+                              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Remove
+                              </span>
                             </button>
                           )}
                         </div>

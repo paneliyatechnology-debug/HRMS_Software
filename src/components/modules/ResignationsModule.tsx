@@ -73,6 +73,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ResignationItem | null>(null);
+  const [approveConfirmRecord, setApproveConfirmRecord] = useState<ResignationItem | null>(null);
 
   // Form states
   const [fileReason, setFileReason] = useState('');
@@ -239,29 +240,39 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
     }
   };
 
-  // Approve Resignation
-  const handleApproveResignation = async (record: ResignationItem) => {
-    if (!window.confirm(`Approve separation and relieving for ${record.employeeName}?`)) return;
+  // Open Approve Confirmation Popup
+  const handleApproveResignation = (record: ResignationItem) => {
+    setActionError(null);
+    setApproveConfirmRecord(record);
+  };
+
+  // Confirm & Execute Resignation Approval
+  const confirmApproveResignation = async () => {
+    const record = approveConfirmRecord;
+    if (!record) return;
 
     const actor = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'HR Admin';
-
-    // Optimistically update local state immediately so UI updates with zero delay
-    setResignations((prev) =>
-      prev.map((item) =>
-        item.id === record.id
-          ? {
-              ...item,
-              status: 'Approved',
-              approvedAt: item.approvedAt || new Date().toISOString(),
-              approvedBy: item.approvedBy || actor,
-            }
-          : item
-      )
-    );
+    setIsSubmitting(true);
+    setActionError(null);
 
     try {
       const res = await api.approveResignation(record.id, actor);
       const isAlready = res?.alreadyApproved;
+
+      setResignations((prev) =>
+        prev.map((item) =>
+          item.id === record.id
+            ? {
+                ...item,
+                status: 'Approved',
+                approvedAt: item.approvedAt || new Date().toISOString(),
+                approvedBy: item.approvedBy || actor,
+              }
+            : item
+        )
+      );
+
+      setApproveConfirmRecord(null);
       setSuccessToast(
         isAlready
           ? `${record.employeeName}'s resignation is already approved.`
@@ -272,13 +283,16 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
     } catch (err: any) {
       const errMsg = err?.message || '';
       if (errMsg.toLowerCase().includes('already approved') || errMsg.toLowerCase().includes('already')) {
+        setApproveConfirmRecord(null);
         setSuccessToast(`${record.employeeName}'s resignation is already approved.`);
         setTimeout(() => setSuccessToast(null), 3500);
         await loadResignations();
         return;
       }
-      alert(errMsg || 'Could not approve resignation.');
+      setActionError(errMsg || 'Could not approve resignation.');
       await loadResignations();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1027,6 +1041,92 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 </button>
                 </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Resignation Confirmation Popup */}
+      {approveConfirmRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
+          onClick={() => !isSubmitting && setApproveConfirmRecord(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Approve Resignation</h3>
+                  <p className="text-[11px] text-slate-400">Confirm employee separation &amp; relieving</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setApproveConfirmRecord(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to approve separation and relieving for{' '}
+                <strong className="text-slate-900">{approveConfirmRecord.employeeName}</strong>?
+              </p>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Employee</span>
+                  <span className="font-semibold text-slate-800">{approveConfirmRecord.employeeName}</span>
+                </div>
+                {approveConfirmRecord.employeeCode && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Employee ID</span>
+                    <span className="font-mono text-slate-700">{approveConfirmRecord.employeeCode}</span>
+                  </div>
+                )}
+                {approveConfirmRecord.lastWorkingDay && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Last Working Date</span>
+                    <span className="font-medium text-slate-800">{approveConfirmRecord.lastWorkingDay}</span>
+                  </div>
+                )}
+              </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setApproveConfirmRecord(null)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmApproveResignation}
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isSubmitting ? 'Approving...' : 'Confirm & Approve'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

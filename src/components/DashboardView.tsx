@@ -1301,49 +1301,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
+                              type="button"
                               id={`btn-dash-chat-${emp.id}`}
                               onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              className="btn-ghost text-xs py-1 px-2.5"
-                              title="Chat with employee"
+                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
+                              title="Chat"
                             >
-                                  <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Chat</span>
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Chat
+                              </span>
                             </button>
 
-                                {(officeRole === 'ADMIN' || officeRole === 'SUPER_ADMIN') && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
                             <button
-                              id={`btn-dash-role-${emp.id}`}
-                              onClick={() => setRoleTargetEmpDash(emp)}
-                                    className="btn-secondary text-xs py-1 px-2.5"
-                              title="Change employee role"
-                            >
-                                    <Shield className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Role</span>
-                            </button>
-                                )}
-
-                            <button
+                              type="button"
                               id={`btn-dash-notice-${emp.id}`}
                               onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              className="btn-secondary text-xs py-1 px-2.5"
-                              title="Send notice to employee"
+                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
+                              title="Notice"
                             >
-                                  <Bell className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                              <span className="hidden sm:inline">Notice</span>
+                              <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                Notice
+                              </span>
                             </button>
 
-                                {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                                  <button
-                                    id={`btn-dash-remove-${emp.id}`}
-                                    onClick={() => setRemovingEmpDashboard(emp)}
-                                    className="btn-danger text-xs py-1 px-2 cursor-pointer"
-                                    title="Remove employee from staff"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
+                            {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                              <button
+                                type="button"
+                                id={`btn-dash-remove-${emp.id}`}
+                                onClick={() => setRemovingEmpDashboard(emp)}
+                                className="group inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                  Remove
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
                           </tr>
                         );
                       })
