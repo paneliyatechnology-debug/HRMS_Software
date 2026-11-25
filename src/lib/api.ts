@@ -73,9 +73,9 @@ http.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token =
       getCookie('hrms_auth_token') ||
-      getCookie('bearerToken') ||
-      getCookie('accessToken') ||
-      getCookie('token') ||
+            getCookie('bearerToken') ||
+            getCookie('accessToken') ||
+            getCookie('token') ||
       (typeof localStorage !== 'undefined' ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken') || localStorage.getItem('accessToken') : null);
     if (token && !config.headers.Authorization) {
       config.headers.set('Authorization', `Bearer ${token}`);
@@ -437,7 +437,7 @@ function backendDocToEmployeeDocument(d: any) {
     ? new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : d.uploadDate || new Date().toISOString().split('T')[0];
 
-  return {
+    return {
     id: d.id || `doc-${Date.now()}`,
     companyId: d.companyId || '',
     companyName: d.companyName || '',
@@ -684,7 +684,7 @@ function backendHolidayToFrontend(h: any) {
   const d = h.date ? new Date(h.date) : new Date();
   const dayOfWeek = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = isNaN(d.getTime()) ? (h.date || '') : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  return {
+      return {
     id: h.id || `hol-${Date.now()}`,
     name: h.name || 'Holiday',
     date: h.date || '',

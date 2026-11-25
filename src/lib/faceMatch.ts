@@ -30,10 +30,13 @@ export async function detectLiveFace(video: HTMLVideoElement): Promise<{ aligned
   if (!width || !height) return { aligned: false };
 
   let box: FaceBox | null = null;
-  const Detector = (window as unknown as { FaceDetector?: new (options?: object) => typeof browserDetector }).FaceDetector;
+  type BrowserDetector = { detect: (input: HTMLVideoElement) => Promise<Array<{ boundingBox: FaceBox }>> };
+  const Detector = (window as unknown as { FaceDetector?: new (options?: object) => BrowserDetector }).FaceDetector;
   if (Detector) {
-    browserDetector = browserDetector || new Detector({ fastMode: true, maxDetectedFaces: 1 });
-    const faces = await browserDetector.detect(video);
+    if (!browserDetector) {
+      browserDetector = new Detector({ fastMode: true, maxDetectedFaces: 1 });
+    }
+    const faces = await (browserDetector as BrowserDetector).detect(video);
     box = faces[0]?.boundingBox || null;
   } else {
     const faceapi = await tinyFaceApi();
