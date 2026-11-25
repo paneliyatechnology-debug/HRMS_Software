@@ -1539,7 +1539,7 @@ async function getResignations() {
   }
 }
 
-async function submitResignation(payload: { employeeId?: string; reason: string; noticePeriodDays?: number }) {
+async function submitResignation(payload: { employeeId?: string; reason: string }) {
   try {
     const res = await http.post('/resignations', payload, { headers: { 'Content-Type': 'application/json' } });
     return res.data?.resignation || res.data;

@@ -40,6 +40,7 @@ interface ResignationItem {
   reason: string;
   status: 'Pending' | 'Notice Period' | 'Clearance' | 'Approved' | 'Relieved' | string;
   noticePeriodDays?: number;
+  noticeAssigned?: boolean;
   submittedAt?: string;
   lastWorkingDay?: string;
   clearance?: {
@@ -76,7 +77,6 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
 
   // Form states
   const [fileReason, setFileReason] = useState('');
-  const [fileNoticeDays, setFileNoticeDays] = useState(30);
   const [assignNoticeDays, setAssignNoticeDays] = useState(30);
   const [clearanceState, setClearanceState] = useState<{
     itAssets: boolean;
@@ -109,8 +109,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
         departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
         designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
         reason: r.reason || 'No reason provided',
-        status: r.status || (r.approvedAt ? 'Approved' : r.noticePeriodDays ? 'Notice Period' : 'Pending'),
-        noticePeriodDays: Number(r.noticePeriodDays || 30),
+        status: r.status === 'Completed' || r.approvedAt ? 'Completed' : r.noticeAssigned ? 'Notice Period' : (r.status || 'Submitted'),
+        noticePeriodDays: Number(r.noticePeriodDays || 0),
+        noticeAssigned: Boolean(r.noticeAssigned),
         submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
         lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
         clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
@@ -143,14 +144,12 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
       await api.submitResignation({
         employeeId: user?.id,
         reason: fileReason.trim(),
-        noticePeriodDays: fileNoticeDays,
       });
 
       setSuccessToast('Your resignation has been formally submitted to Human Resources.');
       setTimeout(() => setSuccessToast(null), 4000);
       setIsFileModalOpen(false);
       setFileReason('');
-      setFileNoticeDays(30);
       await loadResignations();
     } catch (err: any) {
       setActionError(err?.message || 'Could not file resignation.');
@@ -497,7 +496,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
 
                         <td className="py-3 px-4 font-mono text-slate-700">
                           <div className="space-y-0.5">
-                            <span className="font-semibold">{rec.noticePeriodDays} Days</span>
+                            <span className="font-semibold">{rec.noticeAssigned ? `${rec.noticePeriodDays} Days` : 'Not assigned'}</span>
                             {rec.submittedAt && (
                               <p className="text-[10px] text-slate-400">Filed {formatDate(rec.submittedAt)}</p>
                             )}
@@ -578,7 +577,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Notice Period</span>
-                  <p className="text-sm font-bold text-slate-800">{myResignation.noticePeriodDays} Days</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {myResignation.noticeAssigned ? `${myResignation.noticePeriodDays} Days` : 'HR or Admin will assign it'}
+                  </p>
                   <p className="text-[11px] text-slate-500">Submitted on {formatDate(myResignation.submittedAt)}</p>
                     </div>
 
@@ -717,19 +718,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Notice Period (Days) *</label>
-                <select
-                  value={fileNoticeDays}
-                  onChange={(e) => setFileNoticeDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 cursor-pointer"
-                >
-                  <option value={15}>15 Days (Urgent Relieving)</option>
-                  <option value={30}>30 Days (Standard 1 Month)</option>
-                  <option value={60}>60 Days (2 Months)</option>
-                  <option value={90}>90 Days (Executive 3 Months)</option>
-                </select>
-              </div>
+              <p className="text-xs text-slate-600 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                Notice period is not chosen here. HR or Admin will assign it after this request is filed.
+              </p>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Reason for Resignation *</label>

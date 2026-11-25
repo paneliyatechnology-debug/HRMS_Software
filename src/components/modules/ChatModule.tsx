@@ -26,6 +26,7 @@ import {
   Loader2,
   AlertCircle,
   Eye,
+  MoreVertical,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -91,7 +92,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'groups' | 'broadcast'>('all');
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupAdding, setGroupAdding] = useState(false);
   const [groupMemberRows, setGroupMemberRows] = useState<Array<{ userId: string; name: string; role: string }>>([]);
@@ -108,6 +109,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+  const [headerMenu, setHeaderMenu] = useState<'list' | 'thread' | null>(null);
+  const [messageMenuId, setMessageMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const closeMenus = () => {
+      setHeaderMenu(null);
+      setMessageMenuId(null);
+    };
+    window.addEventListener('click', closeMenus);
+    return () => window.removeEventListener('click', closeMenus);
+  }, []);
 
   // Voice recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -230,7 +242,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     participantIds: [`group-${group.id}`],
     participantNames: { [`group-${group.id}`]: group.name },
     participantDesignations: { [`group-${group.id}`]: `Group · ${group.memberCount || 0} members` },
-    lastMessage: group.lastMessage || '',
+    lastMessage: group.lastMessage?.startsWith('system:') ? group.lastMessage.slice(7) : (group.lastMessage || ''),
     lastMessageTimestamp: group.lastMessageAt || undefined,
     unreadCount: {},
     updatedAt: group.lastMessageAt || new Date().toISOString(),
@@ -369,9 +381,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             });
             const last = next[next.length - 1];
             if (last) {
+              const preview = last.content.startsWith('system:') ? last.content.slice(7) : last.content;
               setConversations((prev) => prev.map((conv) => (
                 conv.id === activeConversationId
-                  ? { ...conv, lastMessage: last.content, lastMessageTimestamp: last.timestamp, lastSenderId: last.senderId }
+                  ? { ...conv, lastMessage: preview, lastMessageTimestamp: last.timestamp, lastSenderId: last.senderId }
                   : conv
               )));
             }
@@ -422,9 +435,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       const row = (event as CustomEvent).detail as { id: string; groupId: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null };
       if (!row?.groupId || !row.id) return;
       const conversationId = `group-${row.groupId}`;
+      const preview = row.text.startsWith('system:') ? row.text.slice(7) : row.text;
       setConversations((prev) => prev.map((conv) => (
         conv.id === conversationId
-          ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+          ? { ...conv, lastMessage: preview, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
           : conv
       )));
       if (conversationId !== activeConversationId) return;
@@ -951,7 +965,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       if (!mine) return false;
     }
 
-    if (filterTab === 'direct' && conv.type !== 'direct') return false;
+    if (filterTab === 'direct' && (conv.type !== 'direct' || conv.id.startsWith('group-'))) return false;
+    if (filterTab === 'groups' && !conv.id.startsWith('group-')) return false;
     if (filterTab === 'broadcast' && conv.type !== 'broadcast') return false;
 
     if (!searchQuery.trim()) return true;
@@ -1013,29 +1028,56 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
               </p>
             </div>
-            {canMakeGroup && (
+            {(canMakeGroup || !teamMode) && (
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => {
-                  setGroupName('');
-                  setGroupMemberIds([]);
-                  setGroupAdding(false);
-                  setGroupOpen(true);
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setHeaderMenu((open) => (open === 'list' ? null : 'list'));
                 }}
-                className="px-3 py-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-semibold cursor-pointer"
+                className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
+                title="Chat menu"
               >
-                New group
+                <MoreVertical className="w-5 h-5" />
               </button>
+              {headerMenu === 'list' && (
+                <div
+                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {canMakeGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenu(null);
+                        setGroupName('');
+                        setGroupMemberIds([]);
+                        setGroupAdding(false);
+                        setGroupOpen(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                    >
+                      New group
+                    </button>
+                  )}
+                  {!teamMode && (
+                    <button
+                      type="button"
+                      id="btn-clear-all-chats"
+                      onClick={() => {
+                        setHeaderMenu(null);
+                        handleClearAllChats();
+                      }}
+                      className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                    >
+                      Clear all chats
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             )}
-            <button
-              type="button"
-              id="btn-clear-all-chats"
-              onClick={handleClearAllChats}
-              className={`p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer ${teamMode ? 'hidden' : ''}`}
-              title="Clear all chat history"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Search bar */}
@@ -1064,6 +1106,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {([
               ['all', 'All'],
               ['direct', 'Direct'],
+              ['groups', 'Groups'],
               ['broadcast', 'General'],
             ] as const).map(([id, label]) => (
               <button
@@ -1168,7 +1211,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
       {/* RIGHT COLUMN: Active Chat Thread */}
       <div
-        className={`flex-1 flex flex-col min-h-0 overflow-hidden ${mobileShowThread ? 'flex' : 'hidden md:flex'
+        className={`relative flex-1 flex flex-col min-h-0 overflow-hidden ${mobileShowThread ? 'flex' : 'hidden md:flex'
           }`}
       >
         {activeConversation && activeOtherInfo ? (
@@ -1204,39 +1247,130 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               </div>
 
-              {activeConversation.id.startsWith('group-') && (
+              {(activeConversation.id.startsWith('group-') || !teamMode) && (
+              <div className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={async () => {
-                    const opening = !groupPanel;
-                    setGroupPanel(opening);
-                    if (!opening) return;
-                    try {
-                      const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
-                      setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
-                    } catch (err: any) {
-                      showToast({ title: 'Group', message: err?.message || 'Could not load members.', type: 'error', module: 'chat' });
-                    }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setHeaderMenu((open) => (open === 'thread' ? null : 'thread'));
                   }}
-                  className="px-3 py-1.5 rounded-full border border-[#95d5b2] text-[#1b4332] text-[11px] font-semibold cursor-pointer"
+                  className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
+                  title="More"
                 >
-                  Group
+                  <MoreVertical className="w-5 h-5" />
                 </button>
+                {headerMenu === 'thread' && (
+                  <div
+                    className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {activeConversation.id.startsWith('group-') ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setHeaderMenu(null);
+                            setGroupPanel(true);
+                            try {
+                              const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
+                              setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not load members.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                        >
+                          Group info
+                        </button>
+                        {canMakeGroup && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHeaderMenu(null);
+                              setGroupMemberIds([]);
+                              setGroupAdding(true);
+                              setGroupOpen(true);
+                            }}
+                            className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                          >
+                            Add member
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setHeaderMenu(null);
+                            try {
+                              await api.leaveChatGroup(groupIdOf(activeConversation.id));
+                              setGroupPanel(false);
+                              setActiveConversationId('');
+                              const groupRes = await api.listChatGroups();
+                              const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                              setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                              showToast({ title: 'Group', message: 'You left the group.', type: 'success', module: 'chat' });
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not leave the group.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                        >
+                          Leave group
+                        </button>
+                        {(String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id) && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setHeaderMenu(null);
+                              try {
+                                await api.deleteChatGroup(groupIdOf(activeConversation.id));
+                                setGroupPanel(false);
+                                setActiveConversationId('');
+                                const groupRes = await api.listChatGroups();
+                                const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                                setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                                showToast({ title: 'Group', message: 'Group deleted.', type: 'success', module: 'chat' });
+                              } catch (err: any) {
+                                showToast({ title: 'Group', message: err?.message || 'Could not delete the group.', type: 'error', module: 'chat' });
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                          >
+                            Delete group
+                          </button>
+                        )}
+                      </>
+                    ) : !teamMode ? (
+                      <button
+                        type="button"
+                        id="btn-clear-conversation-chat"
+                        onClick={() => {
+                          setHeaderMenu(null);
+                          handleClearActiveConversation();
+                        }}
+                        className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                      >
+                        Clear chat
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+              </div>
               )}
-
-              <button
-                type="button"
-                id="btn-clear-conversation-chat"
-                onClick={handleClearActiveConversation}
-                className={`p-2 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer ${teamMode ? 'hidden' : ''}`}
-                title="Clear this chat"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
             </div>
 
             {groupPanel && activeConversation.id.startsWith('group-') && (
-              <div className="bg-white border-b border-[#dee2e6] px-4 py-3 space-y-2 max-h-72 overflow-y-auto">
+              <div className="absolute inset-0 z-20 flex flex-col bg-white">
+                <div className="h-[62px] px-3 border-b border-[#dee2e6] flex items-center gap-2 shrink-0">
+                  <button type="button" onClick={() => setGroupPanel(false)} className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer" title="Back to chat">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div className="min-w-0">
+                    <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
+                    <p className="text-[11px] text-[#6c757d]">{groupMemberRows.length} members</p>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
                 {groupMemberRows.map((member) => {
                   const groupBoss = String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id;
                   return (
@@ -1269,7 +1403,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     </div>
                   );
                 })}
-                <div className="flex flex-wrap gap-2 pt-2">
+                </div>
+                <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-[#dee2e6]">
                   {canMakeGroup && (
                     <button
                       type="button"
@@ -1351,6 +1486,16 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               ) : (
                 messages.map((msg) => {
+                  const systemText = msg.content.startsWith('system:') ? msg.content.slice(7) : '';
+                  if (systemText) {
+                    return (
+                      <div key={msg.id} className="flex justify-center py-1">
+                        <span className="px-3 py-1 rounded-lg bg-[#f8f9fa] border border-[#dee2e6] text-[12px] text-[#495057] shadow-xs">
+                          {systemText}
+                        </span>
+                      </div>
+                    );
+                  }
                   const isMe =
                     msg.senderId === currentUserId ||
                     msg.senderId === user?.id ||
@@ -1372,28 +1517,47 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       <div className="relative group/bubble max-w-[85%] sm:max-w-md md:max-w-lg">
                         {/* Hover action menu for Edit & Delete */}
                         {canManage && !isEditingThis && (
-                          <div
-                            className={`absolute -top-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200 shadow-md opacity-0 group-hover/bubble:opacity-100 transition-opacity ${isMe ? 'right-2' : 'left-2'
-                              }`}
-                          >
+                          <div className={`absolute top-1 z-10 ${isMe ? 'left-1' : 'right-1'}`}>
                             <button
-                              id={`btn-edit-msg-${msg.id}`}
                               type="button"
-                              onClick={() => handleStartEdit(msg)}
-                              className="p-1 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                              title="Edit message"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setMessageMenuId((open) => (open === msg.id ? null : msg.id));
+                              }}
+                              className={`p-1 rounded-full cursor-pointer ${isMe ? 'text-white/80 hover:bg-white/15' : 'text-[#6c757d] hover:bg-[#f8f9fa]'}`}
+                              title="Message menu"
                             >
-                              <Pencil className="w-3 h-3" />
+                              <MoreVertical className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              id={`btn-delete-msg-${msg.id}`}
-                              type="button"
-                              onClick={() => setDeletingMessageId(msg.id)}
-                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Delete message"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                            {messageMenuId === msg.id && (
+                              <div
+                                className={`absolute top-6 z-30 w-36 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg ${isMe ? 'right-0' : 'left-0'}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  id={`btn-edit-msg-${msg.id}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setMessageMenuId(null);
+                                    handleStartEdit(msg);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  id={`btn-delete-msg-${msg.id}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setMessageMenuId(null);
+                                    setDeletingMessageId(msg.id);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1404,7 +1568,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                             : 'bg-white text-[#212529] border border-[#dee2e6] rounded-lg rounded-tl-none'
                             }`}
                         >
-                          {!isMe && (
+                          {!isMe && activeConversation.id.startsWith('group-') && (
                             <p className="text-[12px] font-semibold text-[#1b4332] leading-tight mb-0.5">
                               {msg.senderName}
                             </p>

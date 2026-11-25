@@ -240,6 +240,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [teams, setTeams] = useState<any[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
+  const [openDeptTeamId, setOpenDeptTeamId] = useState<string | null>(null);
 
   // Team Modals state
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
@@ -1177,6 +1178,67 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         )}
                       </div>
 
+                      <div className="mt-3 space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Teams ({teams.filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase())).length})</p>
+                        {teams.filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase())).length === 0 ? (
+                          <p className="text-[10px] text-slate-400 italic">No teams in this department.</p>
+                        ) : (
+                          teams
+                            .filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase()))
+                            .map((team: any) => {
+                              const teamMembers = Array.isArray(team.members) ? team.members : [];
+                              const matchedLeader = employees.find((e) => e.id === team.leaderId || (e as any).userId === team.leaderId);
+                              const leaderName =
+                                team.leaderName ||
+                                (matchedLeader ? `${matchedLeader.firstName || ''} ${matchedLeader.lastName || ''}`.trim() : '') ||
+                                'No leader assigned';
+                              const open = openDeptTeamId === team.id;
+                              return (
+                                <div key={team.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenDeptTeamId(open ? null : team.id)}
+                                    className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer hover:bg-white"
+                                  >
+                                    <span className="text-xs font-bold text-slate-800 truncate">{team.name}</span>
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 shrink-0">
+                                      {teamMembers.length} members
+                                      <ChevronDown className={`w-3.5 h-3.5 transition ${open ? 'rotate-180' : ''}`} />
+                                    </span>
+                                  </button>
+                                  {open && (
+                                    <div className="px-3 pb-3 border-t border-slate-200 bg-white space-y-2">
+                                      <div className="pt-2 flex items-center gap-1.5">
+                                        <Crown className="w-3.5 h-3.5 text-amber-500" />
+                                        <div>
+                                          <span className="block text-[9px] font-bold uppercase text-slate-400">Leader</span>
+                                          <span className="text-[11px] font-bold text-slate-800">{leaderName}</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <span className="text-[9px] font-bold uppercase text-slate-400">Members</span>
+                                        {teamMembers.length === 0 ? (
+                                          <p className="text-[10px] text-slate-400 italic">No members yet.</p>
+                                        ) : (
+                                          teamMembers.map((member: any) => {
+                                            const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Member';
+                                            return (
+                                              <div key={member.id || memberName} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
+                                                <span className="text-[11px] font-semibold text-slate-800">{memberName}</span>
+                                                <span className="text-[10px] text-slate-400">{member.id === team.leaderId ? 'Leader' : member.role || 'Member'}</span>
+                                              </div>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                        )}
+                      </div>
+
                       {/* Action Button: Add Employee to this Department */}
                       {portalMode === 'admin' && (
                         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5">
@@ -1283,10 +1345,12 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               {teams.map((team: any, idx: number) => {
                 const c = DEPT_COLORS[idx % DEPT_COLORS.length];
                 const teamMembers = Array.isArray(team.members) ? team.members : [];
+                const matchedLeader = employees.find((e) => e.id === team.leaderId || (e as any).userId === team.leaderId);
                 const leaderName =
+                  team.leaderName ||
                   team.leader?.fullName ||
-                  (team.leader?.firstName ? `${team.leader.firstName} ${team.leader.lastName || ''}`.trim() : null) ||
-                  employees.find((e) => e.id === team.leaderId)?.fullName ||
+                  (team.leader?.firstName ? `${team.leader.firstName} ${team.leader.lastName || ''}`.trim() : '') ||
+                  (matchedLeader ? `${matchedLeader.firstName || ''} ${matchedLeader.lastName || ''}`.trim() : '') ||
                   'No leader assigned';
 
                 return (
@@ -1294,7 +1358,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center justify-between mb-3">
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
-                          {team.department?.name || departments.find((d) => d.id === team.departmentId)?.name || 'General Team'}
+                          {team.departmentName || team.department?.name || departments.find((d) => d.id === team.departmentId)?.name || 'General Team'}
                         </span>
                         <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
                           <Users className="w-3.5 h-3.5" /> {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
@@ -2399,14 +2463,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</span>
                     <p className="font-semibold text-slate-700 mt-0.5">
-                      {viewingTeam?.department?.name || 'General Operations'}
+                      {viewingTeam?.departmentName || viewingTeam?.department?.name || 'General Operations'}
                     </p>
                   </div>
 
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Leader</span>
                     <p className="font-semibold text-slate-700 mt-0.5">
-                      {viewingTeam?.leader?.fullName || 'Unassigned'}
+                      {viewingTeam?.leaderName || viewingTeam?.leader?.fullName || 'Unassigned'}
                     </p>
                   </div>
 
@@ -2417,7 +2481,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto">
                       {(viewingTeam?.members || []).map((m: any) => (
                         <div key={m.id || m.userId} className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                          <span className="font-medium text-slate-800">{m.fullName || m.user?.fullName || 'Member'}</span>
+                          <span className="font-medium text-slate-800">{m.fullName || m.user?.fullName || `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'Member'}</span>
                           <span className="text-[10px] text-slate-400">{m.role || 'Member'}</span>
                         </div>
                       ))}
