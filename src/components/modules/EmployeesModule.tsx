@@ -23,7 +23,6 @@ import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { canDeleteUser } from '../../lib/rolePermissions';
-import { ChangeRoleModal } from '../modals/ChangeRoleModal';
 
 interface EmployeesModuleProps {
   employees: Employee[];
@@ -47,7 +46,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   loading = false,
 }) => {
   const { user } = useAuth();
-  const canChangeRole = ['ADMIN', 'SUPER_ADMIN'].includes(String(user?.role || '').toUpperCase());
   const { showToast } = useSocket();
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -135,32 +133,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [noticeContent, setNoticeContent] = useState('');
   const [noticePriority, setNoticePriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
   const [noticeLoading, setNoticeLoading] = useState(false);
-
-  // State for changing employee role
-  const [roleTargetEmp, setRoleTargetEmp] = useState<Employee | null>(null);
-
-  const handleOpenRoleModal = (emp: Employee) => {
-    if (!canChangeRole) return;
-    const isSelf =
-      Boolean(user.email && emp.email && user.email.toLowerCase() === emp.email.toLowerCase()) ||
-      Boolean(user.employeeId && (emp.id === user.employeeId || (emp as any).employeeId === user.employeeId)) ||
-      Boolean(user.id && (emp.id === user.id || (emp as any).userId === user.id));
-    if (isSelf) {
-      showToast({
-        type: 'warning',
-        title: 'Action Not Permitted',
-        message: 'Administrators cannot change their own system role.',
-      });
-      return;
-    }
-    setRoleTargetEmp(emp);
-  };
-
-  const handleRoleUpdated = (updated: Employee) => {
-    setRoleTargetEmp(null);
-    loadLiveEmployees();
-    if (onRefresh) onRefresh();
-  };
 
   const sourceEmployees = localEmployees.length > 0 ? localEmployees : (employees || []);
   const query = search.trim().toLowerCase();
@@ -606,29 +578,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
                   <div className="flex items-center justify-between text-xs text-slate-500 gap-2 pt-1 border-t border-slate-50">
                     <span className="truncate text-[11px]">{emp.email}</span>
-                    <button
-                      type="button"
-                      disabled={portalMode !== 'admin' || isCurrentUser || !canChangeRole}
-                      onClick={(e) => {
-                        if (portalMode === 'admin' && !isCurrentUser && canChangeRole) {
-                          e.stopPropagation();
-                          handleOpenRoleModal(emp);
-                        }
-                      }}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shrink-0 ${roleDef.badgeClass} ${
-                        isCurrentUser ? 'cursor-default opacity-90' : 'cursor-pointer hover:ring-2 hover:ring-indigo-300'
-                      }`}
-                      title={
-                        isCurrentUser
-                          ? `${roleDef.label} (Your role cannot be modified)`
-                          : portalMode === 'admin'
-                            ? `Click to change role (Current: ${roleDef.label})`
-                            : roleDef.description
-                      }
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shrink-0 ${roleDef.badgeClass}`}
+                      title={roleDef.description}
                     >
                       <Shield className="w-2.5 h-2.5 shrink-0" />
                       <span>{roleDef.label}</span>
-                    </button>
+                    </span>
                   </div>
 
                   {portalMode === 'admin' && (
@@ -816,33 +772,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       {(() => {
                         const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
                         return (
-                          <button
-                            type="button"
-                            disabled={portalMode !== 'admin' || isCurrentUser || !canChangeRole}
-                            onClick={(e) => {
-                              if (portalMode === 'admin' && !isCurrentUser && canChangeRole) {
-                                e.stopPropagation();
-                                handleOpenRoleModal(emp);
-                              }
-                            }}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                              roleDef.badgeClass
-                            } ${
-                              portalMode === 'admin' && !isCurrentUser
-                                ? 'hover:ring-2 hover:ring-indigo-400/50 hover:shadow-xs cursor-pointer'
-                                : 'cursor-default opacity-90'
-                            }`}
-                            title={
-                              isCurrentUser
-                                ? `${roleDef.label} (Your account — Role cannot be modified)`
-                                : portalMode === 'admin'
-                                  ? `Click to change role (Current: ${roleDef.label})`
-                                  : roleDef.description
-                            }
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${roleDef.badgeClass}`}
+                            title={roleDef.description}
                           >
                             <Shield className="w-3 h-3 shrink-0" />
                             <span>{roleDef.label}</span>
-                          </button>
+                          </span>
                         );
                       })()}
                     </td>
@@ -922,21 +858,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                               Chat
                             </span>
                           </button>
-
-                          {!isCurrentUser && canChangeRole && (
-                            <button
-                              type="button"
-                              id={`btn-role-${emp.id}`}
-                              onClick={() => handleOpenRoleModal(emp)}
-                              className="group inline-flex items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
-                              title="Change system role (Admin/HR/Manager/Team Leader/Employee)"
-                            >
-                              <Shield className="w-3.5 h-3.5 shrink-0" />
-                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
-                                Role
-                              </span>
-                            </button>
-                          )}
 
                           <button
                             type="button"
@@ -1185,14 +1106,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>,
         document.body
       )}
-
-      {/* Change Role Modal */}
-      <ChangeRoleModal
-        isOpen={Boolean(roleTargetEmp)}
-        onClose={() => setRoleTargetEmp(null)}
-        employee={roleTargetEmp}
-        onSuccess={handleRoleUpdated}
-      />
     </div>
   );
 };

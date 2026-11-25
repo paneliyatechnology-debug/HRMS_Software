@@ -31,7 +31,6 @@ import {
 import { Employee, LeaveRequest } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
-import { ChangeRoleModal } from './ChangeRoleModal';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
@@ -60,7 +59,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const isPageMode = variant === 'page';
   const { portalMode, user, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [currentEmp, setCurrentEmp] = useState<Employee | null>(employee);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
@@ -427,18 +425,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           {/* Right: Actions & Close Button */}
           <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-            {portalMode === 'admin' && !isCurrentUser && (
-              <button
-                type="button"
-                onClick={() => setRoleModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 transition-all active:scale-95 shadow-2xs cursor-pointer"
-                title="Change system access role"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Change Role</span>
-              </button>
-            )}
-
             {!isPageMode && onClose && (
               <button
                 onClick={onClose}
@@ -684,15 +670,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
                     </div>
                   </div>
-                  {portalMode === 'admin' && !isCurrentUser && (
-                    <button
-                      type="button"
-                      onClick={() => setRoleModalOpen(true)}
-                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition cursor-pointer shrink-0"
-                    >
-                      Change Role
-                    </button>
-                  )}
                 </div>
 
                 {employmentFields.map((field) => (
@@ -874,17 +851,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     return (
       <div className="space-y-5 w-full">
         {profileCardContent}
-
-        {/* Change Role Modal */}
-        <ChangeRoleModal
-          isOpen={roleModalOpen}
-          onClose={() => setRoleModalOpen(false)}
-          employee={currentEmp}
-          onSuccess={(updated) => {
-            setCurrentEmp(updated);
-            if (onRefresh) onRefresh();
-          }}
-        />
       </div>
     );
   }
@@ -897,17 +863,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
     >
       {profileCardContent}
-
-      {/* Change Role Modal */}
-      <ChangeRoleModal
-        isOpen={roleModalOpen}
-        onClose={() => setRoleModalOpen(false)}
-        employee={currentEmp}
-        onSuccess={(updated) => {
-          setCurrentEmp(updated);
-          if (onRefresh) onRefresh();
-        }}
-      />
     </div>
   );
 };

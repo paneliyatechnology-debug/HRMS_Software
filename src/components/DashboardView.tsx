@@ -56,7 +56,6 @@ import {
   RawLeaveQuotaPayload,
 } from '../lib/leaveQuotaUtils';
 import { getRoleDefinition } from '../lib/roleConfig';
-import { ChangeRoleModal } from './modals/ChangeRoleModal';
 import {
   checkEmployeePunchEligibility,
   performCheckIn,
@@ -593,7 +592,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   }, [checkOutModalOpen, approveModalData, rejectModalData, removingEmpDashboard, noticeTargetEmpDashboard]);
 
-  const [roleTargetEmpDash, setRoleTargetEmpDash] = useState<Employee | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -1304,12 +1302,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               type="button"
                               id={`btn-dash-chat-${emp.id}`}
                               onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
-                              title="Chat"
+                              aria-label="Chat"
+                              className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
-                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                                 Chat
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                               </span>
                             </button>
 
@@ -1317,12 +1316,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               type="button"
                               id={`btn-dash-notice-${emp.id}`}
                               onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              className="group inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 cursor-pointer"
-                              title="Notice"
+                              aria-label="Notice"
+                              className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                             >
-                              <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
-                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                                 Notice
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                               </span>
                             </button>
 
@@ -1331,12 +1331,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 type="button"
                                 id={`btn-dash-remove-${emp.id}`}
                                 onClick={() => setRemovingEmpDashboard(emp)}
-                                className="group inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 cursor-pointer"
-                                title="Remove"
+                                aria-label="Remove"
+                                className="group relative inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                               >
-                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                                <Trash2 className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                                   Remove
+                                  <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                                 </span>
                               </button>
                             )}
@@ -2124,17 +2125,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>,
         document.body
       )}
-
-      {/* Change Role Modal on Dashboard */}
-      <ChangeRoleModal
-        isOpen={Boolean(roleTargetEmpDash)}
-        onClose={() => setRoleTargetEmpDash(null)}
-        employee={roleTargetEmpDash}
-        onSuccess={() => {
-          setRoleTargetEmpDash(null);
-          if (onRefreshData) onRefreshData();
-        }}
-      />
 
 
     </div>
