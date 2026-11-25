@@ -101,22 +101,56 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
     try {
       const data = await api.getResignations();
       const rows = Array.isArray(data) ? data : [];
-      const formatted: ResignationItem[] = rows.map((r: any) => ({
-        id: String(r.id || r._id || Math.random()),
-        employeeId: String(r.employeeId || r.userId || ''),
-        employeeName: r.employeeName || (r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'Staff Member'),
-        employeeCode: r.employeeCode || r.user?.employeeCode || 'EMP',
-        departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
-        designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
-        reason: r.reason || 'No reason provided',
-        status: r.status || (r.approvedAt ? 'Approved' : r.noticePeriodDays ? 'Notice Period' : 'Pending'),
-        noticePeriodDays: Number(r.noticePeriodDays || 30),
-        submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
-        lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
-        clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
-        approvedAt: r.approvedAt,
-        approvedBy: r.approvedBy,
-      }));
+      const formatted: ResignationItem[] = rows.map((r: any) => {
+        const rawStatus = String(r.status || r.approvalStatus || r.state || '').toUpperCase();
+        const hasApprovalFlag =
+          Boolean(r.isApproved) ||
+          Boolean(r.approved) ||
+          Boolean(r.approvedAt) ||
+          Boolean(r.approvedBy) ||
+          rawStatus.includes('APPROV') ||
+          rawStatus.includes('RELIEV') ||
+          rawStatus.includes('COMPLET') ||
+          String(r.hrApproval?.status || '').toUpperCase().includes('APPROV') ||
+          String(r.hrApprovalStatus || '').toUpperCase().includes('APPROV') ||
+          String(r.managerApproval?.status || '').toUpperCase().includes('APPROV');
+
+        let resolvedStatus: string = 'Pending';
+        if (hasApprovalFlag) {
+          resolvedStatus = 'Approved';
+        } else if (
+          rawStatus.includes('CLEARANCE') ||
+          (r.clearance && typeof r.clearance === 'object' && Object.values(r.clearance).some(Boolean))
+        ) {
+          resolvedStatus = 'Clearance';
+        } else if (
+          rawStatus.includes('NOTICE') ||
+          rawStatus.includes('ON_NOTICE')
+        ) {
+          resolvedStatus = 'Notice Period';
+        } else if (rawStatus.includes('REJECT')) {
+          resolvedStatus = 'Rejected';
+        } else if (r.status) {
+          resolvedStatus = r.status;
+        }
+
+        return {
+          id: String(r.id || r._id || Math.random()),
+          employeeId: String(r.employeeId || r.userId || ''),
+          employeeName: r.employeeName || (r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'Staff Member'),
+          employeeCode: r.employeeCode || r.user?.employeeCode || 'EMP',
+          departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
+          designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
+          reason: r.reason || 'No reason provided',
+          status: resolvedStatus,
+          noticePeriodDays: Number(r.noticePeriodDays || 30),
+          submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
+          lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
+          clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
+          approvedAt: r.approvedAt || (hasApprovalFlag ? (r.updatedAt || r.submittedAt || new Date().toISOString()) : undefined),
+          approvedBy: r.approvedBy || (hasApprovalFlag ? (r.approverName || 'HR Admin') : undefined),
+        };
+      });
       setResignations(formatted);
     } catch (err: any) {
       setError(err?.message || 'Could not load resignations from server.');
@@ -209,16 +243,42 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
   const handleApproveResignation = async (record: ResignationItem) => {
     if (!window.confirm(`Approve separation and relieving for ${record.employeeName}?`)) return;
 
+    const actor = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'HR Admin';
+
+    // Optimistically update local state immediately so UI updates with zero delay
+    setResignations((prev) =>
+      prev.map((item) =>
+        item.id === record.id
+          ? {
+              ...item,
+              status: 'Approved',
+              approvedAt: item.approvedAt || new Date().toISOString(),
+              approvedBy: item.approvedBy || actor,
+            }
+          : item
+      )
+    );
+
     try {
-      await api.approveResignation(
-        record.id,
-        `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'HR Admin'
+      const res = await api.approveResignation(record.id, actor);
+      const isAlready = res?.alreadyApproved;
+      setSuccessToast(
+        isAlready
+          ? `${record.employeeName}'s resignation is already approved.`
+          : `Resignation approved and employee separation confirmed.`
       );
-      setSuccessToast(`Resignation approved and employee separation confirmed.`);
-      setTimeout(() => setSuccessToast(null), 3000);
+      setTimeout(() => setSuccessToast(null), 3500);
       await loadResignations();
     } catch (err: any) {
-      alert(err?.message || 'Could not approve resignation.');
+      const errMsg = err?.message || '';
+      if (errMsg.toLowerCase().includes('already approved') || errMsg.toLowerCase().includes('already')) {
+        setSuccessToast(`${record.employeeName}'s resignation is already approved.`);
+        setTimeout(() => setSuccessToast(null), 3500);
+        await loadResignations();
+        return;
+      }
+      alert(errMsg || 'Could not approve resignation.');
+      await loadResignations();
     }
   };
 
@@ -257,42 +317,54 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
       rec.employeeName?.toLowerCase().includes(q) ||
       rec.employeeCode?.toLowerCase().includes(q) ||
       rec.reason.toLowerCase().includes(q);
+    const recStatus = (rec.status || '').toUpperCase();
     const matchesStatus =
       statusFilter === 'ALL' ||
-      rec.status.toUpperCase() === statusFilter.toUpperCase();
+      (statusFilter === 'APPROVED' && (recStatus.includes('APPROV') || recStatus.includes('RELIEV') || recStatus.includes('COMPLET'))) ||
+      (statusFilter === 'NOTICE PERIOD' && recStatus.includes('NOTICE')) ||
+      (statusFilter === 'CLEARANCE' && recStatus.includes('CLEARANCE')) ||
+      (statusFilter === 'PENDING' && (recStatus.includes('PENDING') || recStatus.includes('SUBMIT')));
     return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
-    const s = status.toUpperCase();
-    if (s === 'APPROVED' || s === 'RELIEVED') {
+    const s = (status || '').toUpperCase();
+    if (s.includes('APPROV') || s.includes('RELIEV') || s.includes('COMPLET')) {
       return (
         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
           Approved / Relieved
-                  </span>
+        </span>
       );
     }
-    if (s === 'NOTICE PERIOD' || s === 'ON_NOTICE' || s === 'NOTICE') {
-      return (
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-          <Clock className="w-3 h-3 text-amber-600" />
-          Serving Notice
-                  </span>
-      );
-    }
-    if (s === 'CLEARANCE') {
+    if (s.includes('CLEARANCE')) {
       return (
         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-fit">
           <ShieldCheck className="w-3 h-3 text-blue-600" />
           Clearance In Progress
-                </span>
+        </span>
       );
     }
-                    return (
+    if (s.includes('NOTICE') || s.includes('ON_NOTICE')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+          <Clock className="w-3 h-3 text-amber-600" />
+          Serving Notice
+        </span>
+      );
+    }
+    if (s.includes('REJECT')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
+          <AlertCircle className="w-3 h-3 text-rose-600" />
+          Rejected
+        </span>
+      );
+    }
+    return (
       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 w-fit">
         Pending Review
-                            </span>
+      </span>
     );
   };
 
@@ -369,26 +441,29 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] uppercase font-bold text-slate-400">Total Separations</span>
               <p className="text-lg font-bold text-slate-900 mt-0.5">{resignations.length}</p>
-        </div>
+            </div>
 
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
               <span className="text-[10px] uppercase font-bold text-amber-700">Serving Notice</span>
               <p className="text-lg font-bold text-amber-800 mt-0.5">
-                {resignations.filter((r) => r.status.toUpperCase().includes('NOTICE')).length}
+                {resignations.filter((r) => (r.status || '').toUpperCase().includes('NOTICE')).length}
               </p>
             </div>
 
             <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
               <span className="text-[10px] uppercase font-bold text-blue-700">Under Clearance</span>
               <p className="text-lg font-bold text-blue-800 mt-0.5">
-                {resignations.filter((r) => r.status.toUpperCase().includes('CLEARANCE')).length}
+                {resignations.filter((r) => (r.status || '').toUpperCase().includes('CLEARANCE')).length}
               </p>
             </div>
 
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
               <span className="text-[10px] uppercase font-bold text-emerald-700">Approved / Relieved</span>
               <p className="text-lg font-bold text-emerald-800 mt-0.5">
-                {resignations.filter((r) => r.status.toUpperCase().includes('APPROV') || r.status.toUpperCase().includes('RELIEV')).length}
+                {resignations.filter((r) => {
+                  const s = (r.status || '').toUpperCase();
+                  return s.includes('APPROV') || s.includes('RELIEV') || s.includes('COMPLET') || Boolean(r.approvedAt);
+                }).length}
               </p>
             </div>
           </div>
@@ -475,7 +550,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     const cl = rec.clearance || {};
                     const totalChecks = 4;
                     const doneChecks = [cl.itAssets, cl.finance, cl.hrExit, cl.handover].filter(Boolean).length;
-                    const isApproved = rec.status.toUpperCase().includes('APPROV') || rec.status.toUpperCase().includes('RELIEV');
+                    const recStatusUpper = (rec.status || '').toUpperCase();
+                    const isApproved =
+                      recStatusUpper.includes('APPROV') ||
+                      recStatusUpper.includes('RELIEV') ||
+                      recStatusUpper.includes('COMPLET') ||
+                      Boolean(rec.approvedAt) ||
+                      Boolean(rec.approvedBy);
 
                 return (
                       <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
@@ -542,16 +623,24 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                               Clearance
                             </button>
 
-                            {!isApproved && (
+                            {isApproved ? (
+                              <span
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs"
+                                title="Resignation Approved"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Approved
+                              </span>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => handleApproveResignation(rec)}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs active:scale-95"
                                 title="Approve Relieving"
                               >
                                 Approve
-                          </button>
-                        )}
+                              </button>
+                            )}
                       </div>
                         </td>
                       </tr>

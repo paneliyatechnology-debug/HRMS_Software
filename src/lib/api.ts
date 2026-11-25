@@ -1562,10 +1562,15 @@ async function assignResignationNotice(id: string, noticePeriodDays: number) {
 async function approveResignation(id: string, actorName?: string) {
   try {
     const res = await http.post(`/resignations/${id}/approve`, { actorName }, { headers: { 'Content-Type': 'application/json' } });
-    return res.data?.resignation || res.data;
+    return res.data?.resignation || res.data || { success: true };
   } catch (error) {
-    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not approve resignation.');
+    const data = axios.isAxiosError(error) ? error.response?.data : undefined;
+    const message = data && typeof data === 'object' ? data.message : undefined;
+    const text = Array.isArray(message) ? message.join(' ') : message || (axios.isAxiosError(error) ? error.message : '');
+    if (text.toLowerCase().includes('already approved') || text.toLowerCase().includes('already')) {
+      return { alreadyApproved: true, success: true, message: text };
+    }
+    throw new Error(text || 'Could not approve resignation.');
   }
 }
 
