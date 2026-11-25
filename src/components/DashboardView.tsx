@@ -42,8 +42,6 @@ import {
   Zap,
   Eye,
   EyeOff,
-  UserX,
-  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -702,60 +700,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;
   const approvedLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length;
 
-  // Employees who have NOT clocked in today
-  const notClockedInEmployees = useMemo(() => {
-    const activeEmps = employees.filter((e) => (e.status || 'Active').toLowerCase() !== 'inactive');
-    return activeEmps.filter((emp) => {
-      const hasTodayRec = mergedAttendance.some(
-        (r) =>
-          r &&
-          r.date === todayDate &&
-          isMatchEmployee(r, emp.id) &&
-          Boolean(r.checkIn && r.checkIn !== '--:--' && r.checkIn !== '—')
-      );
-      return !hasTodayRec;
-    });
-  }, [employees, mergedAttendance, todayDate]);
-
-  // Late clock-in records (sorted newest date first, then highest lateMinutes)
-  const lateClockInRecords = useMemo(() => {
-    const formatLateDuration = (mins: number): string => {
-      if (!mins || mins <= 0) return 'Late';
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      if (h > 0 && m > 0) return `${h}h ${m}m late`;
-      if (h > 0) return `${h}h late`;
-      return `${m}m late`;
-    };
-
-    return mergedAttendance
-      .filter((r) => {
-        if (!r) return false;
-        const mins = Number(r.lateMinutes || 0);
-        return mins > 0 || r.status === 'Late';
-      })
-      .map((r) => {
-        const matchedEmp = employees.find((e) => isMatchEmployee(r, e.id));
-        const name =
-          r.employeeName ||
-          (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : '') ||
-          'Staff Member';
-        const mins = Number(r.lateMinutes || 0);
-        return {
-          ...r,
-          resolvedName: name,
-          resolvedEmployee: matchedEmp,
-          lateDurationText: formatLateDuration(mins),
-          lateMinsNum: mins,
-        };
-      })
-      .sort((a, b) => {
-        const dateCmp = (b.date || '').localeCompare(a.date || '');
-        if (dateCmp !== 0) return dateCmp;
-        return b.lateMinsNum - a.lateMinsNum;
-      });
-  }, [mergedAttendance, employees]);
-
   return (
     <div className="space-y-5 w-full overflow-x-clip">
       {/* Welcome & Section Head (Admin Only) */}
@@ -885,7 +829,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Main Dashboard Grid */}
           <div className="dashboard-grid">
-            <section className="panel col-span-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 col-span-full">
+              <section className="panel flex flex-col">
               <h3>
                 <span className="flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
@@ -918,9 +863,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   ))}
                 </div>
               )}
-            </section>
+              </section>
 
-            <section className="panel col-span-full">
+              <section className="panel flex flex-col">
               <h3>
                 <span className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
@@ -1011,163 +956,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   })}
                 </div>
               )}
-            </section>
-
-            {/* Not Clocked In Today & Late Clock-Ins Lists */}
-            {isModuleAllowedForUser('attendance', user) && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 col-span-full">
-                {/* 1. Employees Not Clocked In Today */}
-                <section className="panel flex flex-col">
-                  <h3>
-                    <span className="flex items-center gap-2">
-                      <UserX className="w-4 h-4 text-rose-600 shrink-0" /> Not Clocked In Today ({notClockedInEmployees.length})
-                    </span>
-                    <button
-                      onClick={() => onNavigateModule('attendance')}
-                      className="btn-ghost text-xs"
-                    >
-                      Attendance
-                    </button>
-                  </h3>
-
-                  {loading ? (
-                    <div className="space-y-2 py-2 animate-pulse">
-                      {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-10 rounded-xl bg-slate-100" />
-                      ))}
-                    </div>
-                  ) : notClockedInEmployees.length === 0 ? (
-                    <div className="p-6 text-center text-[#6c757d] text-xs">
-                      {employees.length === 0
-                        ? 'No employees registered yet.'
-                        : 'All active employees have clocked in today!'}
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100 max-h-[260px] overflow-y-auto [scrollbar-width:thin]">
-                      {notClockedInEmployees.map((emp, idx) => {
-                        const isOnApprovedLeave = leaves.some(
-                          (l) =>
-                            (l.status || '').toLowerCase() === 'approved' &&
-                            (l.employeeId === emp.id || (l as any).userId === emp.id) &&
-                            l.startDate <= todayDate &&
-                            l.endDate >= todayDate
-                        );
-                        return (
-                          <div
-                            key={emp.id ? `${emp.id}-${idx}` : idx}
-                            onClick={() => onSelectEmployee(emp)}
-                            className="py-2.5 px-2 flex items-center justify-between gap-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-7 h-7 rounded-full bg-rose-50 text-rose-700 font-bold text-xs flex items-center justify-center shrink-0">
-                                {emp.firstName?.[0] || 'E'}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-800 truncate">
-                                  {emp.firstName} {emp.lastName}
-                                </p>
-                                <p className="text-[10px] text-slate-500 truncate">
-                                  {(emp as any).designation || emp.departmentName || emp.employeeCode || 'Staff'}
-                                </p>
-                              </div>
-                            </div>
-                            <span
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                                isOnApprovedLeave
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {isOnApprovedLeave ? 'On Leave' : 'Not Clocked In'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                {/* 2. Late Clock-Ins List (Employee Name, Date, Late Duration) */}
-                <section className="panel flex flex-col">
-                  <h3>
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" /> Late Clock-Ins ({lateClockInRecords.length})
-                    </span>
-                    <button
-                      onClick={() => onNavigateModule('attendance')}
-                      className="btn-ghost text-xs"
-                    >
-                      View log
-                    </button>
-                  </h3>
-
-                  {loading ? (
-                    <div className="space-y-2 py-2 animate-pulse">
-                      {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-10 rounded-xl bg-slate-100" />
-                      ))}
-                    </div>
-                  ) : lateClockInRecords.length === 0 ? (
-                    <div className="p-6 text-center text-[#6c757d] text-xs">
-                      No late clock-ins recorded.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto max-h-[260px] overflow-y-auto [scrollbar-width:thin]">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="sticky top-0 bg-white z-10">
-                          <tr className="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                            <th className="py-1.5 px-2">Employee</th>
-                            <th className="py-1.5 px-2">Date</th>
-                            <th className="py-1.5 px-2 text-right">Late Time</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {lateClockInRecords.map((rec, idx) => {
-                            const recDateObj = rec.date ? new Date(rec.date) : null;
-                            const formattedDate =
-                              rec.date === todayDate
-                                ? 'Today'
-                                : recDateObj && !isNaN(recDateObj.getTime())
-                                ? recDateObj.toLocaleDateString('en-GB', {
-                                    day: '2-digit',
-                                    month: 'short',
-                                    year: 'numeric',
-                                  })
-                                : rec.date || '—';
-                            return (
-                              <tr
-                                key={rec.id ? `${rec.id}-${idx}` : idx}
-                                onClick={() => rec.resolvedEmployee && onSelectEmployee(rec.resolvedEmployee)}
-                                className={`hover:bg-slate-50 transition-colors ${
-                                  rec.resolvedEmployee ? 'cursor-pointer' : ''
-                                }`}
-                              >
-                                <td className="py-2 px-2 font-semibold text-slate-800 whitespace-nowrap">
-                                  <div>{rec.resolvedName}</div>
-                                  {rec.checkIn && rec.checkIn !== '--:--' && (
-                                    <div className="text-[10px] font-normal text-slate-400">
-                                      In: {rec.checkIn}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
-                                  {formattedDate}
-                                </td>
-                                <td className="py-2 px-2 text-right whitespace-nowrap">
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                    {rec.lateDurationText}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </div>
-            )}
+              </section>
+            </div>
 
             {isModuleAllowedForUser('employees', user) && (
             <div className="panel space-y-3 col-span-full">
