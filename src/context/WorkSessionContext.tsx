@@ -625,7 +625,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkIn = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
-      if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
+      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
       }
@@ -889,7 +889,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkOut = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
-      if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
+      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
       }

@@ -102,7 +102,6 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
     try {
       const data = await api.getResignations();
       const rows = Array.isArray(data) ? data : [];
-<<<<<<< HEAD
       const formatted: ResignationItem[] = rows.map((r: any) => ({
         id: String(r.id || r._id || Math.random()),
         employeeId: String(r.employeeId || r.userId || ''),
@@ -120,58 +119,6 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
         approvedAt: r.approvedAt,
         approvedBy: r.approvedBy,
       }));
-=======
-      const formatted: ResignationItem[] = rows.map((r: any) => {
-        const rawStatus = String(r.status || r.approvalStatus || r.state || '').toUpperCase();
-        const hasApprovalFlag =
-          Boolean(r.isApproved) ||
-          Boolean(r.approved) ||
-          Boolean(r.approvedAt) ||
-          Boolean(r.approvedBy) ||
-          rawStatus.includes('APPROV') ||
-          rawStatus.includes('RELIEV') ||
-          rawStatus.includes('COMPLET') ||
-          String(r.hrApproval?.status || '').toUpperCase().includes('APPROV') ||
-          String(r.hrApprovalStatus || '').toUpperCase().includes('APPROV') ||
-          String(r.managerApproval?.status || '').toUpperCase().includes('APPROV');
-
-        let resolvedStatus: string = 'Pending';
-        if (hasApprovalFlag) {
-          resolvedStatus = 'Approved';
-        } else if (
-          rawStatus.includes('CLEARANCE') ||
-          (r.clearance && typeof r.clearance === 'object' && Object.values(r.clearance).some(Boolean))
-        ) {
-          resolvedStatus = 'Clearance';
-        } else if (
-          rawStatus.includes('NOTICE') ||
-          rawStatus.includes('ON_NOTICE')
-        ) {
-          resolvedStatus = 'Notice Period';
-        } else if (rawStatus.includes('REJECT')) {
-          resolvedStatus = 'Rejected';
-        } else if (r.status) {
-          resolvedStatus = r.status;
-        }
-
-        return {
-          id: String(r.id || r._id || Math.random()),
-          employeeId: String(r.employeeId || r.userId || ''),
-          employeeName: r.employeeName || (r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'Staff Member'),
-          employeeCode: r.employeeCode || r.user?.employeeCode || 'EMP',
-          departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
-          designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
-          reason: r.reason || 'No reason provided',
-          status: resolvedStatus,
-          noticePeriodDays: Number(r.noticePeriodDays || 30),
-          submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
-          lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
-          clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
-          approvedAt: r.approvedAt || (hasApprovalFlag ? (r.updatedAt || r.submittedAt || new Date().toISOString()) : undefined),
-          approvedBy: r.approvedBy || (hasApprovalFlag ? (r.approverName || 'HR Admin') : undefined),
-        };
-      });
->>>>>>> 4a807cbf32ced2b51abcf458acf4ccddcb4539b9
       setResignations(formatted);
     } catch (err: any) {
       setError(err?.message || 'Could not load resignations from server.');

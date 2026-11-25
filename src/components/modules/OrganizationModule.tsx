@@ -241,8 +241,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [teams, setTeams] = useState<any[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
-  const [openDeptTeamId, setOpenDeptTeamId] = useState<string | null>(null);
-
   // Team Modals state
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -260,10 +258,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [settingLeaderTeam, setSettingLeaderTeam] = useState<any | null>(null);
   const [selectedLeaderUserId, setSelectedLeaderUserId] = useState('');
   const [submittingLeader, setSubmittingLeader] = useState(false);
-
-  const [addingMemberTeam, setAddingMemberTeam] = useState<any | null>(null);
-  const [selectedMemberUserId, setSelectedMemberUserId] = useState('');
-  const [submittingAddMember, setSubmittingAddMember] = useState(false);
 
   const [viewingTeam, setViewingTeam] = useState<any | null>(null);
   const [loadingViewTeam, setLoadingViewTeam] = useState(false);
@@ -285,7 +279,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       !!editingTeam ||
       !!deletingTeam ||
       !!settingLeaderTeam ||
-      !!addingMemberTeam ||
       !!viewingTeam;
 
     if (!isAnyOpen) return;
@@ -302,7 +295,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         if (editingTeam) setEditingTeam(null);
         if (deletingTeam) setDeletingTeam(null);
         if (settingLeaderTeam) setSettingLeaderTeam(null);
-        if (addingMemberTeam) setAddingMemberTeam(null);
         if (viewingTeam) setViewingTeam(null);
       }
     };
@@ -321,7 +313,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     editingTeam,
     deletingTeam,
     settingLeaderTeam,
-    addingMemberTeam,
     viewingTeam,
   ]);
 
@@ -680,48 +671,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       });
     } finally {
       setSubmittingLeader(false);
-    }
-  };
-
-  const handleAddTeamMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addingMemberTeam || !selectedMemberUserId) return;
-    setSubmittingAddMember(true);
-    try {
-      await api.addTeamMember(addingMemberTeam.id, { userId: selectedMemberUserId });
-      showToast?.({
-        type: 'success',
-        title: 'Member Added',
-        message: 'User added to team.',
-      });
-      setAddingMemberTeam(null);
-      loadTeams();
-    } catch (err: any) {
-      showToast?.({
-        type: 'error',
-        title: 'Add Failed',
-        message: err.message || 'Could not add member.',
-      });
-    } finally {
-      setSubmittingAddMember(false);
-    }
-  };
-
-  const handleRemoveTeamMember = async (teamId: string, employeeId: string) => {
-    try {
-      await api.removeTeamMember(teamId, employeeId);
-      showToast?.({
-        type: 'success',
-        title: 'Member Removed',
-        message: 'Team member removed.',
-      });
-      loadTeams();
-    } catch (err: any) {
-      showToast?.({
-        type: 'error',
-        title: 'Remove Failed',
-        message: err.message || 'Could not remove member.',
-      });
     }
   };
 
@@ -1091,15 +1040,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             {portalMode === 'admin' && (
               <div className="flex items-center gap-2">
                 <button
-                  type="button"
-                  id="btn-assign-emp-dept"
-                  onClick={() => handleOpenAssignEmpModal()}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                  <span>Add Employee to Dept</span>
-                </button>
-                <button
                   id="btn-add-dept-modal"
                   onClick={() => setAddDeptModalOpen(true)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-all active:scale-95 hover:opacity-90 cursor-pointer"
@@ -1126,11 +1066,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 const deptName = getSafeString(dept.name, 'Unnamed Department');
                 const deptDesc = getSafeString(dept.description, 'Core business division of the organisation.');
                 const deptHead = getSafeString(dept.headName, 'Unassigned');
-                const deptMembers = employees.filter(
-                  (e) =>
-                    e.departmentId === dept.id ||
-                    (e.departmentName && e.departmentName.toLowerCase() === deptName.toLowerCase())
-                );
                 return (
                   <div key={dept.id || idx} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
                     <div className="p-5 flex flex-col flex-1">
@@ -1138,124 +1073,31 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
                           {deptCode}
                         </span>
-                        <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
-                          <Users className="w-3.5 h-3.5" /> {deptMembers.length} {deptMembers.length === 1 ? 'member' : 'members'}
-                        </span>
+                        <span className="text-xs font-semibold text-slate-600">Head: {deptHead}</span>
                       </div>
                       <h3 className="text-base font-bold text-slate-900 mb-1">{deptName}</h3>
                       <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
                         {deptDesc}
                       </p>
 
-                      {/* Team Members Chips */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-2 flex-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
-                          <span>Team Members ({deptMembers.length})</span>
-                          <span className="font-semibold text-slate-600">Head: {deptHead}</span>
-                        </div>
-                        {deptMembers.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                            {deptMembers.slice(0, 3).map((m) => {
-                              const mRole = getRoleDefinition(m.role);
-                              return (
-                                <span
-                                  key={m.id}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200/80 text-[10px] font-semibold text-slate-700"
-                                  title={`${m.firstName} ${m.lastName} • ${mRole.label}`}
-                                >
-                                  <span className="w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-700 text-[8px] font-bold flex items-center justify-center">
-                                    {m.firstName?.[0] || 'E'}
-                                  </span>
-                                  <span className="truncate max-w-[75px]">{m.firstName}</span>
-                                  <span className="text-[9px] text-slate-400">({mRole.shortLabel})</span>
-                                </span>
-                              );
-                            })}
-                            {deptMembers.length > 3 && (
-                              <span className="text-[10px] font-bold text-slate-500 px-1.5 py-0.5 rounded-full bg-slate-100">
-                                +{deptMembers.length - 3} more
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-slate-400 italic pt-0.5">
-                            No employees assigned to this department yet.
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="mt-3 space-y-1.5">
+                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 flex-1">
                         <p className="text-[10px] font-bold uppercase text-slate-400">Teams ({teams.filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase())).length})</p>
                         {teams.filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase())).length === 0 ? (
                           <p className="text-[10px] text-slate-400 italic">No teams in this department.</p>
                         ) : (
                           teams
                             .filter((team: any) => team.departmentId === dept.id || (team.departmentName && String(team.departmentName).toLowerCase() === deptName.toLowerCase()))
-                            .map((team: any) => {
-                              const teamMembers = Array.isArray(team.members) ? team.members : [];
-                              const matchedLeader = employees.find((e) => e.id === team.leaderId || (e as any).userId === team.leaderId);
-                              const leaderName =
-                                team.leaderName ||
-                                (matchedLeader ? `${matchedLeader.firstName || ''} ${matchedLeader.lastName || ''}`.trim() : '') ||
-                                'No leader assigned';
-                              const open = openDeptTeamId === team.id;
-                              return (
-                                <div key={team.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
-                                  <button
-                                    type="button"
-                                    onClick={() => setOpenDeptTeamId(open ? null : team.id)}
-                                    className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer hover:bg-white"
-                                  >
-                                    <span className="text-xs font-bold text-slate-800 truncate">{team.name}</span>
-                                    <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 shrink-0">
-                                      {teamMembers.length} members
-                                      <ChevronDown className={`w-3.5 h-3.5 transition ${open ? 'rotate-180' : ''}`} />
-                                    </span>
-                                  </button>
-                                  {open && (
-                                    <div className="px-3 pb-3 border-t border-slate-200 bg-white space-y-2">
-                                      <div className="pt-2 flex items-center gap-1.5">
-                                        <Crown className="w-3.5 h-3.5 text-amber-500" />
-                                        <div>
-                                          <span className="block text-[9px] font-bold uppercase text-slate-400">Leader</span>
-                                          <span className="text-[11px] font-bold text-slate-800">{leaderName}</span>
-                                        </div>
-                                      </div>
-                                      <div className="space-y-1">
-                                        <span className="text-[9px] font-bold uppercase text-slate-400">Members</span>
-                                        {teamMembers.length === 0 ? (
-                                          <p className="text-[10px] text-slate-400 italic">No members yet.</p>
-                                        ) : (
-                                          teamMembers.map((member: any) => {
-                                            const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Member';
-                                            return (
-                                              <div key={member.id || memberName} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
-                                                <span className="text-[11px] font-semibold text-slate-800">{memberName}</span>
-                                                <span className="text-[10px] text-slate-400">{member.id === team.leaderId ? 'Leader' : member.role || 'Member'}</span>
-                                              </div>
-                                            );
-                                          })
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })
+                            .map((team: any) => (
+                              <div key={team.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                <span className="text-xs font-bold text-slate-800 truncate">{team.name}</span>
+                              </div>
+                            ))
                         )}
                       </div>
 
                       {/* Action Button: Add Employee to this Department */}
                       {portalMode === 'admin' && (
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAssignEmpModal(dept.id)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer shadow-2xs"
-                          >
-                            <UserPlus className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                            <span>Add Employee</span>
-                          </button>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenEditDept(dept)}
@@ -1350,14 +1192,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {teams.map((team: any, idx: number) => {
                 const c = DEPT_COLORS[idx % DEPT_COLORS.length];
-                const teamMembers = Array.isArray(team.members) ? team.members : [];
-                const matchedLeader = employees.find((e) => e.id === team.leaderId || (e as any).userId === team.leaderId);
-                const leaderName =
-                  team.leaderName ||
-                  team.leader?.fullName ||
-                  (team.leader?.firstName ? `${team.leader.firstName} ${team.leader.lastName || ''}`.trim() : '') ||
-                  (matchedLeader ? `${matchedLeader.firstName || ''} ${matchedLeader.lastName || ''}`.trim() : '') ||
-                  'No leader assigned';
 
                 return (
                   <div key={team.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
@@ -1366,91 +1200,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
                           {team.departmentName || team.department?.name || departments.find((d) => d.id === team.departmentId)?.name || 'General Team'}
                         </span>
-                        <span className={`text-xs flex items-center gap-1 font-semibold ${c.text}`}>
-                          <Users className="w-3.5 h-3.5" /> {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
-                        </span>
                       </div>
 
-                      <h3 className="text-base font-bold text-slate-900 mb-1">{team.name}</h3>
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-                        {team.description || 'Cross-functional operational group within the organization.'}
-                      </p>
-
-                      {/* Team Leader Banner */}
-                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <div className="text-[11px] leading-tight">
-                            <span className="text-slate-400 block text-[9px] font-bold uppercase">Team Leader</span>
-                            <span className="font-bold text-slate-800">{leaderName}</span>
-                          </div>
-                        </div>
-                        {portalMode === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSettingLeaderTeam(team);
-                              setSelectedLeaderUserId(team.leaderId || '');
-                            }}
-                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
-                          >
-                            Change
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Members section */}
-                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 flex-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
-                          <span>Team Members ({teamMembers.length})</span>
-                          {portalMode === 'admin' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAddingMemberTeam(team);
-                                setSelectedMemberUserId(employees[0]?.id || '');
-                              }}
-                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer flex items-center gap-0.5"
-                            >
-                              <Plus className="w-3 h-3" /> Add Member
-                            </button>
-                          )}
-                        </div>
-
-                        {teamMembers.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                            {teamMembers.map((m: any) => {
-                              const mName = m.user?.fullName || m.fullName || `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'Member';
-                              const mId = m.id || m.userId;
-                              return (
-                                <span
-                                  key={mId}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200/80 text-[10px] font-semibold text-slate-700"
-                                >
-                                  <span className="w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-700 text-[8px] font-bold flex items-center justify-center">
-                                    {mName[0] || 'M'}
-                                  </span>
-                                  <span className="truncate max-w-[75px]">{mName}</span>
-                                  {portalMode === 'admin' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveTeamMember(team.id, mId)}
-                                      className="text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                                      title="Remove from team"
-                                    >
-                                      <X className="w-2.5 h-2.5" />
-                                    </button>
-                                  )}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-slate-400 italic pt-0.5">
-                            No team members assigned yet.
-                          </p>
-                        )}
-                      </div>
+                      <h3 className="text-base font-bold text-slate-900">{team.name}</h3>
 
                       {/* Team Card Actions */}
                       {portalMode === 'admin' && (
@@ -2356,77 +2108,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ── Add Team Member Modal ─────────────────────────── */}
-      {Boolean(addingMemberTeam) && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setAddingMemberTeam(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-sm font-bold text-slate-900">Add Team Member</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddingMemberTeam(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleAddTeamMember} className="p-6 space-y-4 text-xs">
-              <p className="text-slate-500 leading-relaxed">
-                Add an active employee to <span className="font-bold text-slate-800">{addingMemberTeam?.name}</span>.
-              </p>
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Select Employee <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={selectedMemberUserId}
-                  onChange={(e) => setSelectedMemberUserId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
-                >
-                  <option value="">Choose an employee...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={(emp as any).userId || emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.departmentName || 'Staff'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setAddingMemberTeam(null)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingAddMember}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-                >
-                  {submittingAddMember && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Add to Team</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* ── View Team Details Modal ───────────────────────── */}
       {Boolean(viewingTeam) && (
         <div
@@ -2471,27 +2152,6 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                     <p className="font-semibold text-slate-700 mt-0.5">
                       {viewingTeam?.departmentName || viewingTeam?.department?.name || 'General Operations'}
                     </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Leader</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">
-                      {viewingTeam?.leaderName || viewingTeam?.leader?.fullName || 'Unassigned'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Members ({viewingTeam?.members?.length || 0})
-                    </span>
-                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto">
-                      {(viewingTeam?.members || []).map((m: any) => (
-                        <div key={m.id || m.userId} className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                          <span className="font-medium text-slate-800">{m.fullName || m.user?.fullName || `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'Member'}</span>
-                          <span className="text-[10px] text-slate-400">{m.role || 'Member'}</span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </>
               )}
