@@ -406,11 +406,11 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   <button
               type="button"
               onClick={() => setIsFileModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 shadow-2xs transition-all inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>File Resignation</span>
-                  </button>
+            </button>
                 </div>
             </div>
 
@@ -743,7 +743,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                         <button
                 type="button"
                 onClick={() => setIsFileModalOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition inline-flex items-center gap-2 cursor-pointer active:scale-95"
+                className="px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 shadow-2xs transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
                         >
                 <Plus className="w-4 h-4" />
                 <span>Submit Separation Request</span>
@@ -816,7 +816,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>

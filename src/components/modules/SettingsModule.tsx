@@ -81,7 +81,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'plans' | 'support'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>('company');
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -1175,6 +1175,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   // ═══════════════════════════════════════════════════════════════════════════
   const adminNavItems = [
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
+    { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
     { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
     { id: 'leaves', label: 'Leave Quotas', desc: 'Annual quota allowances & carry forward', icon: CalendarOff },
     { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
@@ -1208,7 +1209,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           </button>
         </div>
       </div>
-      <OfficeGeofenceCard />
 
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -1248,6 +1248,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
         {/* Right Main Content Area */}
         <div className="flex-1 min-w-0 w-full">
+          {/* ── Tab: Office Geofencing ── */}
+          {adminActiveTab === 'geofence' && (
+            <div className="animate-in fade-in duration-200">
+              <OfficeGeofenceCard />
+            </div>
+          )}
+
           {/* ── Tab 1: Company Profile ── */}
           {adminActiveTab === 'company' && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
