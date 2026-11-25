@@ -243,11 +243,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
     }
 
+    const itemKey = subTab ? `${id}-${subTab}` : id;
+
     if (effectiveCollapsed) {
       return (
         <button
-          key={id}
-          id={`nav-item-${id}`}
+          key={itemKey}
+          id={`nav-item-${itemKey}`}
           onClick={() => handleNav(id, subTab)}
           title={label}
           aria-label={label}
@@ -268,8 +270,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     return (
       <button
-        key={id}
-        id={`nav-item-${id}`}
+        key={itemKey}
+        id={`nav-item-${itemKey}`}
         onClick={() => handleNav(id, subTab)}
         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-all duration-200 cursor-pointer group active:scale-[0.98] ${isActive
           ? 'bg-[#1b4332] text-white font-bold shadow-xs translate-x-0.5'

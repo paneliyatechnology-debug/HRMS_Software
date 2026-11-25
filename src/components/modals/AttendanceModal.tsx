@@ -56,6 +56,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
+  const needsFace = rawRole === 'EMPLOYEE' || rawRole === 'HR' || rawRole === 'MANAGER';
   const isAdminUser =
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
@@ -363,7 +364,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       if (!video || stopped || captureLock.current || busy) return;
       busy = true;
       try {
-        const { matchLiveFace } = await import('../../lib/faceMatch');
+        const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
         const result = await matchLiveFace(video);
         if (stopped || captureLock.current) return;
         if (!result.descriptor) {
@@ -378,6 +379,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           return;
         }
         try {
+          if (!profileFaceRef.current && user.avatarUrl) {
+            profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+          }
+          if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
+            setFaceState('mismatch');
+            setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+            steady = 0;
+            return;
+          }
           await api.verifyFace(result.descriptor);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Face check failed.';
@@ -436,7 +446,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       return;
     }
 
-    if (rawRole === 'EMPLOYEE') {
+    if (needsFace) {
       if (!user.avatarUrl) {
         alert('Upload your profile photo first. It must clearly show your face.');
         return;
@@ -493,7 +503,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       alert('Cannot clock out while on break. Please click "Resume Work" first.');
       return;
     }
-    if (rawRole === 'EMPLOYEE') {
+    if (needsFace) {
       if (!user.avatarUrl) {
         alert('Upload your profile photo first. It must clearly show your face.');
         return;
@@ -598,13 +608,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   const handleMatchAndPunch = async () => {
     if (captureLock.current || !videoRef.current) return;
-    if (rawRole === 'EMPLOYEE' && !user.avatarUrl) {
+    if (needsFace && !user.avatarUrl) {
       setFaceError('Upload your profile photo first. It must clearly show your face.');
       return;
     }
     captureLock.current = true;
     try {
-      const { matchLiveFace } = await import('../../lib/faceMatch');
+      const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
       if (!user.avatarUrl) {
         setFaceError('Upload your profile photo first. It must clearly show your face.');
         captureLock.current = false;
@@ -614,6 +624,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       if (!result.aligned || !result.descriptor) {
         setFaceState('none');
         setFaceError('Keep your face inside the circle.');
+        captureLock.current = false;
+        return;
+      }
+      if (!profileFaceRef.current) profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+      if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
+        setFaceState('mismatch');
+        setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
         captureLock.current = false;
         return;
       }
@@ -1143,7 +1160,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               </div>
             )}
 
-            {rawRole === 'EMPLOYEE' && !user.avatarUrl && (
+            {needsFace && !user.avatarUrl && (
               <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
                 <p className="text-xs font-bold text-amber-950">Profile photo is required</p>
                 <p className="text-[11px] text-amber-900">Upload a clear front-facing photo. Attendance stays closed until your face is saved.</p>

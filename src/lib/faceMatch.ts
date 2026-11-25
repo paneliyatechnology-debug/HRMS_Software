@@ -1,5 +1,5 @@
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
-const MATCH_DISTANCE = 0.42;
+const MATCH_DISTANCE = 0.36;
 
 type FaceApi = typeof import('@vladmandic/face-api');
 
@@ -84,10 +84,31 @@ function loadImage(src: string) {
 }
 
 async function descriptorOf(faceapi: FaceApi, source: HTMLImageElement | HTMLCanvasElement) {
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 });
-  const found = await faceapi.detectSingleFace(source, options).withFaceLandmarks().withFaceDescriptor();
-  if (!found) throw new Error('No face found. Use a clear, front-facing photo.');
-  return found.descriptor;
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.55 });
+  const faces = await faceapi.detectAllFaces(source, options).withFaceLandmarks().withFaceDescriptors();
+  const clear = faces.filter((face) => face.detection.score >= 0.55);
+  if (clear.length !== 1) throw new Error('No face found. Use a clear, front-facing photo.');
+  return clear[0].descriptor;
+}
+
+function unitFace(values: number[]) {
+  let sum = 0;
+  for (const value of values) sum += value * value;
+  const norm = Math.sqrt(sum) || 1;
+  return values.map((value) => value / norm);
+}
+
+export function sameProfileFace(saved: number[] | null | undefined, live: number[] | null | undefined) {
+  if (!saved || !live || saved.length !== live.length || saved.length < 64) return false;
+  if (saved.some((value) => !Number.isFinite(value)) || live.some((value) => !Number.isFinite(value))) return false;
+  const left = unitFace(saved);
+  const right = unitFace(live);
+  let sum = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    const delta = left[index] - right[index];
+    sum += delta * delta;
+  }
+  return Math.sqrt(sum) <= MATCH_DISTANCE;
 }
 
 export async function descriptorForImage(src: string) {
@@ -147,13 +168,12 @@ export async function matchLiveFace(video: HTMLVideoElement) {
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return { aligned: false, descriptor: null as number[] | null };
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.55 });
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.62 });
   ctx.drawImage(video, 0, 0, width, height);
   const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
-  const found = faces
-    .filter((face) => face.detection.score >= 0.55)
-    .sort((a, b) => b.detection.box.width - a.detection.box.width)[0];
-  if (!found || faces.length !== 1) return { aligned: false, descriptor: null as number[] | null };
+  const clear = faces.filter((face) => face.detection.score >= 0.62);
+  if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null };
+  const found = clear[0];
   const view = visibleFrame(video);
   const box = found.detection.box;
   const centerX = box.x + box.width / 2;

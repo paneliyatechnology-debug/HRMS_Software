@@ -1013,7 +1013,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
             : 'overflow-y-auto px-4 sm:px-6 py-5 pb-24 sm:pb-8'
             }`}
         >
-          {String(user?.role || '').toUpperCase() === 'EMPLOYEE' && !user?.avatarUrl && (
+          {['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && !user?.avatarUrl && (
             <div className="max-w-7xl mx-auto w-full mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-semibold text-amber-950">Upload a profile photo with your face. Attendance stays closed until it is saved.</p>
               <button
