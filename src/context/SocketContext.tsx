@@ -419,6 +419,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const handleAttendanceLive = (payload?: any) => {
       clearApiCache('attendance');
+      clearApiCache('/dashboard');
       clearApiCache('work');
       window.dispatchEvent(new CustomEvent('hrms_attendance_live', { detail: payload || null }));
       window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));

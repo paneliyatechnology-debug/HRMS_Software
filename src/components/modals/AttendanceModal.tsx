@@ -22,15 +22,10 @@ import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { api } from '../../lib/api';
 import {
-  checkEmployeePunchEligibility,
   performCheckIn,
   performCheckOut,
   performTakeBreak,
   performResumeWork,
-  formatSecondsToHMS,
-  formatSecondsToWords,
-  getLiveActiveSeconds,
-  getLiveBreakSeconds,
   updateLocalRecordFromBackend,
 } from '../../lib/attendanceService';
 import { getCurrentGPSLocation, isEmployeeWFHEnabled, saveOfficeGeofenceConfig, verifyCurrentGeofence } from '../../lib/geoService';
@@ -50,7 +45,14 @@ interface AttendanceModalProps {
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user, role, portalMode, updateUserProfile } = useAuth();
-  const { punchBlockMessage } = useWorkSession();
+  const {
+    punchBlockMessage,
+    status: sessionStatus,
+    liveWorkedHMS: sessionWorked,
+    liveBreakWords: sessionBreak,
+    totalWorkedHMS,
+    punches: sessionPunches,
+  } = useWorkSession();
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
@@ -61,9 +63,22 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     portalMode === 'admin';
 
   const [time, setTime] = useState<Date | null>(null);
-  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));
+  const [punchState, setPunchState] = useState<{
+    canCheckIn: boolean;
+    status: 'not_started' | 'working' | 'on_break' | 'completed';
+    message: string;
+    record: any | null;
+  }>({ canCheckIn: true, status: 'not_started', message: '', record: null });
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
+  const pushClockLive = (payload: any) => {
+    if (payload?.logic) {
+      window.dispatchEvent(new CustomEvent('hrms_attendance_live', { detail: payload }));
+      return;
+    }
+    window.dispatchEvent(new Event('hrms_work_status_updated'));
+  };
+
   const [remarks, setRemarks] = useState('Morning shift clock-in');
   const [punchNotice, setPunchNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -256,32 +271,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       return;
     }
 
-    const tick = () => {
-      setTime(new Date());
-      const eligibility = checkEmployeePunchEligibility(currentEmpId);
-      setPunchState(eligibility);
-
-      if (eligibility.record) {
-        const isCompleted = Boolean(
-          eligibility.status === 'completed' ||
-          eligibility.record.isCompleted ||
-          (eligibility.record.checkOut && eligibility.record.checkOut !== '—') ||
-          (eligibility.record as any).status === 'Completed'
-        );
-        if (isCompleted) {
-          setLiveWorkedHMS('00:00:00');
-          setLiveBreakWords('0s');
-        } else {
-          const active = getLiveActiveSeconds(eligibility.record);
-          const brk = getLiveBreakSeconds(eligibility.record);
-          setLiveWorkedHMS(formatSecondsToHMS(active));
-          setLiveBreakWords(formatSecondsToWords(brk));
-        }
-      } else {
-        setLiveWorkedHMS('00:00:00');
-        setLiveBreakWords('0s');
-      }
-    };
+    const tick = () => setTime(new Date());
 
     api.getGeofence().then((fence) => {
       if (!fence?.latitude || !fence?.longitude) return;
@@ -300,7 +290,39 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       clearInterval(interval);
       stopCameraStream();
     };
-  }, [isOpen, currentEmpId, stopCameraStream]);
+  }, [isOpen, stopCameraStream]);
+
+  useEffect(() => {
+    const rows = (sessionPunches || []).map((punch: any) => {
+      const rawType = String(punch?.type || '').toUpperCase();
+      const type = rawType === 'CLOCK-IN' || rawType === 'CHECK-IN' ? 'IN' : rawType === 'CLOCK-OUT' || rawType === 'CHECK-OUT' ? 'OUT' : rawType;
+      const at = punch?.punchedAt || punch?.time;
+      const parsed = at ? new Date(at) : null;
+      return {
+        type,
+        time: parsed && !Number.isNaN(parsed.getTime())
+          ? parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+          : String(punch?.time || '—'),
+        remarks: punch?.note || punch?.remarks || '',
+      };
+    });
+    const firstIn = rows.find((punch) => punch.type === 'IN');
+    const lastOut = [...rows].reverse().find((punch) => punch.type === 'OUT');
+    setPunchState({
+      canCheckIn: sessionStatus === 'not_started' || sessionStatus === 'completed',
+      status: sessionStatus,
+      message: '',
+      record: rows.length
+        ? ({
+            checkIn: firstIn?.time,
+            checkOut: lastOut?.time,
+            punches: rows,
+          } as any)
+        : null,
+    });
+    setLiveWorkedHMS(sessionStatus === 'completed' ? totalWorkedHMS : sessionWorked);
+    setLiveBreakWords(sessionBreak);
+  }, [sessionStatus, sessionWorked, sessionBreak, totalWorkedHMS, sessionPunches]);
 
   // When selfieMode opens, start camera automatically
   useEffect(() => {
@@ -335,32 +357,49 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     let stopped = false;
     let steady = 0;
     setFaceState('checking');
+    let busy = false;
     const timer = window.setInterval(async () => {
       const video = videoRef.current;
-      if (!video || stopped || captureLock.current) return;
+      if (!video || stopped || captureLock.current || busy) return;
+      busy = true;
       try {
-        const { profileDescriptor, matchLiveFace } = await import('../../lib/faceMatch');
-        if (!profileFaceRef.current) {
-          profileFaceRef.current = await profileDescriptor(user.avatarUrl as string);
-        }
-        const result = await matchLiveFace(video, profileFaceRef.current);
+        const { matchLiveFace } = await import('../../lib/faceMatch');
+        const result = await matchLiveFace(video);
         if (stopped || captureLock.current) return;
-        if (result.match && result.descriptor) {
-          setFaceState('match');
-          setFaceError(null);
-          steady += 1;
-          if (steady >= 2) {
-            stopped = true;
-            window.clearInterval(timer);
-            captureRef.current();
-          }
-        } else if (result.aligned) {
-          setFaceState('mismatch');
-          setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
-          steady = 0;
-        } else {
+        if (!result.descriptor) {
           setFaceState('none');
           steady = 0;
+          return;
+        }
+        if (!result.aligned) {
+          setFaceState('none');
+          setFaceError(null);
+          steady = 0;
+          return;
+        }
+        try {
+          await api.verifyFace(result.descriptor);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Face check failed.';
+          if (/does not match|profile photo/i.test(message)) {
+            setFaceState('mismatch');
+            setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+          } else {
+            setFaceState('none');
+            setFaceError(message);
+          }
+          steady = 0;
+          return;
+        }
+        if (stopped || captureLock.current) return;
+        setFaceState('match');
+        setFaceError(null);
+        steady += 1;
+        if (steady >= 3) {
+          stopped = true;
+          window.clearInterval(timer);
+          matchedFaceRef.current = result.descriptor;
+          captureRef.current();
         }
       } catch (error) {
         if (!stopped) {
@@ -368,8 +407,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           setFaceError(error instanceof Error ? error.message : 'Face check failed.');
         }
         steady = 0;
+      } finally {
+        busy = false;
       }
-    }, 600);
+    }, 700);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -434,8 +475,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           remarks: fullRemarks,
         });
       }
-      const eligibility = checkEmployeePunchEligibility(currentEmpId);
-      setPunchState(eligibility);
+      pushClockLive(res);
       onRefresh();
       handleModalClose();
     } catch (err: any) {
@@ -486,8 +526,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           remarks: fullRemarks,
         });
       }
-      const eligibility = checkEmployeePunchEligibility(currentEmpId);
-      setPunchState(eligibility);
+      pushClockLive(res);
       onRefresh();
       handleModalClose();
     } catch (err: any) {
@@ -565,21 +604,25 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
     captureLock.current = true;
     try {
-      const { profileDescriptor, matchLiveFace } = await import('../../lib/faceMatch');
+      const { matchLiveFace } = await import('../../lib/faceMatch');
       if (!user.avatarUrl) {
         setFaceError('Upload your profile photo first. It must clearly show your face.');
         captureLock.current = false;
         return;
       }
-      if (!profileFaceRef.current) {
-        profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+      const result = await matchLiveFace(videoRef.current);
+      if (!result.aligned || !result.descriptor) {
+        setFaceState('none');
+        setFaceError('Keep your face inside the circle.');
+        captureLock.current = false;
+        return;
       }
-      const result = await matchLiveFace(videoRef.current, profileFaceRef.current);
-      if (!result.match || !result.descriptor) {
-        setFaceState(result.aligned ? 'mismatch' : 'none');
-        setFaceError(result.aligned
-          ? 'This face does not match your profile photo. Clock in and clock out are blocked.'
-          : 'Keep your face inside the circle.');
+      try {
+        await api.verifyFace(result.descriptor);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'This face does not match your profile photo.';
+        setFaceState(/does not match|profile photo/i.test(message) ? 'mismatch' : 'none');
+        setFaceError(message);
         captureLock.current = false;
         return;
       }
@@ -703,8 +746,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               geoData
             );
           }
-          const eligibility = checkEmployeePunchEligibility(currentEmpId);
-          setPunchState(eligibility);
+          pushClockLive(res);
           onRefresh();
           setSelfieMode('idle');
           setCapturedPhoto(null);
@@ -733,8 +775,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               remarks: fullRemarks,
             });
           }
-          const eligibility = checkEmployeePunchEligibility(currentEmpId);
-          setPunchState(eligibility);
+          pushClockLive(res);
           onRefresh();
           setSelfieMode('idle');
           setCapturedPhoto(null);
@@ -998,7 +1039,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
               <ModernDigitClock
                 time={punchState.status === 'not_started' ? time : undefined}
-                timeString={punchState.status === 'working' || punchState.status === 'on_break' ? liveWorkedHMS : punchState.status === 'completed' ? '00:00:00' : undefined}
+                timeString={punchState.status === 'not_started' ? undefined : liveWorkedHMS}
                 size="sm"
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
                 showSweepRing={punchState.status === 'working'}
@@ -1015,7 +1056,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
                     : punchState.status === 'completed'
-                      ? `Shift Finalized • Total: ${punchState.record ? formatSecondsToHMS(getLiveActiveSeconds(punchState.record)) : '00:00:00'}`
+                      ? `Shift Finalized • Total: ${liveWorkedHMS}`
                       : time
                         ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
                         : 'October 28, 2026'

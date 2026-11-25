@@ -1,5 +1,5 @@
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
-const MATCH_DISTANCE = 0.55;
+const MATCH_DISTANCE = 0.42;
 
 type FaceApi = typeof import('@vladmandic/face-api');
 
@@ -122,32 +122,47 @@ export async function profileDescriptor(profileUrl: string) {
   }
 }
 
-export async function matchLiveFace(video: HTMLVideoElement, profile: number[]) {
+function visibleFrame(video: HTMLVideoElement) {
   const width = video.videoWidth;
   const height = video.videoHeight;
-  if (!width || !height || profile.length < 64) {
-    return { aligned: false, match: false, descriptor: null as number[] | null };
+  const boxW = video.clientWidth || width;
+  const boxH = video.clientHeight || height;
+  const videoRatio = width / height;
+  const boxRatio = boxW / boxH;
+  if (videoRatio > boxRatio) {
+    const visibleW = height * boxRatio;
+    return { x: (width - visibleW) / 2, y: 0, width: visibleW, height };
   }
+  const visibleH = width / boxRatio;
+  return { x: 0, y: (height - visibleH) / 2, width, height: visibleH };
+}
+
+export async function matchLiveFace(video: HTMLVideoElement) {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) return { aligned: false, descriptor: null as number[] | null };
   const faceapi = await faceApi();
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return { aligned: false, match: false, descriptor: null as number[] | null };
+  if (!ctx) return { aligned: false, descriptor: null as number[] | null };
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.55 });
   ctx.drawImage(video, 0, 0, width, height);
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
-  const found = await faceapi.detectSingleFace(canvas, options).withFaceLandmarks().withFaceDescriptor();
-  if (!found) return { aligned: false, match: false, descriptor: null as number[] | null };
+  const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
+  const found = faces
+    .filter((face) => face.detection.score >= 0.55)
+    .sort((a, b) => b.detection.box.width - a.detection.box.width)[0];
+  if (!found || faces.length !== 1) return { aligned: false, descriptor: null as number[] | null };
+  const view = visibleFrame(video);
   const box = found.detection.box;
   const centerX = box.x + box.width / 2;
   const centerY = box.y + box.height / 2;
-  const aligned = Math.abs(centerX - width / 2) < width * 0.24
-    && Math.abs(centerY - height / 2) < height * 0.26
-    && box.width > width * 0.12
-    && box.width < width * 0.8;
-  const descriptor = Array.from(found.descriptor);
-  const distance = faceapi.euclideanDistance(Float32Array.from(profile), found.descriptor);
-  return { aligned, match: aligned && distance <= MATCH_DISTANCE, descriptor };
+  const aligned = Math.abs(centerX - (view.x + view.width / 2)) < view.width * 0.34
+    && Math.abs(centerY - (view.y + view.height / 2)) < view.height * 0.36
+    && box.width > view.width * 0.12
+    && box.width < view.width * 0.9;
+  return { aligned, descriptor: Array.from(found.descriptor) };
 }
 
 export async function facesMatch(profileUrl: string, selfieUrl: string) {

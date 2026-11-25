@@ -760,9 +760,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [isEmployeeView, selfEmployee, attQ, employees]);
 
   const getEmpTodayRecord = (emp: Employee): AttendanceRecord | null => {
-    let rec = getTodayRecordForEmployee(emp.id);
-    if (rec) return rec;
-
     const today = getTodayDateString();
     const candIds = [
       emp.id,
@@ -785,6 +782,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
     const dbRec = records.find((r) => r.date === today && isMatch(r));
     if (dbRec) return dbRec;
+
+    const rec = getTodayRecordForEmployee(emp.id);
+    if (rec && isEmployeeView) return rec;
 
     const live = liveRecords.find((r) => r.date === today && isMatch(r));
     if (live) return live;

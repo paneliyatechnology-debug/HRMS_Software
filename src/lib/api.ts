@@ -547,6 +547,18 @@ async function deleteDocument(id: string) {
    MODULE 4: ATTENDANCE (14 ENDPOINTS)
    ========================================================================== */
 
+async function verifyFace(faceDescriptor: number[]) {
+  try {
+    const response = await http.post('/attendance/face-verify', { faceDescriptor }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data as { match: boolean; message?: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Face verification failed.');
+  }
+}
+
 // 17. POST /attendance/clock (Clock in, clock out, break in, break out)
 async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[] }) {
   try {
@@ -2841,6 +2853,7 @@ export const api = new Proxy({
   verifyDocument,
 
   // Attendance (14)
+  verifyFace,
   clock,
   clockIn,
   checkIn,
