@@ -1525,7 +1525,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1632,9 +1632,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !isDeletingHoliday) setDeletingHoliday(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
         >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/80 space-y-4 my-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-slate-200/80 space-y-4 my-auto animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5" />
@@ -1680,7 +1680,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}

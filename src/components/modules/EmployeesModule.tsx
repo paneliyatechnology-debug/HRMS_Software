@@ -939,7 +939,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1001,7 +1001,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}

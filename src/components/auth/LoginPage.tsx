@@ -1379,7 +1379,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       {forgotModalOpen && (
         <div
           id="modal-forgot-password-backdrop"
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] bg-white/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget && !forgotLoading) {
               setForgotModalOpen(false);
@@ -1389,7 +1389,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 relative animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl p-6 sm:p-7 max-h-[90vh] overflow-y-auto my-auto relative animate-in zoom-in-95 duration-200"
           >
             {/* Close Button */}
             <button

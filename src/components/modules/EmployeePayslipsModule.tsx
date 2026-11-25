@@ -483,7 +483,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -541,7 +541,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 mt-2 max-w-sm">
-                    {user?.companyName ? `Corporate Payroll Division â€¢ ${user.companyName}` : 'Corporate Payroll & Finance Division'}
+                    {user?.companyName ? `Corporate Payroll Division • ${user.companyName}` : 'Corporate Payroll & Finance Division'}
                   </p>
                 </div>
 
@@ -678,7 +678,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     ₹{amount(selectedPayslip.netSalary).toLocaleString('en-IN')}
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                    â— Disbursed to Bank
+                    ● Disbursed to Bank
                   </span>
                 </div>
               </div>

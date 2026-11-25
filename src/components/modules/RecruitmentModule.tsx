@@ -137,7 +137,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
   const [jobDepartment, setJobDepartment] = useState('Engineering & Technology');
   const [jobLocation, setJobLocation] = useState('Surat, Gujarat (Hybrid)');
   const [jobOpeningsCount, setJobOpeningsCount] = useState(1);
-  const [jobSalaryRange, setJobSalaryRange] = useState('â‚¹10,00,000 - â‚¹15,00,000');
+  const [jobSalaryRange, setJobSalaryRange] = useState('₹10,00,000 - ₹15,00,000');
   const [jobDescription, setJobDescription] = useState('');
   const [jobSubmitting, setJobSubmitting] = useState(false);
 
@@ -602,7 +602,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
               </div>
               <h3 className="font-bold text-sm text-slate-900 mt-2.5">{job.title}</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {job.location} â€¢ {job.experienceLevel} â€¢ {job.openingsCount} Openings
+                {job.location} • {job.experienceLevel} • {job.openingsCount} Openings
               </p>
               <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">
                 {job.description}
@@ -1012,7 +1012,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCreateJobModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1166,7 +1166,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setAddCandidateModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
@@ -1315,7 +1315,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setInterviewModalCand(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
@@ -1419,7 +1419,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingJob(null)}
         >
           <div
@@ -1505,11 +1505,11 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingJob(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto my-auto p-6 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
@@ -1546,14 +1546,14 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setPublicJobData(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <ExternalLink className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Public Job Opening</h3>
@@ -1566,7 +1566,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingPublicJob ? (
                 <div className="py-8 text-center">
                   <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
@@ -1619,7 +1619,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setOfferLetterCand(null)}
         >
           <div

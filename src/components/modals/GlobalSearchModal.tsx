@@ -75,7 +75,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] overflow-hidden bg-white/45 backdrop-blur-md flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
