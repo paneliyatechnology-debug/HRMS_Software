@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import { createPortal } from 'react-dom';
 import {
@@ -727,7 +728,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
 
       {loadingSalaries || (parentLoading && salaries.length === 0) ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-2xs">
-          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
+          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">Loading compensation records...</p>
         </div>
       ) : salaries.length === 0 ? (
@@ -1130,7 +1131,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
             <div className="p-6 space-y-3 text-xs max-h-80 overflow-y-auto">
               {loadingHistory ? (
                 <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                   <p className="text-slate-500 font-medium">Fetching history...</p>
                 </div>
               ) : historyData.length === 0 ? (

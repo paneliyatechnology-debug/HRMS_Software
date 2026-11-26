@@ -1212,10 +1212,11 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
       ? 'SECOND_HALF'
       : 'FIRST_HALF';
 
-  let status: 'Pending' | 'Approved' | 'Rejected' = 'Pending';
+  let status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' = 'Pending';
   const rawStatus = (l.status || '').toUpperCase();
   if (rawStatus === 'ACCEPTED' || rawStatus === 'APPROVED') status = 'Approved';
   else if (rawStatus === 'REJECTED') status = 'Rejected';
+  else if (rawStatus === 'CANCELLED' || rawStatus === 'CANCELED' || rawStatus === 'CANCEL') status = 'Cancelled';
   else status = 'Pending';
 
   const adminResponse =
@@ -1314,6 +1315,7 @@ async function applyLeave(data: ApplyLeaveInput) {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/leaves');
+    clearApiCache('/dashboard');
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -1365,6 +1367,7 @@ async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/leaves');
+    clearApiCache('/dashboard');
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -1379,6 +1382,7 @@ async function cancelLeave(leaveId: string, reason: string) {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/leaves');
+    clearApiCache('/dashboard');
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -1402,6 +1406,7 @@ async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/leaves');
+    clearApiCache('/dashboard');
     return response.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -2971,6 +2976,28 @@ async function getMyCompany() {
       !company.logoUrl
     ) {
       company.adminAvatarUrl = profile.user.avatarUrl;
+    } else if (!company.adminAvatarUrl && !company.logoUrl) {
+      try {
+        const staffRes = await listStaffThreads();
+        const staffList = Array.isArray(staffRes)
+          ? staffRes
+          : Array.isArray(staffRes?.staff)
+          ? staffRes.staff
+          : Array.isArray(staffRes?.data)
+          ? staffRes.data
+          : [];
+        const adminEntry = staffList.find((s: any) => {
+          const r = String(s?.role || s?.user?.role || '').trim().toUpperCase();
+          return ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(r) &&
+            Boolean(s?.avatarUrl || s?.user?.avatarUrl || s?.employee?.avatarUrl);
+        });
+        const foundAvatar = adminEntry?.avatarUrl || adminEntry?.user?.avatarUrl || adminEntry?.employee?.avatarUrl;
+        if (foundAvatar) {
+          company.adminAvatarUrl = foundAvatar;
+        }
+      } catch {
+        // ignore if /chat/staff is unavailable
+      }
     }
     return company;
   } catch {

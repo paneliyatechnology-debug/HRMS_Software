@@ -96,6 +96,7 @@ const ResignationsModule = dynamic(() => import('../modules/ResignationsModule')
 const AnnouncementsModule = dynamic(() => import('../modules/AnnouncementsModule').then((m) => m.AnnouncementsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ChatModule = dynamic(() => import('../modules/ChatModule').then((m) => m.ChatModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) => m.ReportsModule), { loading: () => <ModuleLoadingSkeleton /> });
+const NotificationsModule = dynamic(() => import('../modules/NotificationsModule').then((m) => m.NotificationsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
@@ -113,6 +114,7 @@ const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModa
 const GlobalSearchModal = dynamic(() => import('../modals/GlobalSearchModal').then((m) => m.GlobalSearchModal), { ssr: false });
 const MobileConnectModal = dynamic(() => import('../modals/MobileConnectModal').then((m) => m.MobileConnectModal), { ssr: false });
 import { MobileBottomNav } from '../common/MobileBottomNav';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { WavyBackground } from '../common/WavyBackground';
 import {
   checkEmployeePunchEligibility,
@@ -985,7 +987,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   if (!mounted || isLoading || !isAuthenticated) {
     return (
       <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <BouncingDotsLoader size="lg" />
         {!mounted || isLoading ? (
           <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
         ) : (
@@ -1250,6 +1252,9 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 leaves={leaves}
                 stats={stats}
               />
+            )}
+            {activeModule === 'notifications' && (
+              <NotificationsModule onNavigateModule={navigateToModule} />
             )}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'profile' && (

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Building2,
@@ -1270,7 +1271,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
           {loadingTeams ? (
             <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-3" />
+              <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
               <p className="text-slate-600 font-bold text-xs">Loading teams from server...</p>
             </div>
           ) : teams.length === 0 ? (
@@ -2290,7 +2291,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
             <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingViewTeam ? (
                 <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                   <p className="text-slate-500 font-medium">Fetching team profile from backend...</p>
                 </div>
               ) : (

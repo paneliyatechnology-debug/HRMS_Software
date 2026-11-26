@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, AlertCircle, Sun, Sunset, CalendarDays } from 'lucide-react';
+import { X, AlertCircle, CalendarDays } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -65,7 +65,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [isHalfDay, setIsHalfDay] = useState(false);
-  const [halfDaySession, setHalfDaySession] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
   const [daySessions, setDaySessions] = useState<Record<string, LeaveDaySession>>({});
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,22 +84,16 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         duration: 1,
       }));
     }
-    if (!isMultiDay) {
-      return selectedDates.map((date) => ({
-        date,
-        session: halfDaySession,
-        duration: 0.5,
-      }));
-    }
     return selectedDates.map((date) => {
-      const session: LeaveDaySession = daySessions[date] || 'FULL_DAY';
+      const session: LeaveDaySession =
+        daySessions[date] || (!isMultiDay ? 'FIRST_HALF' : 'FULL_DAY');
       return {
         date,
         session,
         duration: session === 'FULL_DAY' ? 1 : 0.5,
       };
     });
-  }, [selectedDates, isHalfDay, isMultiDay, halfDaySession, daySessions]);
+  }, [selectedDates, isHalfDay, isMultiDay, daySessions]);
 
   const totalDaysCount = useMemo(
     () => Number(dayBreakdown.reduce((sum, item) => sum + item.duration, 0).toFixed(2)),
@@ -120,7 +113,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setStartDate(today);
     setEndDate(today);
     setIsHalfDay(false);
-    setHalfDaySession('FIRST_HALF');
     setDaySessions({});
     setReason('');
     setFieldErrors({});
@@ -311,29 +303,26 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/35 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default animate-in fade-in zoom-in-95 my-auto max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-[#dee2e6] shadow-2xl relative cursor-default animate-in fade-in zoom-in-95 my-auto max-h-[90vh] overflow-y-auto"
       >
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-100 pr-8">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">Apply for Leave</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Submit your request for manager &amp; HR review
-            </p>
-          </div>
+        <div className="pr-8">
+          <h3 className="text-lg font-bold text-slate-900 leading-tight">New Leave Request</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Submit time off for approval.
+          </p>
         </div>
 
         {error && (
@@ -343,16 +332,19 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Leave Type
+            <label htmlFor="leave-type-select" className="block text-xs font-bold text-slate-800 mb-1.5">
+              Type
             </label>
             <select
               id="leave-type-select"
               value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              onChange={(e) => {
+                setLeaveType(e.target.value as LeaveType);
+                clearFieldError('leaveType');
+              }}
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition"
               required
             >
               {leaveTypesLoading && backendLeaveTypes.length === 0 ? (
@@ -375,10 +367,10 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Start Date
+              <label htmlFor="leave-start-date" className="block text-xs font-bold text-slate-800 mb-1.5">
+                From
               </label>
               <input
                 id="leave-start-date"
@@ -386,17 +378,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 min={getTodayDate()}
                 value={startDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition"
                 required
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700">
-                  End Date
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="leave-end-date" className="text-xs font-bold text-slate-800">
+                  To
                 </label>
                 {fieldErrors.endDate && (
-                  <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                  <span className="text-[10px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
                     <AlertCircle className="w-3 h-3 shrink-0" />
                     {fieldErrors.endDate}
                   </span>
@@ -408,16 +400,16 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 min={startDate}
                 value={endDate}
                 onChange={(e) => handleEndDateChange(e.target.value)}
-                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 transition-all ${fieldErrors.endDate
+                className={`w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border bg-white text-slate-800 transition-all ${fieldErrors.endDate
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                  : 'border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f]'
                   }`}
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <input
@@ -427,22 +419,20 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setIsHalfDay(checked);
-                    if (checked && isMultiDay) {
+                    if (checked) {
                       setDaySessions((prev) => {
                         const next: Record<string, LeaveDaySession> = {};
                         selectedDates.forEach((d) => {
-                          next[d] = prev[d] || 'FULL_DAY';
+                          next[d] = prev[d] || (!isMultiDay ? 'FIRST_HALF' : 'FULL_DAY');
                         });
                         return next;
                       });
                     }
                   }}
-                  className="rounded text-[#343a40] focus:ring-[#6c757d] cursor-pointer"
+                  className="rounded text-[#2d6a4f] focus:ring-[#2d6a4f] cursor-pointer"
                 />
-                <label htmlFor="halfDay" className="text-xs text-[#343a40] font-medium cursor-pointer">
-                  {isMultiDay
-                    ? 'Customize Half Day (Date-Wise First / Second Half)'
-                    : 'Half Day Leave (First Half or Second Half)'}
+                <label htmlFor="halfDay" className="text-xs text-slate-700 font-semibold cursor-pointer">
+                  Customize Day-Wise (Full / Half Day)
                 </label>
               </div>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] shrink-0">
@@ -450,87 +440,30 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               </span>
             </div>
 
-            {isHalfDay && !isMultiDay && (
-              <div className="p-3 bg-[#f8f9fa]/60 border border-[#dee2e6] space-y-2 animate-in fade-in duration-150">
-                <label className="block text-[11px] font-semibold text-[#343a40]">
-                  Select Half Day Session ({formatDateChip(startDate)}) <span className="text-red-600">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    id="btn-halfday-first"
-                    onClick={() => setHalfDaySession('FIRST_HALF')}
-                    className={`p-2.5 text-left border transition-all cursor-pointer flex items-center gap-2.5 ${halfDaySession === 'FIRST_HALF'
-                      ? 'bg-[#2d6a4f] text-white border-[#1b4332] shadow-xs'
-                      : 'bg-white text-[#343a40] border-[#dee2e6] hover:bg-[#d8f3dc] hover:border-[#95d5b2]'
-                      }`}
-                  >
-                    <Sun
-                      className={`w-4 h-4 shrink-0 ${halfDaySession === 'FIRST_HALF' ? 'text-[#f8f9fa]' : 'text-[#6c757d]'
-                        }`}
-                    />
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold block leading-tight">First Half</span>
-                      <span
-                        className={`text-[10px] block mt-0.5 ${halfDaySession === 'FIRST_HALF' ? 'text-[#f8f9fa]' : 'text-[#6c757d]'
-                          }`}
-                      >
-                        Morning Session (0.5d)
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-halfday-second"
-                    onClick={() => setHalfDaySession('SECOND_HALF')}
-                    className={`p-2.5 text-left border transition-all cursor-pointer flex items-center gap-2.5 ${halfDaySession === 'SECOND_HALF'
-                      ? 'bg-[#2d6a4f] text-white border-[#1b4332] shadow-xs'
-                      : 'bg-white text-[#343a40] border-[#dee2e6] hover:bg-[#d8f3dc] hover:border-[#95d5b2]'
-                      }`}
-                  >
-                    <Sunset
-                      className={`w-4 h-4 shrink-0 ${halfDaySession === 'SECOND_HALF' ? 'text-[#f8f9fa]' : 'text-[#6c757d]'
-                        }`}
-                    />
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold block leading-tight">Second Half</span>
-                      <span
-                        className={`text-[10px] block mt-0.5 ${halfDaySession === 'SECOND_HALF' ? 'text-[#f8f9fa]' : 'text-[#6c757d]'
-                          }`}
-                      >
-                        Afternoon Session (0.5d)
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {isHalfDay && isMultiDay && (
-              <div className="p-3 bg-[#f8f9fa]/60 border border-[#dee2e6] space-y-2.5 animate-in fade-in duration-150">
+            {isHalfDay && (
+              <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200 space-y-2 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-[11px] font-semibold text-[#343a40] flex items-center gap-1.5">
-                    <CalendarDays className="w-3.5 h-3.5 text-[#343a40]" />
-                    <span>Date-Wise Half Day Selection</span>
-                  </label>
-                  <span className="text-[10px] font-bold text-[#343a40]">
+                  <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                    <span>Day-Wise Session Selection</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-[#1b4332]">
                     Total: {totalDaysCount} {totalDaysCount === 1 ? 'day' : 'days'}
                   </span>
                 </div>
 
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5 [scrollbar-width:thin]">
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 [scrollbar-width:thin]">
                   {dayBreakdown.map((item) => (
                     <div
                       key={item.date}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white border border-[#e9ecef] rounded-lg"
+                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-2.5 py-1.5 bg-white border border-slate-200/80 rounded-lg"
                     >
-                      <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
-                        <span className="text-xs font-semibold text-[#212529] whitespace-nowrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">
                           {formatDateChip(item.date)}
                         </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#f8f9fa] text-[#343a40] border border-[#dee2e6]">
-                          {item.duration === 1 ? '1 Day' : '0.5 Day'}
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {item.duration === 1 ? '1d' : '0.5d'}
                         </span>
                       </div>
 
@@ -538,8 +471,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                         {(
                           [
                             { id: 'FULL_DAY', label: 'Full Day' },
-                            { id: 'FIRST_HALF', label: 'First Half' },
-                            { id: 'SECOND_HALF', label: 'Second Half' },
+                            { id: 'FIRST_HALF', label: '1st Half' },
+                            { id: 'SECOND_HALF', label: '2nd Half' },
                           ] as const
                         ).map((opt) => {
                           const active = item.session === opt.id;
@@ -548,10 +481,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                               key={opt.id}
                               type="button"
                               onClick={() => handleSetDaySession(item.date, opt.id)}
-                              className={`px-2 py-1 text-[10px] font-semibold rounded border transition-all cursor-pointer whitespace-nowrap ${active
-                                ? 'bg-[#2d6a4f] text-white border-[#1b4332] shadow-2xs'
-                                : 'bg-[#f8f9fa] text-[#343a40] border-[#dee2e6] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
-                                }`}
+                              className={`px-2 py-1 text-[10px] font-semibold rounded-md border transition-all cursor-pointer whitespace-nowrap ${
+                                active
+                                  ? 'bg-[#2d6a4f] text-white border-[#1b4332] shadow-2xs'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
+                              }`}
                             >
                               {opt.label}
                             </button>
@@ -566,9 +500,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">
-                Leave Description <span className="text-red-500">*</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="leave-reason-textarea" className="text-xs font-bold text-slate-800">
+                Reason
               </label>
               {fieldErrors.reason && (
                 <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
@@ -585,32 +519,25 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 setReason(e.target.value);
                 clearFieldError('reason');
               }}
-              placeholder="Please provide details for the team coverage and emergency contact..."
-              className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all ${fieldErrors.reason
+              placeholder="Short context for your manager"
+              className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all ${fieldErrors.reason
                 ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                : 'border-slate-200'
+                : 'border-slate-300'
                 }`}
               required
             />
           </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="pt-1">
             <button
               id="btn-submit-leave"
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-semibold text-sm shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               {loading
                 ? 'Submitting...'
-                : `Submit Application (${totalDaysCount} ${totalDaysCount === 1 ? 'Day' : 'Days'})`}
+                : `Submit (${totalDaysCount} ${totalDaysCount === 1 ? 'Day' : 'Days'})`}
             </button>
           </div>
         </form>

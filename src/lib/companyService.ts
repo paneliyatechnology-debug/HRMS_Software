@@ -56,9 +56,17 @@ export function resolveCompanyBrandAvatar(
   const fromCompany =
     company?.adminAvatarUrl ||
     company?.logoUrl ||
+    company?.logo ||
     company?.avatarUrl ||
+    company?.imageUrl ||
+    company?.adminAvatar ||
+    company?.ownerAvatarUrl ||
     company?.admin?.avatarUrl ||
-    company?.adminUser?.avatarUrl;
+    company?.adminUser?.avatarUrl ||
+    company?.owner?.avatarUrl ||
+    user?.companyProfile?.logoUrl ||
+    user?.companyProfile?.adminAvatarUrl ||
+    user?.companyLogo;
   if (fromCompany && String(fromCompany).trim()) {
     return String(fromCompany).trim();
   }

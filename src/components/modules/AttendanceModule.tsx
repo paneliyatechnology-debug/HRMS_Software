@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -1773,11 +1774,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       )}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {isEmployeeView
-                      ? 'Daily date-wise punch in, punch out, break intervals, and total worked duration'
-                      : 'Live work timers and break intervals updating every second'}
-                  </p>
+                  
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -3308,7 +3305,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
                       {detailEmpLoading ? (
                         <div className="py-14 px-4 text-center">
-                          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-3" />
+                          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                           <h4 className="text-sm font-bold text-slate-800">Checking Live Attendance Records...</h4>
                           <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
                             Querying /api/attendance/work/status for {detailEmp.firstName} {detailEmp.lastName}...

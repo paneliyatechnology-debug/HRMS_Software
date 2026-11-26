@@ -231,36 +231,6 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
-        {/* Year Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 shrink-0 self-start sm:self-auto">
-          <button
-            onClick={() => setSelectedYear('All')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedYear === 'All'
-                ? 'bg-white text-emerald-700 shadow-2xs font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All Years
-          </button>
-          {availableYears.map((yr) => (
-            <button
-              key={yr}
-              onClick={() => setSelectedYear(yr)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedYear === yr
-                  ? 'bg-white text-emerald-700 shadow-2xs font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {yr}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* 4 Overview Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Latest Salary */}

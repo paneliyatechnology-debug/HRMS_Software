@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   LogOut,
@@ -454,7 +455,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
       {/* Main View Area */}
       {isLoading ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-          <Loader2 className="w-7 h-7 text-rose-600 animate-spin mx-auto" />
+          <BouncingDotsLoader size="md" colorClass="bg-rose-600" className="mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">Loading separation records...</p>
           <p className="text-[11px] text-slate-400">Querying organization resignation and clearance status</p>
                   </div>

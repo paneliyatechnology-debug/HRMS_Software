@@ -297,9 +297,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                 <h3 className="text-xs sm:text-sm font-semibold text-slate-800 tracking-tight leading-tight truncate">
                   Daily Shift Console
                 </h3>
-                <p className="text-[10px] text-slate-400 leading-tight truncate">
-                  Clock-in, break, and work time tracking
-                </p>
+              
               </div>
             </div>
 

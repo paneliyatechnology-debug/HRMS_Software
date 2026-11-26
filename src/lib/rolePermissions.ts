@@ -22,6 +22,7 @@ export type HrmsModuleId =
   | 'documents'
   | 'chat'
   | 'calendar'
+  | 'notifications'
   | 'reports'
   | 'settings'
   | 'profile';
@@ -147,6 +148,7 @@ const SHARED_MODULES = new Set([
   'documents',
   'chat',
   'calendar',
+  'notifications',
   'resignations',
   'reports',
   'settings',
@@ -173,6 +175,7 @@ function industryAllowsModule(moduleId: string, keys: string[]) {
  */
 export function isModuleAllowedForUser(moduleId: string, user?: User | null): boolean {
   if (!user) return false;
+  if (moduleId === 'notifications') return true;
 
   const normalizedRole = normalizeRoleKey(user.role);
   const allowedList = ROLE_MODULE_PERMISSIONS[normalizedRole] || ROLE_MODULE_PERMISSIONS.EMPLOYEE;

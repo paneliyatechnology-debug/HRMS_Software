@@ -27,8 +27,6 @@ import {
   Trash2,
   Loader2,
   Sun,
-  Eye,
-  EyeOff,
   RotateCcw,
 } from 'lucide-react';
 import { LeaveRequest } from '../../types/hrms';
@@ -73,7 +71,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   }, [onRefresh]);
   const [duration, setDuration] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'>('All');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,30 +80,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
-
-  // View Mode state (Eye toggle on/off: Detailed vs Compact)
-  const [rowViewOverrides, setRowViewOverrides] = useState<Record<string, boolean>>({});
-  const [globalViewMode, setGlobalViewMode] = useState<boolean>(true);
-
-  const isRowDetailed = (id: string) => {
-    if (rowViewOverrides[id] !== undefined) {
-      return rowViewOverrides[id];
-    }
-    return globalViewMode;
-  };
-
-  const toggleRowView = (id: string) => {
-    setRowViewOverrides((prev) => ({
-      ...prev,
-      [id]: !isRowDetailed(id),
-    }));
-  };
-
-  const toggleAllViewMode = () => {
-    const nextMode = !globalViewMode;
-    setGlobalViewMode(nextMode);
-    setRowViewOverrides({});
-  };
 
   // Approval modal state
   const [approvingLeave, setApprovingLeave] = useState<LeaveRequest | null>(null);
@@ -346,6 +320,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const pendingLeaves = relevantLeaves.filter((l) => l.status === 'Pending');
   const approvedLeaves = relevantLeaves.filter((l) => l.status === 'Approved');
   const rejectedLeaves = relevantLeaves.filter((l) => l.status === 'Rejected');
+  const cancelledLeaves = relevantLeaves.filter((l) => l.status === 'Cancelled');
 
   // Dynamic leave quota & balance calculation strictly from Admin-configured backend quotas & leave types
   const quotaSummary = resolveLeaveQuotaSummary(
@@ -716,7 +691,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
         {/* Status Segmented Tabs (Scrollable on mobile) */}
         <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/70 shadow-2xs overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 max-w-full">
-          {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => {
+          {(['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'] as const).map((tab) => {
             const count =
               tab === 'All'
                 ? relevantLeaves.length
@@ -724,7 +699,9 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   ? pendingLeaves.length
                   : tab === 'Approved'
                     ? approvedLeaves.length
-                    : rejectedLeaves.length;
+                    : tab === 'Rejected'
+                      ? rejectedLeaves.length
+                      : cancelledLeaves.length;
             const isActive = statusFilter === tab;
 
             return (
@@ -769,22 +746,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               </button>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={toggleAllViewMode}
-            aria-label={`View Mode: ${globalViewMode ? 'Detailed' : 'Compact'}`}
-            className={`group relative p-2 rounded-xl border shadow-xs transition-all cursor-pointer flex items-center justify-center ${
-              globalViewMode
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            {globalViewMode ? <Eye className="w-4 h-4 text-emerald-600" /> : <EyeOff className="w-4 h-4 text-slate-500" />}
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-30">
-              {globalViewMode ? 'Switch to Compact View' : 'Switch to Detailed View'}
-            </span>
-          </button>
 
           <button
             onClick={exportCSV}
@@ -877,31 +838,28 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           ) : (
             paginatedLeaves.map((leave) => {
               const isProcessing = processingId === leave.id;
-              const rowDetailed = isRowDetailed(leave.id);
               return (
                 <div key={leave.id} className="p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      {rowDetailed && (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                          {leave.employeeName?.[0] || 'E'}
-                        </div>
-                      )}
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
+                        {leave.employeeName?.[0] || 'E'}
+                      </div>
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-slate-900 truncate">{leave.employeeName}</p>
-                        {rowDetailed && <p className="text-[10px] text-slate-400">{leave.departmentName || 'General'}</p>}
+                        <p className="text-[10px] text-slate-400">{leave.departmentName || 'General'}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${leave.status === 'Approved'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        className={`inline-flex items-center gap-1 text-[11px] font-extrabold ${leave.status === 'Approved'
+                          ? 'text-emerald-700'
                           : leave.status === 'Pending'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            ? 'text-amber-700'
                             : leave.status === 'Cancelled'
-                              ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'text-slate-600'
+                              : 'text-rose-700'
                           }`}
                       >
                         {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -909,22 +867,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
                         <span>{leave.status}</span>
                       </span>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleRowView(leave.id)}
-                        aria-label={rowDetailed ? 'Compact View' : 'Detailed View'}
-                        className={`group relative p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${
-                          rowDetailed
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        {rowDetailed ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
-                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-30">
-                          {rowDetailed ? 'Compact View' : 'Detailed View'}
-                        </span>
-                      </button>
                     </div>
                   </div>
 
@@ -939,24 +881,26 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       <span className="text-[10px] text-slate-400 font-medium block">Type & Duration</span>
                       <span className="font-semibold text-indigo-700 text-[11px] flex items-center gap-1 flex-wrap">
                         <span>{leave.leaveType}</span>
-                        <span>({leave.daysCount}d{rowDetailed ? (leave.isHalfDay ? ` • ${leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st'}` : ' • Full Day') : ''})</span>
+                        <span>({leave.daysCount}d{leave.isHalfDay ? ` • ${leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st'}` : ' • Full Day'})</span>
                       </span>
                     </div>
                   </div>
 
-                  {rowDetailed && leave.reason && (
+                  {leave.reason && (
                     <div className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason</span>
                       <p className="italic text-slate-800">&ldquo;{leave.reason}&rdquo;</p>
                     </div>
                   )}
 
-                  {rowDetailed && (leave.response || leave.comments) && (
+                  {portalMode === 'employee' && (leave.response || leave.comments) && (
                     <div
-                      className={`text-xs p-2.5 rounded-xl border space-y-0.5 ${
+                      className={`text-xs space-y-0.5 ${
                         leave.status === 'Rejected'
-                          ? 'bg-rose-50/80 border-rose-200/70 text-rose-800'
-                          : 'bg-emerald-50/80 border-emerald-200/70 text-emerald-800'
+                          ? 'text-rose-700'
+                          : leave.status === 'Cancelled'
+                            ? 'text-slate-600'
+                            : 'text-emerald-700'
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase tracking-wider block">
@@ -1020,7 +964,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                 <th className="py-3 px-4 font-bold">STATUS</th>
                 <th className="py-3 px-4 font-bold">REASON</th>
                 <th className="py-3 px-4 font-bold text-right">
-                  {portalMode === 'admin' ? 'ADMIN ACTION' : 'VIEW'}
+                  {portalMode === 'admin' ? 'ADMIN ACTION' : 'ACTION'}
                 </th>
               </tr>
             </thead>
@@ -1095,31 +1039,25 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               ) : (
                 paginatedLeaves.map((leave) => {
                   const isProcessing = processingId === leave.id;
-                  const rowDetailed = isRowDetailed(leave.id);
                   return (
                     <tr key={leave.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4 font-bold text-slate-900">
-                        {rowDetailed ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                              {leave.employeeName?.[0] || 'E'}
-                            </div>
-                            <span>{leave.employeeName}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
+                            {leave.employeeName?.[0] || 'E'}
                           </div>
-                        ) : (
                           <span>{leave.employeeName}</span>
-                        )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-slate-600 font-medium">
-                        {rowDetailed ? (leave.departmentName || '--') : '--'}
+                        {leave.departmentName || '--'}
                       </td>
                       <td className="py-3 px-4 text-slate-700">
                         <div className="font-semibold text-slate-900">
                           {leave.startDate}{' '}
                           {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}
                         </div>
-                        {rowDetailed && (
-                          <>
+                        <>
                             {Array.isArray(leave.days) && leave.days.length > 0 ? (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {leave.days.map((d, idx) => {
@@ -1129,10 +1067,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                   return (
                                     <span
                                       key={idx}
-                                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                      className={`text-[11px] font-semibold ${
                                         isHalf
-                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                          ? 'text-amber-700'
+                                          : 'text-emerald-700'
                                       }`}
                                       title={`${d.date}: ${portion}`}
                                     >
@@ -1142,17 +1080,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                 })}
                               </div>
                             ) : Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <div className="flex flex-wrap gap-1.5 mt-0.5">
                                 {leave.dayBreakdown.map((d, idx) => {
                                   const isHalf = d.session !== 'FULL_DAY';
                                   const label = d.session === 'FIRST_HALF' ? 'First Half' : d.session === 'SECOND_HALF' ? 'Second Half' : 'Full Day';
                                   return (
                                     <span
                                       key={idx}
-                                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                      className={`text-[11px] font-semibold ${
                                         isHalf
-                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                          ? 'text-amber-700'
+                                          : 'text-emerald-700'
                                       }`}
                                     >
                                       {leave.dayBreakdown && leave.dayBreakdown.length > 1 ? `${d.date}: ` : ''}{label}
@@ -1161,25 +1099,23 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                 })}
                               </div>
                             ) : leave.isHalfDay ? (
-                              <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                              <span className="inline-block mt-0.5 text-[11px] font-semibold text-amber-700">
                                 {leave.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half'}
                               </span>
                             ) : (
-                              <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <span className="inline-block mt-0.5 text-[11px] font-semibold text-emerald-700">
                                 Full Day
                               </span>
                             )}
                           </>
-                        )}
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">
-                        <div className="flex flex-col items-start gap-1">
+                        <div className="flex flex-col items-start gap-0.5">
                           <span className="font-bold text-slate-900 text-xs">
                             {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
                           </span>
-                          {rowDetailed && (
-                            leave.isHalfDay ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-900 border border-amber-200">
+                          {leave.isHalfDay ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">
                                 <Sun className="w-3 h-3 text-amber-600 shrink-0" />
                                 <span>
                                   {leave.daysCount === 0.5
@@ -1188,11 +1124,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                 </span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100/70 text-emerald-900 border border-emerald-200">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
                                 Full Day
                               </span>
-                            )
-                          )}
+                            )}
                         </div>
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-700">
@@ -1200,13 +1135,13 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${leave.status === 'Approved'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          className={`inline-flex items-center gap-1 text-[11px] font-extrabold ${leave.status === 'Approved'
+                            ? 'text-emerald-700'
                             : leave.status === 'Pending'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              ? 'text-amber-700'
                               : leave.status === 'Cancelled'
-                                ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                ? 'text-slate-600'
+                                : 'text-rose-700'
                             }`}
                         >
                           {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -1216,33 +1151,31 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs">
-                        {rowDetailed ? (
-                          <div className="space-y-1.5">
-                            <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
-                              <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
-                            </div>
-                            {(leave.response || leave.comments) && (
-                              <div
-                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                                  leave.status === 'Rejected'
-                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                }`}
-                                title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
-                              >
-                                <span className="font-bold shrink-0">
-                                  {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
-                                </span>
-                                <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
-                              </div>
-                            )}
+                        <div className="space-y-1">
+                          <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
+                            <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
                           </div>
-                        ) : (
-                          <span className="text-slate-400 font-medium">--</span>
-                        )}
+                          {portalMode === 'employee' && (leave.response || leave.comments) && (
+                            <div
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                                leave.status === 'Rejected'
+                                  ? 'text-rose-700'
+                                  : leave.status === 'Cancelled'
+                                    ? 'text-slate-600'
+                                    : 'text-emerald-700'
+                              }`}
+                              title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                            >
+                              <span className="font-bold shrink-0">
+                                {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
+                              </span>
+                              <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
-                      {/* Action Column with Eye Toggle */}
+                      {/* Action Column */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
@@ -1280,26 +1213,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                             </>
                           )}
 
-                          {/* Static Eye/EyeOff View Mode Toggle (Placed at the last) */}
-                          <button
-                            type="button"
-                            onClick={() => toggleRowView(leave.id)}
-                            aria-label={rowDetailed ? 'Compact View' : 'Detailed View'}
-                            className={`group relative p-1.5 rounded-lg border transition-all cursor-pointer ${
-                              rowDetailed
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                            }`}
-                          >
-                            {rowDetailed ? (
-                              <Eye className="w-3.5 h-3.5 stroke-[2.2]" />
-                            ) : (
-                              <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
-                            )}
-                            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-30">
-                              {rowDetailed ? 'Compact View' : 'Detailed View'}
-                            </span>
-                          </button>
                         </div>
                       </td>
                     </tr>
