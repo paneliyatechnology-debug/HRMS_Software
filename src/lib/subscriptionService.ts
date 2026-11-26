@@ -339,42 +339,6 @@ export function getCompanyInvoices(companyId: string = 'comp-paneliya'): Subscri
   if (liveInvoices[companyId]) {
     return liveInvoices[companyId];
   }
-<<<<<<< HEAD
-
-  // Initial seed invoices for demo
-  const seedInvoices: SubscriptionInvoice[] = [
-    {
-      id: `inv-${Date.now() - 86400000 * 30}`,
-      invoiceNumber: 'INV-2026-0891',
-      date: '2026-01-10',
-      amountINR: 89990,
-      planName: 'Enterprise Apex',
-      billingCycle: 'Annual',
-      status: 'Paid',
-    },
-    {
-      id: `inv-${Date.now() - 86400000 * 395}`,
-      invoiceNumber: 'INV-2025-0342',
-      date: '2025-01-10',
-      amountINR: 79990,
-      planName: 'Enterprise Apex',
-      billingCycle: 'Annual',
-      status: 'Paid',
-    },
-  ];
-
-  if (companyId === 'comp-paneliya' || companyId === 'cmp-1') {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(
-        `${INVOICES_STORAGE_PREFIX}${companyId}`,
-        JSON.stringify(seedInvoices)
-      );
-    }
-    return seedInvoices;
-  }
-
-=======
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   return [];
 }
 
@@ -414,26 +378,9 @@ export function addCompanyInvoice(
   liveInvoices[companyId] = updated;
 
   if (typeof window !== 'undefined') {
-<<<<<<< HEAD
-    localStorage.setItem(
-      `${INVOICES_STORAGE_PREFIX}${companyId}`,
-      JSON.stringify(updated)
-    );
-    const companies = getAllCompanies();
-    const company = companies.find((item) => item.id === companyId);
-    import('./api').then(({ axiosClient }) => {
-      void axiosClient.put('/subscriptions/mine', {
-        plan: company?.plan || 'Starter',
-        billingCycle: company?.billingCycle || data.billingCycle,
-        maxEmployees: company?.maxEmployees || 0,
-        invoices: updated,
-      });
-    });
-=======
     try {
       localStorage.removeItem(`${INVOICES_STORAGE_PREFIX}${companyId}`);
     } catch {}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   }
 
   return newInvoice;

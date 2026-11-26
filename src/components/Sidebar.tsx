@@ -32,17 +32,11 @@ import {
   CheckSquare,
   Bell,
 } from 'lucide-react';
-<<<<<<< HEAD
-import { useAuth } from '../context/AuthContext';
-import { getAllCompanies } from '../lib/companyService';
-import { readableInitials, readablePersonName } from '../lib/displayName';
-=======
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { api } from '../lib/api';
 import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 interface SidebarProps {
   activeModule: string;
@@ -758,71 +752,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
         >
           {effectiveCollapsed ? (
-<<<<<<< HEAD
-            <div className="flex flex-col items-center gap-2 py-1">
-              <div
-                className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs cursor-pointer overflow-hidden border border-[#a7f3d0]"
-                title={`${readablePersonName(user.firstName, user.lastName, user.email)} (${
-                  portalMode === 'admin'
-                    ? 'Administrator'
-                    : (user as any).designationTitle || 'Staff Employee'
-                })`}
-              >
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <>
-                    {readableInitials(user.firstName, user.lastName, user.email)}
-                  </>
-                )}
-              </div>
-              <button
-                onClick={logout}
-                className="p-2 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between p-1.5 rounded-[8px] hover:bg-[#ecfdf5] transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#ecfdf5] text-[#064e3b] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs overflow-hidden border border-[#a7f3d0]">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        {readableInitials(user.firstName, user.lastName, user.email)}
-                      </>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#0d271d] truncate">
-                      {readablePersonName(user.firstName, user.lastName, user.email)}
-                    </p>
-                    <p className="text-[10px] text-[#475569] truncate flex items-center gap-1">
-                      <span>{portalMode === 'admin' ? 'Administrator' : (user as any).designationTitle || 'Staff Employee'}</span>
-                      <span className="opacity-60">•</span>
-                      <span className="text-[#059669] font-bold">{workStatus}</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={logout}
-                  className="p-1.5 rounded-[7px] text-[#64748b] hover:text-[#ef4444] hover:bg-red-50 transition-colors cursor-pointer"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="mt-2 pt-2 border-t border-[#064e3b]/20 px-1 text-[10px] text-[#475569] flex justify-between items-center">
-                <span className="truncate max-w-[125px] font-medium" title={displayCompanyName}>{displayCompanyName}</span>
-                <span className="text-[#059669] font-bold">by MyOwnHRMS</span>
-              </div>
-            </>
-=======
             <div
               className="w-7 h-7 rounded-[6px] bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[10px] font-bold flex items-center justify-center select-none"
               title={`${displayCompanyName} • by MyOwnHRMS`}
@@ -841,7 +770,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 by MyOwnHRMS
               </span>
             </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
           )}
         </div>
       </aside>

@@ -326,26 +326,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           : 'bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default my-auto animate-modal-zoom'
       }
     >
-<<<<<<< HEAD
-      <div className="bg-white rounded-3xl max-w-4xl w-full h-[min(92dvh,860px)] max-h-[100dvh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
-        {/* Header Profile Hero */}
-        <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
-          <button
-            onClick={onClose}
-            className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* Status Message Banners */}
-          {photoSuccess && (
-            <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="font-semibold">{photoSuccess}</span>
-              </div>
-              <button onClick={() => setPhotoSuccess(null)} className="text-emerald-700 hover:text-emerald-900 font-bold text-sm">&times;</button>
-=======
       {/* â•â•â• CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW â•â•â• */}
       <div className="p-4 sm:p-6 bg-white border-b border-slate-100 shrink-0">
         {/* Status Message Banners */}
@@ -354,7 +334,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span className="font-semibold">{photoSuccess}</span>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
             </div>
             <button
               onClick={() => setPhotoSuccess(null)}
@@ -573,38 +552,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           </div>
         </div>
 
-<<<<<<< HEAD
-        {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-700">
-          {/* 1. Overview */}
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase">Employment Type</span>
-                  <p className="text-base font-bold text-slate-900 mt-1">{employee.employmentType}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase">Joining Date</span>
-                  <p className="text-base font-bold text-slate-900 mt-1">{employee.joiningDate}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase">Net Monthly Salary</span>
-                  <p className="text-base font-bold text-slate-900 mt-1">${(employee.salary?.net ?? 0).toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm mb-2">Core Skills & Competencies</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(employee.skills || []).map((skill) => (
-                    <span key={skill} className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs">
-                      {skill}
-                    </span>
-                  ))}
-                  {(!employee.skills || employee.skills.length === 0) && (
-                    <span className="text-xs text-slate-400 italic">No skills listed</span>
-=======
         <button
           type="button"
           onClick={() => scrollTabs('right')}
@@ -647,7 +594,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-emerald-200/70">
                       Gross: ₹{(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0).toLocaleString()}
                     </span>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                   )}
                 </div>
               )}
@@ -823,26 +769,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 )}
               </div>
 
-<<<<<<< HEAD
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Date of Birth</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{employee.dateOfBirth}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Gender</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{employee.gender}</p>
-              </div>
-              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Address</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">{employee.address}</p>
-              </div>
-              <div className="col-span-2 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Emergency Contact</span>
-                <p className="text-sm font-bold text-slate-900 mt-1">
-                  {employee.emergencyContact?.name || '—'} {employee.emergencyContact?.relationship ? `(${employee.emergencyContact.relationship})` : ''} {employee.emergencyContact?.phone ? `— ${employee.emergencyContact.phone}` : ''}
-                </p>
-              </div>
-=======
               {personalFields.map((field) => (
                 <div
                   key={field.label}
@@ -852,7 +778,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   <p className="text-sm font-bold text-slate-900 mt-1 break-words">{field.value}</p>
                 </div>
               ))}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
             </div>
           );
         })()}
@@ -1110,56 +1035,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   </div>
                 </div>
               </div>
-<<<<<<< HEAD
-            );
-          })()}
-
-          {/* 5. Leave */}
-          {activeTab === 'leave' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-blue-50 text-center">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Casual Leave</span>
-                  <p className="text-lg font-black text-blue-600 mt-1">10 Left</p>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50 text-center">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Sick Leave</span>
-                  <p className="text-lg font-black text-emerald-600 mt-1">9 Left</p>
-                </div>
-                <div className="p-3 rounded-xl bg-purple-50 text-center">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Paid / Annual</span>
-                  <p className="text-lg font-black text-purple-600 mt-1">12 Left</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 6. Payroll */}
-          {activeTab === 'payroll' && (
-            <div className="space-y-3">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <h4 className="font-bold text-slate-900 mb-2">Salary Structure Breakdown</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <span className="text-slate-500">Basic Salary:</span>
-                  <span className="font-bold">${(employee.salary?.basic ?? 0).toLocaleString()}</span>
-                  <span className="text-slate-500">HRA Allowance:</span>
-                  <span className="font-bold">${(employee.salary?.hra ?? 0).toLocaleString()}</span>
-                  <span className="text-slate-500">Special Allowances:</span>
-                  <span className="font-bold">${(employee.salary?.allowances ?? 0).toLocaleString()}</span>
-                  <span className="text-slate-500">PF Deduction (12%):</span>
-                  <span className="font-bold text-rose-500">-${(employee.salary?.pf ?? 0).toLocaleString()}</span>
-                  <span className="text-slate-500">Net Take-Home:</span>
-                  <span className="font-extrabold text-emerald-600 text-sm">${(employee.salary?.net ?? 0).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 7. Documents */}
-          {activeTab === 'documents' && (
-            <div className="space-y-2">
-              <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-=======
             ) : (
               <form
                 onSubmit={async (e) => {
@@ -1179,7 +1054,6 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 }}
                 className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4"
               >
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-[#1b4332]" />

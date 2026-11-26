@@ -975,12 +975,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         : 'bg-[#e9ecef] text-[#343a40]';
 
   return (
-<<<<<<< HEAD
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex h-[calc(100dvh-12.5rem)] min-h-[420px] md:h-[calc(100vh-140px)] md:min-h-[520px] overflow-hidden select-none w-full max-w-full">
-=======
     <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
       <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       {/* LEFT COLUMN: Conversation List */}
       <div
         className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#dee2e6] flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'

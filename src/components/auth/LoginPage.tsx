@@ -324,15 +324,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           res.message || 'Invalid credentials. Please verify your email, mobile number or employee code and password.'
         );
       } else {
-<<<<<<< HEAD
-        router.push('/dashboard');
-=======
         const pendingPlan = window.sessionStorage.getItem('hrms_pending_plan');
         const role = String(res.role || '').toUpperCase();
         const canBuy = role === 'ADMIN' || role === 'COMPANY_ADMIN' || role === 'ORG_ADMIN';
         if (!pendingPlan || !canBuy) window.sessionStorage.removeItem('hrms_pending_plan');
         router.push(pendingPlan && canBuy ? '/settings' : '/dashboard');
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication error. Please try again.');
@@ -433,12 +429,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       if (!res.success) {
         setErrorMessage(res.message || 'Company registration failed. Please try again.');
       } else {
-<<<<<<< HEAD
-        setSuccessMessage(`Company "${companyName.trim()}" registered successfully! Launching your Owner Workspace...`);
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 900);
-=======
         setRegisteredCompanyInfo({
           companyName: companyName.trim(),
           ownerEmail: ownerEmail.trim().toLowerCase(),
@@ -448,7 +438,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
         setErrorMessage(null);
         setSuccessMessage(null);
         clearAllSignupFields();
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Company registration failed.');
@@ -473,15 +462,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
       : 'opacity-100 translate-x-0 scale-100';
 
   return (
-<<<<<<< HEAD
-    <div className="min-h-screen w-full bg-[#f2f9f5] flex flex-col justify-center items-center px-3 sm:px-6 py-6 sm:py-12 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden overflow-y-auto">
-      
-      {/* Elegant ambient light mint / emerald glows */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-200/40 blur-3xl -z-10 pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-teal-200/35 blur-3xl -z-10 pointer-events-none" />
-=======
     <div className="min-h-screen w-full bg-gradient-to-b from-[#f8f9fa] via-[#f8f9fa] to-[#f8f9fa] flex flex-col justify-between items-center px-4 sm:px-6 py-5 sm:py-8 relative selection:bg-emerald-600 selection:text-white overflow-x-hidden">
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
       {/* Modern dot mesh and ambient glow */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#0596690a_1px,transparent_1px),linear-gradient(to_bottom,#0596690a_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />

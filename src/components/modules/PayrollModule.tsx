@@ -919,23 +919,6 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 text-xs">
                 <div>
                   <p className="font-bold text-slate-700 mb-1">Earnings</p>
-<<<<<<< HEAD
-                  {selectedPayslip.earnings.map((e: any) => (
-                    <div key={e.item} className="flex justify-between text-slate-600 py-0.5">
-                      <span>{e.item}</span>
-                      <span className="font-semibold">${(Number(e.amount) || 0).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <p className="font-bold text-slate-700 mb-1">Deductions</p>
-                  {selectedPayslip.deductions.map((d: any) => (
-                    <div key={d.item} className="flex justify-between text-slate-600 py-0.5">
-                      <span>{d.item}</span>
-                      <span className="font-semibold text-rose-600">-${(Number(d.amount) || 0).toLocaleString()}</span>
-                    </div>
-                  ))}
-=======
                   <div className="flex justify-between text-slate-600 py-0.5"><span>Basic</span><span>₹{money(selectedPayslip.basicSalary).toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-slate-600 py-0.5"><span>HRA</span><span>₹{money(selectedPayslip.hra).toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-slate-600 py-0.5"><span>Allowances</span><span>₹{money(selectedPayslip.allowances).toLocaleString('en-IN')}</span></div>
@@ -948,19 +931,13 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                     <span>Total deductions</span>
                     <span className="font-semibold text-rose-600">₹{money(selectedPayslip.deduction ?? selectedPayslip.deductions).toLocaleString('en-IN')}</span>
                   </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 </div>
               </div>
 
               <div className="pt-3 border-t border-slate-200/60 flex justify-between items-center">
                 <span className="font-bold text-slate-900">Net Take-Home Salary:</span>
-<<<<<<< HEAD
-                <span className="text-lg font-black text-blue-600">
-                  ${(Number(selectedPayslip?.summary?.netSalary) || 0).toLocaleString()} USD
-=======
                 <span className="text-lg font-semibold tracking-tight text-blue-600">
                   ₹{money(selectedPayslip.netPay ?? selectedPayslip.netSalary).toLocaleString('en-IN')}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 </span>
               </div>
             </div>

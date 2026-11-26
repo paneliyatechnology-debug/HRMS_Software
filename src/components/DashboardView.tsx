@@ -47,9 +47,6 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { Employee, LeaveRequest, AttendanceRecord, Announcement } from '../types/hrms';
 import { api } from '../lib/api';
-<<<<<<< HEAD
-import { readableInitials, readablePersonName } from '../lib/displayName';
-=======
 import { useCompanyLive } from '../lib/useCompanyLive';
 import {
   fetchLeaveQuotaData,
@@ -57,7 +54,6 @@ import {
   calculateEmployeeLeaveBalances,
   RawLeaveQuotaPayload,
 } from '../lib/leaveQuotaUtils';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 import { getRoleDefinition } from '../lib/roleConfig';
 import {
   checkEmployeePunchEligibility,
@@ -70,12 +66,9 @@ import {
   formatSecondsToWords,
   getLiveActiveSeconds,
   getLiveBreakSeconds,
-<<<<<<< HEAD
-=======
   getAllAttendanceRecords,
   saveAttendanceRecords,
   isMatchEmployee,
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   getTodayRecordForEmployee,
   getTodayDateString,
 } from '../lib/attendanceService';
@@ -261,13 +254,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   }, [employees, currentEmpId, user.email, (user as any).employeeCode, user.firstName, user.lastName]);
 
-<<<<<<< HEAD
-  // Live punch status for employee
-  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmp.id || currentEmpId));
-  const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
-  const [liveBreakWords, setLiveBreakWords] = useState('0s');
-  const [actionLoading, setActionLoading] = useState(false);
-=======
   // Unified Punch & Work Session Context
   const {
     status: currentStatus,
@@ -284,17 +270,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     checkOut: handleCheckOutAction,
     actionLoading,
   } = useWorkSession();
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>(() => getAllAttendanceRecords());
   const activeEmpId = currentEmp.id || currentEmpId;
 
-<<<<<<< HEAD
-  // Sync and tick timer every second
-  const refreshAttendanceState = () => {
-    const eligibility = checkEmployeePunchEligibility(activeEmpId);
-    setPunchState(eligibility);
-=======
   // Sync attendance records on system events
   useEffect(() => {
     const handleUpdate = () => {
@@ -308,7 +287,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       window.removeEventListener('hrms_work_status_updated', handleUpdate);
     };
   }, []);
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
   // Real announcements, holidays, and admin-configured leave quota/balance states
   const [announcements, setAnnouncements] = useState<any[]>(notices || []);
@@ -861,13 +839,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-[#1b4332]">{user.firstName || 'Admin'}!</span>
             </h1>
           </div>
-<<<<<<< HEAD
-          <h1 className="text-2xl sm:text-[27px] font-bold text-[#0d271d] tracking-tight mt-0.5">
-            hello, {readablePersonName(user.firstName, user.lastName, user.email)}! 👋
-          </h1>
-          <div className="text-xs text-[#4e6a5d] mt-0.5">
-            Here&apos;s what&apos;s happening across your workspace today.
-=======
 
           <div className="flex items-center gap-2 flex-wrap">
             {isSuperAdmin ? (
@@ -887,7 +858,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
               )
             )}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
           </div>
         </div>
       )}
@@ -1279,113 +1249,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
-<<<<<<< HEAD
-          {/* Stats Row (Matching HTML .stats) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div
-              onClick={() => onNavigateModule('employees')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Total Employees</small>
-                <strong>{employees.length}</strong>
-                <small>Active workforce</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('attendance')}
-              className="stat cursor-pointer hover:border-[#10b981]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#dcfce7', color: '#166534' }}>
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Present Today</small>
-                <strong>{todayRecords.length}</strong>
-                <small>{activeWorkingCount} working, {onBreakCount} break</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('leaves')}
-              className="stat cursor-pointer hover:border-[#f59e0b]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Pending Leaves</small>
-                <strong>{pendingLeaves.length}</strong>
-                <small>Need review</small>
-              </div>
-            </div>
-
-            <div
-              onClick={() => onNavigateModule('chat')}
-              className="stat cursor-pointer hover:border-[#059669]/40 transition-colors"
-            >
-              <div className="stat-icon" style={{ background: '#f0fdf4', color: '#047857' }}>
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div>
-                <small>Team Hub</small>
-                <strong>{employees.length > 0 ? 'Active' : '—'}</strong>
-                <small>Real-time collaboration</small>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Dashboard Grid (1.2fr 1fr .9fr on desktop) */}
-          <div className="dashboard-grid">
-            {/* Panel 1: Attendance Overview (7 Days Chart) */}
-            <section className="panel sm:col-span-2">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <span className="text-base">📊</span> Attendance Rate & Turnout
-                </span>
-                <span className="tag">Last 7 Days</span>
-              </h3>
-              <div className="flex items-end gap-2 sm:gap-3 h-[165px] px-2 pt-4 pb-2 border-b border-[#d8ebd9]">
-                {weekBars.map((item, idx) => (
-                  <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center gap-1.5 group cursor-pointer">
-                    <div className="text-[10px] text-[#0d271d] font-mono font-bold bg-[#ecfdf5] border border-[#a7f3d0] px-1.5 py-0.5 rounded shadow-2xs">
-                      {item.val}%
-                    </div>
-                    <div
-                      style={{ height: `${item.val}%` }}
-                      className={`w-full max-w-[42px] rounded-t-lg transition-all shadow-xs ${item.isToday
-                          ? 'bg-gradient-to-t from-[#047857] to-[#10b981] ring-2 ring-[#10b981]/50'
-                          : 'bg-gradient-to-t from-[#059669] to-[#34d399] group-hover:brightness-110'
-                        }`}
-                      title={item.count}
-                    />
-                    <small
-                      className={`text-[11px] font-bold mt-1 ${item.isToday ? 'text-[#059669]' : 'text-[#4e6a5d]'
-                        }`}
-                    >
-                      {item.day}
-                    </small>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between text-xs text-[#4e6a5d] mt-3">
-                <span className="font-medium">
-                  <strong className="text-[#0d271d]">{todayRecords.length}</strong> checked-in out of{' '}
-                  <strong className="text-[#0d271d]">{employees.length}</strong> team members today
-                </span>
-                <button
-                  onClick={() => onNavigateModule('attendance')}
-                  className="text-[#059669] font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  Open Timesheets &rarr;
-                </button>
-              </div>
-            </section>
-=======
           {canReviewPhotos && photoRequests.length > 0 && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
               <p className="text-sm font-black text-amber-950">Profile photo requests</p>
@@ -1444,7 +1307,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {canUserPunch(user) && (
             <DailyShiftConsole variant="banner" clockSize="sm" showHeaderClock={false} />
           )}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
           {/* KPI Stats Row */}
           {loading ? (
@@ -1543,30 +1405,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   View all
                 </button>
               </h3>
-<<<<<<< HEAD
-              <div className="space-y-1">
-                {announcements.length === 0 ? (
-                  <div className="p-4 text-center text-[#6e7b98] text-xs">
-                    No announcements for this company yet.
-                  </div>
-                ) : (
-                  announcements.map((notice) => (
-                    <div key={notice.id} className="item">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-xs text-[#152345]">{notice.title}</strong>
-                        <span className={notice.priority === 'High' || notice.priority === 'Urgent' ? 'tag orange' : 'tag'}>
-                          {notice.priority || 'Notice'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-[#6e7b98] mt-1 leading-relaxed">
-                        {notice.content}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-=======
               {announcements.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 text-xs">
                   No company announcements published yet.
@@ -1589,7 +1427,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
               </section>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
               {canApproveRejectLeave(user) && (
               <section className="panel flex flex-col">
@@ -1736,11 +1573,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <tbody>
                   {employees.length === 0 ? (
                     <tr>
-<<<<<<< HEAD
-                      <td colSpan={8} className="py-10 text-center text-xs text-[#6e7b98]">
-=======
                         <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                         <div className="flex flex-col items-center justify-center gap-1.5">
                           <Users className="w-8 h-8 text-emerald-500/50" />
                             <p className="font-bold text-[#343a40]">No employees in this company yet</p>
@@ -1750,15 +1583,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </tr>
                   ) : (
                     employees.map((emp, index) => {
-<<<<<<< HEAD
-                    const todayRec =
-                      attendance.find(
-                        (record) => String(record.date || '').slice(0, 10) === todayDate && record.employeeId === emp.id,
-                      ) || getTodayRecordForEmployee(emp.id);
-                    const isWorking = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                    const isOnBreak = todayRec && !todayRec.isCompleted && todayRec.isOnBreak;
-                    const isDone = todayRec && todayRec.isCompleted;
-=======
                     const todayDate = getTodayDateString();
                     const todayRec =
                       mergedAttendance.find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
@@ -1767,7 +1591,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
                         const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
                         const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
                     const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
                     const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
@@ -1891,85 +1714,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* EMPLOYEE SELF-SERVICE VIEW (HIGH-CLARITY & SIMPLE)             */
         /* ============================================================== */
         <div className="space-y-5">
-<<<<<<< HEAD
-
-          {/* ═══ 1. HERO BANNER ═══ */}
-          <div className="relative rounded-3xl overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #062d1f 0%, #0a3d2b 45%, #041d14 100%)' }}>
-            {/* Animated glow blobs */}
-            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.25), transparent 70%)' }} />
-            <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.2), transparent 70%)' }} />
-            <div className="absolute top-1/2 right-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(5,150,105,0.15), transparent 70%)' }} />
-
-            <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              {/* Employee info */}
-              <div className="flex items-center gap-5">
-                <div className="relative shrink-0">
-                  <div className="w-18 h-18 w-[72px] h-[72px] rounded-2xl flex items-center justify-center font-black text-2xl text-white shadow-xl border border-white/20 overflow-hidden"
-                    style={{ background: 'linear-gradient(135deg, #10b981, #059669, #047857)' }}>
-                    {currentEmp?.avatarUrl ? (
-                      <img src={currentEmp.avatarUrl} alt={currentEmp.firstName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{readableInitials(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}</span>
-                    )}
-                  </div>
-                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#062d1f] flex items-center justify-center"
-                    style={{ background: punchState.status === 'working' ? '#10b981' : punchState.status === 'on_break' ? '#f59e0b' : punchState.status === 'completed' ? '#059669' : '#4e6a5d' }}>
-                    <span className="w-2 h-2 rounded-full bg-white"></span>
-                  </span>
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/10 text-emerald-200 border border-white/15 font-mono uppercase tracking-wide">
-                      {currentEmp?.employeeCode || 'EMP-1'}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${empRoleDef.badgeClass}`}>
-                      <Shield className="w-2.5 h-2.5" />
-                      {empRoleDef.label}
-                    </span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                    {readablePersonName(currentEmp?.firstName || user.firstName, currentEmp?.lastName || user.lastName, currentEmp?.email || user.email)}
-                  </h2>
-                  <p className="text-xs text-emerald-300 mt-1 flex flex-wrap items-center gap-1.5">
-                    <span className="font-bold text-white">{currentEmp?.designationTitle || 'Staff Member'}</span>
-                    <span className="text-emerald-500">•</span>
-                    <span>{currentEmp?.departmentName || 'Engineering'}</span>
-                    <span className="text-emerald-500">•</span>
-                    <span className="text-emerald-400 font-semibold">{currentEmp?.shift || 'General Shift'}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                <button id="btn-emp-apply-leave" onClick={onOpenLeaveModal}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 active:scale-95 text-[#065f46] font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
-                  <Calendar className="w-3.5 h-3.5 text-[#059669]" />
-                  Apply Leave
-                </button>
-                <button id="btn-emp-payslips" onClick={() => onNavigateModule('payslips')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
-                  <Receipt className="w-3.5 h-3.5 text-emerald-300" />
-                  My Payslips
-                </button>
-                <button id="btn-emp-chat" onClick={() => onNavigateModule('chat')}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Team Chat
-                </button>
-                <button id="btn-emp-profile" onClick={() => onSelectEmployee(currentEmp)}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer">
-                  <User className="w-3.5 h-3.5" />
-                  My Profile
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ═══ 2. STAT CARDS ═══ */}
-=======
           {/* â•â•â• EMPLOYEE STAT CARDS â•â•â• */}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
           {(() => {
             const myLeaves = leaves.filter((l) => {
               const eId = currentEmp?.id || user?.employeeId || user?.id || '';
@@ -1982,25 +1727,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               if (eName && l.employeeName?.toLowerCase() === eName) return true;
               return false;
             });
-<<<<<<< HEAD
-            const empTakenDays = myLeaves
-              .filter((l) => (l.status || '').toLowerCase() === 'approved')
-              .reduce((sum, l) => sum + (Number(l.daysCount) || 1), 0);
-
-            return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* Stat 1: Attendance status */}
-                <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: punchState.status === 'working' ? 'linear-gradient(90deg,#10b981,#34d399)' : punchState.status === 'on_break' ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : punchState.status === 'completed' ? 'linear-gradient(90deg,#059669,#10b981)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${punchState.status === 'working' ? 'bg-emerald-50 text-emerald-600' : punchState.status === 'on_break' ? 'bg-amber-50 text-amber-600' : punchState.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Today's Status</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{punchState.status === 'working' ? 'Working' : punchState.status === 'on_break' ? 'On Break' : punchState.status === 'completed' ? 'Shift Done' : 'Not Checked In'}</p>
-                      <p className="text-[11px] text-slate-500">{punchState.status === 'working' ? liveWorkedHMS : punchState.status === 'completed' ? `${punchState.record?.workingHours || 0}h logged` : 'Not started'}</p>
-=======
             const empLeaveSummary = resolveLeaveQuotaSummary(
               leaveQuotaData?.settings ?? null,
               leaveQuotaData?.balances ?? null,
@@ -2041,24 +1767,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <p className="text-sm font-semibold text-slate-800 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
                         <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
                       </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                     </div>
                   </div>
                 )}
 
-<<<<<<< HEAD
-                {/* Stat 2: Leave Balance */}
-                <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                      <Shield className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                      <p className="text-sm font-black text-slate-900">{leaveDaysLeft === null ? '—' : `${leaveDaysLeft} Days Left`}</p>
-                      <p className="text-[11px] text-emerald-600 font-semibold">{empTakenDays} approved this year</p>
-=======
                 {isModuleAllowedForUser('leaves', user) && (
                   <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
                     <div className="flex items-center gap-3">
@@ -2076,24 +1788,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             : `${empTakenDays} Used • ${empTotalQuota} Total`}
                         </p>
                       </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                     </div>
                   </div>
                 )}
 
-<<<<<<< HEAD
-                {/* Stat 3: Salary & Payslips */}
-                <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Salary & Payslips</p>
-                      <p className="text-sm font-black text-slate-900">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : 'Not set'}</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
-=======
                 {isModuleAllowedForUser('payslips', user) && (
                   <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
                     <div className="flex items-center gap-3">
@@ -2105,24 +1803,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <p className="text-sm font-semibold text-slate-800">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
                         <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
                       </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                     </div>
                   </div>
                 )}
 
-<<<<<<< HEAD
-                {/* Stat 4: Manager */}
-                <div onClick={() => currentEmp?.reportingManagerId && onOpenChatWithEmployee?.(currentEmp.reportingManagerId)} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer">
-                  <div className="h-1 w-full absolute top-0 left-0 rounded-t-2xl" style={{ background: 'linear-gradient(90deg,#f59e0b,#d97706)' }} />
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                      <Briefcase className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Reports To</p>
-                      <p className="text-sm font-black text-slate-900 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                      <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
-=======
                 {isModuleAllowedForUser('chat', user) && (
                   <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
                     <div className="flex items-center gap-3">
@@ -2134,7 +1818,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <p className="text-sm font-semibold text-slate-800 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
                         <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
                       </div>
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                     </div>
                   </div>
                 )}
@@ -2148,100 +1831,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
             </div>
 
-<<<<<<< HEAD
-            {/* Right 5 Cols: Profile + Workplace Cards */}
-            <div className="lg:col-span-5 space-y-4">
-
-              {/* Profile Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669,#047857)' }} />
-                <div className="p-5">
-                  <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-md shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-                      {readableInitials(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-black text-slate-900 leading-tight">{readablePersonName(currentEmp?.firstName, currentEmp?.lastName, currentEmp?.email || user.email)}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{currentEmp?.designationTitle} • {currentEmp?.departmentName}</p>
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 mt-1">Active</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Employee ID</p>
-                      <p className="font-bold text-slate-900 font-mono mt-0.5">{currentEmp?.employeeCode}</p>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] text-slate-400 font-black uppercase">Work Shift</p>
-                      <p className="font-bold text-slate-900 mt-0.5 truncate">09:30 – 18:30</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <button onClick={() => onSelectEmployee(currentEmp)}
-                      className="py-2.5 px-3 rounded-xl text-xs font-bold text-center transition-colors hover:opacity-90 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>My Profile</button>
-                    <button onClick={() => onNavigateModule('documents')}
-                      className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-800 font-bold text-xs text-center transition-colors cursor-pointer">Documents</button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Employment Details Card */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-black text-slate-900">Workplace Info</h4>
-                        <p className="text-[10px] text-slate-400">Employment details</p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">Active</span>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    {[
-                      { label: 'Work Location', value: currentEmp?.workLocationName || 'Corporate HQ' },
-                      { label: 'Employment Type', value: currentEmp?.employmentType || 'Full-time' },
-                      { label: 'Joined On', value: currentEmp?.joiningDate ? new Date(currentEmp.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Active' },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-emerald-50/40 hover:border-emerald-100 transition-colors">
-                        <span className="text-slate-500 font-medium">{label}</span>
-                        <span className="font-bold text-slate-900 text-right max-w-[120px] truncate">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => onNavigateModule('organization')}
-                    className="w-full mt-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff' }}>
-                    <Building2 className="w-3.5 h-3.5" />
-                    About Organisation
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* ═══ 4. ATTENDANCE HISTORY + LEAVE/HOLIDAYS ═══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 7: Attendance table */}
-            <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#10b981,#059669)' }} />
-              <div className="p-6">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <CalendarCheck className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900 tracking-tight">
-                        My Recent Attendance (Last 5 Days)
-=======
             <div className="lg:col-span-6 flex flex-col">
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-full">
                 <div className="p-3 sm:p-3.5 flex flex-col flex-1 min-h-0">
@@ -2253,7 +1842,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="min-w-0">
                         <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
                           My Recent Attendance
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                       </h3>
                       
                     </div>

@@ -1,26 +1,6 @@
 import { ChatMessage, ChatConversation, ChatAttachment, User, Employee } from '../types/hrms';
 import { getAllEmployees } from './employeeService';
-<<<<<<< HEAD
-import { axiosClient } from './api';
-
-let chatPushTimer: ReturnType<typeof setTimeout> | null = null;
-
-function pushChatToServer() {
-  if (typeof window === 'undefined') return;
-  if (chatPushTimer) clearTimeout(chatPushTimer);
-  chatPushTimer = setTimeout(() => {
-    try {
-      const conversations = JSON.parse(localStorage.getItem(CHAT_CONVERSATIONS_KEY) || '[]');
-      const messages = JSON.parse(localStorage.getItem(CHAT_MESSAGES_KEY) || '{}');
-      void axiosClient.put('/chat/state', { conversations, messages });
-    } catch {
-      // Keep the local copy if the browser store cannot be read.
-    }
-  }, 250);
-}
-=======
 import { getAttachmentPreviewText } from './chatMediaUtils';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 const CHAT_CONVERSATIONS_KEY = 'hrms_chat_conversations_records';
 const CHAT_MESSAGES_KEY = 'hrms_chat_messages_records';
@@ -75,12 +55,6 @@ export function saveConversations(conversations: ChatConversation[]): void {
       localStorage.removeItem(CHAT_CONVERSATIONS_KEY);
     } catch {}
     window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
-<<<<<<< HEAD
-    pushChatToServer();
-  } catch (e) {
-    console.error('Failed to save chat conversations:', e);
-=======
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   }
 }
 
@@ -95,12 +69,6 @@ export function saveMessagesMap(messagesMap: Record<string, ChatMessage[]>): voi
       localStorage.removeItem(CHAT_MESSAGES_KEY);
     } catch {}
     window.dispatchEvent(new CustomEvent('hrms_chat_updated'));
-<<<<<<< HEAD
-    pushChatToServer();
-  } catch (e) {
-    console.error('Failed to save chat messages:', e);
-=======
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   }
 }
 

@@ -1,17 +1,4 @@
-<<<<<<< HEAD
-export type Role =
-  | 'SUPER_ADMIN'
-  | 'ADMIN'
-  | 'HR_ADMIN'
-  | 'HR_EXECUTIVE'
-  | 'MANAGER'
-  | 'TEAM_LEADER'
-  | 'EMPLOYEE'
-  | 'RECRUITER'
-  | 'FINANCE_ADMIN';
-=======
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 export type EmployeeStatus =
   | 'Active'

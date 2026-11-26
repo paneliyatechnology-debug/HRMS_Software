@@ -1,12 +1,5 @@
 'use client';
 
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, AlertCircle, User as UserIcon } from 'lucide-react';
-import { api } from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
-import { Employee, LeaveType } from '../../types/hrms';
-=======
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, AlertCircle, CalendarDays } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -14,32 +7,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { LeaveType, LeaveRequest, LeaveDaySession, LeaveDayBreakdown } from '../../types/hrms';
 import { useModalOverlay } from '../../lib/useModalOverlay';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 interface LeaveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefresh: () => void;
-<<<<<<< HEAD
-  employees?: Employee[];
-  portalMode?: 'admin' | 'employee';
-}
-
-export const LeaveModal: React.FC<LeaveModalProps> = ({
-  isOpen,
-  onClose,
-  onRefresh,
-  employees = [],
-  portalMode = 'employee',
-}) => {
-  const { user } = useAuth();
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  const [selectedEmpId, setSelectedEmpId] = useState<string>('');
-  const [leaveType, setLeaveType] = useState<LeaveType>('Casual Leave');
-  const [startDate, setStartDate] = useState(todayStr);
-  const [endDate, setEndDate] = useState(todayStr);
-=======
   availableLeaveTypes?: Array<{ id: string; name: string }>;
 }
 
@@ -92,7 +64,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   );
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [daySessions, setDaySessions] = useState<Record<string, LeaveDaySession>>({});
   const [reason, setReason] = useState('');
@@ -267,56 +238,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setLoading(true);
     setError('');
     try {
-<<<<<<< HEAD
-      // Resolve target employee details
-      const matchedEmp = employees.find(
-        (emp) =>
-          emp.id === selectedEmpId ||
-          emp.userId === selectedEmpId ||
-          (user.email && emp.email?.toLowerCase() === user.email.toLowerCase())
-      );
-
-      const targetEmp = matchedEmp || user;
-      const targetEmpId = matchedEmp?.id || user.employeeId || user.id || selectedEmpId;
-      const targetEmpCode = (matchedEmp as any)?.employeeCode || (user as any)?.employeeCode || '';
-      const targetEmpName = matchedEmp?.firstName
-        ? `${matchedEmp.firstName} ${matchedEmp.lastName || ''}`.trim()
-        : `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
-      const targetEmpEmail = matchedEmp?.email || user.email || '';
-      const targetDeptName =
-        (matchedEmp as any)?.departmentName ||
-        (user as any)?.departmentName ||
-        'General';
-      const targetCompId =
-        (matchedEmp as any)?.companyId ||
-        user.companyId ||
-        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_id') || '' : '');
-      const targetCompCode =
-        (matchedEmp as any)?.companyCode ||
-        user.companyCode ||
-        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_code') || '' : '');
-
-      await api.applyLeave({
-        employeeId: targetEmpId,
-        employeeCode: targetEmpCode,
-        employeeName: targetEmpName,
-        employeeEmail: targetEmpEmail,
-        departmentName: targetDeptName,
-        companyId: targetCompId,
-        companyCode: targetCompCode,
-        leaveType,
-        startDate,
-        endDate,
-        isHalfDay,
-        reason: reason.trim(),
-      });
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hrms_leaves_updated'));
-      }
-
-      await onRefresh();
-=======
       const targetUserId =
         (user as any)?.userId ||
         (user as any)?.sub ||
@@ -380,7 +301,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: createdLeave }));
       }
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to submit leave request');
@@ -423,36 +343,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
           </div>
         )}
 
-<<<<<<< HEAD
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Employee Selector for Admin Portal */}
-          {portalMode === 'admin' && employees.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Applying For Employee
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedEmpId}
-                  onChange={(e) => setSelectedEmpId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value={user.employeeId || user.id}>
-                    Myself ({user.firstName} {user.lastName || ''} - Admin)
-                  </option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode || emp.id}) - {emp.departmentName || 'General'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-=======
         <form onSubmit={handleSubmit} className="space-y-4 mt-5">
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
           <div>
             <label htmlFor="leave-type-select" className="block text-xs font-bold text-slate-800 mb-1.5">
               Type
@@ -460,18 +351,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
             <select
               id="leave-type-select"
               value={leaveType}
-<<<<<<< HEAD
-              onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="Casual Leave">Casual Leave (CL)</option>
-              <option value="Sick Leave">Sick Leave (SL)</option>
-              <option value="Paid Leave">Paid / Annual Leave (PL)</option>
-              <option value="Comp Off">Compensatory Off</option>
-              <option value="Unpaid Leave">Unpaid Leave</option>
-              <option value="Maternity Leave">Maternity Leave</option>
-              <option value="Paternity Leave">Paternity Leave</option>
-=======
               onChange={(e) => {
                 setLeaveType(e.target.value as LeaveType);
                 clearFieldError('leaveType');
@@ -490,7 +369,6 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               ) : (
                 <option value="" disabled>No leave types configured by company</option>
               )}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
             </select>
             {fieldErrors.leaveType && (
               <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
@@ -510,13 +388,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 type="date"
                 min={getTodayDate()}
                 value={startDate}
-<<<<<<< HEAD
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
-=======
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition"
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 required
               />
             </div>
@@ -537,16 +410,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 type="date"
                 min={startDate}
                 value={endDate}
-<<<<<<< HEAD
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
-=======
                 onChange={(e) => handleEndDateChange(e.target.value)}
                 className={`w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border bg-white text-slate-800 transition-all ${fieldErrors.endDate
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                   : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f]'
                   }`}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 required
               />
             </div>

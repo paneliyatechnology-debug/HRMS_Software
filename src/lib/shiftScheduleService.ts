@@ -98,30 +98,11 @@ export function saveWorkScheduleConfig(
       localStorage.removeItem(SCHEDULE_STORAGE_KEY);
     } catch {}
 
-<<<<<<< HEAD
-      // Keep legacy key in sync if Paneliya flagship company
-      if (compId === 'comp-paneliya') {
-        localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(updated));
-      }
-
-      window.dispatchEvent(
-        new CustomEvent('hrms_schedule_updated', {
-          detail: { config: updated, companyId: compId },
-        })
-      );
-      import('./api').then(({ axiosClient }) => {
-        void axiosClient.put('/settings', { workSchedule: updated });
-      });
-    } catch (err) {
-      console.error('Failed to save schedule config to storage:', err);
-    }
-=======
     window.dispatchEvent(
       new CustomEvent('hrms_schedule_updated', {
         detail: { config: updated, companyId: compId },
       })
     );
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   }
 
   return updated;

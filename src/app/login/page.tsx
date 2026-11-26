@@ -10,12 +10,6 @@ export default function DirectLoginPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!isLoading && isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, isLoading, router]);
-=======
     if (isLoading || !isAuthenticated) return;
     const role = String(user?.role || '').toUpperCase();
     if (!role) return;
@@ -24,7 +18,6 @@ export default function DirectLoginPage() {
     if (!pendingPlan || !canBuy) window.sessionStorage.removeItem('hrms_pending_plan');
     router.push(pendingPlan && canBuy ? '/settings' : '/dashboard');
   }, [isAuthenticated, isLoading, router, user?.role]);
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
   if (isLoading || isAuthenticated) {
     return (

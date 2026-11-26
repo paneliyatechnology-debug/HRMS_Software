@@ -16,9 +16,6 @@ import {
   Building2,
   MessageSquare,
   AlertTriangle,
-<<<<<<< HEAD
-  Search,
-=======
   Smartphone,
   Receipt,
   Lock,
@@ -35,21 +32,15 @@ import {
   ShieldCheck,
   FileText,
   Layers,
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
-<<<<<<< HEAD
-import { getAllCompanies } from '../lib/companyService';
-import { readableInitials, readablePersonName } from '../lib/displayName';
-=======
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -60,12 +51,8 @@ interface HeaderProps {
   onNavigateSettings?: () => void;
   onOpenChat?: () => void;
   onOpenSearchModal?: () => void;
-<<<<<<< HEAD
-  onNavigateModule?: (moduleName: string) => void;
-=======
   onOpenMobileModal?: () => void;
   onNavigateModule?: (moduleName: string, subTab?: string) => void;
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
   portalMode?: 'employee' | 'admin';
@@ -403,15 +390,9 @@ export const Header: React.FC<HeaderProps> = ({
   }, [activeModule, activeSubTab, portalMode, user?.firstName, pageTitle]);
 
   return (
-<<<<<<< HEAD
-    <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs w-full max-w-full overflow-hidden gap-2">
-      {/* Left: Mobile Toggle & Brand Logo */}
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-=======
     <header className="min-h-[56px] sm:min-h-[66px] pt-[env(safe-area-inset-top)] bg-white border-b border-[#e9ecef] px-2 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
       {/* Left: Mobile Toggle, Back Button (nested pages), Brand Logo & Page Heading */}
       <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 min-w-0">
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
         <button
           onClick={onOpenSidebar}
           className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-[10px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
@@ -482,65 +463,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-<<<<<<< HEAD
-      {/* Center: Live Digital Clock Widget */}
-      <div className="hidden lg:flex items-center justify-center px-2 min-w-0 overflow-hidden">
-        <LiveClock onClick={onOpenClockModal} />
-      </div>
-
-      {/* Right: Actions, Role Pill, Notifications, Profile */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* Sleek Global Search Button (Opens Search Modal on click or Ctrl+K) */}
-        {onOpenSearchModal && (
-          <button
-            id="btn-header-search"
-            onClick={onOpenSearchModal}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] border border-[#d8ebd9] transition-all shadow-2xs group cursor-pointer shrink-0"
-            title="Search HRMS modules, staff & records (Ctrl+K)"
-          >
-            <Search className="w-4 h-4 text-[#059669] group-hover:scale-110 transition-transform shrink-0" />
-            <span className="hidden xl:inline text-xs font-semibold text-[#4e6a5d] group-hover:text-[#0d271d]">Search...</span>
-            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-emerald-100 rounded shadow-2xs">
-              ⌘K
-            </kbd>
-          </button>
-        )}
-
-        {/* Quick Clock Button */}
-        <button
-          onClick={onOpenClockModal}
-          className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#065f46] border border-[#a7f3d0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-          title="Attendance Punch"
-        >
-          <Clock className="w-3.5 h-3.5 text-[#059669] shrink-0" />
-          <span>Clock In / Out</span>
-        </button>
-
-        {/* Quick Add Employee (Admin only) */}
-        {portalMode === 'admin' && (
-          <button
-            onClick={onOpenAddEmployeeModal}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] bg-[#059669] hover:bg-[#047857] text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer shrink-0"
-            title="Add New Employee"
-          >
-            <UserPlus className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden md:inline">Add Employee</span>
-          </button>
-        )}
-
-        {/* Work Status Pill */}
-        <div
-          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[10px] bg-[#f2f9f5] border border-[#a7f3d0] text-[#065f46] text-xs font-semibold shadow-2xs shrink-0"
-          title="Current Work Availability Status (Configured in Settings > Work & Display)"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="truncate max-w-[130px]">{workStatus}</span>
-        </div>
-
-        {/* Role Pill */}
-        <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-[10px] bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-xs font-bold shrink-0">
-          {portalMode === 'admin' ? 'Admin' : 'Employee'}
-=======
       {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Admin Quick Action Buttons in Top Header */}
@@ -795,7 +717,6 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           )}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
         </div>
         )}
 
@@ -817,13 +738,8 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
-<<<<<<< HEAD
-              <span className="text-xs font-bold text-[#0d271d] leading-tight block truncate">
-                {readablePersonName(user.firstName, user.lastName, user.email)}
-=======
               <span className="text-xs font-semibold text-[#212529] leading-tight block truncate">
                 {user.firstName || 'User'} {user.lastName || ''}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
               </span>
               <span className="text-[10px] text-[#343a40] leading-none block truncate">
                 {user.role ? (user.role === 'ADMIN' ? 'Administrator' : user.role === 'HR' ? 'HR Manager' : user.role === 'MANAGER' ? 'Manager' : user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Employee') : (portalMode === 'admin' ? 'Administrator' : 'Employee')}
@@ -843,13 +759,8 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-<<<<<<< HEAD
-                  <p className="text-xs font-bold text-[#0d271d] truncate">
-                    {readablePersonName(user.firstName, user.lastName, user.email)}
-=======
                   <p className="text-xs font-bold text-[#212529] truncate">
                     {user.firstName || 'User'} {user.lastName || ''}
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                   </p>
                   <p className="text-[11px] text-[#343a40] truncate">
                     {user.email || ''}
@@ -883,11 +794,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-<<<<<<< HEAD
-              <div className="border-t border-[#edf6f0] my-1" />
-=======
               <div className="border-t border-[#f8f9fa] my-1" />
->>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
               <button
                 onClick={() => {
