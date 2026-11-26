@@ -266,7 +266,8 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
         </div>
       </div>
     );
-  }
+  }     
+  
 
   // Determine top bar gradient based on status
   const topBarGradient =
