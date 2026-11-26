@@ -443,12 +443,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               effectiveCollapsed ? (
                 <button
                   type="button"
-                  title="Face clock"
                   aria-label="Face clock"
-                  onClick={() => { window.location.href = '/face-clock'; }}
-                  className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] cursor-pointer"
+                  onMouseEnter={(e) => openFlyout(e, { key: 'face-clock', label: 'Face clock' })}
+                  onMouseLeave={scheduleFlyoutClose}
+                  onClick={() => {
+                    setHoverFlyout(null);
+                    window.location.href = '/face-clock';
+                  }}
+                  className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105 transition-all duration-200 cursor-pointer group active:scale-95"
                 >
-                  <ScanFace className="w-4 h-4 text-[#6c757d]" />
+                  <span className="w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 text-[#6c757d] group-hover:text-[#2d6a4f]">
+                    <ScanFace className="w-4 h-4" />
+                  </span>
                 </button>
               ) : (
                 <button
