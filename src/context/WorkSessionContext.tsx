@@ -536,17 +536,25 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const finalSummaryWorked = resolved === 'completed' ? Math.max(backendTotalWorkedSecs, priorWorkedSecs) : priorWorkedSecs;
     const finalSummaryBreak = resolved === 'completed' ? Math.max(backendTotalBreakSecs, priorBreakSecs) : priorBreakSecs;
 
+    const parseColonToSeconds = (str?: string | null): number => {
+      if (!str || typeof str !== 'string') return 0;
+      const parts = str.trim().split(':').map(Number);
+      if (parts.some((n) => isNaN(n))) return 0;
+      if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      return 0;
+    };
+
+    const resolvedWorkedSecs =
+      finalSummaryWorked > 0 ? finalSummaryWorked : parseColonToSeconds(logic.totalHours);
+    const resolvedBreakSecs =
+      finalSummaryBreak > 0 ? finalSummaryBreak : parseColonToSeconds(logic.breakHours);
+
     setTodaySummary({
-      totalSecondsWorked: finalSummaryWorked,
-      totalBreakSecondsToday: finalSummaryBreak,
-      totalDurationFormatted:
-        logic.totalHours && logic.totalHours !== '00:00:00'
-          ? logic.totalHours
-          : formatSecondsToHMS(finalSummaryWorked),
-      totalBreakFormatted:
-        logic.breakHours && logic.breakHours !== '00:00:00'
-          ? logic.breakHours
-          : formatSecondsToWords(finalSummaryBreak),
+      totalSecondsWorked: resolvedWorkedSecs,
+      totalBreakSecondsToday: resolvedBreakSecs,
+      totalDurationFormatted: formatSecondsToWords(resolvedWorkedSecs),
+      totalBreakFormatted: formatSecondsToWords(resolvedBreakSecs),
       totalSessionsToday: Math.max(
         totalSessionsCount,
         punchesList.filter((p: any) => normalizePunchType(p?.type) === 'IN').length
