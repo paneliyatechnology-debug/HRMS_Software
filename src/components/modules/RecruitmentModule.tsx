@@ -1053,7 +1053,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                   />
                 </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
                     Department
@@ -1094,7 +1094,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
                     Location
@@ -1643,7 +1643,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
               </button>
             </div>
             <form onSubmit={handleSendOfferLetter} className="p-6 space-y-4 text-xs flex-1 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Offered Designation <span className="text-rose-500">*</span>

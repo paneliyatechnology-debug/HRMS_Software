@@ -75,7 +75,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedRole, setSelectedRole] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
   const [photoRequestBusy, setPhotoRequestBusy] = useState<string | null>(null);
@@ -190,20 +189,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     return matchesSearch && matchesStatus && matchesRole;
   });
-
-  const toggleSelectAll = () => {
-    if (selectedRows.length === filtered.length) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(filtered.map((e) => e.id));
-    }
-  };
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-    );
-  };
 
   const handleOpenRemoveModal = (emp: Employee) => {
     setRemovingEmp(emp);
@@ -559,15 +544,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 emp.email === user.email ||
                 emp.id === user.employeeId ||
                 emp.id === user.id;
-              const isSelected = selectedRows.includes(emp.id);
               const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
 
               return (
                 <div
                   key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
-                  className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'
-                  }`}
+                  className="p-3.5 space-y-2.5 transition-colors cursor-pointer hover:bg-slate-50/70"
                   onClick={() => onSelectEmployee(emp)}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -716,14 +698,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           <table className="w-full min-w-[850px] text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.length === filtered.length && filtered.length > 0}
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                  />
-                </th>
                 <th className="py-3 px-4 font-bold">EMPLOYEE ID</th>
                 <th className="py-3 px-4 font-bold">NAME</th>
                 <th className="py-3 px-4 font-bold">EMAIL</th>
@@ -789,32 +763,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   emp.email === user.email ||
                   emp.id === user.employeeId ||
                   emp.id === user.id;
-                const isSelected = selectedRows.includes(emp.id);
 
                 return (
                   <tr
                     key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
-                    className={`transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-indigo-50/30 hover:bg-slate-50/70'
-                        : 'hover:bg-slate-50/70'
-                    }`}
+                    className="transition-colors cursor-pointer hover:bg-slate-50/70"
                     onClick={() => onSelectEmployee(emp)}
                   >
-                    <td
-                      className="py-3 px-4"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelectRow(emp.id);
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      />
-                    </td>
                     <td className="py-3 px-4">
                       <span className="font-bold text-slate-900">{emp.employeeCode || 'EMP-1'}</span>
                     </td>

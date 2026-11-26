@@ -103,7 +103,6 @@ import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } fro
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
-const BankDetailForm = dynamic(() => import('../modals/BankDetailForm').then((m) => m.BankDetailForm), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
 import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
@@ -1264,7 +1263,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onRefresh={loadData}
         />
       )}
-      <BankDetailForm />
 
       {leaveModalOpen && (
         <LeaveModal

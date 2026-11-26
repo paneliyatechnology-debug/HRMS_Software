@@ -560,7 +560,90 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto [scrollbar-width:thin]">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredTasks.map((task) => {
+              const pBadge = PRIORITY_BADGES[task.priority] || PRIORITY_BADGES.MEDIUM;
+              const sBadge = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
+              const matchedEmp = employees.find((e) => e.id === task.assigneeId);
+              const assigneeName =
+                task.assignee?.fullName ||
+                (task.assignee?.firstName ? `${task.assignee.firstName} ${task.assignee.lastName || ''}`.trim() : null) ||
+                (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : null) ||
+                'Unassigned';
+              return (
+                <div key={`mob-${task.id}`} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-slate-900 break-words">{task.title}</h4>
+                      {task.description && (
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{task.description}</p>
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${pBadge.bg} ${pBadge.text} ${pBadge.border}`}>
+                      {pBadge.label}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
+                        {assigneeName[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <span className="truncate max-w-[140px]">{assigneeName}</span>
+                    </div>
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleQuickStatusChange(task, e.target.value)}
+                      className={`text-xs font-bold px-2.5 py-1.5 rounded-full border border-slate-200 cursor-pointer ${sBadge.bg} ${sBadge.text} focus:outline-hidden`}
+                    >
+                      <option value="TODO">To Do</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="IN_REVIEW">In Review</option>
+                      <option value="COMPLETED">Completed</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-[11px] text-slate-500">
+                      {task.endDate || task.dueDate
+                        ? `Due: ${new Date(task.endDate || task.dueDate!).toLocaleDateString()}`
+                        : task.startDate
+                          ? `Start: ${new Date(task.startDate).toLocaleDateString()}`
+                          : 'No timeline'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenViewModal(task)}
+                        className="min-h-[38px] px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(task)}
+                        className="min-h-[38px] px-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      {canManageTasks(user) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeletingTaskId(task.id)}
+                          className="min-h-[38px] px-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
@@ -765,7 +848,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Priority Level
@@ -799,7 +882,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Assignee
@@ -850,7 +933,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Starting Date
@@ -953,7 +1036,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
                       <p className="font-bold text-slate-800 mt-0.5">{viewTaskData?.status}</p>
@@ -964,7 +1047,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starting Date</span>
                       <p className="font-medium text-slate-700 mt-0.5">

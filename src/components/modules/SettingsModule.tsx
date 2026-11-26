@@ -1893,8 +1893,39 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     No premium orders recorded yet.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left text-xs">
+                  <>
+                    {/* Mobile Card View (< md) */}
+                    <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                      {premiumOrders.map((ord: any) => (
+                        <div key={`mob-ord-${ord.id}`} className="p-3.5 space-y-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-800 truncate">{ord.planName || ord.planId || 'Plan Tier'}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
+                              {ord.status || 'Completed'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-500">
+                            <span className="font-mono">{ord.id?.slice(0, 12)}...</span>
+                            <span>{ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}</span>
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingOrder(ord);
+                                setOrderStatusVal(ord.status || 'Active');
+                              }}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                            >
+                              Update Status
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                         <tr>
                           <th className="px-4 py-3">Order ID</th>
@@ -1938,6 +1969,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     </tbody>
                   </table>
                 </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1982,8 +2014,56 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left text-xs">
+                <>
+                  {/* Mobile Card View (< md) */}
+                  <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                    {supportList.map((item: any) => (
+                      <div key={`mob-sup-${item.id}`} className="p-3.5 space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700">
+                            {item.kind || 'Demo'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              item.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.status === 'Read'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {item.status || 'New'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{item.name} {item.companyName ? `(${item.companyName})` : ''}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{item.email} • {item.phone || 'No phone'}</p>
+                        </div>
+                        {item.message && <p className="text-slate-600 line-clamp-2">{item.message}</p>}
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewSupportReq(item)}
+                            className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            View
+                          </button>
+                          {item.status !== 'Resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                       <tr>
                         <th className="px-4 py-3">Type</th>
@@ -2050,6 +2130,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}
@@ -2115,7 +2196,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Price (₹)</label>
                   <input
@@ -2354,7 +2435,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               </button>
             </div>
             <div className="p-6 space-y-4 text-xs overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Name</span>
                   <span className="font-bold text-slate-900">{viewingSupport.name}</span>

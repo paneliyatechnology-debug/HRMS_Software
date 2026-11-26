@@ -313,7 +313,62 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
             <span className="text-xs text-slate-400">{enrollments.length} Active Records</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {enrollments.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs">
+                No employee enrollments found.
+              </div>
+            ) : (
+              enrollments.map((en) => (
+                <div key={`mob-${en.id}`} className="py-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 text-sm truncate">{en.employeeName}</p>
+                      <p className="text-xs font-semibold text-slate-600 truncate">{en.trainingTitle}</p>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        en.status === 'Completed'
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      {en.status}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span>{en.progressPercent}%</span>
+                      <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
+                        {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                        style={{ width: `${Math.min(100, en.progressPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgressModalEnrollment(en);
+                        setProgressVal(en.progressPercent);
+                      }}
+                      className="min-h-[38px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                    >
+                      Update Progress
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
