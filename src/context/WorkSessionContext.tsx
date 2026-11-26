@@ -560,6 +560,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (role === 'SUPER_ADMIN' && !(user as any)?.companyId) {
+      setInitialLoading(false);
+      return;
+    }
     isFetchingRef.current = true;
     try {
       const data: any = await api.getAttendanceLogic();
@@ -575,7 +580,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isFetchingRef.current = false;
       setInitialLoading(false);
     }
-  }, [applyAttendanceLogic]);
+  }, [applyAttendanceLogic, user]);
 
   // Initial fetch on mount & listen to cross-component punch events
   useEffect(() => {

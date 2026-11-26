@@ -75,9 +75,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { unreadNoticesCount } = useSocket();
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [hasPremium, setHasPremium] = useState(true);
+  const [planFeatures, setPlanFeatures] = useState<string[] | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
   });
+
+  useEffect(() => {
+    const role = String(user?.role || '').toUpperCase();
+    if (!role || role === 'SUPER_ADMIN') return;
+    let active = true;
+    api.getCompanyFeatures()
+      .then((res: any) => {
+        if (!active) return;
+        const isPrem = Boolean(res?.premium);
+        const feats = Array.isArray(res?.features) ? (res.features as string[]) : [];
+        setHasPremium(isPrem && feats.includes('face_clock'));
+        setPlanFeatures(isPrem ? feats : null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.role]);
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
@@ -282,6 +302,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isModuleAllowedForUser(id, user)) {
       return null;
     }
+    const moduleFeatureMap: Record<string, string> = {
+      attendance: 'attendance',
+      leaves: 'leaves',
+      payroll: 'payroll',
+      recruitment: 'recruitment',
+      chat: 'team_chat',
+      tasks: 'tasks',
+    };
+    const requiredFeature = moduleFeatureMap[id];
+    if (requiredFeature && planFeatures && !planFeatures.includes(requiredFeature)) {
+      return null;
+    }
 
     let isActive = activeModule === id;
     if (id === 'organization') {
@@ -453,8 +485,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
             <>
             {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
+            {navItem('companies', 'All Companies', <Building2 className="w-4 h-4" />)}
+            {navItem('plans', 'Plans', <Award className="w-4 h-4" />)}
+            {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
+            {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
             {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
-            {(isUserAdminRole(user?.role) || String(user?.role || '').toUpperCase() === 'SUPERVISOR') && (
+            {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
               effectiveCollapsed ? (
                 <button
                   type="button"
@@ -463,6 +499,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onMouseLeave={scheduleFlyoutClose}
                   onClick={() => {
                     setHoverFlyout(null);
+                    if (!hasPremium) {
+                      setActiveModule('plans');
+                      setIsOpen(false);
+                      return;
+                    }
                     window.location.href = '/face-clock';
                   }}
                   className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105 transition-all duration-200 cursor-pointer group active:scale-95"
@@ -474,11 +515,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : (
                 <button
                   type="button"
-                  onClick={() => { window.location.href = '/face-clock'; }}
+                  onClick={() => {
+                    if (!hasPremium) {
+                      setActiveModule('plans');
+                      setIsOpen(false);
+                      return;
+                    }
+                    window.location.href = '/face-clock';
+                  }}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 font-medium cursor-pointer group active:scale-[0.99]"
                 >
                   <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150"><ScanFace className="w-4 h-4" /></span>
                   <span className="truncate">Face clock</span>
+                  <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${hasPremium ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    PRO
+                  </span>
                 </button>
               )
             )}

@@ -5,6 +5,10 @@ import { User, Role } from '../types/hrms';
  */
 export type HrmsModuleId =
   | 'dashboard'
+  | 'companies'
+  | 'plans'
+  | 'orders'
+  | 'support'
   | 'attendance'
   | 'leaves'
   | 'employees'
@@ -36,20 +40,10 @@ export type HrmsModuleId =
 export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
   SUPER_ADMIN: [
     'dashboard',
-    'attendance',
-    'leaves',
-    'employees',
-    'organization',
-    'tasks',
-    'payroll',
-    'recruitment',
-    'resignations',
-    'announcements',
-    'documents',
-    'chat',
-    'calendar',
-    'reports',
-    'settings',
+    'companies',
+    'plans',
+    'orders',
+    'support',
     'profile',
   ],
   ADMIN: [
@@ -75,7 +69,6 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
-    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -91,7 +84,6 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
-    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -106,6 +98,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'dashboard',
     'attendance',
     'leaves',
+    'employees',
     'organization',
     'tasks',
     'payslips',
@@ -146,6 +139,10 @@ export function normalizeRoleKey(role?: string): string {
 
 const SHARED_MODULES = new Set([
   'dashboard',
+  'companies',
+  'plans',
+  'orders',
+  'support',
   'profile',
   'announcements',
   'documents',
@@ -246,7 +243,7 @@ export function canUserPunch(user?: User | null): boolean {
 export function canCreateUser(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER';
 }
 
 /**
@@ -302,7 +299,7 @@ export function canManageNotices(user?: User | null): boolean {
 export function canManageTasks(user?: User | null): boolean {
   if (!user) return false;
   const role = normalizeRoleKey(user.role);
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR' || role === 'MANAGER';
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'MANAGER';
 }
 
 /**

@@ -3,6 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { OfficeGeofenceCard } from './OfficeGeofenceCard';
 import {
+  KIOSK_VOICE_LANGUAGES,
+  buildKioskPhrase,
+  speakKioskText,
+  unlockKioskSpeech,
+  type KioskVoiceGender,
+  type KioskVoiceLang,
+} from '../../lib/kioskVoice';
+import {
   Settings,
   Shield,
   ShieldCheck,
@@ -90,7 +98,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const canManagePlans = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>(
+    canManagePlans ? 'support' : 'company'
+  );
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -374,6 +384,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
   useEffect(() => {
     if (!isEmployee) {
+      const role = String(user?.role || '').toUpperCase();
+      if (role === 'SUPER_ADMIN' && !adminCompanyId) {
+        setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        setSettingsLoading(false);
+        return;
+      }
       let active = true;
       const loadSettings = async () => {
         setSettingsLoading(true);
@@ -1118,7 +1134,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ADMIN VIEW: Clean Modern Two-Column Layout
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  const adminNavItems = [
+  const allAdminNavItems = [
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
     { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
     { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
@@ -1126,12 +1142,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
     { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
   ];
+  const adminNavItems = canManagePlans
+    ? allAdminNavItems.filter((item) => item.id === 'support')
+    : allAdminNavItems;
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Navigation Sidebar */}
+        {!canManagePlans && (
         <div className="w-full lg:w-72 lg:sticky lg:top-4 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
           <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
             Configuration Sections
@@ -1164,6 +1184,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             );
           })}
         </div>
+        )}
 
         {/* Right Main Content Area */}
         <div className="flex-1 min-w-0 w-full">
@@ -1530,6 +1551,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </span>
                 </div>
               </div>
+
+              <KioskVoiceCard
+                onSaved={(msg) => showToast({ type: 'success', title: 'Voice Saved', message: msg })}
+                onError={(msg) => showToast({ type: 'error', title: 'Voice Save Failed', message: msg })}
+              />
 
               <div className="pt-2 flex justify-end">
                 <button
@@ -2457,3 +2483,119 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     </div>
   );
 };
+
+function KioskVoiceCard({
+  onSaved,
+  onError,
+}: {
+  onSaved: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [lang, setLang] = useState<KioskVoiceLang>('en-IN');
+  const [gender, setGender] = useState<KioskVoiceGender>('female');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.getKioskVoice()
+      .then((res: any) => {
+        if (!active) return;
+        const nextLang = String(res?.kioskVoiceLang || 'en-IN') as KioskVoiceLang;
+        if (KIOSK_VOICE_LANGUAGES.some((item) => item.code === nextLang)) {
+          setLang(nextLang);
+        }
+        setGender(res?.kioskVoiceGender === 'male' ? 'male' : 'female');
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.saveKioskVoice({ kioskVoiceLang: lang, kioskVoiceGender: gender });
+      onSaved('Face Clock Kiosk voice language and type updated.');
+    } catch (err: any) {
+      onError(err?.message || 'Could not save voice settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+            <Volume2 className="w-4 h-4 text-emerald-600" />
+            <span>Face Clock Kiosk Voice &amp; Language</span>
+          </div>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+            Choose the spoken language and voice type (Female / Male) for Face Clock announcements.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            unlockKioskSpeech();
+            speakKioskText(buildKioskPhrase({ kind: 'test' }, lang), {
+              enabled: true,
+              lang,
+              gender,
+            });
+          }}
+          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer"
+        >
+          Test Voice
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {KIOSK_VOICE_LANGUAGES.map((item) => (
+          <button
+            key={item.code}
+            type="button"
+            onClick={() => setLang(item.code)}
+            className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${
+              lang === item.code
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <div>{item.label}</div>
+            <div className="text-[10px] text-slate-500">{item.native}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="inline-flex rounded-xl bg-white border border-slate-200 p-1">
+          {(['female', 'male'] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setGender(g)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
+                gender === g ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void handleSave()}
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <Check className="w-3.5 h-3.5" />
+          <span>{saving ? 'Saving...' : 'Save Voice'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

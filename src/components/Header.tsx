@@ -478,6 +478,42 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {isModuleAllowedForUser('companies', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('companies')}
+                  className={getBtnCls(activeModule === 'companies')}
+                  title="All Companies"
+                >
+                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'companies' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Companies</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('plans', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('plans')}
+                  className={getBtnCls(activeModule === 'plans')}
+                  title="Plans"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'plans' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Plans</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('orders', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('orders')}
+                  className={getBtnCls(activeModule === 'orders')}
+                  title="Orders"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'orders' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Orders</span>
+                </button>
+              )}
+
               {isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-admin-leaves"
