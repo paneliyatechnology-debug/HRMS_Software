@@ -47,6 +47,8 @@ const nextConfig: NextConfig = {
     "*.local",
     "*.loca.lt",
     "loca.lt",
+    "*.trycloudflare.com",
+    "trycloudflare.com",
     ...localIps,
   ],
   turbopack: {

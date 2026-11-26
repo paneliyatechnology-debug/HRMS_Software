@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   FileText,
   Download,
@@ -113,6 +114,10 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
       setLoading(false);
     }
   };
+
+  useCompanyLive(['documents', 'employees'], () => {
+    void loadData();
+  });
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();

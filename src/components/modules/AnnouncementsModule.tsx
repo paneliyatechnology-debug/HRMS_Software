@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Megaphone,
   Bell,
@@ -130,6 +131,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
   useEffect(() => {
     loadNotices();
   }, [loadNotices]);
+  useCompanyLive(['announcements'], loadNotices);
 
   // Handle Create Notice Submit
   const handleCreateNotice = async (e: React.FormEvent) => {

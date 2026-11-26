@@ -35,6 +35,7 @@ import {
   RotateCcw,
   Loader2,
   ArrowRight,
+  ScanFace,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -1603,6 +1604,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Quick Attendance Employee Search */}
+            {!isEmployeeView && (
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/face-clock'; }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
+              >
+                <ScanFace className="w-3.5 h-3.5" />
+                Face clock
+              </button>
+            )}
             {!isEmployeeView && (
               <div className="relative min-w-[210px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />

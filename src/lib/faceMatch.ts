@@ -158,6 +158,38 @@ function visibleFrame(video: HTMLVideoElement) {
   return { x: 0, y: (height - visibleH) / 2, width, height: visibleH };
 }
 
+export function prepareFaceModels() {
+  return faceApi().then(() => undefined);
+}
+
+let scanCanvas: HTMLCanvasElement | null = null;
+
+export async function scanKioskFace(video: HTMLVideoElement) {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) return null;
+  const faceapi = await faceApi();
+  const max = 320;
+  const scale = Math.min(1, max / Math.max(width, height));
+  const canvas = scanCanvas || document.createElement('canvas');
+  scanCanvas = canvas;
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
+  const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
+  const clear = faces.filter((face) => face.detection.score >= 0.45);
+  if (!clear.length) return null;
+  const closest = clear.reduce((best, face) => {
+    const area = face.detection.box.width * face.detection.box.height;
+    const bestArea = best.detection.box.width * best.detection.box.height;
+    return area > bestArea ? face : best;
+  });
+  return Array.from(closest.descriptor);
+}
+
 export async function matchLiveFace(video: HTMLVideoElement) {
   const width = video.videoWidth;
   const height = video.videoHeight;

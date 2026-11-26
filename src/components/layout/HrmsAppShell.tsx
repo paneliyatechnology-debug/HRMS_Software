@@ -749,7 +749,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       // Note: training, performance, documents, assets, resignations, audit-logs, settings
       // self-fetch their own module data on mount, so no redundant shell fetch is required.
     } catch (err) {
-      console.warn(`Could not load data for module ${targetModule}:`, err);
+      const message = err instanceof Error ? err.message : '';
+      if (!/login again|login required|refresh token/i.test(message)) {
+        console.warn(`Could not load data for module ${targetModule}:`, err);
+      }
     } finally {
       isFetchingDataRef.current[targetModule] = false;
       setModuleLoading((prev) => ({ ...prev, [targetModule]: false }));
@@ -787,7 +790,35 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     };
     window.addEventListener('hrms_attendance_live', reloadLiveAttendance);
-    return () => window.removeEventListener('hrms_attendance_live', reloadLiveAttendance);
+    const watched: Record<string, string[]> = {
+      dashboard: ['employees', 'attendance', 'leaves', 'announcements', 'payroll', 'organization', 'all'],
+      employees: ['employees', 'all'],
+      attendance: ['attendance', 'employees', 'all'],
+      leaves: ['leaves', 'employees', 'all'],
+      payroll: ['payroll', 'employees', 'all'],
+      payslips: ['payroll', 'all'],
+      recruitment: ['recruitment', 'all'],
+      organization: ['organization', 'employees', 'settings', 'all'],
+      calendar: ['attendance', 'leaves', 'all'],
+      chat: ['employees', 'all'],
+    };
+    let timer = 0;
+    const onCompanyData = (event: Event) => {
+      const scope = String((event as CustomEvent).detail?.scope || 'all');
+      const active = activeModuleRef.current;
+      const scopes = watched[active];
+      if (!scopes || (scope !== 'all' && !scopes.includes(scope))) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void loadDataForModuleRef.current(active);
+      }, 300);
+    };
+    window.addEventListener('hrms_company_data', onCompanyData);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('hrms_attendance_live', reloadLiveAttendance);
+      window.removeEventListener('hrms_company_data', onCompanyData);
+    };
   }, []);
 
   useEffect(() => {

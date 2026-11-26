@@ -501,6 +501,29 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       showToast({ title: notice.title, message: notice.message, type: 'info', module: notice.module });
     };
 
+    s.on('company_data', (payload: { scope?: string; companyId?: string }) => {
+      const detail = payload || { scope: 'all' };
+      const scope = detail.scope || 'all';
+      const fire = (name: string) => window.dispatchEvent(new CustomEvent(name, { detail }));
+      window.dispatchEvent(new CustomEvent('hrms_company_data', { detail }));
+      if (scope === 'employees' || scope === 'all') fire('hrms_employees_updated');
+      if (scope === 'attendance' || scope === 'all') {
+        fire('hrms_attendance_updated');
+        fire('hrms_work_status_updated');
+      }
+      if (scope === 'leaves' || scope === 'all') {
+        fire('hrms_leaves_updated');
+        fire('hrms_leave_types_updated');
+      }
+      if (scope === 'payroll' || scope === 'all') fire('hrms_payroll_updated');
+      if (scope === 'settings' || scope === 'all') {
+        fire('hrms_settings_updated');
+        fire('hrms_companies_updated');
+        fire('hrms_schedule_updated');
+      }
+      if (scope === 'tasks' || scope === 'all') fire('hrms_tasks_updated');
+    });
+
     s.on('app_notification', (payload: AppNotice) => {
       pushNotice(payload);
       if (payload?.module === 'leaves') window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));

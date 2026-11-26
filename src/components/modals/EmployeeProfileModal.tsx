@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   User,
@@ -35,6 +35,7 @@ import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { api } from '../../lib/api';
+import { ProfilePhotoCard } from '../common/ProfilePhotoCard';
 import {
   fetchLeaveQuotaData,
   resolveLeaveQuotaSummary,
@@ -61,6 +62,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState('overview');
   const [currentEmp, setCurrentEmp] = useState<Employee | null>(employee);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoAccess, setPhotoAccess] = useState<{ canUpload: boolean; locked: boolean; requestStatus: string | null } | null>(null);
+  const [requestingPhoto, setRequestingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -85,6 +88,23 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   React.useEffect(() => {
     setCurrentEmp(employee);
   }, [employee]);
+
+  const isOwnProfile = Boolean(
+    currentEmp && (
+      (user?.email && user.email.toLowerCase() === currentEmp.email?.toLowerCase()) ||
+      (user?.id && (user.id === currentEmp.id || user.id === currentEmp.userId)) ||
+      (user?.employeeId && user.employeeId === currentEmp.id)
+    ),
+  );
+
+  useEffect(() => {
+    if (!isOpen || !isOwnProfile) return;
+    let active = true;
+    api.getPhotoAccess()
+      .then((access) => { if (active) setPhotoAccess(access); })
+      .catch(() => { if (active) setPhotoAccess(null); });
+    return () => { active = false; };
+  }, [isOpen, isOwnProfile, currentEmp?.avatarUrl]);
 
   React.useEffect(() => {
     if (!isOpen || !currentEmp) return;
@@ -138,10 +158,13 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
     setUploadingPhoto(true);
     try {
-      const saved = await api.uploadProfilePhoto(file);
+      const { assertFaceInPhoto } = await import('../../lib/faceMatch');
+      const faceDescriptor = await assertFaceInPhoto(file);
+      const saved = await api.uploadProfilePhoto(file, faceDescriptor);
       const newAvatarUrl = saved.avatarUrl || '';
       if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
       setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: newAvatarUrl } : null));
+      setPhotoAccess({ canUpload: false, locked: true, requestStatus: 'Used' });
 
       // If logged in user is this employee (or updating their own profile)
       const isSelf =
@@ -150,7 +173,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         (user.employeeId && user.employeeId === currentEmp.id);
 
       if (isSelf) {
-        updateUserProfile({ avatarUrl: newAvatarUrl });
+        updateUserProfile({ avatarUrl: newAvatarUrl, photoChangeAllowed: false });
       }
 
       window.dispatchEvent(new Event('hrms_employees_updated'));
@@ -586,6 +609,11 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {isOwnProfile && ['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && (
+                <div className="col-span-1 sm:col-span-2">
+                  <ProfilePhotoCard />
+                </div>
+              )}
               {/* Profile Photo Management Card */}
               <div className="col-span-1 sm:col-span-2 p-4 sm:p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5 min-w-0">
@@ -604,19 +632,44 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   </div>
                 </div>
 
+                {!(isOwnProfile && ['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) && (
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
-                    {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    <span>{currentEmp.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingPhoto}
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {currentEmp.avatarUrl && String(currentEmp.role || '').toUpperCase() !== 'EMPLOYEE' && (
+                  {isOwnProfile && (photoAccess ? photoAccess.canUpload : !(['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && Boolean(currentEmp.avatarUrl))) ? (
+                    <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
+                      {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      <span>{currentEmp.avatarUrl ? 'Upload approved photo' : 'Upload Photo'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingPhoto}
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  ) : isOwnProfile ? (
+                    <button
+                      type="button"
+                      disabled={requestingPhoto || photoAccess?.requestStatus === 'Pending'}
+                      onClick={async () => {
+                        setRequestingPhoto(true);
+                        setPhotoError(null);
+                        try {
+                          const result = await api.requestPhotoChange();
+                          setPhotoSuccess(result.message);
+                          const access = await api.getPhotoAccess();
+                          setPhotoAccess(access);
+                        } catch (err: any) {
+                          setPhotoError(err.message || 'Could not request a photo change.');
+                        } finally {
+                          setRequestingPhoto(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs cursor-pointer disabled:opacity-60"
+                    >
+                      {photoAccess?.requestStatus === 'Pending' ? 'Waiting for admin approval' : 'Ask admin to change photo'}
+                    </button>
+                  ) : null}
+                  {isOwnProfile && currentEmp.avatarUrl && !photoAccess?.locked && !['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && (
                     <button
                       type="button"
                       onClick={handleRemoveAvatar}
@@ -627,6 +680,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     </button>
                   )}
                 </div>
+                )}
               </div>
 
               {personalFields.map((field) => (

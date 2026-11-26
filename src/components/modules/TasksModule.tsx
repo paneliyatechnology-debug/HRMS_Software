@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   CheckSquare,
   Plus,
@@ -147,6 +148,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     fetchTeams();
     fetchTasks();
   }, [fetchTasks]);
+  useCompanyLive(['tasks', 'organization'], () => {
+    fetchTasks();
+  });
 
   // Open Create Modal
   const handleOpenCreateModal = () => {

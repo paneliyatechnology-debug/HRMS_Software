@@ -47,6 +47,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
 import { api } from '../lib/api';
+import { useCompanyLive } from '../lib/useCompanyLive';
 import {
   fetchLeaveQuotaData,
   resolveLeaveQuotaSummary,
@@ -130,6 +131,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const { showToast, emitLeaveStatusUpdated } = useSocket();
   const officeRole = String(user?.role || '').toUpperCase();
   const officeDashboard = portalMode === 'admin' || officeRole === 'MANAGER' || officeRole === 'SUPERVISOR';
+  const canReviewPhotos = ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(officeRole);
+  const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null);
+
+  const loadPhotoRequests = async () => {
+    if (!canReviewPhotos) return;
+    try {
+      setPhotoRequests(await api.listPhotoRequests());
+    } catch {
+      setPhotoRequests([]);
+    }
+  };
+
+  useEffect(() => {
+    void loadPhotoRequests();
+  }, [canReviewPhotos]);
+  useCompanyLive(['employees'], () => {
+    void loadPhotoRequests();
+  });
 
   // Current system clock
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -740,6 +760,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
         <div className="space-y-5">
+          {canReviewPhotos && photoRequests.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+              <p className="text-sm font-black text-amber-950">Profile photo requests</p>
+              <p className="text-[11px] text-amber-900">Approve one upload. The same list is also on Employees.</p>
+              {photoRequests.map((item) => (
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white border border-amber-100 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 truncate">{item.userName || item.email}</p>
+                    <p className="text-[11px] text-slate-500">{item.role} · {item.email}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={photoBusy === item.id}
+                      onClick={async () => {
+                        setPhotoBusy(item.id);
+                        try {
+                          const result = await api.reviewPhotoRequest(item.id, true);
+                          showToast({ type: 'success', title: 'Approved', message: result.message });
+                          await loadPhotoRequests();
+                        } catch (err: any) {
+                          showToast({ type: 'error', title: 'Could not approve', message: err.message || 'Try again.' });
+                        } finally {
+                          setPhotoBusy(null);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold disabled:opacity-60"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={photoBusy === item.id}
+                      onClick={async () => {
+                        setPhotoBusy(item.id);
+                        try {
+                          const result = await api.reviewPhotoRequest(item.id, false);
+                          showToast({ type: 'success', title: 'Rejected', message: result.message });
+                          await loadPhotoRequests();
+                        } catch (err: any) {
+                          showToast({ type: 'error', title: 'Could not reject', message: err.message || 'Try again.' });
+                        } finally {
+                          setPhotoBusy(null);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 text-xs font-bold disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {/* Personal Shift Clock Console for HR / Manager */}
           {canUserPunch(user) && (
             <DailyShiftConsole variant="banner" clockSize="sm" showHeaderClock={false} />

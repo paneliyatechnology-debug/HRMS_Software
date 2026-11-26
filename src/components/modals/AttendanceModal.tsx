@@ -19,6 +19,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { api } from '../../lib/api';
 import {
@@ -45,6 +46,10 @@ interface AttendanceModalProps {
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
   const { user, role, portalMode, updateUserProfile } = useAuth();
+  const { showToast } = useSocket();
+  const notifyPunchError = (title: string, message: string) => {
+    showToast({ type: 'error', title, message });
+  };
   const {
     punchBlockMessage,
     status: sessionStatus,
@@ -197,9 +202,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     setCameraError(null);
     setCameraReady(false);
     try {
-      const phoneUrl = `https://${window.location.host}`;
       if (!window.isSecureContext || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        setCameraError(`On the phone, open ${phoneUrl} and allow the camera. A normal http://192.168 address cannot open the camera.`);
+        const message = 'Camera needs a secure page. The site still opens on the phone, but the camera stays off on this address.';
+        setCameraError(message);
+        notifyPunchError('Camera blocked', message);
         return;
       }
       if (cameraStream) {
@@ -246,11 +252,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         }).catch((err) => console.warn('Video play err:', err));
       }
     } catch (err: any) {
-      setCameraError(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'Allow camera when the phone asks. If it was blocked, open the browser lock icon and set Camera to Allow.'
-          : err.message || 'Failed to start camera.'
-      );
+      const message = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+        ? 'Allow camera when the phone asks. If it was blocked, open the browser lock icon and set Camera to Allow.'
+        : err.message || 'Failed to start camera.';
+      setCameraError(message);
+      notifyPunchError('Camera failed', message);
     } finally {
       setCameraStarting(false);
     }
@@ -310,7 +316,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     const firstIn = rows.find((punch) => punch.type === 'IN');
     const lastOut = [...rows].reverse().find((punch) => punch.type === 'OUT');
     setPunchState({
-      canCheckIn: sessionStatus === 'not_started' || sessionStatus === 'completed',
+      canCheckIn: sessionStatus === 'not_started',
       status: sessionStatus,
       message: '',
       record: rows.length
@@ -436,19 +442,20 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     requestCameraNow();
     const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchBlockMessage) {
-      alert(punchBlockMessage);
+      notifyPunchError('Clock in blocked', punchBlockMessage);
       return;
     }
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
-      alert(currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
+      notifyPunchError('Clock in blocked', currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
       return;
     }
 
     if (needsFace) {
       if (!user.avatarUrl) {
-        alert('Upload your profile photo first. It must clearly show your face.');
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        notifyPunchError('Clock in blocked', message);
         return;
       }
       if (locationRequest) {
@@ -456,7 +463,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           const coords = (await locationRequest) || undefined;
           const geo = await verifyCurrentGeofence(coords);
           if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
-            setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock in blocked', message);
             return;
           }
         } catch {
@@ -489,7 +498,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
-      alert(err.message || 'Clock-in failed');
+      notifyPunchError('Clock in failed', err.message || 'Clock-in failed');
     } finally {
       setLoading(false);
     }
@@ -500,12 +509,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     requestCameraNow();
     const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchState.status === 'on_break') {
-      alert('Cannot clock out while on break. Please click "Resume Work" first.');
+      notifyPunchError('Clock out blocked', 'Cannot clock out while on break. Please click Resume Work first.');
       return;
     }
     if (needsFace) {
       if (!user.avatarUrl) {
-        alert('Upload your profile photo first. It must clearly show your face.');
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        notifyPunchError('Clock out blocked', message);
         return;
       }
       if (locationRequest) {
@@ -513,7 +523,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           const coords = (await locationRequest) || undefined;
           const geo = await verifyCurrentGeofence(coords);
           if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
-            setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock out blocked', message);
             return;
           }
         } catch {
@@ -540,7 +552,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
-      alert(err.message || 'Clock-out failed');
+      notifyPunchError('Clock out failed', err.message || 'Clock-out failed');
     } finally {
       setLoading(false);
     }
@@ -609,28 +621,36 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const handleMatchAndPunch = async () => {
     if (captureLock.current || !videoRef.current) return;
     if (needsFace && !user.avatarUrl) {
-      setFaceError('Upload your profile photo first. It must clearly show your face.');
+      const message = 'Upload your profile photo first. It must clearly show your face.';
+      setFaceError(message);
+      notifyPunchError('Face check failed', message);
       return;
     }
     captureLock.current = true;
     try {
       const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
       if (!user.avatarUrl) {
-        setFaceError('Upload your profile photo first. It must clearly show your face.');
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        setFaceError(message);
+        notifyPunchError('Face check failed', message);
         captureLock.current = false;
         return;
       }
       const result = await matchLiveFace(videoRef.current);
       if (!result.aligned || !result.descriptor) {
         setFaceState('none');
-        setFaceError('Keep your face inside the circle.');
+        const message = 'Keep your face inside the circle.';
+        setFaceError(message);
+        notifyPunchError('Face check failed', message);
         captureLock.current = false;
         return;
       }
       if (!profileFaceRef.current) profileFaceRef.current = await profileDescriptor(user.avatarUrl);
       if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
         setFaceState('mismatch');
-        setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+        const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
+        setFaceError(message);
+        notifyPunchError('Face does not match', message);
         captureLock.current = false;
         return;
       }
@@ -640,12 +660,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         const message = error instanceof Error ? error.message : 'This face does not match your profile photo.';
         setFaceState(/does not match|profile photo/i.test(message) ? 'mismatch' : 'none');
         setFaceError(message);
+        notifyPunchError('Face check failed', message);
         captureLock.current = false;
         return;
       }
       const photo = drawMatchedSelfie(videoRef.current);
       if (!photo) {
-        setFaceError('Camera frame was not ready. Look at the camera and try again.');
+        const message = 'Camera frame was not ready. Look at the camera and try again.';
+        setFaceError(message);
+        notifyPunchError('Camera failed', message);
         captureLock.current = false;
         return;
       }
@@ -658,7 +681,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     } catch (error) {
       captureLock.current = false;
       setFaceState('none');
-      setFaceError(error instanceof Error ? error.message : 'Face check failed.');
+      const message = error instanceof Error ? error.message : 'Face check failed.';
+      setFaceError(message);
+      notifyPunchError('Face check failed', message);
     }
   };
   captureRef.current = () => { void handleMatchAndPunch(); };
@@ -674,21 +699,27 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     const photo = typeof photoArg === 'string' ? photoArg : capturedPhoto;
     const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (!photo) {
-      setFaceError('Selfie photo is required before punching attendance.');
+      const message = 'Selfie photo is required before punching attendance.';
+      setFaceError(message);
+      notifyPunchError('Punch blocked', message);
       return;
     }
 
     setLoading(true);
     try {
       if (!user.avatarUrl) {
-        setFaceError('Upload your profile photo first. It must clearly show your face.');
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        setFaceError(message);
+        notifyPunchError('Punch blocked', message);
         captureLock.current = false;
         return;
       }
       const punchFace = faceArg || matchedFaceRef.current || undefined;
       if (!punchFace) {
         setFaceState('mismatch');
-        setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+        const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
+        setFaceError(message);
+        notifyPunchError('Face does not match', message);
         captureLock.current = false;
         return;
       }
@@ -702,7 +733,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             const coords = (await locationRequest) || undefined;
             const geo = await verifyCurrentGeofence(coords);
             if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
-              setPunchNotice(geo.errorMessage || 'You are outside the office area.');
+              const message = geo.errorMessage || 'You are outside the office area.';
+              setPunchNotice(message);
+              notifyPunchError('Punch blocked', message);
               setCapturedPhoto(null);
               captureLock.current = false;
               setSelfieMode('idle');
@@ -728,7 +761,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
       if (selfieMode === 'check_in') {
         if (punchBlockMessage) {
-          alert(punchBlockMessage);
+          notifyPunchError('Clock in blocked', punchBlockMessage);
           captureLock.current = false;
           setLoading(false);
           return;
@@ -747,7 +780,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
         if (res && res.success === false) {
           captureLock.current = false;
-          setFaceError(res.message || 'Clock in was blocked.');
+          const message = res.message || 'Clock in was blocked.';
+          setFaceError(message);
+          notifyPunchError('Clock in failed', message);
         } else {
           if (res.record) {
             updateLocalRecordFromBackend(res.record);
@@ -783,7 +818,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
         if (res && res.success === false) {
           captureLock.current = false;
-          setFaceError(res.message || 'Clock out was blocked.');
+          const message = res.message || 'Clock out was blocked.';
+          setFaceError(message);
+          notifyPunchError('Clock out failed', message);
         } else {
           if (res.record) {
             updateLocalRecordFromBackend(res.record);
@@ -804,6 +841,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       captureLock.current = false;
       const message = err?.message || 'Punch submission failed';
       setFaceError(message);
+      notifyPunchError(selfieMode === 'check_out' ? 'Clock out failed' : 'Clock in failed', message);
       if (/does not match|profile photo/i.test(message)) setFaceState('mismatch');
     } finally {
       setLoading(false);
@@ -817,10 +855,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     try {
       await api.startBreak({});
       const res = performTakeBreak(currentEmpId);
-      if (!res.success) alert(res.message);
+      if (!res.success) notifyPunchError('Break failed', res.message || 'Break could not be started.');
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'Failed to start break.');
+      notifyPunchError('Break failed', err.message || 'Failed to start break.');
     } finally {
       setLoading(false);
     }
@@ -831,10 +869,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     try {
       await api.resumeBreak({});
       const res = performResumeWork(currentEmpId);
-      if (!res.success) alert(res.message);
+      if (!res.success) notifyPunchError('Resume failed', res.message || 'Work could not be resumed.');
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'Failed to resume work.');
+      notifyPunchError('Resume failed', err.message || 'Failed to resume work.');
     } finally {
       setLoading(false);
     }
@@ -1184,7 +1222,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         const faceDescriptor = await assertFaceInPhoto(file);
                         const saved = await api.uploadProfilePhoto(file, faceDescriptor);
                         if (!saved.avatarUrl) throw new Error('Profile photo was not saved.');
-                        updateUserProfile({ avatarUrl: saved.avatarUrl });
+                        updateUserProfile({ avatarUrl: saved.avatarUrl, photoChangeAllowed: false });
                       } catch (err: any) {
                         alert(err.message || 'Profile photo could not be saved.');
                       } finally {
@@ -1286,37 +1324,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               )}
 
               {punchState.status === 'completed' && (
-                <div className="space-y-2.5 mb-2">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                    <p className="text-xs font-semibold text-slate-800">
-                      Currently Clocked Out
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      You can clock in again anytime to start another work session.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-500 mb-1 block">
-                      Remarks / Next Shift Note
-                    </label>
-                    <input
-                      type="text"
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      placeholder="Post-break / afternoon session clock-in"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleInitiateCheckIn}
-                    disabled={loading || Boolean(punchBlockMessage)}
-                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all cursor-pointer shadow-xs disabled:opacity-40"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>{loading ? 'Clocking In...' : 'Clock In Again'}</span>
-                  </button>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <p className="text-xs font-semibold text-slate-800">Clock in and clock out are done for today</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Break in and break out can be used many times, only while you are working.</p>
                 </div>
               )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   User,
   Building2,
@@ -143,6 +144,9 @@ export const ProfileModule: React.FC<ProfileModuleProps> = () => {
   useEffect(() => {
     fetchProfile(false);
   }, [fetchProfile]);
+  useCompanyLive(['employees', 'settings'], () => {
+    void fetchProfile(false);
+  });
 
   const handleCopy = (text: string, key: string) => {
     if (!text) return;

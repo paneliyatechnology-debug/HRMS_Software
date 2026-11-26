@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { ShieldCheck, Search, Filter, Clock, User, Globe, RefreshCw, X } from 'lucide-react';
 import { AuditLog } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -26,6 +27,7 @@ export const AuditLogsModule: React.FC = () => {
   useEffect(() => {
     loadLogs();
   }, [moduleFilter]);
+  useCompanyLive(['all'], loadLogs);
 
   const aq = search.trim().toLowerCase();
   const filtered = logs.filter((l) => {

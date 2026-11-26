@@ -258,15 +258,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
             )}
 
             {status === 'completed' && (
-              <button
-                id="btn-shift-check-in-again-banner"
-                onClick={() => checkIn()}
-                disabled={actionLoading}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all active:scale-95 inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                <span>{actionLoading ? 'Starting...' : 'Clock In Again'}</span>
-              </button>
+              <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs">
+                Clocked out for today
+              </span>
             )}
           </div>
         </div>
@@ -648,19 +642,9 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   </div>
                 </div>
 
-                <div className="flex justify-center sm:justify-end pt-0.5">
-                  <button
-                    id="btn-shift-check-in-again"
-                    onClick={() => checkIn()}
-                    disabled={actionLoading}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all active:scale-95 inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>
-                      {actionLoading ? 'Starting Session...' : 'Clock In Again (New Session)'}
-                    </span>
-                  </button>
-                </div>
+                <p className="text-center sm:text-right text-[11px] font-semibold text-slate-500 pt-0.5">
+                  Clock in and clock out are done for today.
+                </p>
               </div>
             )}
           </div>

@@ -81,6 +81,7 @@ export interface User {
   departmentName?: string;
   designationTitle?: string;
   avatarUrl?: string;
+  photoChangeAllowed?: boolean;
   companyId?: string;
   companyCode?: string;
   companyName?: string;

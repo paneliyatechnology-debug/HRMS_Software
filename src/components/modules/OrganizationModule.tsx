@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Building2,
   Users,
@@ -509,6 +510,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   useEffect(() => {
     loadTeams();
   }, [loadTeams]);
+  useCompanyLive(['organization', 'employees', 'settings'], () => {
+    void loadDepartments();
+    void loadTeams();
+  });
 
   // Department Edit & Delete Handlers
   const handleOpenEditDept = (dept: Department) => {

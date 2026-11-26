@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   LogOut,
   Clock,
@@ -130,6 +131,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
   useEffect(() => {
     loadResignations();
   }, [loadResignations]);
+  useCompanyLive(['resignations', 'employees'], loadResignations);
 
   // File Resignation Submit
   const handleFileResignation = async (e: React.FormEvent) => {

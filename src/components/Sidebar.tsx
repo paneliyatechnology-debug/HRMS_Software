@@ -6,6 +6,7 @@ import {
   Calendar,
   Users,
   Clock,
+  ScanFace,
   CircleDollarSign,
   Settings,
   ChevronDown,
@@ -29,7 +30,7 @@ import {
   Receipt,
   CheckSquare,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { api } from '../lib/api';
 import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
@@ -393,6 +394,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <>
             {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
             {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
+            {(isUserAdminRole(user?.role) || String(user?.role || '').toUpperCase() === 'SUPERVISOR') && (
+              effectiveCollapsed ? (
+                <button
+                  type="button"
+                  title="Face clock"
+                  aria-label="Face clock"
+                  onClick={() => { window.location.href = '/face-clock'; }}
+                  className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] cursor-pointer"
+                >
+                  <ScanFace className="w-4 h-4 text-[#6c757d]" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = '/face-clock'; }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium cursor-pointer"
+                >
+                  <span className="w-5 flex justify-center text-[#6c757d]"><ScanFace className="w-4 h-4" /></span>
+                  <span className="truncate">Face clock</span>
+                </button>
+              )
+            )}
             {navItem(
               'leaves',
               portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',

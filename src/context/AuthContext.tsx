@@ -289,6 +289,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    const onSessionExpired = () => {
+      setIsAuthenticated(false);
+      setUser(emptyUser);
+      removeCookie('hrms_is_authenticated');
+      removeCookie('hrms_current_role');
+      removeCookie('hrms_portal_mode');
+      removeCookie('hrms_auth_user');
+      removeCookie('hrms_auth_token');
+      removeCookie('bearerToken');
+      removeCookie('accessToken');
+      purgeAuthLocalStorage();
+      const path = window.location.pathname;
+      if (path !== '/login' && path !== '/register' && !path.startsWith('/reset-password') && !path.startsWith('/set-password')) {
+        window.location.assign('/login');
+      }
+    };
+    window.addEventListener('hrms_session_expired', onSessionExpired);
+    return () => window.removeEventListener('hrms_session_expired', onSessionExpired);
+  }, []);
+
   const setPortalMode = (mode: PortalMode) => {
     const allowed = portalFromPermissions(user?.permissions) || 'employee';
     const next = mode === allowed ? mode : allowed;

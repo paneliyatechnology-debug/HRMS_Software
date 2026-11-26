@@ -68,6 +68,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFace, setPhotoFace] = useState<number[] | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [nextEmployeeCode, setNextEmployeeCode] = useState<string>('');
@@ -97,6 +99,8 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
   const resetFormState = () => {
     setFormData(getInitialFormData());
+    setPhotoFile(null);
+    setPhotoFace(null);
     setSalaryData(getInitialSalaryData());
     setStep(1);
     setLoading(false);
@@ -261,7 +265,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         gender: formData.gender,
         role: formData.role || 'EMPLOYEE',
         address: formData.address.trim(),
-        ...(formData.avatarUrl ? { avatarUrl: formData.avatarUrl } : {}),
+        ...(photoFile ? { photo: photoFile, faceDescriptor: photoFace ? JSON.stringify(photoFace) : '' } : {}),
         salary: {
           basic: numBasic,
           hra: numHra,
@@ -450,7 +454,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   <div>
                     <p className="text-xs font-bold text-slate-800">Profile Picture (Optional)</p>
                     <p className="text-[10px] text-slate-500">
-                      {photoUploading ? 'Uploading and processing photo...' : 'Upload employee photo for directory & attendance'}
+                      {photoUploading ? 'Checking the face photo...' : 'One photo only. Employee, HR, or Manager cannot change it later without admin approval.'}
                     </p>
                   </div>
                 </div>
@@ -490,17 +494,12 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                         setPhotoUploading(true);
                         setFormError(null);
                         try {
-                          let photoUrl = '';
-                          try {
-                            const up = await api.uploadProfilePhoto(file);
-                            if (up.avatarUrl) photoUrl = up.avatarUrl;
-                          } catch (uploadErr) {
-                            console.warn('Backend photo upload failed, using local compression fallback:', uploadErr);
-                          }
-                          if (!photoUrl) {
-                            photoUrl = await compressImage(file, 400, 400, 0.88);
-                          }
-                          setFormData((prev) => ({ ...prev, avatarUrl: photoUrl }));
+                          const { assertFaceInPhoto } = await import('../../lib/faceMatch');
+                          const face = await assertFaceInPhoto(file);
+                          const preview = URL.createObjectURL(file);
+                          setPhotoFile(file);
+                          setPhotoFace(face);
+                          setFormData((prev) => ({ ...prev, avatarUrl: preview }));
                           setFormError(null);
                         } catch (err: any) {
                           setFormError(err.message || 'Could not process photo');
@@ -515,7 +514,11 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                   {formData.avatarUrl && !photoUploading && (
                     <button
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, avatarUrl: '' }))}
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setPhotoFace(null);
+                        setFormData((prev) => ({ ...prev, avatarUrl: '' }));
+                      }}
                       className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Remove Photo"
                     >

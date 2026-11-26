@@ -36,8 +36,6 @@ import {
   ExternalLink,
   Users,
   ChevronRight,
-  Camera,
-  Upload,
   Trash2,
   Phone,
   MapPin,
@@ -52,7 +50,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
-import { compressImage, validateImageFile } from '../../lib/imageUtils';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { UpgradePlanModal } from '../modals/UpgradePlanModal';
 import {
   getCompanySubscription,
@@ -74,9 +72,8 @@ interface SettingsModuleProps {
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: propPortalMode }) => {
-  const { user, portalMode: authPortalMode, updateUserProfile } = useAuth();
+  const { user, portalMode: authPortalMode } = useAuth();
   const { showToast } = useSocket();
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
 
@@ -302,6 +299,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       isMounted = false;
     };
   }, [user]);
+  useCompanyLive(['settings'], () => {
+    api.getMyCompany().then((comp) => {
+      if (!comp) return;
+      setCompanyData({
+        name: comp.name || user.companyName || '',
+        tagline: typeof comp.industry === 'object' && comp.industry !== null
+          ? comp.industry.name || comp.industry.code || ''
+          : comp.industry || '',
+        taxId: comp.gstin || comp.taxId || '',
+        supportEmail: comp.email || '',
+        phone: comp.phone || '',
+        currency: comp.currency || 'INR (₹)',
+        address: comp.address || '',
+      });
+    }).catch(() => undefined);
+  });
 
   const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
   const [settingsLoading, setSettingsLoading] = useState(!isEmployee);
@@ -433,51 +446,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validation = validateImageFile(file);
-    if (!validation.valid) {
-      showToast({ type: 'error', title: 'Invalid Image', message: validation.error || 'Please select a valid image.' });
-      return;
-    }
-
-    setUploadingAvatar(true);
-    try {
-      const { assertFaceInPhoto } = await import('../../lib/faceMatch');
-      const faceDescriptor = await assertFaceInPhoto(file);
-      const res = await api.uploadProfilePhoto(file, faceDescriptor);
-      const newAvatarUrl = res.avatarUrl || '';
-      if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
-
-      updateUserProfile({ avatarUrl: newAvatarUrl });
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Profile Picture Updated', message: 'Your profile picture has been saved successfully.' });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Upload Failed', message: err.message || 'Could not update profile picture.' });
-    } finally {
-      setUploadingAvatar(false);
-      if (e.target) e.target.value = '';
-    }
-  };
-
-  const handleAvatarRemove = async () => {
-    if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
-      showToast({ type: 'error', title: 'Photo required', message: 'Employees cannot remove the profile photo.' });
-      return;
-    }
-    setUploadingAvatar(true);
-    try {
-      updateUserProfile({ avatarUrl: '' });
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Photo Removed', message: 'Your profile picture has been cleared.' });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Action Failed', message: err.message || 'Could not remove profile picture.' });
-    } finally {
-      setUploadingAvatar(false);
     }
   };
 
@@ -893,41 +861,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <p className="text-xs text-slate-500 mt-0.5">
                     Profile photo is required for employees. Attendance matches this face.
                   </p>
-                </div>
-
-                {/* Avatar Section */}
-                <div className="flex items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="relative shrink-0">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-black text-2xl flex items-center justify-center shadow-md overflow-hidden">
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.firstName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span>{user.firstName?.[0] || 'E'}{user.lastName?.[0] || ''}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-800">Profile Photo {String(user?.role || '').toUpperCase() === 'EMPLOYEE' ? '(required)' : ''}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <label className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition inline-flex items-center gap-1.5 cursor-pointer">
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>{uploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
-                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
-                      </label>
-                      {user.avatarUrl && String(user?.role || '').toUpperCase() !== 'EMPLOYEE' && (
-                        <button
-                          type="button"
-                          onClick={handleAvatarRemove}
-                          disabled={uploadingAvatar}
-                          className="px-3 py-1.5 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 font-bold text-xs transition inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400">JPG or PNG, max 5MB. Automatically optimized.</p>
-                  </div>
                 </div>
 
                 {/* Profile Form */}

@@ -625,6 +625,14 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkIn = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
+      if (statusRef.current === 'completed') {
+        showToast({
+          title: 'Clock in closed',
+          message: 'Clock in is allowed only once today.',
+          type: 'warning',
+        });
+        return false;
+      }
       if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;

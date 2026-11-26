@@ -120,6 +120,14 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
+let sessionEnding = false;
+
+function endExpiredSession() {
+  if (sessionEnding || typeof window === 'undefined') return;
+  sessionEnding = true;
+  window.dispatchEvent(new CustomEvent('hrms_session_expired'));
+}
+
 // Interceptor: handle 401 Unauthorized with automatic token refresh (POST /users/refresh)
 http.interceptors.response.use(
   (response) => response,
@@ -130,35 +138,34 @@ http.interceptors.response.use(
       originalRequest &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/users/login') &&
-      !originalRequest.url?.includes('/users/refresh')
+      !originalRequest.url?.includes('/users/refresh') &&
+      !originalRequest.url?.includes('/users/logout')
     ) {
       originalRequest._retry = true;
       try {
         const refreshRes = await axios.post(
           `${getApiBaseUrl()}/users/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true, headers: { 'Content-Type': 'application/json' } }
         );
         const data = refreshRes.data;
         const token = data?.token || data?.accessToken;
-        if (token) {
-          if (typeof window !== 'undefined') {
-            setCookie('hrms_auth_token', token);
-            setCookie('bearerToken', token);
-            setCookie('accessToken', token);
-          }
+        if (token && typeof window !== 'undefined') {
+          setCookie('hrms_auth_token', token);
+          setCookie('bearerToken', token);
+          setCookie('accessToken', token);
           if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
             originalRequest.headers.set('Authorization', `Bearer ${token}`);
-          } else {
+          } else if (originalRequest.headers) {
             originalRequest.headers['Authorization'] = `Bearer ${token}`;
           }
-          return http(originalRequest);
         }
+        return http(originalRequest);
       } catch {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('hrms_session_expired'));
-        }
+        endExpiredSession();
       }
+    } else if (error.response?.status === 401 && originalRequest?._retry) {
+      endExpiredSession();
     }
     return Promise.reject(error);
   }
@@ -190,6 +197,7 @@ export interface CreateUserInput {
   gender?: string;
   address?: string;
   photo?: File | null;
+  faceDescriptor?: string;
   role?: string;
   status?: string;
   companyId?: string;
@@ -216,12 +224,13 @@ async function createUser(data: CreateUserInput) {
       gender: data.gender || undefined,
       address: data.address || undefined,
       photo: data.photo || undefined,
+      faceDescriptor: data.faceDescriptor || undefined,
       role: data.role || undefined,
       status: data.status || undefined,
       companyId: data.companyId || undefined,
     };
     if (data.password) payload.password = data.password;
-    if (data.salary) payload.salary = data.salary;
+    if (data.salary) payload.salary = JSON.stringify(data.salary);
 
     const response = await http.post('/users', payload);
     clearApiCache('/users');
@@ -546,6 +555,28 @@ async function deleteDocument(id: string) {
 /* ==========================================================================
    MODULE 4: ATTENDANCE (14 ENDPOINTS)
    ========================================================================== */
+
+async function faceKioskClock(data: { faceDescriptor: number[]; photo?: string }) {
+  try {
+    clearApiCache('/attendance');
+    const response = await http.post('/attendance/face-kiosk', {
+      faceDescriptor: data.faceDescriptor,
+      photo: data.photo || undefined,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return response.data as {
+      matched: boolean;
+      action: 'clock-in' | 'clock-out' | 'none';
+      message?: string;
+      employee?: { id: string; firstName: string; lastName: string; avatarUrl?: string | null; role?: string };
+    };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Face clock failed.');
+  }
+}
 
 async function verifyFace(faceDescriptor: number[]) {
   try {
@@ -2624,6 +2655,8 @@ async function createEmployee(data: any) {
     address: data.address || undefined,
     role: data.role || 'EMPLOYEE',
     status: data.status || 'Active',
+    photo: data.photo || undefined,
+    faceDescriptor: data.faceDescriptor || undefined,
     companyId: data.companyId || undefined,
     password: data.password || undefined,
     salary: data.salary || undefined,
@@ -2695,10 +2728,51 @@ async function uploadProfilePhoto(file: File, faceDescriptor?: number[]) {
     form.append('faceDescriptor', JSON.stringify(descriptor));
     const response = await http.post('/users/profile/photo', form);
     clearApiCache('/users');
-    return response.data as { message?: string; avatarUrl?: string };
+    return response.data as { message?: string; avatarUrl?: string; photoChangeAllowed?: boolean };
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile photo could not be uploaded.');
+  }
+}
+
+async function getPhotoAccess() {
+  try {
+    const response = await http.get('/users/profile/photo-access');
+    return response.data as { canUpload: boolean; locked: boolean; requestStatus: string | null };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo access could not be loaded.');
+  }
+}
+
+async function requestPhotoChange() {
+  try {
+    const response = await http.post('/users/profile/photo-request', {}, { headers: { 'Content-Type': 'application/json' } });
+    return response.data as { message: string; status: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo change request could not be sent.');
+  }
+}
+
+async function listPhotoRequests() {
+  try {
+    const response = await http.get('/users/photo-requests');
+    return (Array.isArray(response.data) ? response.data : []) as Array<{ id: string; userId: string; userName: string; role: string; email: string }>;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo requests could not be loaded.');
+  }
+}
+
+async function reviewPhotoRequest(id: string, approve: boolean) {
+  try {
+    const response = await http.post(`/users/photo-requests/${id}/${approve ? 'approve' : 'reject'}`, {}, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/users');
+    return response.data as { message: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo request could not be updated.');
   }
 }
 
@@ -2842,6 +2916,10 @@ export const api = new Proxy({
   activateEmployee,
   getNextEmployeeCode,
   uploadProfilePhoto,
+  getPhotoAccess,
+  requestPhotoChange,
+  listPhotoRequests,
+  reviewPhotoRequest,
 
   // Companies (1)
   registerCompany,
@@ -2860,6 +2938,7 @@ export const api = new Proxy({
 
   // Attendance (14)
   verifyFace,
+  faceKioskClock,
   clock,
   clockIn,
   checkIn,

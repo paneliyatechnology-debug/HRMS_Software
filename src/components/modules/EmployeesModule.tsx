@@ -21,6 +21,7 @@ import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { canDeleteUser } from '../../lib/rolePermissions';
 
@@ -54,12 +55,30 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const canReviewPhotos = ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase());
+  const loadPhotoRequests = async () => {
+    if (!canReviewPhotos) return;
+    try {
+      setPhotoRequests(await api.listPhotoRequests());
+    } catch {
+      setPhotoRequests([]);
+    }
+  };
+  useEffect(() => {
+    void loadPhotoRequests();
+  }, [canReviewPhotos]);
+  useCompanyLive(['employees'], () => {
+    void loadPhotoRequests();
+  });
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedRole, setSelectedRole] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
+  const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
+  const [photoRequestBusy, setPhotoRequestBusy] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -348,6 +367,64 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           </button>
         </div>
       </div>
+
+      {canReviewPhotos && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <p className="text-xs font-black text-amber-950">Profile photo change requests</p>
+          <p className="text-[11px] text-amber-900">Employee, HR, and Manager can upload a photo once. Admin or HR can approve one new upload.</p>
+          {photoRequests.length === 0 && (
+            <p className="text-xs font-semibold text-slate-500">No pending requests.</p>
+          )}
+          {photoRequests.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white border border-amber-100 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{item.userName || item.email}</p>
+                <p className="text-[11px] text-slate-500">{item.role} · {item.email}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={photoRequestBusy === item.id}
+                  onClick={async () => {
+                    setPhotoRequestBusy(item.id);
+                    try {
+                      const result = await api.reviewPhotoRequest(item.id, true);
+                      showToast({ type: 'success', title: 'Approved', message: result.message });
+                      await loadPhotoRequests();
+                    } catch (err: any) {
+                      showToast({ type: 'error', title: 'Could not approve', message: err.message || 'Try again.' });
+                    } finally {
+                      setPhotoRequestBusy(null);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold disabled:opacity-60"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={photoRequestBusy === item.id}
+                  onClick={async () => {
+                    setPhotoRequestBusy(item.id);
+                    try {
+                      const result = await api.reviewPhotoRequest(item.id, false);
+                      showToast({ type: 'success', title: 'Rejected', message: result.message });
+                      await loadPhotoRequests();
+                    } catch (err: any) {
+                      showToast({ type: 'error', title: 'Could not reject', message: err.message || 'Try again.' });
+                    } finally {
+                      setPhotoRequestBusy(null);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 text-xs font-bold disabled:opacity-60"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">

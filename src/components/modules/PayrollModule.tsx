@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { createPortal } from 'react-dom';
 import {
   CreditCard,
@@ -147,6 +148,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   useEffect(() => {
     fetchSalaries();
   }, []);
+  useCompanyLive(['payroll', 'employees'], () => {
+    void loadPayslips();
+    void fetchSalaries();
+    onRefresh();
+  });
 
   useEffect(() => {
     if (activeTab === 'salaries') {
