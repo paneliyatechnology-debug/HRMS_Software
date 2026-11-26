@@ -15,8 +15,8 @@ export async function GET() {
       const content = fs.readFileSync(envPath, 'utf8');
       const apiMatch = content.match(/NEXT_PUBLIC_API_URL\s*=\s*([^\r\n]+)/);
       const socketMatch = content.match(/NEXT_PUBLIC_SOCKET_URL\s*=\s*([^\r\n]+)/);
-      if (apiMatch) apiUrl = apiMatch[1].trim();
-      if (socketMatch) socketUrl = socketMatch[1].trim();
+      if (apiMatch) apiUrl = apiMatch[1].trim().replace(/^['"]|['"]$/g, '');
+      if (socketMatch) socketUrl = socketMatch[1].trim().replace(/^['"]|['"]$/g, '');
     }
   } catch (err) {
     console.warn('Could not read .env from disk:', err);

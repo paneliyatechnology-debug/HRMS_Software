@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD:src/app/(workspace)/workspace-app.tsx
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
@@ -58,8 +59,24 @@ export function WorkspaceApp() {
   const activeModule = moduleFromPath(pathname);
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+=======
+import React, { useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
+import { LandingPage } from '../components/landing/LandingPage';
+import { BouncingDotsLoader } from '../components/common/BouncingDotsLoader';
+import { HrmsAppShell } from '../components/layout/HrmsAppShell';
+import { getRouteForModule } from '../lib/routes';
 
+function HomePageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated, isLoading } = useAuth();
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4:src/app/page.tsx
+
+  // Backward compatibility: If an old URL such as /?module=attendance is accessed, redirect to clean path /attendance
   useEffect(() => {
+<<<<<<< HEAD:src/app/(workspace)/workspace-app.tsx
     if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
@@ -332,9 +349,29 @@ export function WorkspaceApp() {
   }, []);
 
   if (isLoading && isAuthenticated) {
+=======
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mod = urlParams.get('module');
+      if (mod) {
+        urlParams.delete('module');
+        const rest = urlParams.toString();
+        const cleanPath = getRouteForModule(mod) + (rest ? `?${rest}` : '');
+        router.replace(cleanPath);
+        return;
+      }
+      if (isAuthenticated && !isLoading) {
+        router.replace('/dashboard');
+      }
+    }
+  }, [searchParams, router, isAuthenticated, isLoading]);
+
+  if (isLoading && !isAuthenticated) {
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4:src/app/page.tsx
     return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
+      <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+        <BouncingDotsLoader size="lg" />
+        <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
       </div>
     );
   }
@@ -343,12 +380,19 @@ export function WorkspaceApp() {
     return <LandingPage onOpenLogin={() => router.push('/login')} />;
   }
 
+<<<<<<< HEAD:src/app/(workspace)/workspace-app.tsx
   const navigateToModule = (mod: string) => {
     const nextPath = pathForModule(mod);
     if (pathname !== nextPath) router.push(nextPath);
   };
+=======
+  return <HrmsAppShell initialModule="dashboard" />;
+}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4:src/app/page.tsx
 
+export default function Home() {
   return (
+<<<<<<< HEAD:src/app/(workspace)/workspace-app.tsx
     <div className="h-screen w-full bg-[#f2f9f5] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
       {/* Random Wavy Line Luxury Background Layer */}
       <WavyBackground />
@@ -620,5 +664,17 @@ export function WorkspaceApp() {
       />
 
     </div>
+=======
+    <Suspense
+      fallback={
+        <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+          <BouncingDotsLoader size="lg" />
+          <span className="text-xs font-semibold text-slate-700"></span>
+        </div>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4:src/app/page.tsx
   );
 }

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 export type Role =
   | 'SUPER_ADMIN'
   | 'ADMIN'
@@ -8,6 +9,9 @@ export type Role =
   | 'EMPLOYEE'
   | 'RECRUITER'
   | 'FINANCE_ADMIN';
+=======
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 export type EmployeeStatus =
   | 'Active'
@@ -35,7 +39,22 @@ export type LeaveType =
   | 'Unpaid Leave'
   | 'Comp Off'
   | 'Maternity Leave'
-  | 'Paternity Leave';
+  | 'Paternity Leave'
+  | (string & {});
+
+export interface ConfiguredLeaveType {
+  id: string;
+  name: string;
+  daysPerYear?: number;
+  daysAllowed?: number;
+  companyId?: string;
+  createdAt?: string;
+  code?: string;
+  color?: string;
+  isPaid?: boolean;
+  usedDays?: number;
+  remainingDays?: number;
+}
 
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
@@ -70,13 +89,32 @@ export interface User {
   employeeId?: string;
   employeeCode?: string;
   phone?: string;
+  gender?: string | null;
+  address?: string | null;
   departmentName?: string;
   designationTitle?: string;
   avatarUrl?: string;
+  photoChangeAllowed?: boolean;
   companyId?: string;
   companyCode?: string;
   companyName?: string;
+  resigned?: boolean;
   workStatus?: string;
+  permissions?: { key: string; label: string }[];
+  industryModules?: string[];
+  companyProfile?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    gstNumber: string | null;
+    industrySector: string | null;
+    industryId: string | null;
+    state: string | null;
+    city: string | null;
+    address: string | null;
+    status: string;
+  } | null;
 }
 
 export interface Department {
@@ -98,6 +136,19 @@ export interface Designation {
   minSalary: number;
   maxSalary: number;
   createdAt: string;
+}
+
+export interface DesignationMember {
+  id: string;
+  userId: string;
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  email: string;
+  designationId: string;
+  designationTitle: string;
+  departmentName: string;
+  status?: string;
 }
 
 export interface Location {
@@ -182,8 +233,23 @@ export interface Employee {
   updatedAt: string;
 }
 
+export interface AttendancePunchLog {
+  id?: string;
+  type: 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' | 'CLOCK_IN' | 'CLOCK_OUT' | string;
+  time?: string;
+  punchedAt?: string;
+  timestamp?: number | string;
+  photo?: string;
+  device?: DevicePunchInfo;
+  remarks?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface AttendanceRecord {
   id: string;
+  companyId?: string;
+  userId?: string;
   employeeId: string;
   employeeName?: string;
   employeeCode?: string;
@@ -200,10 +266,28 @@ export interface AttendanceRecord {
   createdAt: string;
   activeSeconds?: number;
   breakSeconds?: number;
+  totalBreakSeconds?: number;
+  isLive?: boolean;
+  sessionStartTime?: string | null;
+  openBreakStartTime?: string | null;
+  completedBreakSeconds?: number;
+  sessionClosedBreakSeconds?: number;
+  completedWorkSeconds?: number;
+  serverTime?: string;
+  formattedTotalBreak?: string;
   isOnBreak?: boolean;
   isCompleted?: boolean;
+  lateMinutes?: number;
+  earlyMinutes?: number;
   lastActiveTimestamp?: number;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  totalMinutes?: number;
+  totalHours?: string;
+  missingPunch?: boolean;
   lastBreakTimestamp?: number;
+  lastCheckOutTimestamp?: number;
+  punches?: AttendancePunchLog[];
   checkInLatitude?: number;
   checkInLongitude?: number;
   checkInAccuracy?: number;
@@ -233,6 +317,14 @@ export interface DevicePunchInfo {
   ipAddress?: string;
 }
 
+export type LeaveDaySession = 'FULL_DAY' | 'FIRST_HALF' | 'SECOND_HALF';
+
+export interface LeaveDayBreakdown {
+  date: string;
+  session: LeaveDaySession;
+  duration: number;
+}
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;
@@ -248,6 +340,9 @@ export interface LeaveRequest {
   endDate: string;
   daysCount: number;
   isHalfDay: boolean;
+  halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
+  dayBreakdown?: LeaveDayBreakdown[];
+  days?: Array<{ date: string; portion?: string }>;
   reason: string;
   status: LeaveStatus;
   appliedDate: string;
@@ -258,6 +353,7 @@ export interface LeaveRequest {
   hrApproverName?: string;
   hrApprovedAt?: string;
   comments?: string;
+  response?: string;
 }
 
 export interface LeaveBalance {
@@ -446,6 +542,7 @@ export interface Resignation {
   resignationDate: string;
   lastWorkingDay: string;
   noticePeriodDays: number;
+  noticeAssigned?: boolean;
   reason: string;
   status: ResignationStatus;
   managerApproval: {
@@ -506,8 +603,10 @@ export interface ChatAttachment {
   id: string;
   name: string;
   size: string;
-  type: 'image' | 'document' | 'pdf';
+  type: 'image' | 'document' | 'pdf' | 'audio';
   url?: string;
+  mimeType?: string;
+  duration?: number;
 }
 
 export interface ChatMessage {
@@ -544,4 +643,5 @@ export interface ChatConversation {
   lastSenderId?: string;
   unreadCount: Record<string, number>;
   updatedAt: string;
+  createdBy?: string;
 }

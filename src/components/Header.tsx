@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Menu,
@@ -11,16 +11,45 @@ import {
   LogOut,
   Clock,
   Calendar,
+  CalendarCheck,
   UserPlus,
   Building2,
   MessageSquare,
   AlertTriangle,
+<<<<<<< HEAD
   Search,
+=======
+  Smartphone,
+  Receipt,
+  Lock,
+  Home,
+  Users,
+  CalendarOff,
+  CircleDollarSign,
+  Award,
+  BarChart3,
+  UserCheck,
+  Sparkles,
+  Briefcase,
+  FolderLock,
+  ShieldCheck,
+  FileText,
+  Layers,
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
+<<<<<<< HEAD
 import { getAllCompanies } from '../lib/companyService';
 import { readableInitials, readablePersonName } from '../lib/displayName';
+=======
+import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
+import { checkEmployeePunchEligibility } from '../lib/attendanceService';
+import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
+import { api } from '../lib/api';
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -31,12 +60,25 @@ interface HeaderProps {
   onNavigateSettings?: () => void;
   onOpenChat?: () => void;
   onOpenSearchModal?: () => void;
+<<<<<<< HEAD
   onNavigateModule?: (moduleName: string) => void;
+=======
+  onOpenMobileModal?: () => void;
+  onNavigateModule?: (moduleName: string, subTab?: string) => void;
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
   portalMode?: 'employee' | 'admin';
+  activeModule?: string;
+  isAddEmployeeModalOpen?: boolean;
+  isLeaveModalOpen?: boolean;
   pendingLeavesCount?: number;
   unreadChatCount?: number;
+  company?: any;
+  isScrolled?: boolean;
+  pageTitle?: string;
+  activeSubTab?: string;
+  onScrollToTop?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,22 +94,94 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectEmployee,
   employees = [],
   portalMode = 'admin',
+  activeModule = '',
+  isAddEmployeeModalOpen = false,
+  isLeaveModalOpen = false,
   pendingLeavesCount = 0,
   unreadChatCount = 0,
+  company,
+  isScrolled = false,
+  pageTitle = '',
+  activeSubTab = '',
+  onScrollToTop,
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const resigned = Boolean(user?.resigned);
+  const { notices, unreadNoticesCount, dismissNotice, clearNotices, showToast } = useSocket();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [profileMenuOpen]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (noticeRef.current && !noticeRef.current.contains(e.target as Node)) setNotificationsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationsOpen]);
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
-    name: 'Paneliya Technology',
+    name: company?.name || user?.companyName || '',
+    logoUrl: company?.logoUrl,
   });
 
   useEffect(() => {
-    const updateBrand = () => {
+    let isMounted = true;
+
+    if (company && company.name) {
+      setCompanyInfo({
+        name: company.name.replace(/\s+Inc\.?$/i, '').trim(),
+        logoUrl: company.logoUrl,
+      });
+      return;
+    }
+
+    const updateBrand = async () => {
       try {
+        let backendComp = null;
+        try {
+          backendComp = await api.getMyCompany();
+        } catch {
+          // ignore
+        }
+
+        if (isMounted && backendComp && backendComp.name) {
+          setCompanyInfo({
+            name: backendComp.name.replace(/\s+Inc\.?$/i, '').trim(),
+            logoUrl:
+              backendComp.logoUrl ||
+              backendComp.adminAvatarUrl ||
+              backendComp.avatarUrl ||
+              (backendComp as any).logo,
+          });
+          return;
+        }
+
         const companies = getAllCompanies();
         let matched = companies.find((c) => c.id === user?.companyId);
         if (!matched && user?.companyName) {
@@ -80,20 +194,19 @@ export const Header: React.FC<HeaderProps> = ({
             (c) => c.adminUser?.email?.toLowerCase() === user.email.toLowerCase()
           );
         }
-        const customName = localStorage.getItem('hrms_company_name');
-        const customLogo = localStorage.getItem('hrms_company_logo');
 
         const resolvedName =
-          customName ||
           matched?.name ||
           user?.companyName ||
-          'Paneliya Technology';
-        const resolvedLogo = customLogo || matched?.logoUrl;
+          'My Organization';
+        const resolvedLogo = matched?.logoUrl;
 
-        setCompanyInfo({
-          name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
-          logoUrl: resolvedLogo,
-        });
+        if (isMounted) {
+          setCompanyInfo({
+            name: resolvedName.replace(/\s+Inc\.?$/i, '').trim(),
+            logoUrl: resolvedLogo,
+          });
+        }
       } catch {
         // fallback
       }
@@ -102,65 +215,274 @@ export const Header: React.FC<HeaderProps> = ({
     updateBrand();
     window.addEventListener('hrms_companies_updated', updateBrand);
     return () => {
+      isMounted = false;
       window.removeEventListener('hrms_companies_updated', updateBrand);
     };
-  }, [user]);
+  }, [company, user?.companyId, user?.companyName]);
 
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
-  useEffect(() => {
-    const updatePrefs = () => {
-      try {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.workStatus) {
-            setWorkStatus(parsed.workStatus);
-          }
-        }
-      } catch {}
-    };
-    updatePrefs();
-    window.addEventListener('hrms_preferences_updated', updatePrefs);
-    return () => window.removeEventListener('hrms_preferences_updated', updatePrefs);
-  }, []);
+  // Dynamic Clock In / Clock Out Status & Actions from unified Work Session Context
+  const { status: punchStatus, checkIn, checkOut, actionLoading, punchBlockMessage } = useWorkSession();
+  const clockClosed = Boolean(punchBlockMessage) && punchStatus !== 'working' && punchStatus !== 'on_break';
 
-  const displayCompanyName = companyInfo.name || 'Paneliya Technology';
-  const companyInitial = (displayCompanyName[0] || 'P').toUpperCase();
-  const companyLogo = companyInfo.logoUrl;
+  const handleHeaderPunchClick = () => {
+    if (actionLoading || punchStatus === 'on_break') return;
+    if (clockClosed) {
+      showToast({ title: 'Clock closed', message: punchBlockMessage || 'Clock in is not allowed today.', type: 'warning' });
+      return;
+    }
+    if (punchStatus === 'working') {
+      checkOut();
+    } else {
+      checkIn();
+    }
+  };
+
+  const displayCompanyName = (
+    companyInfo.name ||
+    company?.name ||
+    user?.companyName ||
+    (user as any)?.companyProfile?.name ||
+    'My Organization'
+  ).replace(/\s+Inc\.?$/i, '').trim();
+  const companyInitial = (displayCompanyName[0] || 'O').toUpperCase();
+  const companyLogo = resolveCompanyBrandAvatar(
+    { ...company, logoUrl: company?.logoUrl || companyInfo.logoUrl },
+    user,
+    employees
+  );
+
+  const isDashboard = !activeModule || activeModule === 'dashboard';
+
+  // Resolve page heading and icon for the animated morphing header slot
+  const { title: resolvedPageTitle, icon: resolvedPageIcon } = useMemo(() => {
+    let icon = <Clock className="w-3.5 h-3.5" />;
+    switch (activeModule) {
+      case 'dashboard':
+        icon = <Home className="w-3.5 h-3.5" />;
+        break;
+      case 'attendance':
+        icon = <Clock className="w-3.5 h-3.5" />;
+        break;
+      case 'employees':
+        icon = <Users className="w-3.5 h-3.5" />;
+        break;
+      case 'leaves':
+      case 'leave':
+        icon = <CalendarOff className="w-3.5 h-3.5" />;
+        break;
+      case 'calendar':
+        icon = <Calendar className="w-3.5 h-3.5" />;
+        break;
+      case 'notifications':
+        icon = <Bell className="w-3.5 h-3.5" />;
+        break;
+      case 'payroll':
+        icon = <CircleDollarSign className="w-3.5 h-3.5" />;
+        break;
+      case 'payslips':
+        icon = <Receipt className="w-3.5 h-3.5" />;
+        break;
+      case 'organization':
+        icon = <Building2 className="w-3.5 h-3.5" />;
+        break;
+      case 'announcements':
+        icon = <Award className="w-3.5 h-3.5" />;
+        break;
+      case 'chat':
+        icon = <MessageSquare className="w-3.5 h-3.5" />;
+        break;
+      case 'reports':
+        icon = <BarChart3 className="w-3.5 h-3.5" />;
+        break;
+      case 'recruitment':
+        icon = <UserCheck className="w-3.5 h-3.5" />;
+        break;
+      case 'performance':
+        icon = <Sparkles className="w-3.5 h-3.5" />;
+        break;
+      case 'training':
+        icon = <Briefcase className="w-3.5 h-3.5" />;
+        break;
+      case 'documents':
+        icon = <FolderLock className="w-3.5 h-3.5" />;
+        break;
+      case 'assets':
+        icon = <ShieldCheck className="w-3.5 h-3.5" />;
+        break;
+      case 'resignations':
+        icon = <LogOut className="w-3.5 h-3.5" />;
+        break;
+      case 'audit-logs':
+        icon = <FileText className="w-3.5 h-3.5" />;
+        break;
+      case 'settings':
+        icon = <Settings className="w-3.5 h-3.5" />;
+        break;
+      case 'profile':
+        icon = <User className="w-3.5 h-3.5" />;
+        break;
+      default:
+        icon = <Layers className="w-3.5 h-3.5" />;
+    }
+
+    if (pageTitle && pageTitle.trim()) {
+      return { title: pageTitle.trim(), icon };
+    }
+
+    const userName = user?.firstName || (portalMode === 'admin' ? 'Admin' : 'Employee');
+    switch (activeModule) {
+      case 'dashboard':
+        return {
+          title: `Hello, ${userName}!`,
+          icon,
+        };
+      case 'attendance':
+        return { title: 'Attendance', icon };
+      case 'employees':
+        return { title: 'Employees', icon };
+      case 'leaves':
+      case 'leave':
+        return {
+          title: portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
+          icon,
+        };
+      case 'calendar':
+        return { title: 'Calendar & Holidays', icon };
+      case 'notifications':
+        return { title: 'Notifications', icon };
+      case 'payroll':
+        return { title: 'Payroll', icon };
+      case 'payslips':
+        return { title: 'My Payslips', icon };
+      case 'organization':
+        return {
+          title:
+            activeSubTab === 'departments'
+              ? 'Departments & Roles'
+              : activeSubTab === 'designations'
+                ? 'Designations'
+                : 'About Organisation',
+          icon,
+        };
+      case 'announcements':
+        return { title: 'Notice Board & Circulars', icon };
+      case 'chat':
+        return { title: 'Team Chat', icon };
+      case 'reports':
+        return { title: 'Reports & Analytics', icon };
+      case 'recruitment':
+        return { title: 'Recruitment', icon };
+      case 'performance':
+        return { title: 'Performance Reviews', icon };
+      case 'training':
+        return { title: 'Training Programs', icon };
+      case 'documents':
+        return { title: 'Company Documents', icon };
+      case 'assets':
+        return { title: 'Assets', icon };
+      case 'resignations':
+        return {
+          title: portalMode === 'admin' ? 'Resignations & Clearance' : 'My Resignation',
+          icon,
+        };
+      case 'audit-logs':
+        return { title: 'Audit Logs', icon };
+      case 'settings':
+        return { title: 'Settings & Preferences', icon };
+      case 'profile':
+        return { title: 'My Profile', icon };
+      default:
+        return {
+          title: activeModule ? activeModule.charAt(0).toUpperCase() + activeModule.slice(1) : 'HRMS',
+          icon,
+        };
+    }
+  }, [activeModule, activeSubTab, portalMode, user?.firstName, pageTitle]);
 
   return (
+<<<<<<< HEAD
     <header className="h-[58px] sm:h-[66px] bg-white border-b-2 border-[#064e3b] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs w-full max-w-full overflow-hidden gap-2">
       {/* Left: Mobile Toggle & Brand Logo */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+=======
+    <header className="min-h-[56px] sm:min-h-[66px] pt-[env(safe-area-inset-top)] bg-white border-b border-[#e9ecef] px-2 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+      {/* Left: Mobile Toggle, Back Button (nested pages), Brand Logo & Page Heading */}
+      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 min-w-0">
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
         <button
           onClick={onOpenSidebar}
-          className="p-1.5 sm:p-2 rounded-[9px] text-[#4e6a5d] hover:text-[#0d271d] hover:bg-[#ecfdf5] lg:hidden transition-colors cursor-pointer shrink-0"
+          className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-[10px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
           title="Toggle navigation drawer"
           aria-label="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2 lg:hidden min-w-0 max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none">
-          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-tr from-[#10b981] to-[#059669] flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
+        {!isDashboard && (
+          <button
+            type="button"
+            onClick={() => onNavigateModule?.('dashboard')}
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-[10px] text-[#1b4332] bg-[#d8f3dc]/60 hover:bg-[#d8f3dc] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
+            title="Back to Dashboard"
+            aria-label="Back to Dashboard"
+          >
+            <ChevronDown className="w-4 h-4 rotate-90" />
+          </button>
+        )}
+        <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
+          <div className={`w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-0.5'}`}>
             {companyLogo ? (
-              <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-contain p-0.5" />
+              <img
+                src={companyLogo}
+                alt={displayCompanyName}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              companyInitial
+              <span className="text-[11px] font-bold text-slate-700">{companyInitial}</span>
             )}
           </div>
-          <div className="min-w-0 hidden min-[340px]:block">
-            <span className="font-extrabold text-xs text-[#0d271d] tracking-tight block truncate leading-tight">
-              {displayCompanyName}
-            </span>
-            <span className="text-[9px] text-[#059669] font-medium block leading-none opacity-90 truncate">
-              by MyOwnHRMS
-            </span>
+          <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
+            {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (
+              <img src="/brand-name.png" alt="myown hrms" className="h-3.5 w-auto object-contain" />
+            ) : (
+              <span className="font-semibold text-xs text-[#212529] tracking-tight block truncate leading-tight">
+                {displayCompanyName}
+              </span>
+            )}
           </div>
+        </div>
+
+        {/* Header Title Slot: Live Clock on Dashboard; Page Heading on All Other Pages */}
+        <div className="flex items-center h-10 min-w-0">
+          {isDashboard ? (
+            /* Dashboard: Always show Live Digital Clock Widget */
+            <div className="hidden sm:flex items-center shrink-0">
+              <LiveClock showIndicator={false} showTimezone={false} />
+            </div>
+          ) : (
+            /* All Other Pages: Show Page Heading immediately when page is opened */
+            <div className="flex items-center shrink-0">
+              <button
+                type="button"
+                onClick={onScrollToTop}
+                title="Click to scroll to top"
+                className="flex items-center gap-2 px-1.5 sm:px-2 py-1.5 rounded-[10px] hover:bg-[#f8f9fa] transition-all active:scale-95 cursor-pointer text-left group"
+              >
+                <span className="w-6 h-6 text-[#1b4332] flex items-center justify-center shrink-0 transition-colors">
+                  {resolvedPageIcon}
+                </span>
+                <span className="hrms-header-page-title text-xs sm:text-sm font-semibold tracking-tight text-[#0f172a] truncate max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-[280px] md:max-w-[360px]">
+                  {resolvedPageTitle}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Center: Live Digital Clock Widget */}
       <div className="hidden lg:flex items-center justify-center px-2 min-w-0 overflow-hidden">
         <LiveClock onClick={onOpenClockModal} />
@@ -218,15 +540,272 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Role Pill */}
         <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-[10px] bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-xs font-bold shrink-0">
           {portalMode === 'admin' ? 'Admin' : 'Employee'}
+=======
+      {/* Right: Actions, Notifications, Profile */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Admin Quick Action Buttons in Top Header */}
+        {portalMode === 'admin' && (() => {
+          const isLeavesActive = activeModule === 'leaves' && !isAddEmployeeModalOpen;
+          const isAddStaffActive = isAddEmployeeModalOpen;
+          const isHolidaysActive = activeModule === 'calendar' && !isAddEmployeeModalOpen;
+          const getBtnCls = (active: boolean) =>
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+              ? 'bg-[#1b4332] text-white border-[#1b4332]'
+              : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            }`;
+          return (
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {isModuleAllowedForUser('companies', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('companies')}
+                  className={getBtnCls(activeModule === 'companies')}
+                  title="All Companies"
+                >
+                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'companies' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Companies</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('plans', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('plans')}
+                  className={getBtnCls(activeModule === 'plans')}
+                  title="Plans"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'plans' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Plans</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('orders', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('orders')}
+                  className={getBtnCls(activeModule === 'orders')}
+                  title="Orders"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'orders' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Orders</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('leaves', user) && (
+                <button
+                  id="btn-header-admin-leaves"
+                  type="button"
+                  onClick={() => onNavigateModule?.('leaves')}
+                  className={getBtnCls(isLeavesActive)}
+                  title="Leave Requests"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Leave Requests</span>
+                  {pendingLeavesCount > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
+                        }`}
+                    >
+                      {pendingLeavesCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {canCreateUser(user) && isModuleAllowedForUser('employees', user) && (
+                <button
+                  id="btn-header-admin-add-staff"
+                  type="button"
+                  onClick={onOpenAddEmployeeModal}
+                  className={getBtnCls(isAddStaffActive)}
+                  title="Add Staff"
+                >
+                  <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Add Staff</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('calendar', user) && (
+                <button
+                  id="btn-header-admin-holidays"
+                  type="button"
+                  onClick={() => onNavigateModule?.('calendar')}
+                  className={`hidden sm:inline-flex ${getBtnCls(isHolidaysActive).replace('inline-flex ', '')}`}
+                  title="Holidays"
+                >
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Holidays</span>
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Shortcut Action Buttons (Transferred from Employee Dashboard Banner) */}
+        {portalMode !== 'admin' && (() => {
+          const isApplyLeaveActive = isLeaveModalOpen;
+          const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
+          const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
+          const getBtnCls = (active: boolean) =>
+            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+              ? 'bg-[#1b4332] text-white border-[#1b4332]'
+              : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            }`;
+          return (
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {!resigned && isModuleAllowedForUser('leaves', user) && (
+                <button
+                  id="btn-header-apply-leave"
+                  onClick={onOpenLeaveModal}
+                  className={getBtnCls(isApplyLeaveActive)}
+                  title="Apply Leave"
+                >
+                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Apply Leave</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('payslips', user) && (
+                <button
+                  id="btn-header-payslips"
+                  onClick={() => onNavigateModule?.('payslips')}
+                  className={getBtnCls(isPayslipsActive)}
+                  title="My Payslips"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">My Payslips</span>
+                </button>
+              )}
+
+              {!resigned && isModuleAllowedForUser('chat', user) && (
+                <button
+                  id="btn-header-chat"
+                  onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
+                  className={getBtnCls(isChatActive)}
+                  title="Team Chat"
+                >
+                  <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Team Chat</span>
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
+        {canUserPunch(user) && (
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              id="btn-header-punch-toggle"
+              type="button"
+              onClick={handleHeaderPunchClick}
+              disabled={actionLoading || punchStatus === 'on_break' || clockClosed}
+              className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors shrink-0 border ${punchStatus === 'on_break' || clockClosed
+                ? 'bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed select-none'
+                : punchStatus === 'working'
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 cursor-pointer disabled:opacity-50'
+                  : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white border-[#2d6a4f] cursor-pointer disabled:opacity-50'
+                }`}
+              title={
+                clockClosed
+                  ? punchBlockMessage || 'Clock in is not allowed today.'
+                  : punchStatus === 'on_break'
+                    ? 'Clock Out is blocked while on break. Please resume work first.'
+                    : punchStatus === 'working'
+                      ? 'Currently clocked in. Click to Clock Out immediately'
+                      : punchStatus === 'completed'
+                        ? 'Previous session clocked out. Click to Clock In again'
+                        : 'Click to Clock In and start your work timer'
+              }
+            >
+              {clockClosed ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Clock closed</span>
+                </>
+              ) : punchStatus === 'on_break' ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="hidden min-[480px]:inline">On Break</span>
+                </>
+              ) : punchStatus === 'working' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                  <span className="hidden min-[480px]:inline">
+                    {actionLoading ? 'Clocking Out...' : 'Clock Out'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-white shrink-0" />
+                  <span className="hidden min-[480px]:inline">
+                    {actionLoading ? 'Clocking In...' : 'Clock In'}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {!resigned && (
+        <div ref={noticeRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen((open) => !open)}
+            className="relative p-2 rounded-[10px] hover:bg-[#f8f9fa] text-[#343a40] cursor-pointer"
+            title="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadNoticesCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold flex items-center justify-center">
+                {unreadNoticesCount > 9 ? '9+' : unreadNoticesCount}
+              </span>
+            )}
+          </button>
+          {notificationsOpen && (
+            <div className="absolute right-0 top-11 z-50 w-[320px] max-w-[80vw] rounded-2xl border border-[#dee2e6] bg-white shadow-xl overflow-hidden">
+              <div className="px-3 py-2 border-b border-[#e9ecef] flex items-center justify-between">
+                <p className="text-sm font-semibold text-[#212529]">Notifications</p>
+                {notices.length > 0 && (
+                  <button type="button" onClick={clearNotices} className="text-[11px] font-semibold text-[#2d6a4f] cursor-pointer">Clear</button>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notices.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-xs text-[#6c757d]">No new notifications.</p>
+                ) : notices.map((notice) => (
+                  <button
+                    key={notice.id}
+                    type="button"
+                    onClick={() => {
+                      dismissNotice(notice.id);
+                      setNotificationsOpen(false);
+                      if (notice.module === 'chat') {
+                        onOpenChat ? onOpenChat() : onNavigateModule?.('chat');
+                      } else if (notice.module) {
+                        onNavigateModule?.(notice.module);
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2.5 border-b border-[#f1f3f5] hover:bg-[#f8f9fa] cursor-pointer"
+                  >
+                    <p className="text-[13px] font-semibold text-[#212529]">{notice.title}</p>
+                    <p className="text-[12px] text-[#495057] line-clamp-2">{notice.message}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
         </div>
+        )}
 
         {/* User Profile Dropdown */}
-        <div className="relative shrink-0">
+        <div ref={profileMenuRef} className="relative shrink-0">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#ecfdf5] transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer shrink-0"
           >
-            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#dcfce7] text-[#065f46] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#a7f3d0] overflow-hidden">
+            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#d8f3dc] text-[#1b4332] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#95d5b2] overflow-hidden">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -238,20 +817,25 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
+<<<<<<< HEAD
               <span className="text-xs font-bold text-[#0d271d] leading-tight block truncate">
                 {readablePersonName(user.firstName, user.lastName, user.email)}
+=======
+              <span className="text-xs font-semibold text-[#212529] leading-tight block truncate">
+                {user.firstName || 'User'} {user.lastName || ''}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
               </span>
-              <span className="text-[10px] text-[#4e6a5d] leading-none block truncate">
-                {portalMode === 'admin' ? 'Administrator' : 'Employee'}
+              <span className="text-[10px] text-[#343a40] leading-none block truncate">
+                {user.role ? (user.role === 'ADMIN' ? 'Administrator' : user.role === 'HR' ? 'HR Manager' : user.role === 'MANAGER' ? 'Manager' : user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Employee') : (portalMode === 'admin' ? 'Administrator' : 'Employee')}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#4e6a5d] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-[#343a40] shrink-0" />
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#d8ebd9] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3.5 py-2.5 border-b border-[#edf6f0] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#dcfce7] text-[#065f46] font-bold text-xs flex items-center justify-center shrink-0 border border-[#a7f3d0] overflow-hidden">
+            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#e9ecef] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3.5 py-2.5 border-b border-[#f8f9fa] flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dee2e6] overflow-hidden">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -259,15 +843,17 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
+<<<<<<< HEAD
                   <p className="text-xs font-bold text-[#0d271d] truncate">
                     {readablePersonName(user.firstName, user.lastName, user.email)}
+=======
+                  <p className="text-xs font-bold text-[#212529] truncate">
+                    {user.firstName || 'User'} {user.lastName || ''}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                   </p>
-                  <p className="text-[11px] text-[#4e6a5d] truncate">
+                  <p className="text-[11px] text-[#343a40] truncate">
                     {user.email || ''}
                   </p>
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-[10px] font-bold">
-                    {workStatus}
-                  </span>
                 </div>
               </div>
 
@@ -277,27 +863,31 @@ export const Header: React.FC<HeaderProps> = ({
                     setProfileMenuOpen(false);
                     onOpenProfile();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <User className="w-3.5 h-3.5 text-[#4e6a5d]" />
+                  <User className="w-3.5 h-3.5 text-[#343a40]" />
                   My Profile
                 </button>
               )}
 
-              {onNavigateSettings && (
+              {portalMode === 'admin' && isModuleAllowedForUser('settings', user) && onNavigateSettings && (
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
                     onNavigateSettings();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5 text-[#4e6a5d]" />
+                  <Settings className="w-3.5 h-3.5 text-[#343a40]" />
                   Settings
                 </button>
               )}
 
+<<<<<<< HEAD
               <div className="border-t border-[#edf6f0] my-1" />
+=======
+              <div className="border-t border-[#f8f9fa] my-1" />
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 
               <button
                 onClick={() => {

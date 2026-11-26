@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { ShieldCheck, Search, Filter, Clock, User, Globe, RefreshCw, X } from 'lucide-react';
 import { AuditLog } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -26,6 +27,7 @@ export const AuditLogsModule: React.FC = () => {
   useEffect(() => {
     loadLogs();
   }, [moduleFilter]);
+  useCompanyLive(['all'], loadLogs);
 
   const aq = search.trim().toLowerCase();
   const filtered = logs.filter((l) => {
@@ -41,17 +43,8 @@ export const AuditLogsModule: React.FC = () => {
   });
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-            Security & Compliance Audit Trail
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Immutable log of all user logins, administrative state updates, payroll executions, and permission changes
-          </p>
-        </div>
-
+    <div className="space-y-5 w-full animate-in fade-in select-none">
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center gap-2">
           <button
             onClick={loadLogs}
@@ -106,8 +99,30 @@ export const AuditLogsModule: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        {/* Mobile Card View (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filtered.map((log) => (
+            <div key={`mob-${log.id}`} className="p-4 space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-900 truncate">{log.userName}</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold shrink-0">{log.userRole}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="text-blue-600 font-semibold">{log.module}</span>
+                <span className="text-slate-300">•</span>
+                <span className="font-mono font-bold text-slate-800">{log.action}</span>
+              </div>
+              <p className="text-slate-600 text-xs">{log.details}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1">
+                <span>{new Date(log.createdAt).toLocaleString()}</span>
+                <span>{log.ipAddress || '127.0.0.1'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
+          <table className="w-full min-w-[720px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
               <tr>
                 <th className="py-3 px-4">Timestamp</th>

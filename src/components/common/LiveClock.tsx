@@ -32,40 +32,12 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     setMounted(true);
     setCurrentTime(new Date());
 
-    const loadPreferences = () => {
-      try {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hrms_emp_preferences') : null;
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.timeFormat) {
-            setIs24Hour(parsed.timeFormat === '24h');
-          }
-          if (parsed.dateFormat) {
-            setDateFormat(parsed.dateFormat);
-          }
-          if (parsed.language === 'Hindi') {
-            setLocale('hi-IN');
-          } else if (parsed.language === 'Gujarati') {
-            setLocale('gu-IN');
-          } else {
-            setLocale('en-IN');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load clock preferences:', err);
-      }
-    };
-
-    loadPreferences();
-    window.addEventListener('hrms_preferences_updated', loadPreferences);
-
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('hrms_preferences_updated', loadPreferences);
     };
   }, []);
 
@@ -73,7 +45,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     // Elegant placeholder while mounting to avoid SSR hydration mismatch
     return (
       <div
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 animate-pulse text-xs text-slate-400 select-none ${className}`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-transparent animate-pulse text-xs text-slate-400 select-none ${className}`}
       >
         <Clock className="w-3.5 h-3.5 text-slate-400" />
         <span className="font-mono font-medium">--:--:-- --</span>
@@ -124,15 +96,7 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     if (onClick) {
       onClick();
     } else {
-      const next24 = !is24Hour;
-      setIs24Hour(next24);
-      try {
-        const saved = localStorage.getItem('hrms_emp_preferences');
-        const parsed = saved ? JSON.parse(saved) : {};
-        parsed.timeFormat = next24 ? '24h' : '12h';
-        localStorage.setItem('hrms_emp_preferences', JSON.stringify(parsed));
-        window.dispatchEvent(new Event('hrms_preferences_updated'));
-      } catch {}
+      setIs24Hour(!is24Hour);
     }
   };
 
@@ -220,66 +184,68 @@ export const LiveClock: React.FC<LiveClockProps> = ({
     <div
       id="live-clock-pill"
       onClick={handleClick}
+<<<<<<< HEAD
       className={`group inline-flex items-center flex-nowrap whitespace-nowrap gap-2 sm:gap-2.5 px-3 py-1.5 rounded-[11px] bg-[#ecfdf5]/70 border border-[#a7f3d0] shadow-2xs hover:border-[#059669]/60 hover:bg-white hover:shadow-xs transition-all duration-200 cursor-pointer select-none max-w-full overflow-hidden ${className}`}
+=======
+      className={`group inline-flex flex-col items-start justify-center px-2 py-1 rounded-[10px] bg-transparent hover:bg-[#d8f3dc]/60 transition-all duration-200 cursor-pointer select-none shrink-0 ${className}`}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       title="Live System Time (Auto-synced) • Click to toggle 12h/24h"
     >
       {/* Live Indicator Dot & Badge */}
       {showIndicator && (
-        <div className="flex items-center gap-1.5">
-          <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-            <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-[#10b981]"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="relative flex h-2 w-2 items-center justify-center">
+            <span className="animate-radar-dot absolute inline-flex h-full w-full rounded-full bg-[#52b788]"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#2d6a4f]"></span>
           </span>
-          <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-wider text-[#065f46] bg-[#dcfce7] px-1.5 py-0.5 rounded-full leading-tight">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[#1b4332] bg-[#d8f3dc] px-1.5 py-0.5 rounded-full leading-tight">
             LIVE
           </span>
         </div>
       )}
 
-      {/* Divider */}
-      {showIndicator && <div className="hidden sm:block h-3.5 w-px bg-[#d8ebd9]" />}
-
-      {/* Digital Time with Monospace Figures and Pulsing Colons */}
-      <div className="flex items-center gap-0.5 font-mono text-[#0d271d]">
-        <Clock className="w-3.5 h-3.5 text-[#059669] group-hover:rotate-12 transition-transform duration-300 mr-1" />
-        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
+      {/* Top: Digital Time with Monospace Figures and Timezone */}
+      <div className="flex items-center gap-0.5 font-mono text-[#1b4332] leading-none">
+        <Clock className="w-3.5 h-3.5 text-[#2d6a4f] group-hover:rotate-12 transition-transform duration-300 mr-1 shrink-0" />
+        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#1b4332]">
           {hours}
         </span>
-        <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+        <span className="text-[#52b788] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
           :
         </span>
-        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#0d271d]">
+        <span className="font-bold text-xs sm:text-[13px] tracking-tight text-[#1b4332]">
           {minutes}
         </span>
         {showSeconds && (
           <>
-            <span className="text-[#059669] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
+            <span className="text-[#52b788] font-bold text-xs sm:text-[13px] animate-clock-colon px-0.5">
               :
             </span>
             <span
               key={seconds}
-              className="font-bold text-xs sm:text-[13px] tracking-tight text-[#059669] animate-digit-tick inline-block min-w-[16px] text-center"
+              className="font-bold text-xs sm:text-[13px] tracking-tight text-[#40916c] animate-digit-tick inline-block min-w-[16px] text-center"
             >
               {seconds}
             </span>
           </>
         )}
         {dayPeriod && (
-          <span className="text-[10px] font-bold text-[#4e6a5d] ml-1 uppercase">
+          <span className="text-[10px] font-bold text-[#2d6a4f] ml-1 uppercase">
             {dayPeriod}
+          </span>
+        )}
+
+        {/* Timezone Badge */}
+        {showTimezone && (
+          <span className="text-[9px] font-bold text-[#1b4332] bg-[#d8f3dc] border border-[#95d5b2] px-1.5 py-0.5 rounded leading-none ml-1.5 inline-block">
+            {timeZoneName}
           </span>
         )}
       </div>
 
-      {/* Timezone Badge */}
-      {showTimezone && (
-        <span className="text-[10px] font-bold text-[#065f46] bg-[#dcfce7] border border-[#a7f3d0] px-1.5 py-0.5 rounded leading-none hidden md:inline-block">
-          {timeZoneName}
-        </span>
-      )}
-
-      {/* Date */}
+      {/* Bottom: Date */}
       {showDate && (
+<<<<<<< HEAD
         <>
           <div className="hidden 2xl:block h-3.5 w-px bg-[#d8ebd9]" />
           <div className="hidden 2xl:flex items-center gap-1.5 text-xs text-[#4e6a5d] font-medium whitespace-nowrap">
@@ -287,6 +253,12 @@ export const LiveClock: React.FC<LiveClockProps> = ({
             <span className="whitespace-nowrap">{formattedDate}</span>
           </div>
         </>
+=======
+        <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-[#495057] font-medium whitespace-nowrap leading-tight mt-1">
+          <Calendar className="w-3 h-3 text-[#40916c] shrink-0" />
+          <span>{formattedDate}</span>
+        </div>
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       )}
     </div>
   );

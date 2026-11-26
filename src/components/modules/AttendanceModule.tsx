@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -25,19 +26,24 @@ import {
   Search,
   MapPin,
   LocateFixed,
-  Camera,
-  Smartphone,
-  Laptop,
-  Tablet,
   Eye,
-  Fingerprint,
   Users,
   TrendingUp,
   LayoutGrid,
   FileSpreadsheet,
+  Play,
+  Square,
+  RotateCcw,
+  Loader2,
+  ArrowRight,
+  ScanFace,
 } from 'lucide-react';
-import { PunchVerificationModal } from '../modals/PunchVerificationModal';
-import { BiometricHubModal } from '../modals/BiometricHubModal';
+import dynamic from 'next/dynamic';
+
+const BiometricHubModal = dynamic(
+  () => import('../modals/BiometricHubModal').then((m) => m.BiometricHubModal),
+  { ssr: false }
+);
 import { AttendanceRecord, Employee } from '../../types/hrms';
 import {
   getAllAttendanceRecords,
@@ -47,28 +53,40 @@ import {
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
+  normalizePunchType,
+  parsePunchTimestamp,
+  parseTimeStringToTimestamp,
+  performCheckIn,
+  performTakeBreak,
+  performResumeWork,
+  performCheckOut,
+  extractRecordsFromWorkStatus,
+  updateLocalRecordFromBackend,
+  isMatchEmployee,
 } from '../../lib/attendanceService';
 import {
-  getOfficeGeofenceConfig,
-  saveOfficeGeofenceConfig,
-  getCurrentGPSLocation,
-  OfficeGeofenceConfig,
   getEmployeeWFHMap,
   setEmployeeWFHStatus,
   isEmployeeWFHEnabled,
 } from '../../lib/geoService';
-import { api } from '../../lib/api';
+import { api, clearApiCache } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { useWorkSession } from '../../context/WorkSessionContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
+import { ModernDigitClock } from '../common/ModernDigitClock';
+import { DailyShiftConsole } from '../common/DailyShiftConsole';
+import { isDateWeekend, getWorkScheduleConfig } from '../../lib/shiftScheduleService';
+import { canUserPunch } from '../../lib/rolePermissions';
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
   employees: Employee[];
-  initialTab?: 'today' | 'summary' | 'roster' | 'holidays';
+  initialTab?: 'today' | 'summary' | string;
   onOpenPunchModal: () => void;
   onRefresh: () => void;
   portalMode?: 'employee' | 'admin';
+  loading?: boolean;
 }
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
@@ -78,9 +96,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   onOpenPunchModal,
   onRefresh,
   portalMode = 'admin',
+  loading = false,
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+  const {
+    status: sessionWorkStatus,
+    todaySummary,
+    liveWorkedHMS: sessionWorkedHMS,
+    liveBreakWords: sessionBreakWords,
+    liveBreakHMS: sessionBreakHMS,
+    totalWorkedHMS,
+    totalBreakHMS,
+    activeSession,
+    lastCompletedSession,
+    punches: sessionPunches,
+    attendanceLogic: sessionAttendanceLogic,
+  } = useWorkSession();
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
   const userIsAdminRole =
@@ -130,29 +162,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     phone: (user as any)?.phone || '',
     avatarUrl: user?.avatarUrl || '',
     gender: 'Other',
-    dateOfBirth: '1995-01-01',
+    dateOfBirth: '',
     address: '',
     emergencyContact: { name: '', relationship: '', phone: '' },
-    joiningDate: '2026-01-01',
+    joiningDate: '',
     employmentType: 'Full-time',
     status: 'Active',
-    departmentId: (user as any)?.departmentId || 'dept-1',
-    departmentName: (user as any)?.departmentName || 'General',
-    designationId: (user as any)?.designationId || 'des-1',
-    designationTitle: (user as any)?.designationTitle || 'Staff',
+    departmentId: (user as any)?.departmentId || '',
+    departmentName: (user as any)?.departmentName || '',
+    designationId: (user as any)?.designationId || '',
+    designationTitle: (user as any)?.designationTitle || '',
     reportingManagerId: '',
     reportingManagerName: '—',
-    workLocationId: 'loc-1',
-    workLocationName: 'Corporate HQ',
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
+    workLocationId: '',
+    workLocationName: '',
+    shift: 'General Shift',
     bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
-    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: '' },
     education: [],
     previousExperience: [],
     skills: [],
     salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
-    createdAt: '2026-01-01',
-    updatedAt: '2026-01-01',
+    createdAt: '',
+    updatedAt: '',
   }), [myEmpId, myEmpCode, user]);
 
   const selfEmployee: Employee = matchedEmployee || currentEmpFallback;
@@ -175,35 +207,460 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     const recEmpId = String(r.employeeId || '').toLowerCase().trim();
     if (recEmpId && myCandidateIds.has(recEmpId)) return true;
     if ((r as any).userId && myCandidateIds.has(String((r as any).userId).toLowerCase().trim())) return true;
+    if (isMatchEmployee(r, selfEmployee.id) || isMatchEmployee(r, user?.id) || isMatchEmployee(r, user?.employeeId) || isMatchEmployee(r, myEmpId)) return true;
     if (r.employeeName && myFullName && r.employeeName.toLowerCase().trim() === myFullName) return true;
     if (matchedEmployee && r.employeeName && `${matchedEmployee.firstName} ${matchedEmployee.lastName}`.toLowerCase().trim() === r.employeeName.toLowerCase().trim()) return true;
     return false;
   };
 
-  const [activeTab, setActiveTab] = useState<'today' | 'summary' | 'roster' | 'holidays'>(initialTab || 'today');
+  const resolvedTab: 'today' | 'summary' = 'today';
+
   const [attendanceSearch, setAttendanceSearch] = useState('');
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedDesig, setSelectedDesig] = useState('All');
-  const [selectedMonth, setSelectedMonth] = useState('October');
-  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const mNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return mNames[new Date().getMonth()] || 'November';
+  });
+  const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [liveRecords, setLiveRecords] = useState<AttendanceRecord[]>([]);
+  const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
+  const [liveBreakWords, setLiveBreakWords] = useState('0s');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [summaryViewMode, setSummaryViewMode] = useState<'cards' | 'grid'>('cards');
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
+  const [detailModalTab, setDetailModalTab] = useState<'logs' | 'matrix'>('logs');
+  const [detailEmpLoading, setDetailEmpLoading] = useState(false);
+  const [detailEmpRecords, setDetailEmpRecords] = useState<AttendanceRecord[]>([]);
+  const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
+  const [expandedPunchId, setExpandedPunchId] = useState<string | null>(null);
+  const [expandedAdminEmpId, setExpandedAdminEmpId] = useState<string | null>(null);
 
-  // Helper to compute monthly metrics for each employee
+  const hasLoadedDataRef = useRef(false);
+  useEffect(() => {
+    if (employees.length > 0 || records.length > 0) {
+      hasLoadedDataRef.current = true;
+    }
+  }, [employees, records]);
+
+  const isDataLoading = Boolean(
+    loading || (!hasLoadedDataRef.current && portalMode === 'admin' && employees.length === 0)
+  );
+
+  const getPunchTypeBadge = (type: string) => {
+    const t = String(type || '').toUpperCase();
+    if (t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN') {
+      return {
+        label: 'IN',
+        title: 'Clocked In',
+        color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        dotColor: 'bg-emerald-500',
+        dotBorderColor: 'border-emerald-500',
+      };
+    }
+    if (t === 'BREAK_START' || t === 'BREAK' || t === 'TAKE_BREAK') {
+      return {
+        label: 'BREAK',
+        title: 'Break Started',
+        color: 'bg-amber-50 text-amber-700 border-amber-200',
+        dotColor: 'bg-amber-500',
+        dotBorderColor: 'border-amber-500',
+      };
+    }
+    if (t === 'BREAK_END' || t === 'RESUME' || t === 'RESUME_WORK') {
+      return {
+        label: 'RESUME',
+        title: 'Work Resumed',
+        color: 'bg-blue-50 text-blue-700 border-blue-200',
+        dotColor: 'bg-blue-500',
+        dotBorderColor: 'border-blue-500',
+      };
+    }
+    if (t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT') {
+      return {
+        label: 'OUT',
+        title: 'Clocked Out',
+        color: 'bg-rose-50 text-rose-700 border-rose-200',
+        dotColor: 'bg-rose-500',
+        dotBorderColor: 'border-rose-500',
+      };
+    }
+    return {
+      label: t || 'LOG',
+      title: 'Activity Punch',
+      color: 'bg-slate-50 text-slate-700 border-slate-200',
+      dotColor: 'bg-slate-400',
+      dotBorderColor: 'border-slate-400',
+    };
+  };
+
+  const renderPunchTimeline = (
+    punches: any[],
+    rec: AttendanceRecord | null,
+    isWorking: boolean,
+    isOnBreak: boolean,
+    titleDate?: string
+  ) => {
+    const rawPunches = Array.isArray(punches) && punches.length > 0 ? punches : [];
+
+    let displayList = rawPunches;
+    if (displayList.length === 0 && rec) {
+      const syn: any[] = [];
+      if (rec.checkIn && rec.checkIn !== '—') {
+        syn.push({
+          id: 'syn-in',
+          type: 'IN',
+          time: rec.checkIn,
+          punchedAt: rec.checkIn.includes('T') ? rec.checkIn : undefined,
+        });
+      }
+      if (isOnBreak) {
+        syn.push({
+          id: 'syn-break',
+          type: 'BREAK',
+          time: 'Active Break',
+        });
+      }
+      if (rec.checkOut && rec.checkOut !== '—') {
+        syn.push({
+          id: 'syn-out',
+          type: 'OUT',
+          time: rec.checkOut,
+          punchedAt: rec.checkOut.includes('T') ? rec.checkOut : undefined,
+        });
+      } else if (isWorking) {
+        syn.push({
+          id: 'syn-working',
+          type: 'RESUME',
+          time: 'In Progress',
+        });
+      }
+      displayList = syn;
+    }
+
+    const breakDisplay = rec ? getRecordBreakDisplay(rec) : '0s';
+    const workedDisplay = rec ? getRecordActiveWorkedDisplay(rec) : '00:00:00';
+
+    return (
+      <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-4">
+        {/* Top Summary Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <span>Punch Activity Logs &amp; Audit Trail</span>
+                {titleDate && (
+                  <span className="text-[11px] font-semibold text-slate-500">• {titleDate}</span>
+                )}
+              </h5>
+              <p className="text-[11px] text-slate-400">
+                {displayList.length > 0
+                  ? `${displayList.length} punch ${displayList.length === 1 ? 'event' : 'events'} recorded in sequence`
+                  : 'No punch logs registered yet'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Clock In</span>
+              <span className="font-mono font-bold text-slate-800 text-[11px]">
+                {rec?.checkIn && rec.checkIn !== '—' ? rec.checkIn : '—'}
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Clock Out</span>
+              <span className="font-mono font-bold text-slate-800 text-[11px]">
+                {rec?.checkOut && rec.checkOut !== '—' ? rec.checkOut : isWorking ? 'Working...' : '—'}
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Total Break</span>
+              <span className="font-mono font-bold text-amber-700 text-[11px]">{breakDisplay}</span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Active Worked</span>
+              <span className="font-mono font-bold text-emerald-700 text-[11px]">{workedDisplay}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Punch Logs - Clean Chronological List View */}
+        {displayList.length === 0 ? (
+          <div className="py-6 text-center space-y-1.5">
+            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center mx-auto">
+              <Clock className="w-4 h-4" />
+            </div>
+            <p className="text-xs font-bold text-slate-700">No punch records found</p>
+            <p className="text-[11px] text-slate-400">
+              No punch activity registered for this record yet. Entries will appear automatically once punched.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+            {/* Desktop / Tablet List Table */}
+            <div className="hidden sm:block overflow-x-auto w-full">
+              <table className="w-full text-left text-xs min-w-[560px]">
+                <thead className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 px-3.5 w-12 text-center">#</th>
+                    <th className="py-2.5 px-3.5">Action</th>
+                    <th className="py-2.5 px-3.5">Face</th>
+                    <th className="py-2.5 px-3.5">Punch Time</th>
+                    <th className="py-2.5 px-3.5">Date</th>
+                    <th className="py-2.5 px-3.5">Activity Description</th>
+                    <th className="py-2.5 px-3.5 text-right">Audit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {displayList.map((p: any, idx: number) => {
+                    const badge = getPunchTypeBadge(p.type);
+                    const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
+                    const iso = p.punchedAt || p.time;
+                    const fullDateStr = iso && typeof iso === 'string' && iso.includes('T')
+                      ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : (titleDate || 'Today');
+                    const desc = badge.title || (p.type === 'IN' ? 'Clock In / Work Started' : p.type === 'OUT' ? 'Clock Out / Work Ended' : p.type === 'BREAK' ? 'Break Interval Started' : 'Active Work Resumed');
+                    const faceUrl = (p.type === 'IN' || p.type === 'OUT') ? (p.photoUrl || p.photo || '') : '';
+
+                    return (
+                      <tr key={p.id || `punch-list-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3.5 text-center font-mono font-bold text-slate-400">
+                          #{idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${badge.color}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3.5">
+                          {faceUrl ? (
+                            <a href={faceUrl} target="_blank" rel="noreferrer" title={p.type === 'IN' ? 'Clock in face' : 'Clock out face'}>
+                              <img src={faceUrl} alt={p.type === 'IN' ? 'Clock in face' : 'Clock out face'} className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 text-xs">
+                          {timeStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-500 font-mono text-[11px]">
+                          {fullDateStr}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-slate-700 text-xs">
+                          {desc}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            Logged
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Vertical List View */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {displayList.map((p: any, idx: number) => {
+                const badge = getPunchTypeBadge(p.type);
+                const timeStr = formatIsoTo12HourTime(p.punchedAt || p.time || p.timestamp) || p.time || '—';
+                const desc = badge.title || (p.type === 'IN' ? 'Clock In' : p.type === 'OUT' ? 'Clock Out' : p.type === 'BREAK' ? 'Break' : 'Resumed');
+                const faceUrl = (p.type === 'IN' || p.type === 'OUT') ? (p.photoUrl || p.photo || '') : '';
+
+                return (
+                  <div key={p.id || `punch-m-list-${idx}`} className="py-2.5 px-3 flex items-center justify-between gap-2 hover:bg-slate-50/70">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {faceUrl ? (
+                        <a href={faceUrl} target="_blank" rel="noreferrer">
+                          <img src={faceUrl} alt={p.type === 'IN' ? 'Clock in face' : 'Clock out face'} className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0" />
+                        </a>
+                      ) : null}
+                      <span className="font-mono font-bold text-slate-400 text-xs shrink-0">#{idx + 1}</span>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${badge.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor}`} />
+                        {badge.label}
+                      </span>
+                      <span className="text-xs text-slate-800 font-medium truncate">{desc}</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-slate-900 shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                      {timeStr}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const fetchEmpWorkStatus = React.useCallback(async (empToLoad: Employee) => {
+    if (!empToLoad) return;
+    setDetailEmpLoading(true);
+    try {
+      // Hit attendance work status API per user requirement:
+      // curl --location 'http://192.168.1.105:4000/api/api/attendance/work/status' --header 'Authorization: Bearer <TOKEN>'
+      const res = await api.getWorkStatus();
+      if (!res) return;
+      setDetailEmpStatusData(res);
+      const extracted = extractRecordsFromWorkStatus(res, employees);
+
+      const bound = extracted.map((rec) => ({
+        ...rec,
+        employeeId: rec.employeeId || empToLoad.id,
+        employeeName: rec.employeeName || `${empToLoad.firstName} ${empToLoad.lastName}`.trim(),
+        employeeCode: rec.employeeCode || empToLoad.employeeCode || 'EMP',
+      }));
+
+      setDetailEmpRecords(bound);
+    } catch (err) {
+      console.warn('[AttendanceModule] Failed to fetch work status from /api/attendance/work/status:', err);
+    } finally {
+      setDetailEmpLoading(false);
+    }
+  }, [employees]);
+
+  useEffect(() => {
+    if (detailEmp) {
+      fetchEmpWorkStatus(detailEmp);
+    } else {
+      setDetailEmpRecords([]);
+      setDetailEmpLoading(false);
+      setDetailEmpStatusData(null);
+    }
+  }, [detailEmp?.id]);
+
+  // Dedicated state for authoritative work status response (/api/attendance/work/status)
+  const [workStatusData, setWorkStatusData] = useState<any>(null);
+  const [attendanceSummaryData, setAttendanceSummaryData] = useState<any | null>(null);
+  const [attendanceCalendarData, setAttendanceCalendarData] = useState<any | null>(null);
+  const [historySessions, setHistorySessions] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const isFetchingWorkStatusRef = React.useRef(false);
+
+  const fetchAttendanceSummaryAndCalendar = useCallback(async () => {
+    try {
+      const [sumRes, calRes] = await Promise.all([
+        api.getAttendanceSummary().catch(() => null),
+        api.getAttendanceCalendar().catch(() => null),
+      ]);
+      if (sumRes) setAttendanceSummaryData(sumRes);
+      if (calRes) setAttendanceCalendarData(calRes);
+    } catch (err) {
+      console.warn('[AttendanceModule] Could not load attendance summary/calendar:', err);
+    }
+  }, []);
+
+  const fetchWorkStatus = useCallback(async () => {
+    if (isFetchingWorkStatusRef.current) return;
+    isFetchingWorkStatusRef.current = true;
+    try {
+      clearApiCache('/attendance/logic');
+      const data: any = await api.getAttendanceLogic();
+      if (!data || typeof data !== 'object') return;
+      setWorkStatusData(data);
+    } catch (err) {
+      console.warn('[AttendanceModule] Could not load work status from /api/attendance/logic:', err);
+    } finally {
+      isFetchingWorkStatusRef.current = false;
+    }
+  }, []);
+
+  const loadWorkHistory = useCallback(async () => {
+    if (!isEmployeeView) return;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const res = await api.getWorkHistory(1, 100);
+      setHistorySessions(Array.isArray(res.sessions) ? res.sessions : []);
+    } catch (err: any) {
+      setHistorySessions([]);
+      setHistoryError(err?.message || 'Could not load attendance log history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [isEmployeeView]);
+
+  const fetchWorkStatusRef = useRef(fetchWorkStatus);
+  fetchWorkStatusRef.current = fetchWorkStatus;
+  const loadWorkHistoryRef = useRef(loadWorkHistory);
+  loadWorkHistoryRef.current = loadWorkHistory;
+  const fetchSummaryCalRef = useRef(fetchAttendanceSummaryAndCalendar);
+  fetchSummaryCalRef.current = fetchAttendanceSummaryAndCalendar;
+
+  // Sync logged in employee's work status from backend on mount, and on real punch updates
+  useEffect(() => {
+    fetchWorkStatusRef.current();
+    loadWorkHistoryRef.current();
+    fetchSummaryCalRef.current();
+
+    const handleUpdate = () => {
+      fetchWorkStatusRef.current();
+      loadWorkHistoryRef.current();
+      fetchSummaryCalRef.current();
+    };
+    window.addEventListener('hrms_work_status_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('hrms_work_status_updated', handleUpdate);
+    };
+  }, []);
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const currentMonthIdx = Math.max(0, MONTH_NAMES.indexOf(selectedMonth));
+  const currentYearNum = parseInt(selectedYear, 10) || 2026;
+  const totalDaysInSelectedMonth = new Date(currentYearNum, currentMonthIdx + 1, 0).getDate();
+
+  const daysInMonth = React.useMemo(() => {
+    return Array.from({ length: totalDaysInSelectedMonth }, (_, i) => {
+      const day = i + 1;
+      const date = new Date(currentYearNum, currentMonthIdx, day);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+      const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+      return { day, dayName, dayOfWeek };
+    });
+  }, [totalDaysInSelectedMonth, currentYearNum, currentMonthIdx]);
+
+  // Helper to compute monthly metrics for each employee from live database records
   const getEmployeeMonthlyMetrics = (emp: Employee) => {
-    const empRecords = [
+    const empRecordsMap = new Map<string, AttendanceRecord>();
+    const extraDetailRecs =
+      detailEmp && (emp.id === detailEmp.id || (emp.employeeCode && emp.employeeCode === detailEmp.employeeCode))
+        ? detailEmpRecords
+        : [];
+    const allEmpRecs = [
       ...records.filter(
         (r) =>
           r.employeeId === emp.id ||
           (emp.employeeCode && r.employeeCode === emp.employeeCode) ||
           (r.employeeName &&
             r.employeeName.trim().toLowerCase() ===
-              `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase())
+            `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase())
       ),
       ...liveRecords.filter((r) => r.employeeId === emp.id),
+      ...extraDetailRecs,
     ];
+    allEmpRecs.forEach((r) => {
+      if (r.date) empRecordsMap.set(r.date, r);
+    });
 
     let presentDays = 0;
     let lateDays = 0;
@@ -212,51 +669,73 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     let onLeaveDays = 0;
     let totalWorkSeconds = 0;
 
-    daysInMonth.forEach(({ day }) => {
+    const todayStr = getTodayDateString();
+    const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+
+    daysInMonth.forEach(({ day, dayOfWeek }) => {
       const dayStr = String(day).padStart(2, '0');
-      const dateStr = `2026-10-${dayStr}`;
-      const rec = empRecords.find((r) => r.date === dateStr);
+      const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+      const rec = empRecordsMap.get(dateStr);
 
       if (rec) {
-        const st = String(rec.status).toLowerCase();
-        if (st === 'present') {
+        const st = String(rec.status || '').toLowerCase();
+        if (st === 'present' || st === 'late') {
           presentDays++;
-        } else if (st === 'late') {
-          presentDays++;
-          lateDays++;
         } else if (st === 'half day') {
           halfDays++;
         } else if (st === 'absent') {
           absentDays++;
         } else if (st === 'leave' || st === 'on leave') {
           onLeaveDays++;
+        } else if (rec.checkIn) {
+          presentDays++;
         }
 
         if (rec.activeSeconds) {
           totalWorkSeconds += rec.activeSeconds;
+        } else if (rec.workingHours) {
+          totalWorkSeconds += rec.workingHours * 3600;
         } else if (rec.checkIn && rec.checkOut) {
           totalWorkSeconds += 8.5 * 3600;
         } else if (rec.checkIn) {
           totalWorkSeconds += 4 * 3600;
         }
       } else {
-        // Holiday vs Weekend vs normal workday
-        if (day === 2 || day === 20 || day === 21) {
-          // Public holiday
-        } else if (day % 7 === 3 || day % 7 === 4) {
-          // Weekend off
-        } else if (day < 24) {
-          // Active demo weekday
-          presentDays++;
-          totalWorkSeconds += 8 * 3600;
+        const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
+        if (!isWeekend && dateStr < todayStr && allEmpRecs.length > 0) {
+          absentDays++;
         }
       }
     });
 
-    const workingDays = 22;
-    const effectivePresent = Math.min(workingDays, presentDays + halfDays * 0.5);
-    const score = workingDays > 0 ? Math.min(100, Math.round((effectivePresent / workingDays) * 100)) : 100;
-    const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '8.0';
+    const todaySummary = detailEmp && detailEmp.id === emp.id ? detailEmpStatusData?.todaySummary : null;
+    if (todaySummary?.totalSecondsWorked && todaySummary.totalSecondsWorked > 0) {
+      totalWorkSeconds = Math.max(totalWorkSeconds, todaySummary.totalSecondsWorked);
+    }
+    if (todaySummary?.totalSessionsToday && todaySummary.totalSessionsToday > 0) {
+      presentDays = Math.max(presentDays, 1);
+    }
+
+    const elapsedWorkDays = daysInMonth.filter(({ day, dayOfWeek }) => {
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+      return dayOfWeek !== 0 && dayOfWeek !== 6 && dateStr <= todayStr;
+    }).length;
+
+    const effectivePresent = presentDays + halfDays * 0.5;
+    const workingDays = Math.max(1, elapsedWorkDays);
+    const score = Math.min(100, Math.round((effectivePresent / workingDays) * 100));
+    const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '0.0';
+
+    const distinctLogs: AttendanceRecord[] = [];
+    const seenIds = new Set<string>();
+    [...extraDetailRecs, ...allEmpRecs].forEach((r) => {
+      const key = r.id || `${r.date}-${r.checkIn}-${r.checkOut || 'active'}`;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        distinctLogs.push(r);
+      }
+    });
 
     return {
       presentDays,
@@ -268,6 +747,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       score,
       totalHours: Math.round(totalWorkSeconds / 3600),
       avgDailyHours,
+      allRecords: distinctLogs.sort((a, b) => {
+        const timeA = a.punches?.[0]?.timestamp || a.lastActiveTimestamp || a.createdAt || a.date || '';
+        const timeB = b.punches?.[0]?.timestamp || b.lastActiveTimestamp || b.createdAt || b.date || '';
+        return String(timeB).localeCompare(String(timeA));
+      }),
     };
   };
 
@@ -280,44 +764,461 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
     return attQ
       ? employees.filter((emp) => {
-          const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
-          const code = (emp.employeeCode || '').toLowerCase();
-          const dept = (emp.departmentName || '').toLowerCase();
-          const desig = (emp.designationTitle || '').toLowerCase();
-          return (
-            name.includes(attQ) ||
-            code.includes(attQ) ||
-            dept.includes(attQ) ||
-            desig.includes(attQ)
-          );
-        })
+        const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+        const code = (emp.employeeCode || '').toLowerCase();
+        const dept = (emp.departmentName || '').toLowerCase();
+        const desig = (emp.designationTitle || '').toLowerCase();
+        return (
+          name.includes(attQ) ||
+          code.includes(attQ) ||
+          dept.includes(attQ) ||
+          desig.includes(attQ)
+        );
+      })
       : employees;
   }, [isEmployeeView, selfEmployee, attQ, employees]);
 
   const getEmpTodayRecord = (emp: Employee): AttendanceRecord | null => {
-    let rec = getTodayRecordForEmployee(emp.id);
-    if (rec) return rec;
+    const today = getTodayDateString();
+    const candIds = [
+      emp.id,
+      (emp as any)._id,
+      (emp as any).userId,
+      emp.employeeCode,
+    ].filter(Boolean).map((id) => String(id).toLowerCase());
 
-    if (isEmployeeView) {
-      const today = getTodayDateString();
-      const dbRec = records.find((r) => r.date === today && isMyAttendanceRecord(r));
-      if (dbRec) return dbRec;
-
-      for (const candId of Array.from(myCandidateIds)) {
-        rec = getTodayRecordForEmployee(candId);
-        if (rec) return rec;
+    const isMatch = (r: AttendanceRecord) => {
+      const rEmpId = String(r.employeeId || '').toLowerCase();
+      const rUserId = String((r as any).userId || '').toLowerCase();
+      const rCode = String((r as any).employeeCode || '').toLowerCase();
+      if (candIds.includes(rEmpId) || candIds.includes(rUserId) || candIds.includes(rCode)) return true;
+      if (emp.firstName && r.employeeName) {
+        const full = `${emp.firstName} ${emp.lastName || ''}`.trim().toLowerCase();
+        if (r.employeeName.toLowerCase().trim() === full) return true;
       }
-      const live = liveRecords.find((r) => r.date === today && isMyAttendanceRecord(r));
-      if (live) return live;
-    }
+      return false;
+    };
+
+    const dbRec = records.find((r) => r.date === today && isMatch(r));
+    if (dbRec) return dbRec;
+
+    const rec = getTodayRecordForEmployee(emp.id);
+    if (rec && isEmployeeView) return rec;
+
+    const live = liveRecords.find((r) => r.date === today && isMatch(r));
+    if (live) return live;
+
     return null;
+  };
+
+  const myTodayRecord = getEmpTodayRecord(selfEmployee);
+  const myIsWorking = myTodayRecord && !myTodayRecord.isCompleted && !myTodayRecord.isOnBreak && !myTodayRecord.checkOut;
+  const myIsOnBreak = myTodayRecord && !myTodayRecord.isCompleted && myTodayRecord.isOnBreak;
+  const myIsDone = myTodayRecord && (myTodayRecord.isCompleted || Boolean(myTodayRecord.checkOut));
+
+  // Format daily record date string into display-ready object
+  const formatDailyDate = (dateStr?: string) => {
+    if (!dateStr) return { formatted: '—', dayName: '', isToday: false };
+    const todayStr = getTodayDateString();
+    const isToday = dateStr === todayStr;
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const dt = new Date(y, m, d);
+        const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthName = dt.toLocaleDateString('en-US', { month: 'short' });
+        return {
+          formatted: `${String(d).padStart(2, '0')} ${monthName} ${y}`,
+          dayName,
+          isToday,
+        };
+      }
+    } catch { }
+    return { formatted: dateStr, dayName: '', isToday };
+  };
+
+  const formatIsoTo12HourTime = (isoOrTime?: string): string => {
+    if (!isoOrTime) return '';
+    if (typeof isoOrTime === 'string' && isoOrTime.includes(':') && !isoOrTime.includes('T') && !isoOrTime.includes('-')) {
+      return isoOrTime;
+    }
+    try {
+      const d = new Date(isoOrTime);
+      if (isNaN(d.getTime())) return String(isoOrTime);
+      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return String(isoOrTime);
+    }
+  };
+
+  // Daily attendance for the logged-in employee, including past days from /attendance/work/history
+  const employeeDailyRecords = React.useMemo(() => {
+    const todayDateStr = getTodayDateString();
+    const map = new Map<string, AttendanceRecord>();
+
+    const cleanRecordDate = (r: any): string => {
+      const d = r?.date || r?.todayDate || r?.attendanceDate || r?.startTime || r?.createdAt;
+      if (!d) return '';
+      if (typeof d === 'string' && d.includes('T')) {
+        const parsed = new Date(d);
+        if (!isNaN(parsed.getTime())) {
+          const month = String(parsed.getMonth() + 1).padStart(2, '0');
+          const day = String(parsed.getDate()).padStart(2, '0');
+          return `${parsed.getFullYear()}-${month}-${day}`;
+        }
+        return d.split('T')[0];
+      }
+      return String(d).slice(0, 10);
+    };
+
+    (records || []).forEach((r) => {
+      if (r && isMyAttendanceRecord(r)) {
+        const cleanDate = cleanRecordDate(r) || todayDateStr;
+        map.set(cleanDate, { ...r, date: cleanDate });
+      }
+    });
+
+    (liveRecords || []).forEach((r) => {
+      if (r && isMyAttendanceRecord(r)) {
+        const cleanDate = cleanRecordDate(r) || todayDateStr;
+        map.set(cleanDate, { ...r, date: cleanDate });
+      }
+    });
+
+    if (historySessions.length > 0) {
+      map.clear();
+    }
+    historySessions.forEach((session) => {
+      const cleanDate = cleanRecordDate(session);
+      if (!cleanDate || !session?.id) return;
+      const active = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
+      const breakSeconds = Number(session.totalBreakSeconds) || 0;
+      const workSeconds = Number(session.durationSeconds) || 0;
+      map.set(session.id, ({
+        id: session.id,
+        employeeId: session.employeeId || selfEmployee?.id || myEmpId,
+        employeeName: session.employeeName || (selfEmployee ? `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim() : ''),
+        employeeCode: selfEmployee?.employeeCode,
+        date: cleanDate,
+        checkIn: formatIsoTo12HourTime(session.startTime) || '—',
+        checkOut: active ? undefined : formatIsoTo12HourTime(session.endTime),
+        status: session.status === 'ON_BREAK' ? 'On Break' : active ? 'Working' : 'Completed',
+        isCompleted: !active,
+        isOnBreak: session.status === 'ON_BREAK',
+        activeSeconds: workSeconds,
+        breakSeconds,
+        breakDurationMinutes: Math.round(breakSeconds / 60),
+        workingHours: +(workSeconds / 3600).toFixed(2),
+        overtimeHours: 0,
+        formattedTotalBreak: session.formattedTotalBreak || formatSecondsToWords(breakSeconds),
+        durationFormatted: session.durationFormatted || formatSecondsToHMS(workSeconds),
+        createdAt: session.startTime,
+      } as unknown as AttendanceRecord));
+    });
+
+    // 3. Ensure today's live record is present with most current ticking/punch state
+    const todayRec = historySessions.length === 0 && selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
+    if (todayRec) {
+      const cleanDate = todayRec.date && !todayRec.date.includes('T') ? todayRec.date : todayDateStr;
+      map.set(cleanDate, { ...todayRec, date: cleanDate });
+    }
+
+    // 4. Authoritative overlay from /api/attendance/logic (todayDate, status, start time, end time, break time, active work time, punches)
+    const statusDataToUse =
+      workStatusData ||
+      sessionAttendanceLogic ||
+      (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
+
+    if (statusDataToUse) {
+      const summary = statusDataToUse.todaySummary;
+      const active = statusDataToUse.activeSession;
+      const lastComp = statusDataToUse.lastCompletedSession;
+      const session = active || lastComp;
+
+      // Extract logic, attendance, and punches from /api/attendance/logic response
+      const logic = statusDataToUse.logic || statusDataToUse.data?.logic;
+      const attendance = statusDataToUse.attendance || statusDataToUse.data?.attendance;
+      const rawPunchesList: any[] = Array.isArray(statusDataToUse.punches)
+        ? statusDataToUse.punches
+        : Array.isArray(statusDataToUse.data?.punches)
+          ? statusDataToUse.data.punches
+          : Array.isArray(sessionPunches) && sessionPunches.length > 0
+            ? sessionPunches
+            : [];
+
+      // Find first punch-in and last punch-out
+      const inPunch = rawPunchesList.find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'IN' || t === 'CLOCK_IN' || t === 'CLOCK-IN';
+      });
+      const outPunch = rawPunchesList.slice().reverse().find((p: any) => {
+        const t = String(p?.type || '').toUpperCase();
+        return t === 'OUT' || t === 'CLOCK_OUT' || t === 'CLOCK-OUT';
+      });
+
+      const rawInTime =
+        inPunch?.punchedAt ||
+        inPunch?.time ||
+        inPunch?.timestamp ||
+        attendance?.checkInAt ||
+        attendance?.checkIn ||
+        session?.startTime ||
+        session?.startedAt ||
+        active?.startTime;
+
+      const rawOutTime =
+        outPunch?.punchedAt ||
+        outPunch?.time ||
+        outPunch?.timestamp ||
+        attendance?.checkOutAt ||
+        attendance?.checkOut ||
+        lastComp?.endTime ||
+        session?.endTime;
+
+      const todayKey =
+        attendance?.date ||
+        summary?.todayDate ||
+        (statusDataToUse.serverTime ? statusDataToUse.serverTime.split('T')[0] : todayDateStr);
+
+      const isOnBreak = Boolean(
+        logic?.onBreak ||
+        logic?.next === 'break-end' ||
+        statusDataToUse.isOnBreak ||
+        (active && active.status === 'ON_BREAK')
+      );
+
+      const hasActive = Boolean(
+        isOnBreak ||
+        logic?.next === 'check-out' ||
+        logic?.next === 'clock-out' ||
+        statusDataToUse.hasActiveSession ||
+        (active && active.status !== 'COMPLETED')
+      );
+
+      const isCompleted = Boolean(
+        !hasActive &&
+        (outPunch ||
+          logic?.next === 'check-in' ||
+          logic?.next === 'clock-in' ||
+          attendance?.checkOutAt ||
+          lastComp ||
+          (summary && summary.totalSessionsToday > 0))
+      );
+
+      const checkInTime = formatIsoTo12HourTime(rawInTime);
+      const checkOutTime = hasActive ? undefined : formatIsoTo12HourTime(rawOutTime);
+
+      const breakTimeStr =
+        sessionBreakWords && sessionBreakWords !== '0s'
+          ? sessionBreakWords
+          : logic?.breakHours && logic.breakHours !== '00:00:00'
+            ? logic.breakHours
+            : logic?.breakMinutes && logic.breakMinutes > 0
+              ? formatSecondsToWords(logic.breakMinutes * 60)
+              : summary?.totalBreakFormatted && summary.totalBreakFormatted !== '0s'
+                ? summary.totalBreakFormatted
+                : statusDataToUse.formattedTotalBreak &&
+                  statusDataToUse.formattedTotalBreak !== '0s' &&
+                  statusDataToUse.formattedTotalBreak !== '00h 00m 00s'
+                  ? statusDataToUse.formattedTotalBreak
+                  : summary?.totalBreakSecondsToday && summary.totalBreakSecondsToday > 0
+                    ? formatSecondsToWords(summary.totalBreakSecondsToday)
+                    : session?.totalBreakSeconds && session.totalBreakSeconds > 0
+                      ? formatSecondsToWords(session.totalBreakSeconds)
+                      : '00h 00m 00s';
+
+      const activeWorkedStr =
+        sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+          ? sessionWorkedHMS
+          : logic?.totalHours && logic.totalHours !== '00:00:00'
+            ? logic.totalHours
+            : logic?.totalMinutes && logic.totalMinutes > 0
+              ? formatSecondsToHMS(logic.totalMinutes * 60)
+              : summary?.totalDurationFormatted ||
+                lastComp?.durationFormatted ||
+                (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
+                (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
+
+      const statusStr = isCompleted
+        ? 'Completed'
+        : isOnBreak
+          ? 'On Break'
+          : hasActive
+            ? 'Working'
+            : attendance?.status
+              ? (attendance.status === 'PRESENT' ? 'Present' : attendance.status)
+              : 'Present';
+
+      const existingToday = map.get(todayKey);
+
+      const authoritativeTodayRec: AttendanceRecord = {
+        ...(existingToday || {}),
+        id: attendance?.id || session?.id || existingToday?.id || `ws-${todayKey}`,
+        employeeId: selfEmployee.id || myEmpId,
+        employeeName: `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim(),
+        employeeCode: selfEmployee.employeeCode,
+        date: todayKey,
+        checkIn: checkInTime && checkInTime !== '—' ? checkInTime : (existingToday?.checkIn || '—'),
+        checkOut: checkOutTime && checkOutTime !== '—' ? checkOutTime : existingToday?.checkOut,
+        status: statusStr,
+        isCompleted,
+        isOnBreak,
+        punches: rawPunchesList.length > 0 ? rawPunchesList : existingToday?.punches,
+        activeSeconds: (logic?.totalMinutes ? logic.totalMinutes * 60 : undefined) || summary?.totalSecondsWorked || session?.durationSeconds || existingToday?.activeSeconds || 0,
+        breakSeconds: (logic?.breakMinutes ? logic.breakMinutes * 60 : undefined) || summary?.totalBreakSecondsToday || session?.totalBreakSeconds || existingToday?.breakSeconds || 0,
+        formattedTotalBreak: breakTimeStr,
+        durationFormatted: activeWorkedStr,
+        breakDurationMinutes: logic?.breakMinutes || Math.round((summary?.totalBreakSecondsToday || session?.totalBreakSeconds || 0) / 60),
+        workingHours: Number(((logic?.totalMinutes ? logic.totalMinutes * 60 : (summary?.totalSecondsWorked || session?.durationSeconds || 0)) / 3600).toFixed(2)),
+        overtimeHours: 0,
+        createdAt: rawInTime || session?.startTime || existingToday?.createdAt || new Date().toISOString(),
+        sessionStartTime: rawInTime || statusDataToUse.clock?.sessionStartTime || existingToday?.sessionStartTime,
+        openBreakStartTime: statusDataToUse.clock?.openBreakStartTime || null,
+        completedBreakSeconds: statusDataToUse.clock?.completedBreakSeconds,
+        sessionClosedBreakSeconds: statusDataToUse.clock?.sessionClosedBreakSeconds,
+        completedWorkSeconds: statusDataToUse.clock?.completedWorkSeconds,
+        isLive: hasActive,
+      } as any;
+
+      map.set(todayKey, authoritativeTodayRec);
+    }
+
+    // Sort descending by date (newest first)
+    return Array.from(map.values()).sort((a, b) => {
+      const aTime = (a as any).createdAt || a.date || '';
+      const bTime = (b as any).createdAt || b.date || '';
+      return String(bTime).localeCompare(String(aTime));
+    });
+  }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, totalWorkedHMS, totalBreakHMS, sessionPunches, sessionAttendanceLogic]);
+
+  // Helper to reliably extract and format break time for any attendance record
+  const secondsFromPunches = (rec: AttendanceRecord) => {
+    const at = (punch: any) => parsePunchTimestamp(punch);
+    const punches = Array.isArray((rec as any).punches) ? [...(rec as any).punches].sort((a, b) => at(a) - at(b)) : [];
+    let work = 0;
+    let brk = 0;
+    let open: number | null = null;
+    let breakOpen: number | null = null;
+    const now = Date.now();
+    for (const punch of punches) {
+      const type = normalizePunchType(punch?.type);
+      const time = at(punch);
+      if (!Number.isFinite(time) || time <= 0) continue;
+      if (type === 'BREAK_END') {
+        if (breakOpen) brk += Math.max(0, time - breakOpen);
+        open = time;
+        breakOpen = null;
+      } else if (type === 'IN') {
+        if (open) work += Math.max(0, time - open);
+        if (breakOpen) {
+          brk += Math.max(0, time - breakOpen);
+          breakOpen = null;
+        }
+        open = time;
+      } else if (type === 'BREAK_START') {
+        if (open) {
+          work += Math.max(0, time - open);
+          open = null;
+        }
+        breakOpen = time;
+      } else if (type === 'OUT') {
+        if (open) {
+          work += Math.max(0, time - open);
+          open = null;
+        }
+        if (breakOpen) {
+          brk += Math.max(0, time - breakOpen);
+          breakOpen = null;
+        }
+      }
+    }
+    const isCompleted = Boolean(rec.isCompleted || (rec.checkOut && rec.checkOut !== '—'));
+    if (!isCompleted) {
+      if (open) work += Math.max(0, now - open);
+      if (breakOpen) brk += Math.max(0, now - breakOpen);
+    }
+    if (!punches.length) {
+      work = Number((rec as any).totalMinutes || 0) * 60000;
+    }
+    return { work: Math.floor(work / 1000), breakSeconds: Math.floor(brk / 1000) };
+  };
+
+  const getRecordBreakDisplay = (rec: AttendanceRecord) => {
+    const mine = isMyAttendanceRecord(rec);
+    const anyRec = rec as any;
+    if (mine && anyRec.sessionStartTime && anyRec.isLive) {
+      return formatSecondsToWords(getLiveBreakSeconds(rec));
+    }
+    if (mine && sessionBreakWords && sessionBreakWords !== '0s' && rec.date === getTodayDateString()) {
+      return sessionBreakWords;
+    }
+    const fromPunches = secondsFromPunches(rec).breakSeconds;
+    if (fromPunches > 0) return formatSecondsToWords(fromPunches);
+    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) return `${rec.breakDurationMinutes}m`;
+    return '00h 00m 00s';
+  };
+
+  const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
+    const mine = isMyAttendanceRecord(rec);
+    const isToday = rec.date === getTodayDateString();
+    if (mine && isToday) {
+      if (totalWorkedHMS && totalWorkedHMS !== '00:00:00') {
+        return totalWorkedHMS;
+      }
+      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        return sessionWorkedHMS;
+      }
+    }
+
+    const breakSecs = getLiveBreakSeconds(rec) || secondsFromPunches(rec).breakSeconds;
+
+    // When clocked out, compute net duration strictly as (checkOut - checkIn - breakSecs)
+    if (rec.checkIn && rec.checkOut && rec.checkIn !== '—' && rec.checkOut !== '—') {
+      const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+      const outTs = parseTimeStringToTimestamp(rec.checkOut, rec.date);
+      if (inTs > 0 && outTs > inTs) {
+        const gross = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        const net = Math.max(0, gross - breakSecs);
+        return formatSecondsToHMS(net);
+      }
+    }
+
+    const liveSecs = getLiveActiveSeconds(rec);
+    if (liveSecs > 0) return formatSecondsToHMS(liveSecs);
+
+    const seconds = secondsFromPunches(rec).work;
+    if (seconds > 0) return formatSecondsToHMS(seconds);
+    const hours = String((rec as any).totalHours || '');
+    if (hours && hours !== '00:00') return hours.length === 5 ? `${hours}:00` : hours;
+    return '00:00:00';
   };
 
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
+  useEffect(() => {
+    const isAnyOpen = isRegModalOpen || !!detailEmp;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isRegModalOpen) setIsRegModalOpen(false);
+        if (detailEmp) setDetailEmp(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRegModalOpen, detailEmp]);
+
   const [regEmpId, setRegEmpId] = useState(employees[0]?.id || 'emp-1');
-  const [regDate, setRegDate] = useState('2026-10-21');
+  const [regDate, setRegDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [regCheckIn, setRegCheckIn] = useState('09:00 AM');
   const [regCheckOut, setRegCheckOut] = useState('06:00 PM');
   const [regStatus, setRegStatus] = useState<'Present' | 'Half Day' | 'Late'>('Present');
@@ -328,16 +1229,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [bioDeviceId, setBioDeviceId] = useState('GATE-01-TERMINAL');
   const [bioEmployeeCode, setBioEmployeeCode] = useState('EMP-1');
   const [bioSyncing, setBioSyncing] = useState(false);
-
-  // Modal: Admin Geofence Settings (Admin & Super Admin ONLY)
-  const [isGeofenceModalOpen, setIsGeofenceModalOpen] = useState(false);
-  const [adminGeofenceConfig, setAdminGeofenceConfig] = useState<OfficeGeofenceConfig>(() => getOfficeGeofenceConfig());
-  const [geoCalibrating, setGeoCalibrating] = useState(false);
-  const [geoNotice, setGeoNotice] = useState('');
-
-  // Modal: Employee Punch Verification & Device Audit (Selfie & Device Hardware)
-  const [auditModalRecord, setAuditModalRecord] = useState<AttendanceRecord | null>(null);
-  const [auditModalEmployee, setAuditModalEmployee] = useState<Employee | null>(null);
 
   // Work From Home (WFH) Map: employeeId -> boolean
   const [wfhMap, setWfhMap] = useState<Record<string, boolean>>(() => getEmployeeWFHMap());
@@ -352,40 +1243,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, []);
 
   const handleToggleWFH = (emp: Employee) => {
-    const current = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-    const next = !current;
-    setEmployeeWFHStatus(emp.id, next);
-    setWfhMap((prev) => ({ ...prev, [emp.id]: next, [emp.id.toLowerCase()]: next }));
-    const msg = next
-      ? `🏡 Work From Home ENABLED for ${emp.firstName} ${emp.lastName}. Geofencing is now turned OFF (Selfie punch only).`
-      : `🏢 Office Geofencing RESTORED for ${emp.firstName} ${emp.lastName}. Office radius required.`;
+    const msg = `WFH Configuration Blocked: Backend API endpoint for employee Work From Home assignment is not implemented.`;
     setWfhNotice(msg);
-    setTimeout(() => setWfhNotice(null), 5000);
-  };
-
-  const handleSaveGeofenceConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveOfficeGeofenceConfig(adminGeofenceConfig);
-    setGeoNotice(`Office perimeter configured to ${adminGeofenceConfig.radiusMeters}m radius for ${adminGeofenceConfig.officeName}.`);
-    setIsGeofenceModalOpen(false);
-  };
-
-  const handleAdminCalibrateGPS = async () => {
-    setGeoCalibrating(true);
-    try {
-      const coords = await getCurrentGPSLocation();
-      const updated: OfficeGeofenceConfig = {
-        ...adminGeofenceConfig,
-        latitude: Number(coords.latitude.toFixed(6)),
-        longitude: Number(coords.longitude.toFixed(6)),
-      };
-      setAdminGeofenceConfig(updated);
-      setGeoNotice('GPS position captured! Click "Save Configuration" to enforce these coordinates.');
-    } catch (err: any) {
-      alert(err.message || 'Failed to capture GPS position.');
-    } finally {
-      setGeoCalibrating(false);
-    }
+    setTimeout(() => setWfhNotice(null), 6000);
   };
 
   const handleRegularizeSubmit = async (e: React.FormEvent) => {
@@ -449,316 +1309,426 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   useEffect(() => {
-    const update = () => {
-      setLiveRecords(getAllAttendanceRecords());
+    const tick = () => {
+      setNowTick(Date.now());
+      const all = getAllAttendanceRecords();
+      setLiveRecords(all.length > 0 ? all : (records || []));
+
+      const myRec = getEmpTodayRecord(selfEmployee);
+      if (myRec) {
+        const isDone = Boolean(myRec.isCompleted || (myRec.checkOut && myRec.checkOut !== '—') || (myRec as any).status === 'Completed');
+        if (isDone) {
+          setLiveWorkedHMS('00:00:00');
+          setLiveBreakWords('0s');
+        } else {
+          const active = getLiveActiveSeconds(myRec);
+          const brk = getLiveBreakSeconds(myRec);
+          const activeStr =
+            active > 0
+              ? formatSecondsToHMS(active)
+              : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+                ? sessionWorkedHMS
+                : '00:00:00';
+          setLiveWorkedHMS(activeStr);
+          setLiveBreakWords(formatSecondsToWords(brk));
+        }
+      } else if (sessionWorkStatus === 'completed') {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+      } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        setLiveWorkedHMS(sessionWorkedHMS);
+        setLiveBreakWords(sessionBreakWords || '0s');
+      } else {
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+      }
     };
-    update();
-    const timer = setInterval(update, 1000);
-    const handleUpdate = () => update();
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    const handleUpdate = () => tick();
     window.addEventListener('hrms_attendance_updated', handleUpdate);
+
     return () => {
-      clearInterval(timer);
+      clearInterval(interval);
       window.removeEventListener('hrms_attendance_updated', handleUpdate);
     };
-  }, []);
+  }, [selfEmployee, records]);
 
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
+  const handleCheckInAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.startWork({ workMode: 'Office', note: '' });
+      performCheckIn({
+        id: selfEmployee.id || myEmpId,
+        firstName: selfEmployee.firstName,
+        lastName: selfEmployee.lastName,
+        employeeCode: selfEmployee.employeeCode,
+        remarks: 'Morning shift clock-in',
+      });
+      showToast({ title: 'Shift Started', message: res?.message || 'Clocked in successfully! Work timer has started.', type: 'success' });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Clock In Failed', message: err.message || 'Unable to clock in.', type: 'error' });
+    } finally {
+      setActionLoading(false);
     }
-  }, [initialTab]);
-
-  // Days in October 2026 (1 to 31)
-  const daysInMonth = Array.from({ length: 31 }, (_, i) => {
-    const day = i + 1;
-    const date = new Date(2026, 9, day); // month 9 is October
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-    return { day, dayName };
-  });
-
-  const exportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    if (activeTab === 'summary') {
-      csvContent += 'Employee ID,Name,Month,Year\n';
-      visibleEmployees.forEach((e) => {
-        csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}",${selectedMonth},${selectedYear}\n`;
-      });
-    } else if (activeTab === 'roster') {
-      csvContent += 'Employee ID,Name,Shift Name,Timing,Weekly Off\n';
-      visibleEmployees.forEach((e) => {
-        csvContent += `${e.employeeCode || e.id},"${e.firstName} ${e.lastName}","General Corporate Shift","09:00 AM - 06:00 PM","Saturday, Sunday"\n`;
-      });
-    } else {
-      csvContent += 'Date,Holiday Name,Day,Type\n';
-      holidaysList.forEach((h) => {
-        csvContent += `"${h.date}","${h.name}","${h.day}","${h.type}"\n`;
-      });
-    }
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${activeTab}_${selectedMonth}_${selectedYear}.csv`);
-    document.body.appendChild(link);
-    link.click();
   };
 
-  const holidaysList = [
-    { date: '02-Oct-2026', name: 'Mahatma Gandhi Jayanti', day: 'Friday', type: 'National Holiday' },
-    { date: '20-Oct-2026', name: 'Maha Navami', day: 'Tuesday', type: 'Festival' },
-    { date: '21-Oct-2026', name: 'Dussehra / Vijaya Dashami', day: 'Wednesday', type: 'Gazetted Holiday' },
-    { date: '29-Oct-2026', name: 'Karwa Chauth', day: 'Thursday', type: 'Restricted Holiday' },
-    { date: '08-Nov-2026', name: 'Dhanteras', day: 'Sunday', type: 'Festival' },
-    { date: '09-Nov-2026', name: 'Diwali / Lakshmi Puja', day: 'Monday', type: 'Public Holiday' },
-    { date: '10-Nov-2026', name: 'Gujarati New Year / Bestu Varas', day: 'Tuesday', type: 'Public Holiday' },
-    { date: '11-Nov-2026', name: 'Bhai Dooj', day: 'Wednesday', type: 'Restricted Holiday' },
-    { date: '25-Dec-2026', name: 'Christmas Day', day: 'Friday', type: 'Public Holiday' },
-  ];
+  const handleTakeBreakAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.startBreak({});
+      const localRes = performTakeBreak(selfEmployee.id || myEmpId);
+      showToast({ title: 'Break Started', message: res?.message || localRes?.message || 'Work timer paused! Enjoy your break.', type: 'info' });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Break Error', message: err.message || 'Unable to start break.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResumeWorkAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.resumeBreak({});
+      const localRes = performResumeWork(selfEmployee.id || myEmpId);
+      showToast({ title: 'Work Resumed', message: res?.message || localRes?.message || 'Work timer resumed and counting!', type: 'success' });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Resume Error', message: err.message || 'Unable to resume work.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCheckOutAction = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.stopWork({ workMode: 'Office', note: '' });
+      const outRes = performCheckOut(selfEmployee.id || myEmpId, {
+        remarks: 'Evening clock-out',
+      });
+      showToast({
+        title: 'Shift Clocked Out',
+        message: res?.message || outRes.message || 'Clock-out complete! Final day hours calculated.',
+        type: 'success',
+      });
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Clock Out Failed', message: err.message || 'Unable to clock out.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const exportCSV = () => {
+    let csvContent = '';
+    let fileName = '';
+
+    if (isEmployeeView) {
+      const todayDateStr = getTodayDateString();
+      fileName = `My_Attendance_Records_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Clock In,Clock Out,Break Time,Worked Duration,Status\n';
+
+      let list = employeeDailyRecords.length > 0 ? [...employeeDailyRecords] : records.filter(isMyAttendanceRecord);
+
+      // If list is empty, synthesize today's record from live work session or today's record fallback
+      if (list.length === 0) {
+        const todayRec = selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
+        if (todayRec) {
+          list = [todayRec];
+        } else {
+          list = [{
+            id: `ws-${todayDateStr}`,
+            employeeId: selfEmployee.id || myEmpId,
+            employeeName: `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim(),
+            employeeCode: selfEmployee.employeeCode,
+            date: todaySummary?.todayDate || todayDateStr,
+            checkIn: formatIsoTo12HourTime(activeSession?.startTime || lastCompletedSession?.startTime) || '—',
+            checkOut: formatIsoTo12HourTime(lastCompletedSession?.endTime) || (activeSession ? 'Working...' : '—'),
+            status: activeSession ? (activeSession.status === 'ON_BREAK' ? 'On Break' : 'Working') : (lastCompletedSession ? 'Completed' : 'Present'),
+            isCompleted: Boolean(!activeSession && lastCompletedSession),
+            formattedTotalBreak: todaySummary?.totalBreakFormatted || '00h 00m 00s',
+            durationFormatted: todaySummary?.totalDurationFormatted || lastCompletedSession?.durationFormatted || '00:00:00',
+          } as any];
+        }
+      }
+
+      list.forEach((rec) => {
+        let rawDate =
+          rec.date ||
+          (rec as any).todayDate ||
+          (rec as any).attendanceDate ||
+          (rec as any).workDate ||
+          (rec as any).startTime ||
+          (rec as any).startedAt ||
+          (rec as any).createdAt ||
+          (rec as any).serverTime ||
+          todaySummary?.todayDate ||
+          workStatusData?.todaySummary?.todayDate ||
+          todayDateStr;
+
+        if (typeof rawDate === 'string' && rawDate.includes('T')) {
+          rawDate = rawDate.split('T')[0];
+        }
+
+        const dateIso = String(rawDate || todayDateStr);
+        const dateFormatted = formatDailyDate(dateIso).formatted;
+        const dateStr = dateFormatted && dateFormatted !== '—' ? dateFormatted : dateIso;
+
+        const empCode = (selfEmployee?.employeeCode || rec.employeeCode || selfEmployee?.id || '').replace(/"/g, '""');
+        const empName = `${selfEmployee?.firstName || ''} ${selfEmployee?.lastName || ''}`.trim().replace(/"/g, '""');
+        const checkIn = (rec.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec.checkOut || (rec.isCompleted ? 'Completed' : ((rec.status as string) === 'Working' ? 'Working...' : '—'))).replace(/"/g, '""');
+        const breakStr = getRecordBreakDisplay(rec);
+        const workHours = getRecordActiveWorkedDisplay(rec);
+        const status = rec.status || 'Present';
+        csvContent += `"${dateStr}","${empCode}","${empName}","${checkIn}","${checkOut}","${breakStr}","${workHours}","${status}"\n`;
+      });
+    } else if (resolvedTab === 'today') {
+      const todayDateStr = getTodayDateString();
+      fileName = `Attendance_Workforce_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Department,Clock In,Clock Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
+
+      visibleEmployees.forEach((emp) => {
+        const rec = getEmpTodayRecord(emp);
+        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
+
+        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+
+        let rawEmpDate =
+          rec?.date ||
+          (rec as any)?.todayDate ||
+          (rec as any)?.attendanceDate ||
+          (rec as any)?.startTime ||
+          (rec as any)?.createdAt ||
+          todayDateStr;
+        if (typeof rawEmpDate === 'string' && rawEmpDate.includes('T')) {
+          rawEmpDate = rawEmpDate.split('T')[0];
+        }
+        const empDateIso = String(rawEmpDate || todayDateStr);
+        const empDateFormatted = formatDailyDate(empDateIso).formatted;
+        const dateStr = empDateFormatted && empDateFormatted !== '—' ? empDateFormatted : empDateIso;
+
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+        const checkIn = (rec?.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec?.checkOut || (isWorking ? 'In Progress' : '—')).replace(/"/g, '""');
+
+        const breakTimeStr = (rec as any)?.formattedTotalBreak || (breakSecs > 0 ? formatSecondsToWords(breakSecs) : rec?.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
+        const activeWorkedStr = rec ? getRecordActiveWorkedDisplay(rec) : '00:00:00';
+        const workingHoursStr = rec?.workingHours ? rec.workingHours.toFixed(2) : (liveSecs > 0 ? (liveSecs / 3600).toFixed(2) : '0.00');
+
+        const statusStr = rec
+          ? (isOnBreak ? 'On Break' : isWorking ? 'Working Now' : isDone ? 'Shift Completed' : rec.status || 'Present')
+          : 'Not Punched';
+
+        const officeLoc = ((rec as any)?.officeLocationName || '').replace(/"/g, '""');
+        const devInfo = ((rec as any)?.deviceInfo || rec?.checkInDevice?.deviceType || 'Web Punch').replace(/"/g, '""');
+        const ip = ((rec as any)?.ipAddress || '').replace(/"/g, '""');
+        const deviceIpStr = ip ? `${devInfo} (${ip})` : devInfo;
+
+        csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakTimeStr}","${activeWorkedStr}","${workingHoursStr}","${statusStr}","${officeLoc}","${deviceIpStr}"\n`;
+      });
+    } else if (resolvedTab === 'summary') {
+      fileName = `Attendance_Summary_${selectedMonth}_${selectedYear}.csv`;
+      csvContent += 'Employee ID,Employee Name,Department,Month,Year,Present Days,Half Days,Absent Days,Total Work Hours,Daily Average (Hrs)\n';
+
+      visibleEmployees.forEach((emp) => {
+        const m = getEmployeeMonthlyMetrics(emp);
+        const empCode = (emp.employeeCode || emp.id || '').replace(/"/g, '""');
+        const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().replace(/"/g, '""');
+        const dept = (emp.departmentName || 'General').replace(/"/g, '""');
+
+        csvContent += `"${empCode}","${empName}","${dept}","${selectedMonth}","${selectedYear}",${m.presentDays},${m.halfDays},${m.absentDays},${m.totalHours},${m.avgDailyHours}\n`;
+      });
+    } else {
+      const todayDateStr = getTodayDateString();
+      fileName = `Attendance_Records_${todayDateStr}.csv`;
+      csvContent += 'Date,Employee ID,Employee Name,Department,Clock In,Clock Out,Break Time,Work Hours,Status\n';
+      records.forEach((rec) => {
+        const emp = employees.find((e) => e.id === rec.employeeId);
+        const empCode = (emp?.employeeCode || rec.employeeId || '').replace(/"/g, '""');
+        const empName = (emp ? `${emp.firstName} ${emp.lastName}` : (rec as any).employeeName || 'Staff').replace(/"/g, '""');
+        const dept = (emp?.departmentName || 'General').replace(/"/g, '""');
+
+        let rawDate =
+          rec.date ||
+          (rec as any).todayDate ||
+          (rec as any).attendanceDate ||
+          (rec as any).startTime ||
+          (rec as any).createdAt ||
+          todayDateStr;
+        if (typeof rawDate === 'string' && rawDate.includes('T')) {
+          rawDate = rawDate.split('T')[0];
+        }
+        const dateIso = String(rawDate || todayDateStr);
+        const dateFormatted = formatDailyDate(dateIso).formatted;
+        const dateStr = dateFormatted && dateFormatted !== '—' ? dateFormatted : dateIso;
+
+        const checkIn = (rec.checkIn || '—').replace(/"/g, '""');
+        const checkOut = (rec.checkOut || '—').replace(/"/g, '""');
+        const breakStr = getRecordBreakDisplay(rec);
+        const workHours = getRecordActiveWorkedDisplay(rec);
+        const status = rec.status || 'Present';
+
+        csvContent += `"${dateStr}","${empCode}","${empName}","${dept}","${checkIn}","${checkOut}","${breakStr}","${workHours}","${status}"\n`;
+      });
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto select-none animate-in fade-in">
-      {/* Top Header & Tab Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Attendance</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitor daily clock punches, shifts roster, and company public holiday schedules
-          </p>
-        </div>
+    <div className="space-y-5 w-full select-none animate-in fade-in">
+      {/* Compact Daily Shift Clock Banner (same as Dashboard) */}
+      {resolvedTab === 'today' && canUserPunch(user) && (
+        <DailyShiftConsole variant="banner" clockSize="sm" showHeaderClock={false} />
+      )}
 
-        {/* Tab Switcher (Scrollable on mobile) */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-full w-full sm:w-auto shrink-0">
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'today'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            {isEmployeeView ? "My Today's Punch" : "Today's Live Tracker"}
-          </button>
-          <button
-            onClick={() => setActiveTab('summary')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'summary'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            {isEmployeeView ? "My Monthly Summary" : "Monthly Summary"}
-          </button>
-          <button
-            onClick={() => setActiveTab('roster')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'roster'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            {isEmployeeView ? "My Shift Schedule" : "Shift Roster"}
-          </button>
-          <button
-            onClick={() => setActiveTab('holidays')}
-            className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'holidays'
-                ? 'bg-white text-slate-900 font-bold shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            Holiday Schedule
-          </button>
-        </div>
-      </div>
-
-      {/* Action Buttons Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={onOpenPunchModal}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span className="truncate">Mark Attendance</span>
-          </button>
-
-          {!isEmployeeView && (
-            <>
+      {/* Top Action / Filter Bar */}
+      {(!isEmployeeView || (resolvedTab as string) === 'summary') && (
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Quick Attendance Employee Search */}
+            {!isEmployeeView && (
               <button
-                onClick={() => setIsRegModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+                type="button"
+                onClick={() => { window.location.href = '/face-clock'; }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
               >
-                <Sliders className="w-3.5 h-3.5 text-blue-600" />
-                <span>Regularize Punch</span>
+                <ScanFace className="w-3.5 h-3.5" />
+                Face clock
               </button>
+            )}
+            {!isEmployeeView && (
+              <div className="relative min-w-[210px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={attendanceSearch}
+                  onChange={(e) => setAttendanceSearch(e.target.value)}
+                  placeholder="Filter staff by name/ID..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                />
+                {attendanceSearch && (
+                  <button
+                    onClick={() => setAttendanceSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    title="Clear"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
-              <button
-                onClick={() => setIsBiometricModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+          {/* Filters dropdowns for Summary */}
+          {(resolvedTab as string) === 'summary' && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-slate-500">Month:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
               >
-                <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Biometric Sync</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setAdminGeofenceConfig(getOfficeGeofenceConfig());
-                  setGeoNotice('');
-                  setIsGeofenceModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-all shadow-xs cursor-pointer"
-              >
-                <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Geofence Controls</span>
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
-          </button>
-
-          {/* Quick Attendance Employee Search */}
-          {!isEmployeeView && (
-            <div className="relative min-w-[210px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={attendanceSearch}
-                onChange={(e) => setAttendanceSearch(e.target.value)}
-                placeholder="Filter staff by name/ID..."
-                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
-              />
-              {attendanceSearch && (
-                <button
-                  onClick={() => setAttendanceSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  title="Clear"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+                <option value="October">October 2026</option>
+                <option value="November">November 2026</option>
+                <option value="December">December 2026</option>
+              </select>
             </div>
           )}
         </div>
-
-        {/* Filters dropdowns for Summary */}
-        {activeTab === 'summary' && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold text-slate-500">Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
-            >
-              <option value="October">October 2026</option>
-              <option value="November">November 2026</option>
-              <option value="December">December 2026</option>
-            </select>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* TAB: Today's Live Attendance & Break Tracker */}
-      {activeTab === 'today' && (() => {
+      {resolvedTab === 'today' && (() => {
         const todayDate = getTodayDateString();
         const mergedRecords = Array.isArray(records) && records.length > 0 ? records : liveRecords;
+        const employeeTodayRecords = employees
+          .map((emp) => getEmpTodayRecord(emp))
+          .filter(Boolean) as AttendanceRecord[];
         const todayRecords = isEmployeeView
           ? mergedRecords.filter((r) => r.date === todayDate && isMyAttendanceRecord(r))
-          : mergedRecords.filter((r) => r.date === todayDate);
-        const workingCount = todayRecords.filter((r) => !r.isCompleted && !r.isOnBreak).length;
-        const onBreakCount = todayRecords.filter((r) => !r.isCompleted && r.isOnBreak).length;
-        const completedCount = todayRecords.filter((r) => r.isCompleted).length;
+          : (employeeTodayRecords.length > 0 ? employeeTodayRecords : mergedRecords.filter((r) => r.date === todayDate));
+        const isRecDone = (r: AttendanceRecord) =>
+          Boolean(r.isCompleted || (r.checkOut && r.checkOut.trim() !== '' && r.checkOut !== '—') || (r as any).status === 'Completed');
+        const isRecBreak = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && r.isOnBreak);
+        const isRecWorking = (r: AttendanceRecord) =>
+          Boolean(!isRecDone(r) && !r.isOnBreak && ((r.checkIn && r.checkIn !== '—') || (r as any).clock?.isLive));
+
+        const workingCount = todayRecords.filter(isRecWorking).length;
+        const onBreakCount = todayRecords.filter(isRecBreak).length;
+        const completedCount = todayRecords.filter(isRecDone).length;
 
         return (
           <div className="space-y-4">
-            {/* KPI Metrics */}
-            {isEmployeeView ? (
-              (() => {
-                const selfEmp = visibleEmployees[0] || selfEmployee;
-                const rec = selfEmp ? getEmpTodayRecord(selfEmp) : null;
-                const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
-                const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                const isDone = rec && rec.isCompleted;
-                const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-
-                return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">My Punch Status</span>
-                      <p className="text-xl font-bold text-slate-900 mt-1">
-                        {isDone ? 'Completed' : isWorking ? 'Working' : isOnBreak ? 'On Break' : 'Not Punched'}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{rec?.checkIn ? `In: ${rec.checkIn}` : 'No punch today'}</p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Working Timer</span>
-                      <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
-                        {isWorking && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
-                        {rec ? formatSecondsToHMS(liveSecs) : '00:00:00'}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{isWorking ? 'Timer active' : 'Logged hours'}</p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Break Interval</span>
-                      <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
-                        <Pause className="w-3.5 h-3.5 text-amber-600" />
-                        {formatSecondsToWords(breakSecs)}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{isOnBreak ? 'Currently paused' : 'Total break taken'}</p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
-                      <span className="text-[11px] font-medium text-slate-500 uppercase">Assigned Shift</span>
-                      <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-600" />
-                        09:00 - 18:00
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Corporate Standard</p>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : (
+            {/* KPI Metrics for Admin */}
+            {!isEmployeeView && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
-                  <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-20 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1">{todayRecords.length} / {employees.length}</p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
-                  <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    {workingCount}
-                  </p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-emerald-600 mt-1 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      {workingCount}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
-                  <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
-                    <Pause className="w-3.5 h-3.5 text-amber-600" />
-                    {onBreakCount}
-                  </p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-amber-600 mt-1 flex items-center gap-1.5">
+                      <Pause className="w-3.5 h-3.5 text-amber-600" />
+                      {onBreakCount}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
-                  <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-slate-600" />
-                    {completedCount}
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
+                  {isDataLoading ? (
+                    <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
+                  ) : (
+                    <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1 flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-slate-600" />
+                      {completedCount}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-400 mt-0.5">Clocked out</p>
                 </div>
               </div>
             )}
@@ -768,366 +1738,759 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             {wfhNotice && (
               <div className="mb-3 p-3 rounded-2xl bg-purple-50 border-2 border-purple-400 text-purple-950 text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">🏡</span>
+                  <Home className="w-4 h-4 text-purple-700 shrink-0" />
                   <span>{wfhNotice}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setWfhNotice(null)}
-                  className="text-purple-700 hover:text-purple-950 font-bold ml-2 cursor-pointer text-sm"
+                  className="text-purple-700 hover:text-purple-950 font-bold ml-2 cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             )}
 
-            {/* Live Table */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            {/* Daily Attendance & Live Shift Log */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <div className="px-4 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {isEmployeeView ? "My Today's Shift & Attendance Log" : "Today's Live Workforce Shift Log"}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {isEmployeeView ? "Your live punch and break intervals for today" : "Live work timers and break intervals updating every second"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isEmployeeView
+                        ? 'Daily Attendance Records'
+                        : "Today's Live Workforce Shift Log"}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {isDataLoading ? (
+                        <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          Loading...
+                        </span>
+                      ) : isEmployeeView ? (
+                        `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day' : 'Days'} Logged`
+                      ) : (
+                        `${visibleEmployees.length} Employees`
+                      )}
+                    </span>
+                  </div>
+                  
                 </div>
-                <button
-                  onClick={onOpenPunchModal}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-colors"
-                >
-                  Clock In / Out
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={exportCSV}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title={isEmployeeView ? 'Export My Attendance' : 'Export CSV'}
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      clearApiCache('/attendance/logic');
+                      await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
+                      onRefresh?.();
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Refresh attendance records"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Mobile Cards View (Visible on < md) */}
-              <div className="md:hidden divide-y divide-slate-100">
-                {visibleEmployees.map((emp) => {
-                  const rec = getEmpTodayRecord(emp);
-                  const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
-                  const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                  const isDone = rec && rec.isCompleted;
+              {/* VIEW 1: Employee Daily Attendance */}
+              {isEmployeeView ? (
+                <>
+                  {historyError ? (
+                    <div className="py-10 px-4 text-center">
+                      <h4 className="text-sm font-bold text-rose-700">Attendance history could not be loaded</h4>
+                      <p className="text-xs text-slate-500 mt-1">{historyError}</p>
+                    </div>
+                  ) : historyLoading && employeeDailyRecords.length === 0 ? (
+                    <div className="py-14 px-4 text-center text-xs text-slate-500">Loading attendance log history...</div>
+                  ) : employeeDailyRecords.length === 0 ? (
+                    <div className="py-14 px-4 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-800">No Daily Attendance Records Yet</h4>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                        Your daily attendance entries will automatically appear here once you punch in.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Mobile Cards View (Visible on < md) */}
+                      <div className="md:hidden divide-y divide-slate-100">
+                        {employeeDailyRecords.map((rec, recIdx) => {
+                          const dateInfo = formatDailyDate(rec.date);
+                          const isToday = dateInfo.isToday;
+                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
+                          const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
+                          const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                          const liveSecs = getLiveActiveSeconds(rec);
+                          const breakSecs = getLiveBreakSeconds(rec);
+                          const rowKey = `${rec.id || rec.date}-m-${recIdx}`;
+                          const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
-                  const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                  const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                  const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                          return (
+                            <div key={rowKey} className="p-3.5 space-y-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-900">{dateInfo.formatted}</span>
+                                    {isToday && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                        TODAY
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {!isEmployeeView && rec.employeeName ? `${rec.employeeName} • ` : ''}
+                                    {dateInfo.dayName}
+                                  </span>
+                                </div>
 
-                  return (
-                    <div key={emp.id} className="p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                            {emp.firstName?.[0] || 'E'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs text-slate-900 truncate">
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
-                          </div>
-                        </div>
+                                <div>
+                                  {isWorking ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Working
+                                    </span>
+                                  ) : isOnBreak ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                      <Pause className="w-3 h-3 text-amber-600" />
+                                      On Break
+                                    </span>
+                                  ) : isDone ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                      <Check className="w-3 h-3 text-slate-600" />
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                                      {rec.status || 'Present'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
 
-                        {/* Status badge */}
-                        <div className="shrink-0">
-                          {isWorking ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Working
-                            </span>
-                          ) : isOnBreak ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                              <Pause className="w-3 h-3 text-amber-600" />
-                              On Break
-                            </span>
-                          ) : isDone ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                              <Check className="w-3 h-3 text-slate-600" />
-                              Completed
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                              Not Punched
-                            </span>
-                          )}
-                        </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Punches (In → Out)</span>
+                                  <span className="font-semibold text-slate-800 text-[11px]">
+                                    {rec.checkIn || '—'} → {rec.checkOut || (isWorking ? 'Active' : '—')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Break Time</span>
+                                  <span className="font-mono font-medium text-slate-700 text-[11px]">
+                                    {getRecordBreakDisplay(rec)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                                  <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                    {getRecordActiveWorkedDisplay(rec)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div
+                                onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                className="pt-2 border-t border-slate-100 flex items-center justify-between cursor-pointer group"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-700 transition">
+                                    {punchesList.length > 0
+                                      ? `${punchesList.length} Punch Logs Recorded`
+                                      : rec.checkIn && rec.checkIn !== '—'
+                                        ? 'View Activity Logs'
+                                        : 'View Record Details'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                                  <span>{expandedPunchId === rowKey ? 'Hide Logs' : 'View Logs'}</span>
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''}`}
+                                  />
+                                </div>
+                              </div>
+
+                              {expandedPunchId === rowKey && (
+                                <div className="pt-2">
+                                  {renderPunchTimeline(
+                                    punchesList,
+                                    rec,
+                                    Boolean(isWorking),
+                                    Boolean(isOnBreak),
+                                    dateInfo.formatted
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
-                          <span className="font-semibold text-slate-800 text-[11px]">
-                            {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
-                          <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                            {rec ? formatSecondsToHMS(liveSecs) : '—'}
-                          </span>
-                        </div>
+                      {/* Desktop Table View (Visible on >= md) */}
+                      <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                        <table className="w-full text-left text-xs min-w-[760px]">
+                          <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                            <tr>
+                              {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
+                              <th className="py-2.5 px-4 font-medium">DATE &amp; DAY</th>
+                              <th className="py-2.5 px-4 font-medium">STATUS</th>
+                              <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
+                              <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
+                              <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                              <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                              <th className="py-2.5 px-4 font-medium text-right">PUNCH LOGS</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {employeeDailyRecords.map((rec, recIdx) => {
+                              const dateInfo = formatDailyDate(rec.date);
+                              const isToday = dateInfo.isToday;
+                              const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
+                              const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
+                              const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                              const rowKey = `${rec.id || rec.date}-d-${recIdx}`;
+                              const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
+
+                              return (
+                                <React.Fragment key={rowKey}>
+                                  <tr
+                                    onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
+                                      expandedPunchId === rowKey ? 'bg-emerald-50/20' : ''
+                                    }`}
+                                  >
+                                    {!isEmployeeView && (
+                                      <td className="py-3 px-4 font-semibold text-slate-900">
+                                        {rec.employeeName || rec.employeeId}
+                                      </td>
+                                    )}
+                                    <td className="py-3 px-4 font-medium text-slate-900">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
+                                        {isToday ? (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                            TODAY
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
+                                        )}
+                                      </div>
+                                    </td>
+
+                                    <td className="py-3 px-4">
+                                      {isWorking ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          Working
+                                        </span>
+                                      ) : isOnBreak ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                          <Pause className="w-3 h-3 text-amber-600" />
+                                          On Break
+                                        </span>
+                                      ) : isDone ? (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                          <Check className="w-3 h-3 text-slate-600" />
+                                          Completed
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
+                                          {rec.status || 'Present'}
+                                        </span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkIn && rec.checkIn !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkIn}</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-700">
+                                      {rec.checkOut && rec.checkOut !== '—' ? (
+                                        <span className="font-semibold text-slate-800">{rec.checkOut}</span>
+                                      ) : isWorking ? (
+                                        <span className="text-emerald-600 font-medium">Working...</span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono text-slate-600">
+                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                        {getRecordBreakDisplay(rec)}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                      <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
+                                        {getRecordActiveWorkedDisplay(rec)}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-3 px-4 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey);
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
+                                          expandedPunchId === rowKey
+                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                            : punchesList.length > 0
+                                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>
+                                          {punchesList.length > 0
+                                            ? `${punchesList.length} Logs`
+                                            : rec.checkIn && rec.checkIn !== '—'
+                                              ? 'Logs'
+                                              : 'Details'}
+                                        </span>
+                                        <ChevronDown
+                                          className={`w-3.5 h-3.5 transition-transform ${
+                                            expandedPunchId === rowKey ? 'rotate-180' : ''
+                                          }`}
+                                        />
+                                      </button>
+                                    </td>
+                                  </tr>
+
+                                  {/* Expandable Punch Audit Trail row */}
+                                  {expandedPunchId === rowKey && (
+                                    <tr className="bg-slate-50/70 border-b border-slate-200">
+                                      <td colSpan={isEmployeeView ? 7 : 8} className="py-3 px-4 sm:px-6">
+                                        {renderPunchTimeline(
+                                          punchesList,
+                                          rec,
+                                          Boolean(isWorking),
+                                          Boolean(isOnBreak),
+                                          dateInfo.formatted
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-
-                      {/* WFH and Device row */}
-                      <div className="flex items-center justify-between gap-2 pt-0.5">
-                        <div className="flex items-center gap-1.5">
-                          {isAdminUser ? (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleWFH(emp)}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                                isWfhActive
-                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
-                              }`}
-                            >
-                              {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold text-slate-500">
-                              {isWfhActive ? '🏡 WFH' : '🏢 Office'}
-                            </span>
-                          )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* VIEW 2: Admin Today's Live Workforce Shift Log */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {isDataLoading ? (
+                      <div className="divide-y divide-slate-100">
+                        {Array.from({ length: 4 }).map((_, idx) => (
+                          <div key={`skel-m-${idx}`} className="p-3.5 space-y-2.5 animate-pulse">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1">
+                                  <div className="w-24 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </div>
+                              <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                              <div className="space-y-1">
+                                <div className="w-10 h-2 bg-slate-200 rounded" />
+                                <div className="w-20 h-3 bg-slate-200 rounded" />
+                              </div>
+                              <div className="space-y-1">
+                                <div className="w-14 h-2 bg-slate-200 rounded" />
+                                <div className="w-16 h-3 bg-slate-200 rounded" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : visibleEmployees.length === 0 ? (
+                      <div className="p-8 text-center space-y-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                          <Search className="w-5 h-5" />
                         </div>
-
-                        {rec && (rec.checkInDevice || rec.checkInPhoto) && (
+                        <p className="text-xs font-bold text-slate-800">No employees found</p>
+                        <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                          No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;. Try resetting your filters.
+                        </p>
+                        {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
                           <button
                             type="button"
                             onClick={() => {
-                              setAuditModalRecord(rec);
-                              setAuditModalEmployee(emp);
+                              setAttendanceSearch('');
+                              setSelectedDept('All');
+                              setSelectedEmp('All');
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                            className="px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
                           >
-                            <Camera className="w-3 h-3 text-slate-500" />
-                            <span>Audit Details</span>
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Clear Filters</span>
                           </button>
                         )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    ) : (
+                      visibleEmployees.map((emp) => {
+                        const rec = getEmpTodayRecord(emp);
+                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
-              {/* Desktop Table View (Visible on >= md) */}
-              <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                <table className="w-full text-left text-xs min-w-[750px]">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
-                      <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
-                      <th className="py-2.5 px-4 font-medium">WORK FROM HOME (WFH)</th>
-                      <th className="py-2.5 px-4 font-medium">CHECK IN</th>
-                      <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
-                      <th className="py-2.5 px-4 font-medium">DEVICE &amp; AUDIT</th>
-                      <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
-                      <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
-                      <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {visibleEmployees.map((emp) => {
-                      const rec = getEmpTodayRecord(emp);
-                      const isWorking = rec && !rec.isCompleted && !rec.isOnBreak;
-                      const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
-                      const isDone = rec && rec.isCompleted;
+                        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                        const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                        const isExpanded = expandedAdminEmpId === emp.id;
 
-                      const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                      const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                      const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                        return (
+                          <div
+                            key={emp.id}
+                            className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
+                              isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
+                            }`}
+                            onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                  {emp.firstName?.[0] || 'E'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs text-slate-900 truncate">
+                                    {emp.firstName} {emp.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 font-mono">
+                                    {emp.employeeCode} • {emp.departmentName || 'General'}
+                                  </p>
+                                </div>
+                              </div>
 
-                      return (
-                        <tr
-                          key={emp.id}
-                          className="hover:bg-slate-50/70 transition-colors"
-                        >
-                          <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                              {emp.firstName?.[0] || 'E'}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-slate-900">
-                                {emp.firstName} {emp.lastName}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                          <td className="py-3 px-4">
-                            {isAdminUser ? (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  id={`wfh-toggle-${emp.id}`}
-                                  aria-checked={isWfhActive}
-                                  onClick={() => handleToggleWFH(emp)}
-                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                    isWfhActive ? 'bg-purple-600' : 'bg-slate-300'
-                                  }`}
-                                  title={
-                                    isWfhActive
-                                      ? 'WFH Active: Click to turn OFF WFH (enforce office geofence)'
-                                      : 'Office Mode: Click to turn ON WFH (bypass office geofence)'
-                                  }
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
-                                      isWfhActive ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                                <span
-                                  className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border transition-colors ${
-                                    isWfhActive
-                                      ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                      : 'bg-slate-100 text-slate-500 border-slate-200'
-                                  }`}
-                                >
-                                  {isWfhActive ? '🏡 WFH (Geofence OFF)' : '🏢 Office'}
-                                </span>
-                              </div>
-                            ) : (
-                              <span
-                                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                                  isWfhActive
-                                    ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                    : 'bg-slate-100 text-slate-500 border-slate-200'
-                                }`}
-                              >
-                                {isWfhActive ? '🏡 WFH Active' : '🏢 Office Bound'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkIn ? (
-                              <div className="flex items-center gap-1.5">
-                                <span>{rec.checkIn}</span>
-                                {rec.checkInPhoto && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuditModalRecord(rec);
-                                      setAuditModalEmployee(emp);
-                                    }}
-                                    className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-colors cursor-pointer"
-                                    title="Click to view Check-In Selfie & Device Audit"
-                                  >
-                                    <Camera className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
-                            {rec?.checkOut ? (
-                              <div className="flex items-center gap-1.5">
-                                <span>{rec.checkOut}</span>
-                                {rec.checkOutPhoto && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAuditModalRecord(rec);
-                                      setAuditModalEmployee(emp);
-                                    }}
-                                    className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 transition-colors cursor-pointer"
-                                    title="Click to view Check-Out Selfie & Device Audit"
-                                  >
-                                    <Camera className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ) : isWorking ? (
-                              <span className="text-emerald-600 font-medium">Working...</span>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {rec ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAuditModalRecord(rec);
-                                  setAuditModalEmployee(emp);
-                                }}
-                                className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-black bg-white hover:bg-[#FFE600] text-slate-900 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-[2px_2px_0px_0px_#000]"
-                                title="View Employee Punch & Device Hardware Details"
-                              >
-                                {rec.checkInDevice?.os?.includes('Biometric') || rec.remarks?.includes('Biometric') ? (
-                                  <Fingerprint className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                ) : rec.checkInDevice?.deviceType === 'Mobile' ? (
-                                  <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                ) : rec.checkInDevice?.deviceType === 'Tablet' ? (
-                                  <Tablet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <div className="shrink-0 flex items-center gap-2">
+                                {isWorking ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Working
+                                  </span>
+                                ) : isOnBreak ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                    <Pause className="w-3 h-3 text-amber-600" />
+                                    On Break
+                                  </span>
+                                ) : isDone ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-slate-600" />
+                                    Completed
+                                  </span>
                                 ) : (
-                                  <Laptop className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                    Not Punched
+                                  </span>
                                 )}
-                                <span className="truncate max-w-[110px]">
-                                  {rec.checkInDevice?.deviceModel || rec.checkInDevice?.os || 'Inspect Device'}
+                                <ChevronDown
+                                  className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                                <span className="font-semibold text-slate-800 text-[11px]">
+                                  {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
                                 </span>
-                                {rec.checkInPhoto && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Geotag Selfie Verified" />
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                                <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                  {rec ? getRecordActiveWorkedDisplay(rec) : '—'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="pt-2 border-t border-slate-200 space-y-2.5">
+                                {renderPunchTimeline(
+                                  Array.isArray(rec?.punches) ? rec.punches : [],
+                                  rec,
+                                  Boolean(isWorking),
+                                  Boolean(isOnBreak),
+                                  `${emp.firstName} ${emp.lastName}`
                                 )}
-                              </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">—</span>
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDetailEmp(emp);
+                                    }}
+                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span>View Monthly Scorecard for {emp.firstName}</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
                             )}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                            {rec ? (
-                              <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                {formatSecondsToHMS(liveSecs)}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-600">
-                            {breakSecs > 0 ? (
-                              <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                {formatSecondsToWords(breakSecs)}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">0s</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            {isWorking ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Working
-                              </span>
-                            ) : isOnBreak ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                                <Pause className="w-3 h-3 text-amber-600" />
-                                On Break
-                              </span>
-                            ) : isDone ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                <Check className="w-3 h-3 text-slate-600" />
-                                Completed
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                                Not Punched
-                              </span>
-                            )}
-                          </td>
+                          </div>
+                        );
+                      }))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                    <table className="w-full text-left text-xs min-w-[760px]">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                          <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
+                          <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
+                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
+                          <th className="py-2.5 px-4 font-medium text-right">ACTIVITY LOGS</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {isDataLoading ? (
+                          Array.from({ length: 6 }).map((_, idx) => (
+                            <tr key={`skel-d-${idx}`} className="animate-pulse">
+                              <td className="py-3 px-4 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1 min-w-0">
+                                  <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-20 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        ) : visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
+                                </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleEmployees.map((emp) => {
+                            const rec = getEmpTodayRecord(emp);
+                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                            const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                            const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
+
+                            const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                            const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                            const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                            const isExpanded = expandedAdminEmpId === emp.id;
+
+                            return (
+                              <React.Fragment key={emp.id}>
+                                <tr
+                                  onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                                  className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
+                                    isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
+                                  }`}
+                                >
+                                  <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                      {emp.firstName?.[0] || 'E'}
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                        <span>{emp.firstName} {emp.lastName}</span>
+                                        {isWfhActive && (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                            WFH
+                                          </span>
+                                        )}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec?.checkIn ? (
+                                      <span>{rec.checkIn}</span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                    {rec?.checkOut ? (
+                                      <span>{rec.checkOut}</span>
+                                    ) : isWorking ? (
+                                      <span className="text-emerald-600 font-medium">Working...</span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                    {rec ? (
+                                      <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                                        {getRecordActiveWorkedDisplay(rec)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-slate-600">
+                                    <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                      {rec ? getRecordBreakDisplay(rec) : '0s'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    {isWorking ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Working
+                                      </span>
+                                    ) : isOnBreak ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                        <Pause className="w-3 h-3 text-amber-600" />
+                                        On Break
+                                      </span>
+                                    ) : isDone ? (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                                        <Check className="w-3 h-3 text-slate-600" />
+                                        Completed
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                        Not Punched
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedAdminEmpId(isExpanded ? null : emp.id);
+                                      }}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
+                                        isExpanded
+                                          ? 'bg-emerald-600 text-white border-emerald-600'
+                                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                      }`}
+                                    >
+                                      <span>Logs</span>
+                                      <ChevronDown
+                                        className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                      />
+                                    </button>
+                                  </td>
+                                </tr>
+
+                                {isExpanded && (
+                                  <tr className="bg-slate-50/70 border-b border-slate-200">
+                                    <td colSpan={8} className="py-3 px-4 sm:px-6">
+                                      <div className="space-y-3">
+                                        {renderPunchTimeline(
+                                          Array.isArray(rec?.punches) ? rec.punches : [],
+                                          rec,
+                                          Boolean(isWorking),
+                                          Boolean(isOnBreak),
+                                          `${emp.firstName} ${emp.lastName}`
+                                        )}
+                                        <div className="flex justify-end pt-1">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setDetailEmp(emp);
+                                            }}
+                                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                          >
+                                            <span>View Full Monthly History &amp; Scorecard for {emp.firstName}</span>
+                                            <ArrowRight className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}            </div>
           </div>
         );
       })()}
 
-      {/* TAB 1: Attendance Summary (Employee-Wise & Grid View) */}
-      {activeTab === 'summary' && (
+      {/* TAB 1: Attendance Summary (Employee-Wise & Grid View) - strictly disabled for admin */}
+      {(resolvedTab as string) === 'summary' && isEmployeeView && (
         <div className="space-y-4 animate-in fade-in">
           {/* Top Header Card */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
@@ -1152,11 +2515,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setSummaryViewMode('cards')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                      summaryViewMode === 'cards'
-                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${summaryViewMode === 'cards'
+                      ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                      }`}
                   >
                     <List className="w-3.5 h-3.5" />
                     <span>Employee Scorecard</span>
@@ -1164,11 +2526,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => setSummaryViewMode('grid')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                      summaryViewMode === 'grid'
-                        ? 'bg-white text-emerald-700 font-bold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${summaryViewMode === 'grid'
+                      ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                      }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                     <span>31-Day Calendar Grid</span>
@@ -1193,7 +2554,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Users className="w-3.5 h-3.5 text-indigo-500" />
                   <span>Total Employees</span>
                 </div>
-                <div className="text-xl font-bold text-slate-900 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-slate-800 mt-1">
                   {visibleEmployees.length}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Staff on company roster</div>
@@ -1204,32 +2565,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
                   <span>Avg Attendance Rate</span>
                 </div>
-                <div className="text-xl font-bold text-emerald-800 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-emerald-800 mt-1">
                   {visibleEmployees.length > 0
                     ? Math.round(
-                        visibleEmployees.reduce(
-                          (acc, e) => acc + getEmployeeMonthlyMetrics(e).score,
-                          0
-                        ) / visibleEmployees.length
-                      )
+                      visibleEmployees.reduce(
+                        (acc, e) => acc + getEmployeeMonthlyMetrics(e).score,
+                        0
+                      ) / visibleEmployees.length
+                    )
                     : 100}
                   %
                 </div>
                 <div className="text-[10px] text-emerald-600 mt-0.5">Overall company performance</div>
               </div>
 
-              <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/70">
-                <div className="flex items-center gap-2 text-amber-700 text-[11px] font-semibold">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Total Late Marks</span>
+              <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70">
+                <div className="flex items-center gap-2 text-blue-700 text-[11px] font-semibold">
+                  <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Calendar Days</span>
                 </div>
-                <div className="text-xl font-bold text-amber-800 mt-1">
-                  {visibleEmployees.reduce(
-                    (acc, e) => acc + getEmployeeMonthlyMetrics(e).lateDays,
-                    0
-                  )}
+                <div className="text-xl font-semibold tracking-tight text-blue-800 mt-1">
+                  {daysInMonth.length} Days
                 </div>
-                <div className="text-[10px] text-amber-600 mt-0.5">Delayed arrivals in {selectedMonth}</div>
+                <div className="text-[10px] text-blue-600 mt-0.5">Total days in {selectedMonth}</div>
               </div>
 
               <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-200/70">
@@ -1237,7 +2595,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Plane className="w-3.5 h-3.5 text-purple-600" />
                   <span>Leaves &amp; Absences</span>
                 </div>
-                <div className="text-xl font-bold text-purple-800 mt-1">
+                <div className="text-xl font-semibold tracking-tight text-purple-800 mt-1">
                   {visibleEmployees.reduce(
                     (acc, e) =>
                       acc +
@@ -1268,7 +2626,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </span>
               </div>
 
-              {visibleEmployees.length === 0 ? (
+              {isDataLoading ? (
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <div key={`skel-sc-${idx}`} className="p-4 rounded-xl border border-slate-100 bg-white space-y-3 animate-pulse">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                        <div className="space-y-1">
+                          <div className="w-24 h-3.5 bg-slate-200 rounded" />
+                          <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                        <div className="h-6 bg-slate-100 rounded" />
+                        <div className="h-6 bg-slate-100 rounded" />
+                        <div className="h-6 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : visibleEmployees.length === 0 ? (
                 <div className="py-16 text-center text-slate-500">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
                     <Users className="w-6 h-6" />
@@ -1317,13 +2694,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </div>
 
                             {/* Attendance Score Badge */}
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-black shrink-0 ${
-                              metrics.score >= 90
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : metrics.score >= 75
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-black shrink-0 ${metrics.score >= 90
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : metrics.score >= 75
                                 ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                 : 'bg-rose-50 text-rose-800 border border-rose-200'
-                            }`}>
+                              }`}>
                               {metrics.score}% Score
                             </span>
                           </div>
@@ -1335,9 +2711,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <span className="font-bold text-emerald-700 text-xs">{metrics.presentDays} Days</span>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 font-medium block">Late</span>
-                              <span className={`font-bold text-xs ${metrics.lateDays > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
-                                {metrics.lateDays}
+                              <span className="text-[10px] text-slate-400 font-medium block">Half Day</span>
+                              <span className={`font-bold text-xs ${metrics.halfDays > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                                {metrics.halfDays}
                               </span>
                             </div>
                             <div>
@@ -1352,19 +2728,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                               <span>Total Hours: <strong className="text-slate-800">{metrics.totalHours} hrs</strong> (~{metrics.avgDailyHours} h/d)</span>
-                              <span className="font-semibold text-emerald-700">
-                                {isWorkingNow ? '🟢 Currently Working' : isDoneToday ? 'Shift Done' : 'Not Punched Today'}
+                              <span className="font-semibold text-emerald-700 inline-flex items-center gap-1">
+                                {isWorkingNow ? <><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Currently Working</> : isDoneToday ? 'Shift Done' : 'Not Punched Today'}
                               </span>
                             </div>
                             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all ${
-                                  metrics.score >= 90
-                                    ? 'bg-emerald-500'
-                                    : metrics.score >= 75
+                                className={`h-full rounded-full transition-all ${metrics.score >= 90
+                                  ? 'bg-emerald-500'
+                                  : metrics.score >= 75
                                     ? 'bg-amber-500'
                                     : 'bg-rose-500'
-                                }`}
+                                  }`}
                                 style={{ width: `${metrics.score}%` }}
                               />
                             </div>
@@ -1389,228 +2764,291 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                   {/* Desktop Scorecard Table (Visible on >= md) */}
                   <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Employee</th>
-                        <th className="py-3 px-3">Present Days</th>
-                        <th className="py-3 px-3">Late Marks</th>
-                        <th className="py-3 px-3">Leaves / Off</th>
-                        <th className="py-3 px-4">Attendance Score</th>
-                        <th className="py-3 px-3">Hours Logged</th>
-                        <th className="py-3 px-3">Today&apos;s Live Status</th>
-                        <th className="py-3 px-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {visibleEmployees.map((emp) => {
-                        const metrics = getEmployeeMonthlyMetrics(emp);
-                        const todayRec = getEmpTodayRecord(emp);
-                        const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                        const isDoneToday = todayRec && todayRec.isCompleted;
-
-                        return (
-                          <tr
-                            key={emp.id}
-                            className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                            onClick={() => setDetailEmp(emp)}
-                          >
-                            {/* 1. Employee Info */}
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                                  {emp.avatarUrl ? (
-                                    <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span>
-                                      {emp.firstName?.[0] || 'E'}
-                                      {emp.lastName?.[0] || ''}
-                                    </span>
-                                  )}
+                    <table className="w-full min-w-[760px] text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4">Employee</th>
+                          <th className="py-3 px-3">Present Days</th>
+                          <th className="py-3 px-3">Half Days</th>
+                          <th className="py-3 px-3">Leaves / Off</th>
+                          <th className="py-3 px-4">Attendance Score</th>
+                          <th className="py-3 px-3">Hours Logged</th>
+                          <th className="py-3 px-3">Today&apos;s Live Status</th>
+                          <th className="py-3 px-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {isDataLoading ? (
+                          Array.from({ length: 6 }).map((_, idx) => (
+                            <tr key={`skel-d-${idx}`} className="animate-pulse">
+                              <td className="py-3 px-4 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1 min-w-0">
+                                  <div className="w-28 h-3.5 bg-slate-200 rounded" />
+                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-20 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        ) : visibleEmployees.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center">
+                              <div className="max-w-sm mx-auto space-y-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                  <Search className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
-                                    <span>{emp.firstName} {emp.lastName}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                                    <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
-                                      {emp.employeeCode || emp.id}
-                                    </span>
-                                    <span>•</span>
-                                    <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
-                                  </div>
+                                  <h4 className="text-xs font-bold text-slate-800">No Employees Found</h4>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    No staff members match &quot;{attendanceSearch || selectedDept || selectedEmp}&quot;.
+                                  </p>
                                 </div>
+                                {(attendanceSearch || selectedDept !== 'All' || selectedEmp !== 'All') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttendanceSearch('');
+                                      setSelectedDept('All');
+                                      setSelectedEmp('All');
+                                    }}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Clear Filters</span>
+                                  </button>
+                                )}
                               </div>
-                            </td>
-
-                            {/* 2. Present Days */}
-                            <td className="py-3 px-3">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                <span>{metrics.presentDays} Days</span>
-                              </span>
-                            </td>
-
-                            {/* 3. Late Marks */}
-                            <td className="py-3 px-3">
-                              {metrics.lateDays > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  <span>{metrics.lateDays} Late</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                  0 Late
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 4. Leaves & Off */}
-                            <td className="py-3 px-3">
-                              {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                                  <Plane className="w-3 h-3" />
-                                  <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                  0 Leave
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 5. Attendance Score */}
-                            <td className="py-3 px-4">
-                              <div className="w-32">
-                                <div className="flex items-center justify-between text-[11px] font-bold mb-1">
-                                  <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
-                                    {metrics.score}%
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 font-normal">
-                                    {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
-                                  </span>
-                                </div>
-                                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      metrics.score >= 90
-                                        ? 'bg-emerald-500'
-                                        : metrics.score >= 75
-                                        ? 'bg-amber-500'
-                                        : 'bg-rose-500'
-                                    }`}
-                                    style={{ width: `${metrics.score}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* 6. Hours Logged */}
-                            <td className="py-3 px-3">
-                              <div className="font-semibold text-slate-800">
-                                {metrics.totalHours} hrs
-                              </div>
-                              <div className="text-[10px] text-slate-400">
-                                ~{metrics.avgDailyHours} h/day
-                              </div>
-                            </td>
-
-                            {/* 7. Today's Live Status */}
-                            <td className="py-3 px-3">
-                              {isWorkingNow ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                                  Working ({todayRec?.checkIn})
-                                </span>
-                              ) : isDoneToday ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                  <Check className="w-3 h-3" />
-                                  Punched Out
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
-                                  Not Punched
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 8. Action Button */}
-                            <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() => setDetailEmp(emp)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View Log</span>
-                              </button>
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                        ) : (
+                          visibleEmployees.map((emp) => {
+                          const metrics = getEmployeeMonthlyMetrics(emp);
+                          const todayRec = getEmpTodayRecord(emp);
+                          const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                          const isDoneToday = todayRec && todayRec.isCompleted;
 
-        {/* VIEW 2: 31-Day Calendar Grid View (With Improved Visuals) */}
-        {summaryViewMode === 'grid' && (
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-                  <CalendarIcon className="w-4 h-4" />
+                          return (
+                            <tr
+                              key={emp.id}
+                              className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                              onClick={() => setDetailEmp(emp)}
+                            >
+                              {/* 1. Employee Info */}
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                                    {emp.avatarUrl ? (
+                                      <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span>
+                                        {emp.firstName?.[0] || 'E'}
+                                        {emp.lastName?.[0] || ''}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+                                      <span>{emp.firstName} {emp.lastName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                                      <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
+                                        {emp.employeeCode || emp.id}
+                                      </span>
+                                      <span>•</span>
+                                      <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* 2. Present Days */}
+                              <td className="py-3 px-3">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>{metrics.presentDays} Days</span>
+                                </span>
+                              </td>
+
+                              {/* 3. Half Days */}
+                              <td className="py-3 px-3">
+                                {metrics.halfDays > 0 ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>{metrics.halfDays} Days</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                    0 Days
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* 4. Leaves & Off */}
+                              <td className="py-3 px-3">
+                                {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                    <Plane className="w-3 h-3" />
+                                    <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                    0 Leave
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* 5. Attendance Score */}
+                              <td className="py-3 px-4">
+                                <div className="w-32">
+                                  <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                                    <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
+                                      {metrics.score}%
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${metrics.score >= 90
+                                        ? 'bg-emerald-500'
+                                        : metrics.score >= 75
+                                          ? 'bg-amber-500'
+                                          : 'bg-rose-500'
+                                        }`}
+                                      style={{ width: `${metrics.score}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* 6. Hours Logged */}
+                              <td className="py-3 px-3">
+                                <div className="font-semibold text-slate-800">
+                                  {metrics.totalHours} hrs
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  ~{metrics.avgDailyHours} h/day
+                                </div>
+                              </td>
+
+                              {/* 7. Today's Live Status */}
+                              <td className="py-3 px-3">
+                                {isWorkingNow ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                    Working ({todayRec?.checkIn})
+                                  </span>
+                                ) : isDoneToday ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                    <Check className="w-3 h-3" />
+                                    Punched Out
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                                    Not Punched
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* 8. Action Button */}
+                              <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailEmp(emp)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View Log</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        }))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* VIEW 2: 31-Day Calendar Grid View (With Improved Visuals) */}
+          {summaryViewMode === 'grid' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                    <CalendarIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      31-Day Calendar Matrix ({selectedMonth} {selectedYear})
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Horizontal timeline of daily punch records across all team members.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    31-Day Calendar Matrix ({selectedMonth} {selectedYear})
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Horizontal timeline of daily punch records across all team members.
-                  </p>
+
+                {/* Status Legend Row (Visible on ALL devices) */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-semibold text-slate-600 pt-1 sm:pt-0">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 fill-indigo-500 shrink-0" />
+                    <span>Holiday</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500 shrink-0" />
+                    <span>Day Off</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] shrink-0" />
+                    <span>Present</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">!</span>
+                    <span>Late</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <X className="w-3.5 h-3.5 text-slate-500 stroke-[3] shrink-0" />
+                    <span>Absent</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span>On Leave</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Status Legend Row (Visible on ALL devices) */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-semibold text-slate-600 pt-1 sm:pt-0">
-                <div className="flex items-center gap-1">
-                  <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 fill-indigo-500 shrink-0" />
-                  <span>Holiday</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500 shrink-0" />
-                  <span>Day Off</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] shrink-0" />
-                  <span>Present</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">!</span>
-                  <span>Late</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <X className="w-3.5 h-3.5 text-slate-500 stroke-[3] shrink-0" />
-                  <span>Absent</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                  <span>On Leave</span>
-                </div>
+              {/* Mobile Swipe Hint */}
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium sm:hidden px-1">
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Swipe horizontally to view days 1 to 31</span>
               </div>
-            </div>
 
-            {/* Mobile Swipe Hint */}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium sm:hidden px-1">
-              <span>👉</span>
-              <span>Swipe horizontally to view days 1 to 31</span>
-            </div>
-
-            {/* Matrix Table */}
-            <div className="overflow-x-auto border border-slate-100 rounded-xl [scrollbar-width:thin] pb-3">
+              {/* Matrix Table */}
+              <div className="overflow-x-auto border border-slate-100 rounded-xl [scrollbar-width:thin] pb-3">
                 <table className="w-full text-center border-collapse">
                   <thead>
                     <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50">
@@ -1641,12 +3079,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
                           {daysInMonth.map(({ day }) => {
                             const dayStr = String(day).padStart(2, '0');
-                            const dateStr = `2026-10-${dayStr}`;
+                            const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+                            const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
                             const record = isEmployeeView
                               ? records.find((r) => r.date === dateStr && isMyAttendanceRecord(r)) ||
-                                liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r))
+                              liveRecords.find((r) => r.date === dateStr && isMyAttendanceRecord(r))
                               : records.find((r) => r.employeeId === emp.id && r.date === dateStr) ||
-                                liveRecords.find((r) => r.employeeId === emp.id && r.date === dateStr);
+                              liveRecords.find((r) => r.employeeId === emp.id && r.date === dateStr);
 
                             let icon = <span className="text-slate-300">-</span>;
 
@@ -1687,59 +3126,181 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           {/* EMPLOYEE DETAILED LOG MODAL */}
           {detailEmp && (() => {
             const m = getEmployeeMonthlyMetrics(detailEmp);
-            const empRecs = [
-              ...records.filter(
-                (r) =>
-                  r.employeeId === detailEmp.id ||
-                  (detailEmp.employeeCode && r.employeeCode === detailEmp.employeeCode) ||
-                  (r.employeeName &&
-                    r.employeeName.trim().toLowerCase() ===
-                      `${detailEmp.firstName || ''} ${detailEmp.lastName || ''}`.trim().toLowerCase())
-              ),
-              ...liveRecords.filter((r) => r.employeeId === detailEmp.id),
-            ];
+            const monthStr = String(currentMonthIdx + 1).padStart(2, '0');
+            const todayStr = getTodayDateString();
 
             return (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+                className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
                 onClick={() => setDetailEmp(null)}
               >
                 <div
-                  className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[88vh] flex flex-col"
+                  className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full p-4 sm:p-6 border border-slate-200/80 shadow-2xl space-y-4 max-h-[90vh] flex flex-col cursor-default my-auto overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Modal Header */}
                   <div className="flex items-start justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
+                      <div className="relative w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-sm flex items-center justify-center border border-emerald-200 shrink-0">
                         {detailEmp.avatarUrl ? (
                           <img src={detailEmp.avatarUrl} alt={detailEmp.firstName} className="w-full h-full object-cover rounded-2xl" />
                         ) : (
                           <span>{detailEmp.firstName?.[0]}{detailEmp.lastName?.[0]}</span>
                         )}
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900">
-                          {detailEmp.firstName} {detailEmp.lastName}
-                        </h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                          <span className="font-mono text-emerald-800 font-semibold">{detailEmp.employeeCode || detailEmp.id}</span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {detailEmp.firstName} {detailEmp.lastName}
+                          </h3>
+                          <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                            {detailEmp.employeeCode || detailEmp.id}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                          <span>{detailEmp.departmentName || 'General Staff'}</span>
                           <span>•</span>
-                          <span>{detailEmp.departmentName || 'Department'}</span>
+                          <span>{detailEmp.designationTitle || 'Employee'}</span>
                           <span>•</span>
-                          <span>{detailEmp.designationTitle || 'Staff'}</span>
+                          <span className="text-slate-400">{detailEmp.shift || 'General Shift (9 AM - 6 PM)'}</span>
                         </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => fetchEmpWorkStatus(detailEmp)}
+                        disabled={detailEmpLoading}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-emerald-600 transition cursor-pointer disabled:opacity-50"
+                        title="Refresh live punch status from /api/attendance/work/status"
+                      >
+                        <RotateCcw className={`w-4 h-4 ${detailEmpLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailEmp(null)}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                        title="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Real Metrics KPI Strip */}
+                  {(() => {
+                    const todaySummary = detailEmpStatusData?.todaySummary;
+                    const presentCount = todaySummary?.totalSessionsToday && todaySummary.totalSessionsToday > 0
+                      ? Math.max(1, m.presentDays)
+                      : m.presentDays;
+                    const totalWorkHrsStr = todaySummary?.totalDurationFormatted
+                      ? todaySummary.totalDurationFormatted
+                      : `${m.totalHours} hrs`;
+                    const totalBreakStr = todaySummary?.totalBreakFormatted || detailEmpStatusData?.formattedTotalBreak || `${m.allRecords.reduce((acc, r) => acc + (r.breakDurationMinutes || 0), 0)}m`;
+                    const avgHrsStr = Number(m.avgDailyHours) > 0 ? `${m.avgDailyHours} h/day` : (todaySummary?.totalDurationFormatted ? `${todaySummary.totalDurationFormatted}/day` : '0.0 h/day');
+
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                        <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                          <div className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">Present Days</div>
+                          <div className="text-lg font-semibold tracking-tight text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                          <div className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Total Break Taken</div>
+                          <div className="text-lg font-semibold tracking-tight text-amber-800 mt-0.5">{totalBreakStr}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                          <div className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">Total Work Hours</div>
+                          <div className="text-lg font-semibold tracking-tight text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Daily Average</div>
+                          <div className="text-lg font-semibold tracking-tight text-slate-800 mt-0.5">{avgHrsStr}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Real-time Status Banner from /api/attendance/work/status */}
+                  {detailEmpStatusData && (
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : 'bg-slate-200/80 text-slate-700'
+                          }`}>
+                          <span className={`w-2 h-2 rounded-full ${detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                            ? 'bg-amber-500 animate-pulse'
+                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-slate-400'
+                            }`} />
+                          {detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
+                            ? <span className="inline-flex items-center gap-1"><Coffee className="w-3 h-3" /> Currently on Break</span>
+                            : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
+                              ? 'Live Shift Active'
+                              : 'Shift Completed'}
+                        </span>
+
+                        {detailEmpStatusData.currentBreak && (
+                          <span className="text-amber-800 font-semibold text-[11px]">
+                            Break Elapsed: <strong>{detailEmpStatusData.currentBreak.formattedElapsed}</strong>
+                          </span>
+                        )}
+
+                        {detailEmpStatusData.activeSession && (
+                          <span className="text-slate-600 text-[11px]">
+                            Total Session Time: <strong className="text-slate-900">{detailEmpStatusData.activeSession.formattedTotalAttendance || detailEmpStatusData.activeSession.formattedElapsed || '—'}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                        {(detailEmpStatusData.assignedOffice || detailEmpStatusData.activeSession?.officeLocationName) && (
+                          <span className="flex items-center gap-1 font-semibold text-slate-700">
+                            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                            {detailEmpStatusData.assignedOffice?.name || detailEmpStatusData.activeSession?.officeLocationName}
+                          </span>
+                        )}
+                        {detailEmpStatusData.todaySummary?.totalSessionsToday !== undefined && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold text-slate-800">
+                            {detailEmpStatusData.todaySummary.totalSessionsToday} Sessions Today
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View Tabs inside Modal */}
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                     <button
                       type="button"
-                      onClick={() => setDetailEmp(null)}
-                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                      onClick={() => setDetailModalTab('logs')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${detailModalTab === 'logs'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                     >
-                      <X className="w-5 h-5" />
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Punch Logs & History {detailEmpLoading ? '(Syncing...)' : `(${m.allRecords.length})`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailModalTab('matrix')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${detailModalTab === 'matrix'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span>Monthly Calendar ({selectedMonth} {currentYearNum})</span>
                     </button>
                   </div>
 
+<<<<<<< HEAD
                   {/* Quick Monthly Stats Pills */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
@@ -1825,19 +3386,205 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <td className="py-2.5 px-3 font-mono text-slate-700">{inTime}</td>
                               <td className="py-2.5 px-3 font-mono text-slate-700">{outTime}</td>
                               <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{duration}</td>
+=======
+                  {/* TAB 1: Real Punch Logs & History */}
+                  {detailModalTab === 'logs' && (
+                    <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
+                      {detailEmpLoading ? (
+                        <div className="py-14 px-4 text-center">
+                          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
+                          <h4 className="text-sm font-bold text-slate-800">Checking Live Attendance Records...</h4>
+                          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                            Querying /api/attendance/work/status for {detailEmp.firstName} {detailEmp.lastName}...
+                          </p>
+                        </div>
+                      ) : m.allRecords.length === 0 ? (
+                        <div className="py-14 px-4 text-center">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <Clock className="w-6 h-6" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-800">No Punch Logs Recorded</h4>
+                          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                            No attendance punch records exist in the database for {detailEmp.firstName} {detailEmp.lastName} yet. Records will automatically appear here once the employee punches in/out.
+                          </p>
+                        </div>
+                      ) : (
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-3">Date</th>
+                              <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3">Punch In</th>
+                              <th className="py-2.5 px-3">Punch Out</th>
+                              <th className="py-2.5 px-3">Break</th>
+                              <th className="py-2.5 px-3">Work Hours</th>
+                              <th className="py-2.5 px-3 text-right">Device / Source</th>
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {m.allRecords.map((rec) => {
+                              const recDate = new Date(rec.date);
+                              const dayLabel = rec.date === todayStr ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
+                              const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                              const st = String(rec.status || 'Present').toLowerCase();
+                              const isWorkingNow = rec.checkIn && !rec.checkOut && rec.date === todayStr;
+
+                              return (
+                                <tr key={rec.id || rec.date} className="hover:bg-slate-50/70 transition-colors">
+                                  <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                    <div>{formattedDate}</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">{dayLabel}</div>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.isOnBreak || st === 'on_break'
+                                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                        : st === 'late'
+                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                          : st === 'half day'
+                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                            : st === 'absent'
+                                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        }`}
+                                    >
+                                      {rec.isOnBreak || st === 'on_break' ? <span className="inline-flex items-center gap-1"><Coffee className="w-3 h-3" /> On Break</span> : (rec.status || 'Present')}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                    {rec.checkIn || '—'}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                    {rec.isOnBreak ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 animate-pulse">
+                                        <Pause className="w-2.5 h-2.5" />
+                                        Break Active
+                                      </span>
+                                    ) : isWorkingNow ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 animate-pulse">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                        In Progress
+                                      </span>
+                                    ) : (
+                                      rec.checkOut || '—'
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-600 font-mono">
+                                    {(rec as any).formattedTotalBreak || (rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m')}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                                    {(rec as any).durationFormatted || (rec.workingHours ? `${rec.workingHours} hrs` : (isWorkingNow ? 'Active' : '—'))}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right">
+                                    <div className="inline-flex flex-col items-end gap-0.5">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                                        {(rec as any).officeLocationName || (rec as any).deviceInfo || rec.checkInDevice?.deviceType || (rec.isWFH ? 'Remote / WFH' : 'Web Punch')}
+                                      </span>
+                                      {(rec as any).ipAddress && (
+                                        <span className="text-[9px] font-mono text-slate-400">IP: {(rec as any).ipAddress}</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: Dynamic Monthly Calendar Matrix */}
+                  {detailModalTab === 'matrix' && (
+                    <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl [scrollbar-width:thin] min-h-[220px]">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="py-2.5 px-3">Date</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3">Punch In</th>
+                            <th className="py-2.5 px-3">Punch Out</th>
+                            <th className="py-2.5 px-3">Work Hours</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {daysInMonth.map(({ day, dayName, dayOfWeek }) => {
+                            const dayStr = String(day).padStart(2, '0');
+                            const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
+                            const rec = m.allRecords.find((r) => r.date === dateStr);
+
+                            const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
+                            const isPast = dateStr < todayStr;
+                            const isToday = dateStr === todayStr;
+
+                            let statusLabel = 'Not Punched';
+                            let statusClass = 'bg-slate-100 text-slate-500';
+
+                            if (rec) {
+                              const st = String(rec.status || 'Present').toLowerCase();
+                              if (st === 'late') {
+                                statusLabel = 'Late';
+                                statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                              } else if (st === 'half day') {
+                                statusLabel = 'Half Day';
+                                statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                              } else if (st === 'absent') {
+                                statusLabel = 'Absent';
+                                statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
+                              } else {
+                                statusLabel = 'Present';
+                                statusClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                              }
+                            } else if (isWeekend) {
+                              statusLabel = 'Weekend Off';
+                              statusClass = 'bg-slate-100 text-slate-400';
+                            } else if (isToday) {
+                              statusLabel = 'Today';
+                              statusClass = 'bg-blue-50 text-blue-700 border border-blue-200';
+                            } else if (isPast) {
+                              statusLabel = 'No Record';
+                              statusClass = 'bg-slate-50 text-slate-400 border border-slate-100';
+                            } else {
+                              statusLabel = 'Upcoming';
+                              statusClass = 'bg-slate-50 text-slate-400';
+                            }
+
+                            const inTime = rec?.checkIn || '—';
+                            const outTime = rec?.checkOut || (rec?.checkIn && isToday ? 'Working' : '—');
+                            const duration = rec?.workingHours ? `${rec.workingHours} hrs` : '—';
+
+                            return (
+                              <tr key={day} className={`hover:bg-slate-50/70 ${isToday ? 'bg-blue-50/30' : ''}`}>
+                                <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                  <span>{day} {selectedMonth.slice(0, 3)} {currentYearNum}</span>{' '}
+                                  <span className="text-[10px] text-slate-400 font-normal">({dayName})</span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${statusClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-700">{inTime}</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-700">{outTime}</td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{duration}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {/* Modal Footer */}
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex items-center justify-between border-t border-slate-100 text-xs">
+                    <span className="text-slate-500 text-[11px]">
+                      Showing verified live attendance records for <strong>{detailEmp.firstName} {detailEmp.lastName}</strong>
+                    </span>
                     <button
                       type="button"
                       onClick={() => setDetailEmp(null)}
-                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition"
+                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer"
                     >
                       Done / Close
                     </button>
@@ -1849,169 +3596,35 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         </div>
       )}
 
-      {/* TAB 2: Shift Roster */}
-      {activeTab === 'roster' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  {isEmployeeView ? "My Shift Schedule" : "Shift Roster & Work Schedules"}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {isEmployeeView ? "Your assigned shift timings and weekly off days" : "Assigned employee shifts and weekly off days"}
-                </p>
-              </div>
-            </div>
-
-            {!isEmployeeView && (
-              <button
-                onClick={() => alert('Opening shift assignment dialog')}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs"
-              >
-                + Assign Shift
-              </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto border border-slate-100 rounded-xl">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">EMPLOYEE</th>
-                  <th className="py-3 px-4">CURRENT SHIFT</th>
-                  <th className="py-3 px-4">TIMING</th>
-                  <th className="py-3 px-4">GRACE PERIOD</th>
-                  <th className="py-3 px-4">WEEKLY OFF</th>
-                  {!isEmployeeView && <th className="py-3 px-4 text-right">ACTION</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visibleEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/70">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[10px] flex items-center justify-center">
-                        {emp.firstName[0]}
-                        {emp.lastName ? emp.lastName[0] : ''}
-                      </div>
-                      <div>
-                        <p>{emp.firstName} {emp.lastName}</p>
-                        <p className="text-[10px] font-normal text-slate-400">{emp.employeeCode}</p>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700 font-medium">
-                      General Corporate Shift
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-indigo-700 font-bold">
-                      09:00 AM – 06:00 PM
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      15 Minutes (till 09:15 AM)
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                        Saturday, Sunday
-                      </span>
-                    </td>
-                    {!isEmployeeView && (
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => alert(`Editing shift for ${emp.firstName}`)}
-                          className="text-xs text-indigo-600 hover:underline font-bold"
-                        >
-                          Modify
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: Holiday Schedule */}
-      {activeTab === 'holidays' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <CalendarDays className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Official Holiday Calendar (2026)</h3>
-                <p className="text-xs text-slate-500">Corporate declared gazetted, national & regional holidays</p>
-              </div>
-            </div>
-
-            {!isEmployeeView && (
-              <button
-                onClick={() => alert('New holiday added to schedule')}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs"
-              >
-                + Add Holiday
-              </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto border border-slate-100 rounded-xl">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                <tr>
-                  <th className="py-3 px-4">DATE</th>
-                  <th className="py-3 px-4">HOLIDAY NAME</th>
-                  <th className="py-3 px-4">DAY OF WEEK</th>
-                  <th className="py-3 px-4">CATEGORY</th>
-                  <th className="py-3 px-4 text-right">STATUS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {holidaysList.map((h, i) => (
-                  <tr key={i} className="hover:bg-slate-50/70">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">
-                      {h.date}
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 flex items-center gap-2">
-                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{h.name}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      {h.day}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium text-[11px]">
-                        {h.type}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">
-                        Confirmed
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {/* Modal: HR Regularization */}
       {isRegModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-blue-600" />
-                HR Attendance Regularization
-              </h3>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsRegModalOpen(false);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                  <Sliders className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 truncate">
+                    HR Attendance Regularization
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                    Adjust employee punch record
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsRegModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2033,12 +3646,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Date</label>
                   <input
                     type="date"
                     value={regDate}
+                    min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setRegDate(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
                   />
@@ -2051,15 +3665,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
                   >
                     <option value="Present">Present</option>
-                    <option value="Late">Late</option>
                     <option value="Half Day">Half Day</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Check-in Time</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Clock-in Time</label>
                   <input
                     type="text"
                     value={regCheckIn}
@@ -2069,7 +3682,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Check-out Time</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Clock-out Time</label>
                   <input
                     type="text"
                     value={regCheckOut}
@@ -2092,17 +3705,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsRegModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Save Regularization
                 </button>
@@ -2113,6 +3726,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       )}
 
       {/* Modal: Biometric Hardware Hub (Multi-Company Ready) */}
+<<<<<<< HEAD
       <BiometricHubModal
         isOpen={isBiometricModalOpen}
         onClose={() => setIsBiometricModalOpen(false)}
@@ -2296,18 +3910,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             </form>
           </div>
         </div>
+=======
+      {isBiometricModalOpen && (
+        <BiometricHubModal
+          isOpen={isBiometricModalOpen}
+          onClose={() => setIsBiometricModalOpen(false)}
+          employees={employees}
+          onRefreshAttendance={onRefresh}
+          currentCompanyId={(user as any)?.companyId || 'comp-paneliya'}
+          currentCompanyName={(user as any)?.companyName || 'Paneliya Technology Inc.'}
+        />
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       )}
-
-      {/* Employee Punch Verification & Device Audit Modal */}
-      <PunchVerificationModal
-        isOpen={Boolean(auditModalRecord)}
-        onClose={() => {
-          setAuditModalRecord(null);
-          setAuditModalEmployee(null);
-        }}
-        record={auditModalRecord}
-        employee={auditModalEmployee}
-      />
     </div>
   );
 };

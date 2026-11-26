@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   User,
@@ -8,41 +8,46 @@ import {
   CalendarCheck,
   CalendarOff,
   CreditCard,
-  FileText,
-  TrendingUp,
-  GraduationCap,
-  HardDrive,
-  History,
   Phone,
   Mail,
   MapPin,
-  Building,
+  Building2,
   Shield,
-  Download,
   Smartphone,
   Laptop,
-  Tablet,
   Camera,
   ShieldCheck,
   Upload,
-  Trash2,
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Check,
+  UserCheck,
 } from 'lucide-react';
-import { Employee } from '../../types/hrms';
+import { Employee, LeaveRequest } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
-import { ChangeRoleModal } from './ChangeRoleModal';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { api } from '../../lib/api';
+import { ProfilePhotoCard } from '../common/ProfilePhotoCard';
+import {
+  fetchLeaveQuotaData,
+  resolveLeaveQuotaSummary,
+  ResolvedLeaveQuotaSummary,
+} from '../../lib/leaveQuotaUtils';
 
 interface EmployeeProfileModalProps {
   employee: Employee | null;
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   onRefresh?: () => void;
+  variant?: 'modal' | 'page';
 }
 
 export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
@@ -50,18 +55,142 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   isOpen,
   onClose,
   onRefresh,
+  variant = 'modal',
 }) => {
+  const isPageMode = variant === 'page';
   const { portalMode, user, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [currentEmp, setCurrentEmp] = useState<Employee | null>(employee);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoAccess, setPhotoAccess] = useState<{ canUpload: boolean; locked: boolean; requestStatus: string | null } | null>(null);
+  const [requestingPhoto, setRequestingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [empLeaveSummary, setEmpLeaveSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
+  const [empLeaveLoading, setEmpLeaveLoading] = useState(false);
+  const [bankDetails, setBankDetails] = useState<{
+    bankName?: string;
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifsc?: string;
+  } | null>(null);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [bankSuccess, setBankSuccess] = useState<string | null>(null);
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+    ifsc: '',
+  });
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsRef.current) {
+      const scrollAmount = direction === 'left' ? -220 : 220;
+      tabsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const copyToClipboard = (text: string, key: string) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   React.useEffect(() => {
     setCurrentEmp(employee);
   }, [employee]);
+
+  const isOwnProfile = Boolean(
+    currentEmp && (
+      (user?.email && user.email.toLowerCase() === currentEmp.email?.toLowerCase()) ||
+      (user?.id && (user.id === currentEmp.id || user.id === currentEmp.userId)) ||
+      (user?.employeeId && user.employeeId === currentEmp.id)
+    ),
+  );
+
+  const canManageOwnBank =
+    isOwnProfile && ['HR', 'MANAGER', 'EMPLOYEE'].includes(String(user?.role || '').toUpperCase());
+
+  useEffect(() => {
+    if ((!isPageMode && !isOpen) || !canManageOwnBank) return;
+    let active = true;
+    setBankLoading(true);
+    setBankError(null);
+    api.getBankDetails()
+      .then((data) => {
+        if (!active) return;
+        setBankDetails(data?.bank || null);
+      })
+      .catch((err: any) => {
+        if (!active) return;
+        setBankError(err?.message || 'Could not load bank details.');
+      })
+      .finally(() => {
+        if (active) setBankLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isPageMode, canManageOwnBank]);
+
+  useEffect(() => {
+    if (!isOpen || !isOwnProfile) return;
+    let active = true;
+    api.getPhotoAccess()
+      .then((access) => { if (active) setPhotoAccess(access); })
+      .catch(() => { if (active) setPhotoAccess(null); });
+    return () => { active = false; };
+  }, [isOpen, isOwnProfile, currentEmp?.avatarUrl]);
+
+  React.useEffect(() => {
+    if (!isOpen || !currentEmp) return;
+    const profileRole = String(currentEmp.role || '').toUpperCase();
+    if (['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(profileRole)) {
+      setEmpLeaveSummary(null);
+      setEmpLeaveLoading(false);
+      return;
+    }
+    let active = true;
+    const loadEmployeeLeaves = async () => {
+      setEmpLeaveLoading(true);
+      try {
+        const targetId = currentEmp.id || currentEmp.userId || '';
+        const targetEmail = currentEmp.email?.toLowerCase() || '';
+        const targetName = `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim().toLowerCase();
+
+        const [quotaPayload, rawLeaves] = await Promise.all([
+          fetchLeaveQuotaData(targetId),
+          api.getLeaves(targetId ? { employeeId: targetId } : undefined).catch(() => [] as LeaveRequest[]),
+        ]);
+        if (!active) return;
+
+        const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
+        const empLeaves = allLeaves.filter((l) => {
+          if (targetId && l.employeeId === targetId) return true;
+          if (targetEmail && (l as any).employeeEmail?.toLowerCase() === targetEmail) return true;
+          if (targetName && l.employeeName?.toLowerCase() === targetName) return true;
+          return false;
+        });
+
+        setEmpLeaveSummary(
+          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, empLeaves)
+        );
+      } catch (_) {
+        if (active) setEmpLeaveSummary(null);
+      } finally {
+        if (active) setEmpLeaveLoading(false);
+      }
+    };
+    loadEmployeeLeaves();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, currentEmp]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,20 +205,14 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
     setUploadingPhoto(true);
     try {
-      let newAvatarUrl = '';
-      try {
-        const res = await api.uploadProfilePhoto(file);
-        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
-      } catch (uploadErr) {
-        console.warn('Backend photo upload failed, using local compression fallback:', uploadErr);
-      }
-
-      if (!newAvatarUrl) {
-        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
-      }
-
-      await api.updateEmployee(currentEmp.id, { avatarUrl: newAvatarUrl });
+      const role = String(user?.role || '').toUpperCase();
+      const skipFace = role === 'ADMIN' || role === 'SUPER_ADMIN';
+      const faceDescriptor = skipFace ? null : await (await import('../../lib/faceMatch')).assertFaceInPhoto(file);
+      const saved = await api.uploadProfilePhoto(file, faceDescriptor);
+      const newAvatarUrl = saved.avatarUrl || '';
+      if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
       setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: newAvatarUrl } : null));
+      setPhotoAccess({ canUpload: false, locked: true, requestStatus: 'Used' });
 
       // If logged in user is this employee (or updating their own profile)
       const isSelf =
@@ -98,7 +221,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         (user.employeeId && user.employeeId === currentEmp.id);
 
       if (isSelf) {
-        updateUserProfile({ avatarUrl: newAvatarUrl });
+        updateUserProfile({ avatarUrl: newAvatarUrl, photoChangeAllowed: false });
       }
 
       window.dispatchEvent(new Event('hrms_employees_updated'));
@@ -119,7 +242,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     setPhotoError(null);
     setPhotoSuccess(null);
     try {
-      await api.updateEmployee(currentEmp.id, { avatarUrl: '' });
+      if (String(user?.role || currentEmp.role || '').toUpperCase() === 'EMPLOYEE') {
+        throw new Error('Employees cannot remove the profile photo.');
+      }
       setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: '' } : null));
 
       const isSelf =
@@ -142,31 +267,66 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     }
   };
 
-  if (!isOpen || !employee || !currentEmp) return null;
+  useModalOverlay({
+    isOpen: !isPageMode && isOpen,
+    onClose: () => onClose?.(),
+  });
+
+  if ((!isPageMode && !isOpen) || !employee || !currentEmp) return null;
 
   const roleDef = getRoleDefinition(currentEmp.role || 'EMPLOYEE');
+  const isCurrentUser = Boolean(
+    user && currentEmp && (
+      Boolean(user.email && currentEmp.email && user.email.toLowerCase() === currentEmp.email.toLowerCase()) ||
+      Boolean(user.employeeId && (currentEmp.id === user.employeeId || (currentEmp as any).employeeId === user.employeeId)) ||
+      Boolean(user.id && (currentEmp.id === user.id || (currentEmp as any).userId === user.id))
+    )
+  );
+
+  const hasSalaryData = Boolean(
+    currentEmp?.salary &&
+      (Number(currentEmp.salary.net || 0) > 0 ||
+        Number(currentEmp.salary.gross || 0) > 0 ||
+        Number(currentEmp.salary.basic || 0) > 0 ||
+        Number(currentEmp.salary.hra || 0) > 0 ||
+        Number(currentEmp.salary.allowances || 0) > 0)
+  );
+
+  const profileRole = String(currentEmp.role || '').toUpperCase();
+  const showLeave = !['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(profileRole);
 
   const tabs = [
-    { id: 'overview', label: '1. Overview', icon: User },
-    { id: 'personal', label: '2. Personal Info', icon: User },
-    { id: 'employment', label: '3. Employment', icon: Briefcase },
-    { id: 'attendance', label: '4. Attendance', icon: CalendarCheck },
-    { id: 'leave', label: '5. Leave', icon: CalendarOff },
-    { id: 'payroll', label: '6. Payroll', icon: CreditCard },
-    { id: 'documents', label: '7. Documents', icon: FileText },
-    { id: 'performance', label: '8. Performance', icon: TrendingUp },
-    { id: 'training', label: '9. Training', icon: GraduationCap },
-    { id: 'assets', label: '10. Assets', icon: HardDrive },
-    { id: 'activity', label: '11. Activity History', icon: History },
+    { id: 'overview', label: 'Overview', icon: User },
+    { id: 'personal', label: 'Personal & Photo', icon: UserCheck },
+    { id: 'employment', label: 'Employment', icon: Briefcase },
+    { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
+    ...(showLeave ? [{ id: 'leave', label: 'Leave', icon: CalendarOff }] : []),
+    ...(canManageOwnBank ? [{ id: 'bank', label: 'Bank Details', icon: CreditCard }] : []),
+    ...(hasSalaryData ? [{ id: 'payroll', label: 'Salary', icon: CreditCard }] : []),
   ];
 
-  return (
+  const effectiveTab = tabs.some((t) => t.id === activeTab) ? activeTab : 'overview';
+
+  const firstLetter = (currentEmp.firstName || 'E').trim().charAt(0).toUpperCase();
+  const lastLetter = (currentEmp.lastName || '').trim().charAt(0).toUpperCase();
+  const initials = lastLetter ? `${firstLetter}${lastLetter}` : firstLetter || 'EMP';
+  const designationSubtitle = [currentEmp.designationTitle, currentEmp.departmentName]
+    .map((s) => (s || '').trim())
+    .filter((s) => s && s !== '.' && s !== '-')
+    .join(' • ');
+
+  const profileCardContent = (
     <div
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (!isPageMode) e.stopPropagation();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-modal-backdrop flex items-center justify-center p-4 cursor-pointer"
+      className={
+        isPageMode
+          ? 'bg-white rounded-2xl w-full shadow-sm flex flex-col border border-slate-200 overflow-hidden cursor-default'
+          : 'bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default my-auto animate-modal-zoom'
+      }
     >
+<<<<<<< HEAD
       <div className="bg-white rounded-3xl max-w-4xl w-full h-[min(92dvh,860px)] max-h-[100dvh] shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
         {/* Header Profile Hero */}
         <div className="p-6 bg-white border-b border-slate-100 text-slate-900 relative">
@@ -185,162 +345,235 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 <span className="font-semibold">{photoSuccess}</span>
               </div>
               <button onClick={() => setPhotoSuccess(null)} className="text-emerald-700 hover:text-emerald-900 font-bold text-sm">&times;</button>
+=======
+      {/* â•â•â• CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW â•â•â• */}
+      <div className="p-4 sm:p-6 bg-white border-b border-slate-100 shrink-0">
+        {/* Status Message Banners */}
+        {photoSuccess && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-semibold">{photoSuccess}</span>
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
             </div>
-          )}
+            <button
+              onClick={() => setPhotoSuccess(null)}
+              className="text-emerald-700 hover:text-emerald-900 font-bold text-sm cursor-pointer"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
-          {photoError && (
-            <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span className="font-semibold">{photoError}</span>
-              </div>
-              <button onClick={() => setPhotoError(null)} className="text-rose-700 hover:text-rose-900 font-bold text-sm">&times;</button>
+        {photoError && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="font-semibold">{photoError}</span>
             </div>
-          )}
+            <button
+              onClick={() => setPhotoError(null)}
+              className="text-rose-700 hover:text-rose-900 font-bold text-sm cursor-pointer"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
-          <div className="flex flex-wrap items-center gap-5">
-            {/* Interactive Avatar with camera upload badge & remove button */}
-            <div className="flex flex-col items-center">
-              <div className="relative group/avatar shrink-0">
-                <div className="w-18 h-18 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center text-emerald-800 font-extrabold text-xl shadow-xs overflow-hidden">
-                  {currentEmp.avatarUrl ? (
-                    <img
-                      src={currentEmp.avatarUrl}
-                      alt={currentEmp.firstName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>
-                      {currentEmp.firstName?.[0] || 'E'}{currentEmp.lastName?.[0] || ''}
-                    </span>
-                  )}
-                </div>
-
-                {/* Upload trigger button overlay on hover */}
-                <label
-                  className="absolute inset-0 rounded-2xl bg-black/55 backdrop-blur-2xs text-white opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
-                  title="Click to change profile picture"
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Camera className="w-5 h-5 stroke-[2.2]" />
-                      <span className="text-[10px] font-bold mt-1">Upload</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingPhoto}
-                    onChange={handleAvatarUpload}
-                    className="hidden"
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Left: Avatar + Details */}
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Avatar with Camera Overlay */}
+            <div className="relative group/avatar shrink-0">
+              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-[#1b4332] text-white font-bold text-2xl sm:text-3xl flex items-center justify-center shadow-md overflow-hidden tracking-wider select-none">
+                {currentEmp.avatarUrl ? (
+                  <img
+                    src={currentEmp.avatarUrl}
+                    alt={currentEmp.firstName}
+                    className="w-full h-full object-cover"
                   />
-                </label>
-
-                {/* Small camera badge button on bottom right */}
-                <label
-                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all"
-                  title="Upload Photo"
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Camera className="w-3 h-3 stroke-[2.5]" />
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingPhoto}
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
-                </label>
+                ) : (
+                  <span>{initials}</span>
+                )}
               </div>
 
-              {currentEmp.avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
+              {/* Status Indicator */}
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full ring-2 ring-white shadow-xs ${(currentEmp.status || 'Active').toLowerCase() === 'active'
+                    ? 'bg-emerald-500'
+                    : 'bg-rose-500'
+                  }`}
+                title={`Status: ${currentEmp.status || 'Active'}`}
+              />
+
+              {/* Camera Upload Overlay */}
+              <label
+                className={`absolute inset-0 rounded-2xl bg-black/60 text-white flex flex-col items-center justify-center transition-opacity backdrop-blur-2xs ${uploadingPhoto ? 'opacity-100 pointer-events-none' : 'opacity-0 group-hover/avatar:opacity-100 cursor-pointer'
+                  }`}
+                title="Change profile picture"
+              >
+                {uploadingPhoto ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 stroke-[2.2]" />
+                    <span className="text-[9px] font-bold mt-0.5 uppercase tracking-wide">Upload</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
                   disabled={uploadingPhoto}
-                  className="text-[10px] text-rose-600 hover:text-rose-700 font-semibold hover:underline flex items-center gap-1 mt-1.5 cursor-pointer"
-                  title="Remove photo"
-                >
-                  <Trash2 className="w-2.5 h-2.5" />
-                  <span>Remove</span>
-                </button>
-              )}
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">
+
+            {/* Identity Info */}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight capitalize truncate">
                   {currentEmp.firstName} {currentEmp.lastName}
                 </h2>
-                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600">
-                  {currentEmp.employeeCode}
-                </span>
+
+                {currentEmp.employeeCode && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(currentEmp.employeeCode || '', 'code')}
+                    className="group font-mono text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1 transition-all cursor-pointer"
+                    title="Click to copy employee ID"
+                  >
+                    <span>{currentEmp.employeeCode}</span>
+                    {copiedKey === 'code' ? (
+                      <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                    ) : (
+                      <Copy className="w-3 h-3 text-slate-400 group-hover:text-slate-600" />
+                    )}
+                  </button>
+                )}
+
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${roleDef.badgeClass}`}
                 >
                   <Shield className="w-3 h-3" />
                   <span>{roleDef.label}</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-semibold">
-                  {currentEmp.status}
+
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1.5 ${(currentEmp.status || 'Active').toLowerCase() === 'active'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${(currentEmp.status || 'Active').toLowerCase() === 'active'
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-rose-500'
+                      }`}
+                  />
+                  {currentEmp.status || 'Active'}
                 </span>
               </div>
-              <p className="text-slate-500 text-xs font-medium mt-0.5">
-                {currentEmp.designationTitle} • {currentEmp.departmentName}
+
+              {/* Subtitle: Designation & Department */}
+              <p className="text-slate-500 text-xs font-medium mt-1 truncate">
+                {designationSubtitle || (currentEmp.companyName ? `Staff Member • ${currentEmp.companyName}` : 'Staff Member')}
               </p>
-              <div className="flex flex-wrap items-center gap-3.5 text-xs text-slate-400 mt-2">
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" /> {currentEmp.email}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5" /> {currentEmp.phone}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> {currentEmp.workLocationName}
-                </span>
+
+              {/* Contact items row */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-2">
+                {currentEmp.email && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(currentEmp.email, 'email')}
+                    className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer truncate max-w-[260px]"
+                    title="Click to copy email"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{currentEmp.email}</span>
+                    {copiedKey === 'email' && <Check className="w-3 h-3 text-emerald-600 stroke-[3] shrink-0" />}
+                  </button>
+                )}
+
+                {currentEmp.phone && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(currentEmp.phone || '', 'phone')}
+                    className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+                    title="Click to copy phone"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{currentEmp.phone}</span>
+                    {copiedKey === 'phone' && <Check className="w-3 h-3 text-emerald-600 stroke-[3] shrink-0" />}
+                  </button>
+                )}
+
+                {currentEmp.workLocationName && (
+                  <span className="inline-flex items-center gap-1.5 text-slate-500 shrink-0">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{currentEmp.workLocationName}</span>
+                  </span>
+                )}
               </div>
             </div>
+          </div>
 
-            {portalMode === 'admin' && (
-              <div className="ml-auto sm:mr-8">
-                <button
-                  type="button"
-                  onClick={() => setRoleModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 transition-all active:scale-95 shadow-2xs"
-                  title="Change system access role"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Change Role</span>
-                </button>
-              </div>
+          {/* Right: Actions & Close Button */}
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            {!isPageMode && onClose && (
+              <button
+                onClick={onClose}
+                className="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                title="Close Profile"
+              >
+                <X className="w-5 h-5" />
+              </button>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Horizontal Navigation Tabs */}
-        <div className="flex items-center border-b border-slate-100 px-6 bg-slate-50/60 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2.5 px-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${
-                  isActive
-                    ? 'border-blue-600 text-blue-600 font-bold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* â•â•â• CLEAN HORIZONTAL NAVIGATION TABS â•â•â• */}
+      <div className="relative border-b border-slate-100 bg-[#f8fafc] shrink-0 flex items-center px-2 sm:px-3">
+        <button
+          type="button"
+          onClick={() => scrollTabs('left')}
+          className="hidden sm:flex items-center justify-center w-7 h-7 mx-0.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors shrink-0 shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer"
+          title="Scroll left"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        <div
+          ref={tabsRef}
+          className="flex-1 overflow-x-auto scroll-smooth py-2 px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex items-center gap-1 min-w-max">
+            {tabs.map((tab) => {
+              const isActive = effectiveTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={(e) => {
+                    setActiveTab(tab.id);
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                  }}
+                  className={`flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${isActive
+                      ? 'bg-[#1b4332] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200'
+                    }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+<<<<<<< HEAD
         {/* Tab Content Body */}
         <div className="flex-1 overflow-y-auto p-6 text-xs text-slate-700">
           {/* 1. Overview */}
@@ -371,67 +604,226 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   ))}
                   {(!employee.skills || employee.skills.length === 0) && (
                     <span className="text-xs text-slate-400 italic">No skills listed</span>
+=======
+        <button
+          type="button"
+          onClick={() => scrollTabs('right')}
+          className="hidden sm:flex items-center justify-center w-7 h-7 mx-0.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors shrink-0 shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer"
+          title="Scroll right"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* â•â•â• TAB CONTENT BODY â•â•â• */}
+      <div className={`${isPageMode ? 'p-4 sm:p-6' : 'flex-1 overflow-y-auto p-4 sm:p-6'} text-xs text-slate-700 space-y-5 bg-white`}>
+        {/* ── 1. Overview (Only real, non-empty employee data) ── */}
+        {effectiveTab === 'overview' && (() => {
+          const overviewFields = [
+            { label: 'Company', value: currentEmp.companyName },
+            { label: 'Department', value: currentEmp.departmentName },
+            { label: 'Designation', value: currentEmp.designationTitle },
+            { label: 'Employment Type', value: currentEmp.employmentType },
+            { label: 'Joining Date', value: currentEmp.joiningDate },
+            { label: 'Assigned Shift', value: currentEmp.shift },
+            { label: 'Work Location', value: currentEmp.workLocationName },
+            { label: 'Reporting Manager', value: currentEmp.reportingManagerName },
+            { label: 'Gender', value: currentEmp.gender },
+            { label: 'Date of Birth', value: currentEmp.dateOfBirth },
+            { label: 'Address', value: currentEmp.address },
+          ].filter((item) => item.value && String(item.value).trim() !== '' && item.value !== '—');
+
+          return (
+            <div className="space-y-4">
+              {hasSalaryData && (
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Net Monthly Salary</span>
+                    <p className="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">
+                      ₹{(currentEmp?.salary?.net ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+                  {(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0) > 0 && (
+                    <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-emerald-200/70">
+                      Gross: ₹{(currentEmp?.salary?.gross ?? currentEmp?.salary?.basic ?? 0).toLocaleString()}
+                    </span>
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                   )}
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* 2. Personal Information */}
-          {activeTab === 'personal' && (
-            <div className="grid grid-cols-2 gap-4">
+              {overviewFields.length > 0 ? (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#1b4332]" />
+                    <span>Employee Details</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    {overviewFields.map((field) => (
+                      <div
+                        key={field.label}
+                        className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:bg-white hover:border-slate-200 transition-all min-w-0"
+                      >
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">{field.label}</span>
+                        <span className="font-bold text-slate-800 text-sm break-words block">{field.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                  No additional profile details recorded yet. Use the tabs above to manage photo, attendance, or leaves.
+                </div>
+              )}
+
+              {(currentEmp?.skills || []).length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+                  <h4 className="font-bold text-slate-900 text-sm mb-3">Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentEmp.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold text-xs"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── 2. Personal Information & Photo ── */}
+        {effectiveTab === 'personal' && (() => {
+          const personalFields = [
+            { label: 'Full Name', value: `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim() },
+            { label: 'Email', value: currentEmp.email },
+            { label: 'Phone', value: currentEmp.phone },
+            { label: 'Date of Birth', value: currentEmp.dateOfBirth },
+            { label: 'Gender', value: currentEmp.gender },
+            { label: 'Residential Address', value: currentEmp.address, fullSpan: true },
+            {
+              label: 'Emergency Contact',
+              value: currentEmp?.emergencyContact?.name
+                ? `${currentEmp.emergencyContact.name}${currentEmp.emergencyContact.relationship ? ` (${currentEmp.emergencyContact.relationship})` : ''}${currentEmp.emergencyContact.phone ? ` — ${currentEmp.emergencyContact.phone}` : ''}`
+                : '',
+              fullSpan: true,
+            },
+          ].filter((f) => f.value && String(f.value).trim() !== '');
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {isOwnProfile && ['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && (
+                <div className="col-span-1 sm:col-span-2">
+                  <ProfilePhotoCard />
+                </div>
+              )}
               {/* Profile Photo Management Card */}
-              <div className="col-span-2 p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+              <div className="col-span-1 sm:col-span-2 p-4 sm:p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
                     {currentEmp.avatarUrl ? (
                       <img src={currentEmp.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-emerald-800 font-bold text-lg">
-                        {currentEmp.firstName?.[0] || 'E'}{currentEmp.lastName?.[0] || ''}
-                      </span>
+                      <span className="text-[#1b4332] font-bold text-lg">{initials}</span>
                     )}
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Employee Profile Picture</h4>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-slate-900">Profile Picture</h4>
                     <p className="text-[11px] text-slate-600 mt-0.5">
-                      Used for attendance clocking identification, team chat, and employee directory.
+                      PNG, JPG, JPEG, WEBP supported.
                     </p>
-                    <span className="text-[10px] text-slate-500 mt-1 inline-block">
-                      Supported formats: PNG, JPG, JPEG, WEBP (Auto-optimized)
-                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
-                    {uploadingPhoto ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    <span>{currentEmp.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingPhoto}
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {currentEmp.avatarUrl && (
+                {!(isOwnProfile && ['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) && (
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {!isOwnProfile && ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
+                    <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer">
+                      {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      <span>Change employee photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingPhoto}
+                        className="hidden"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = '';
+                          if (!file || !currentEmp) return;
+                          const employeeId = currentEmp.id || currentEmp.userId;
+                          if (!employeeId) return;
+                          setUploadingPhoto(true);
+                          setPhotoError(null);
+                          setPhotoSuccess(null);
+                          try {
+                            const saved = await api.uploadEmployeePhoto(employeeId, file);
+                            if (!saved.avatarUrl) throw new Error('Profile photo was not saved.');
+                            setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: saved.avatarUrl } : null));
+                            window.dispatchEvent(new Event('hrms_employees_updated'));
+                            onRefresh?.();
+                            setPhotoSuccess('Employee profile photo updated.');
+                          } catch (err: unknown) {
+                            setPhotoError(err instanceof Error ? err.message : 'Could not change the employee photo.');
+                          } finally {
+                            setUploadingPhoto(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                  {isOwnProfile && (photoAccess ? photoAccess.canUpload : !(['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && Boolean(currentEmp.avatarUrl))) ? (
+                    <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
+                      {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      <span>{currentEmp.avatarUrl ? 'Upload approved photo' : 'Upload Photo'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingPhoto}
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  ) : isOwnProfile ? (
+                    <button
+                      type="button"
+                      disabled={requestingPhoto || photoAccess?.requestStatus === 'Pending'}
+                      onClick={async () => {
+                        setRequestingPhoto(true);
+                        setPhotoError(null);
+                        try {
+                          const result = await api.requestPhotoChange();
+                          setPhotoSuccess(result.message);
+                          const access = await api.getPhotoAccess();
+                          setPhotoAccess(access);
+                        } catch (err: any) {
+                          setPhotoError(err.message || 'Could not request a photo change.');
+                        } finally {
+                          setRequestingPhoto(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs cursor-pointer disabled:opacity-60"
+                    >
+                      {photoAccess?.requestStatus === 'Pending' ? 'Waiting for admin approval' : 'Ask admin to change photo'}
+                    </button>
+                  ) : null}
+                  {isOwnProfile && currentEmp.avatarUrl && !photoAccess?.locked && !['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && (
                     <button
                       type="button"
                       onClick={handleRemoveAvatar}
                       disabled={uploadingPhoto}
-                      className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95"
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95 cursor-pointer"
                     >
                       Remove
                     </button>
                   )}
                 </div>
+                )}
               </div>
 
+<<<<<<< HEAD
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-bold uppercase text-slate-400">Date of Birth</span>
                 <p className="text-sm font-bold text-slate-900 mt-1">{employee.dateOfBirth}</p>
@@ -450,17 +842,42 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   {employee.emergencyContact?.name || '—'} {employee.emergencyContact?.relationship ? `(${employee.emergencyContact.relationship})` : ''} {employee.emergencyContact?.phone ? `— ${employee.emergencyContact.phone}` : ''}
                 </p>
               </div>
+=======
+              {personalFields.map((field) => (
+                <div
+                  key={field.label}
+                  className={`${field.fullSpan ? 'col-span-1 sm:col-span-2' : ''} p-4 rounded-2xl bg-slate-50 border border-slate-200/80 min-w-0`}
+                >
+                  <span className="text-[10px] font-bold uppercase text-slate-400">{field.label}</span>
+                  <p className="text-sm font-bold text-slate-900 mt-1 break-words">{field.value}</p>
+                </div>
+              ))}
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
             </div>
-          )}
+          );
+        })()}
 
-          {/* 3. Employment */}
-          {activeTab === 'employment' && (
+        {/* ── 3. Employment ── */}
+        {effectiveTab === 'employment' && (() => {
+          const employmentFields = [
+            { label: 'Employee ID', value: currentEmp.employeeCode },
+            { label: 'Company', value: currentEmp.companyName },
+            { label: 'Department', value: currentEmp.departmentName },
+            { label: 'Designation', value: currentEmp.designationTitle },
+            { label: 'Reporting Manager', value: currentEmp.reportingManagerName },
+            { label: 'Assigned Shift', value: currentEmp.shift },
+            { label: 'Employment Type', value: currentEmp.employmentType },
+            { label: 'Joining Date', value: currentEmp.joiningDate },
+            { label: 'Work Location', value: currentEmp.workLocationName },
+          ].filter((f) => f.value && String(f.value).trim() !== '');
+
+          return (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400">System Access Role</span>
-                    <div className="flex items-center gap-2 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">System Role</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 ${roleDef.badgeClass}`}>
                         <Shield className="w-3.5 h-3.5" />
                         <span>{roleDef.label}</span>
@@ -468,127 +885,232 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
                     </div>
                   </div>
-                  {portalMode === 'admin' && (
-                    <button
-                      type="button"
-                      onClick={() => setRoleModalOpen(true)}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition"
-                    >
-                      Change Role
-                    </button>
-                  )}
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Reporting Manager</span>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.reportingManagerName || 'Executive Leadership'}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Assigned Shift</span>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{currentEmp.shift}</p>
-                </div>
+                {employmentFields.map((field) => (
+                  <div key={field.label} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">{field.label}</span>
+                    <p className="text-sm font-bold text-slate-900 mt-1 break-words">{field.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          );
+        })()}
 
-          {/* 4. Attendance */}
-          {activeTab === 'attendance' && (() => {
-            const todayRec = getTodayRecordForEmployee(employee.id);
-            return (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-2">
-                    Today's Punch &amp; Hardware Verification
-                  </h4>
-                  {todayRec ? (
-                    <div className="p-4 rounded-2xl bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                        <span className="font-bold text-slate-900 text-xs">
-                          {todayRec.date} • {todayRec.isCompleted ? 'Shift Completed' : todayRec.isOnBreak ? 'On Break' : 'Active Working'}
-                        </span>
-                        <span className="font-mono font-bold text-emerald-700 text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          {formatSecondsToHMS(todayRec.activeSeconds || 0)} Worked
-                        </span>
+        {/* ── 4. Attendance ── */}
+        {effectiveTab === 'attendance' && (() => {
+          const todayRec = getTodayRecordForEmployee(currentEmp.id);
+          return (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xs font-bold uppercase text-slate-800 tracking-wider mb-2 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-[#1b4332]" />
+                  <span>Today's Work Shift Status</span>
+                </h4>
+                {todayRec ? (
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="font-bold text-slate-900 text-xs">
+                        {todayRec.date} • {todayRec.isCompleted ? 'Shift Completed' : todayRec.isOnBreak ? 'On Break' : 'Active Working'}
+                      </span>
+                      <span className="font-mono font-bold text-emerald-700 text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {formatSecondsToHMS(todayRec.activeSeconds || 0)} Worked
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Clock In Time</span>
+                        <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">{todayRec.checkIn || '—'}</p>
+                        {todayRec.checkInPhoto && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img
+                              src={todayRec.checkInPhoto}
+                              alt="Check-in selfie"
+                              className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs shrink-0"
+                            />
+                            <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5" /> Selfie Verified
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check In Time</span>
-                          <p className="font-mono font-bold text-slate-900">{todayRec.checkIn || '—'}</p>
-                          {todayRec.checkInPhoto && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <img
-                                src={todayRec.checkInPhoto}
-                                alt="Check-in selfie"
-                                className="w-10 h-10 rounded-lg object-cover border border-black shadow-xs shrink-0"
-                              />
-                              <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                                <ShieldCheck className="w-3 h-3" /> Selfie Verified
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block">Check Out Time</span>
-                          <p className="font-mono font-bold text-slate-900">{todayRec.checkOut || 'Pending'}</p>
-                          {todayRec.checkOutPhoto && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <img
-                                src={todayRec.checkOutPhoto}
-                                alt="Check-out selfie"
-                                className="w-10 h-10 rounded-lg object-cover border border-black shadow-xs shrink-0"
-                              />
-                              <span className="text-[10px] text-rose-700 font-bold flex items-center gap-1">
-                                <ShieldCheck className="w-3 h-3" /> Selfie Verified
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Clock Out Time</span>
+                        <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">{todayRec.checkOut || 'Pending'}</p>
+                        {todayRec.checkOutPhoto && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img
+                              src={todayRec.checkOutPhoto}
+                              alt="Check-out selfie"
+                              className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs shrink-0"
+                            />
+                            <span className="text-[10px] text-rose-700 font-bold flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5" /> Selfie Verified
+                            </span>
+                          </div>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Device Hardware Info Card */}
-                      {todayRec.checkInDevice && (
-                        <div className="p-3 rounded-xl bg-[#FAF8F5] border border-black text-xs space-y-1">
-                          <span className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
-                            {todayRec.checkInDevice.deviceType === 'Mobile' ? (
-                              <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <Laptop className="w-3.5 h-3.5 text-purple-600" />
-                            )}
-                            Punch Device Hardware Detected
-                          </span>
-                          <p className="font-black text-slate-900">
-                            {todayRec.checkInDevice.deviceModel} ({todayRec.checkInDevice.deviceType})
-                          </p>
-                          <p className="text-[11px] font-mono text-slate-600">
-                            {todayRec.checkInDevice.os} • {todayRec.checkInDevice.browser} • {todayRec.checkInDevice.screenResolution}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
-                      No check-in recorded for today yet.
-                    </div>
-                  )}
+                    {/* Device Hardware Info Card */}
+                    {todayRec.checkInDevice && (
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                        <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                          {todayRec.checkInDevice.deviceType === 'Mobile' ? (
+                            <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Laptop className="w-3.5 h-3.5 text-purple-600" />
+                          )}
+                          Punch Device Hardware Detected
+                        </span>
+                        <p className="font-bold text-slate-900">
+                          {todayRec.checkInDevice.deviceModel} ({todayRec.checkInDevice.deviceType})
+                        </p>
+                        <p className="text-[11px] font-mono text-slate-600">
+                          {todayRec.checkInDevice.os} • {todayRec.checkInDevice.browser} • {todayRec.checkInDevice.screenResolution}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                    No clock-in recorded for today yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── 5. Leave ── */}
+        {effectiveTab === 'leave' && (
+          <div className="space-y-4">
+            {empLeaveLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-pulse">
+                {[0, 1, 2].map((idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-2">
+                    <div className="h-3 w-20 mx-auto bg-slate-200 rounded" />
+                    <div className="h-6 w-16 mx-auto bg-slate-200 rounded" />
+                    <div className="h-3 w-24 mx-auto bg-slate-100 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-center">
+                  <span className="text-slate-500 text-[10px] uppercase font-bold">Casual Leave</span>
+                  <p className="text-xl font-extrabold text-blue-700 mt-1">
+                    {empLeaveSummary ? `${empLeaveSummary.casual.available} Left` : '0 Left'}
+                  </p>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    {empLeaveSummary
+                      ? `${empLeaveSummary.casual.taken} Used / ${empLeaveSummary.casual.quota} Total`
+                      : '0 Used / 0 Total'}
+                  </span>
                 </div>
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-center">
+                  <span className="text-slate-500 text-[10px] uppercase font-bold">Sick Leave</span>
+                  <p className="text-xl font-extrabold text-emerald-700 mt-1">
+                    {empLeaveSummary ? `${empLeaveSummary.sick.available} Left` : '0 Left'}
+                  </p>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    {empLeaveSummary
+                      ? `${empLeaveSummary.sick.taken} Used / ${empLeaveSummary.sick.quota} Total`
+                      : '0 Used / 0 Total'}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-center">
+                  <span className="text-slate-500 text-[10px] uppercase font-bold">Paid / Annual</span>
+                  <p className="text-xl font-extrabold text-purple-700 mt-1">
+                    {empLeaveSummary ? `${empLeaveSummary.paid.available} Left` : '0 Left'}
+                  </p>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    {empLeaveSummary
+                      ? `${empLeaveSummary.paid.taken} Used / ${empLeaveSummary.paid.quota} Total`
+                      : '0 Used / 0 Total'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-                <div>
-                  <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider mb-2">
-                    Previous Cycle Logs
-                  </h4>
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-slate-900">Oct 19, 2026</span>
-                      <span className="text-slate-400 ml-2">08:55 AM — 06:05 PM</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
-                      Present (8.5 hrs)
-                    </span>
+        {/* ── 6. Salary ── */}
+        {effectiveTab === 'payroll' && hasSalaryData && (
+          <div className="space-y-3">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+              <h4 className="font-bold text-slate-900 text-sm mb-3">Salary Breakdown</h4>
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <span className="text-slate-500">Basic Salary:</span>
+                <span className="font-bold">₹{(currentEmp?.salary?.basic ?? 0).toLocaleString()}</span>
+                <span className="text-slate-500">HRA Allowance:</span>
+                <span className="font-bold">₹{(currentEmp?.salary?.hra ?? 0).toLocaleString()}</span>
+                <span className="text-slate-500">Special Allowances:</span>
+                <span className="font-bold">₹{(currentEmp?.salary?.allowances ?? 0).toLocaleString()}</span>
+                <span className="text-slate-500">PF Deduction:</span>
+                <span className="font-bold text-rose-500">-₹{(currentEmp?.salary?.pf ?? 0).toLocaleString()}</span>
+                <span className="text-slate-500">Net Take-Home:</span>
+                <span className="font-extrabold text-emerald-600 text-sm">₹{(currentEmp?.salary?.net ?? 0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 6. Bank Details (One-time add, then read-only) ── */}
+        {effectiveTab === 'bank' && canManageOwnBank && (
+          <div className="space-y-4">
+            {bankSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{bankSuccess}</span>
+              </div>
+            )}
+            {bankError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-semibold">{bankError}</span>
+              </div>
+            )}
+
+            {bankLoading ? (
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin text-[#2d6a4f]" />
+                <span>Loading bank details...</span>
+              </div>
+            ) : bankDetails ? (
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#1b4332]" />
+                    <h4 className="font-bold text-slate-900 text-sm">Saved Bank Account</h4>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Saved
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Bank Name</span>
+                    <span className="font-bold text-slate-800 text-sm">{bankDetails.bankName || '—'}</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Account Holder</span>
+                    <span className="font-bold text-slate-800 text-sm">{bankDetails.accountHolderName || '—'}</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Account Number</span>
+                    <span className="font-mono font-bold text-slate-800 text-sm">{bankDetails.accountNumber || '—'}</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">IFSC Code</span>
+                    <span className="font-mono font-bold text-slate-800 text-sm">{bankDetails.ifsc || '—'}</span>
                   </div>
                 </div>
               </div>
+<<<<<<< HEAD
             );
           })()}
 
@@ -637,75 +1159,119 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'documents' && (
             <div className="space-y-2">
               <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+=======
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBankSaving(true);
+                  setBankError(null);
+                  setBankSuccess(null);
+                  try {
+                    const res = await api.saveBankDetails(bankForm);
+                    setBankDetails(res?.bank || { ...bankForm });
+                    setBankSuccess('Bank details saved successfully.');
+                  } catch (err: any) {
+                    setBankError(err?.message || 'Could not save bank details.');
+                  } finally {
+                    setBankSaving(false);
+                  }
+                }}
+                className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4"
+              >
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
                 <div>
-                  <h5 className="font-bold">Passport & Identity Document.pdf</h5>
-                  <span className="text-[11px] text-slate-400">Verified by HR • 2.4 MB</span>
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#1b4332]" />
+                    <span>Add Bank Details</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    One bank account only. Once saved, it cannot be added again.
+                  </p>
                 </div>
-                <button className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs flex items-center gap-1">
-                  <Download className="w-3.5 h-3.5" /> Download
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* 8. Performance */}
-          {activeTab === 'performance' && (
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Q3-Q4 Performance Appraisal</span>
-              <p className="text-base font-semibold text-slate-900 mt-1">Score: 4.8 / 5.0 &mdash; Exceeds Expectations</p>
-              <p className="text-xs text-slate-600 mt-2">
-                &ldquo;Outstanding initiative in design and engineering collaboration with high product velocity.&rdquo;
-              </p>
-            </div>
-          )}
-
-          {/* 9. Training */}
-          {activeTab === 'training' && (
-            <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-              <div>
-                <h5 className="font-bold">Enterprise Cybersecurity & Data Privacy Standards</h5>
-                <span className="text-[11px] text-slate-400">Progress: 100% Completed</span>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 font-bold">Certificate Issued</span>
-            </div>
-          )}
-
-          {/* 10. Assets */}
-          {activeTab === 'assets' && (
-            <div className="p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-              <div>
-                <h5 className="font-bold">MacBook Pro 16&quot; M3 Max (36GB, 1TB)</h5>
-                <span className="text-[11px] text-slate-400">Tag: AST-MBP-001 • Condition: Excellent</span>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 font-bold">Assigned</span>
-            </div>
-          )}
-
-          {/* 11. Activity History */}
-          {activeTab === 'activity' && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50">
-                <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                <div>
-                  <p className="font-semibold text-slate-800">User Profile Authenticated</p>
-                  <span className="text-[10px] text-slate-400">Oct 19, 2026 at 08:55 AM (Office Geofence)</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Bank Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankForm.bankName}
+                      onChange={(e) => setBankForm((p) => ({ ...p, bankName: e.target.value }))}
+                      placeholder="e.g. HDFC Bank"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold focus:outline-hidden focus:border-emerald-600 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Account Holder Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankForm.accountHolderName}
+                      onChange={(e) => setBankForm((p) => ({ ...p, accountHolderName: e.target.value }))}
+                      placeholder="Name as per bank passbook"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold focus:outline-hidden focus:border-emerald-600 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Account Number *</label>
+                    <input
+                      type="text"
+                      required
+                      inputMode="numeric"
+                      value={bankForm.accountNumber}
+                      onChange={(e) => setBankForm((p) => ({ ...p, accountNumber: e.target.value }))}
+                      placeholder="Enter account number"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono font-semibold focus:outline-hidden focus:border-emerald-600 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">IFSC Code *</label>
+                    <input
+                      type="text"
+                      required
+                      value={bankForm.ifsc}
+                      onChange={(e) => setBankForm((p) => ({ ...p, ifsc: e.target.value.toUpperCase() }))}
+                      placeholder="e.g. HDFC0001234"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono font-semibold uppercase focus:outline-hidden focus:border-emerald-600 focus:bg-white"
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={bankSaving}
+                    className="px-5 py-2.5 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-60 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {bankSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{bankSaving ? 'Saving...' : 'Save Bank Details'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </div>
+    </div>
+  );
 
-      {/* Change Role Modal */}
-      <ChangeRoleModal
-        isOpen={roleModalOpen}
-        onClose={() => setRoleModalOpen(false)}
-        employee={currentEmp}
-        onSuccess={(updated) => {
-          setCurrentEmp(updated);
-          if (onRefresh) onRefresh();
-        }}
-      />
+  if (isPageMode) {
+    return (
+      <div className="space-y-5 w-full">
+        {profileCardContent}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+      className="fixed inset-0 z-[100] overflow-hidden bg-white/45 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
+    >
+      {profileCardContent}
     </div>
   );
 };

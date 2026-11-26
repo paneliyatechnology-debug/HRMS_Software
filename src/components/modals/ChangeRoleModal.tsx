@@ -5,21 +5,20 @@ import {
   X,
   Shield,
   Crown,
-  Award,
-  Briefcase,
   Users,
   User,
-  Target,
-  CreditCard,
+  Briefcase,
   Check,
   AlertCircle,
   Loader2,
   Sparkles,
 } from 'lucide-react';
 import { Employee, Role } from '../../types/hrms';
-import { ROLE_DEFINITIONS, getRoleDefinition, RoleDefinition } from '../../lib/roleConfig';
+import { useModalOverlay } from '../../lib/useModalOverlay';
+import { ASSIGNABLE_ROLE_DEFINITIONS, getRoleDefinition, RoleDefinition } from '../../lib/roleConfig';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChangeRoleModalProps {
   isOpen: boolean;
@@ -34,17 +33,29 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
   employee,
   onSuccess,
 }) => {
+  const { user } = useAuth();
   const { showToast } = useSocket();
   const [selectedRole, setSelectedRole] = useState<Role>('EMPLOYEE');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const isSelf = Boolean(
+    employee &&
+      user &&
+      (Boolean(employee.email && user.email && employee.email.toLowerCase() === user.email.toLowerCase()) ||
+        Boolean(user.employeeId && (employee.id === user.employeeId || (employee as any).employeeId === user.employeeId)) ||
+        Boolean(user.id && (employee.id === user.id || (employee as any).userId === user.id)))
+  );
+
   useEffect(() => {
     if (employee) {
-      setSelectedRole((employee.role as Role) || 'EMPLOYEE');
+      const initialRole = (employee.role as Role) || 'EMPLOYEE';
+      setSelectedRole(initialRole === 'SUPER_ADMIN' ? 'ADMIN' : initialRole);
       setErrorMsg(null);
     }
   }, [employee, isOpen]);
+
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen || !employee) return null;
 
@@ -57,16 +68,10 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
         return <Crown className={className} />;
       case 'Shield':
         return <Shield className={className} />;
-      case 'Award':
-        return <Award className={className} />;
-      case 'Briefcase':
-        return <Briefcase className={className} />;
       case 'Users':
         return <Users className={className} />;
-      case 'Target':
-        return <Target className={className} />;
-      case 'CreditCard':
-        return <CreditCard className={className} />;
+      case 'Briefcase':
+        return <Briefcase className={className} />;
       default:
         return <User className={className} />;
     }
@@ -74,11 +79,19 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
 
   const handleSubmit = async () => {
     if (!employee) return;
+    if (isSelf) {
+      setErrorMsg('Administrators cannot change their own system role.');
+      return;
+    }
+    if (selectedRole === 'SUPER_ADMIN') {
+      setErrorMsg('Super Admin role cannot be assigned to any user.');
+      return;
+    }
     setIsLoading(true);
     setErrorMsg(null);
 
     try {
-      const res = await api.updateEmployee(employee.id, {
+      await api.updateEmployee(employee.id, {
         role: selectedRole,
       });
 
@@ -115,46 +128,41 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget && !isLoading) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-in fade-in flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
     >
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col border border-slate-100 overflow-hidden cursor-default transition-all my-auto max-h-[90vh]">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh]"
+      >
         {/* Header */}
-        <div className="p-6 bg-slate-900 text-white relative flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-white font-black text-xl shadow-lg shrink-0">
-              {employee.avatarUrl ? (
-                <img
-                  src={employee.avatarUrl}
-                  alt={employee.firstName}
-                  className="w-full h-full rounded-2xl object-cover"
-                />
-              ) : (
-                <span>
-                  {employee.firstName[0]}
-                  {employee.lastName ? employee.lastName[0] : ''}
-                </span>
-              )}
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+              <Shield className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                  Role Permission Management
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                  Change Role: {employee.firstName} {employee.lastName}
+                </h3>
+                <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                  #{employee.employeeCode}
                 </span>
-                <span className="text-slate-400 text-xs">#{employee.employeeCode}</span>
               </div>
-              <h2 className="text-xl font-bold text-white tracking-tight mt-1">
-                Change Role: {employee.firstName} {employee.lastName}
-              </h2>
-              <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-2">
+              <p className="text-xs text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
                 <span>Current Role:</span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[11px] border ${currentRoleDef.badgeClass}`}
-                >
+                <span className={`inline-flex items-center gap-1 font-semibold ${currentRoleDef.textColor}`}>
                   {getRoleIcon(currentRoleDef.iconName, 'w-3 h-3')}
                   {currentRoleDef.label}
                 </span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400">{employee.designationTitle}</span>
+                {employee.designationTitle &&
+                  employee.designationTitle.toLowerCase() !== currentRoleDef.label.toLowerCase() &&
+                  employee.designationTitle.toLowerCase() !== (employee.role || '').toLowerCase() && (
+                    <>
+                      <span>•</span>
+                      <span>{employee.designationTitle}</span>
+                    </>
+                  )}
               </p>
             </div>
           </div>
@@ -162,21 +170,28 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition disabled:opacity-50"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body Role Selection */}
-        <div className="p-6 overflow-y-auto space-y-4">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
               Select New Access Role
             </label>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-slate-500 mb-3">
               Changing an employee’s role immediately adjusts their system permissions, dashboard modules, and approval capabilities.
             </p>
+
+            {isSelf && (
+              <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                <span>Administrators cannot change their own system role to prevent accidental account lockout.</span>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
@@ -186,63 +201,63 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {ROLE_DEFINITIONS.map((def) => {
+              {ASSIGNABLE_ROLE_DEFINITIONS.map((def) => {
                 const isSelected = selectedRole === def.role;
                 const isCurrent = (employee.role || 'EMPLOYEE') === def.role;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={def.role}
                     onClick={() => setSelectedRole(def.role)}
-                    className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                    className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
                       isSelected
-                        ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
-                        : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50'
+                        ? 'border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${def.bgLight} ${def.borderClass} ${def.textColor}`}
-                        >
-                          {getRoleIcon(def.iconName, 'w-4 h-4')}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-xs text-slate-900">{def.label}</span>
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected
-                            ? 'bg-indigo-600 border-indigo-600 text-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                      </div>
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${def.bgLight} ${def.borderClass} ${def.textColor}`}
+                    >
+                      {getRoleIcon(def.iconName, 'w-4 h-4')}
                     </div>
 
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                      {def.description}
-                    </p>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                          <span className="font-bold text-sm text-slate-900">{def.label}</span>
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                              Current
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                        {def.description}
+                      </p>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
           {/* Selected Summary Info */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
                 <span className="font-semibold text-slate-700">Selected Role: </span>
                 <span className="font-bold text-slate-900">{activeRoleDef.label}</span>
@@ -255,20 +270,20 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+        <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isLoading || selectedRole === (employee.role || 'EMPLOYEE')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            disabled={isLoading || isSelf || selectedRole === (employee.role || 'EMPLOYEE')}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -278,7 +293,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({
             ) : (
               <>
                 <Shield className="w-4 h-4" />
-                <span>Confirm & Update Role</span>
+                <span>Confirm &amp; Update Role</span>
               </>
             )}
           </button>

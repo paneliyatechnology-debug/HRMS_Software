@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import axios, { AxiosRequestConfig, isAxiosError } from 'axios';
 import {
@@ -22,10 +23,18 @@ import {
   User,
 } from '../types/hrms';
 
+=======
+import axios from 'axios';
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
 import { getApiBaseUrl } from './config';
+import { getCookie, setCookie } from './cookies';
+import { LeaveRequest, AttendanceRecord, LeaveDayBreakdown, LeaveDaySession } from '../types/hrms';
 
-const getApiBase = () => getApiBaseUrl();
+export const http = axios.create({
+  withCredentials: true,
+});
 
+<<<<<<< HEAD
 function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken');
@@ -109,30 +118,45 @@ async function fetchWithFallback<T>(
       return fallback;
     }
     throw new Error(extractErrorMessage(err));
+=======
+/* ==========================================================================
+   REQUEST DEDUPLICATION & IN-MEMORY CACHE (PREVENTS DUPLICATE API CALLS)
+   ========================================================================== */
+
+const pendingRequests = new Map<string, Promise<any>>();
+const cacheStore = new Map<string, { data: any; expiresAt: number }>();
+
+export function clearApiCache(endpointPrefix?: string) {
+  if (!endpointPrefix) {
+    cacheStore.clear();
+    pendingRequests.clear();
+    return;
+  }
+  for (const key of Array.from(cacheStore.keys())) {
+    if (key.includes(endpointPrefix)) cacheStore.delete(key);
+  }
+  for (const key of Array.from(pendingRequests.keys())) {
+    if (key.includes(endpointPrefix)) pendingRequests.delete(key);
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
   }
 }
 
-export const api = {
-  // =========================================================================
-  // 1. SYSTEM HEALTH
-  // =========================================================================
-  async getApiVitality() {
-    return fetchWithFallback<any>('/api', undefined, {
-      status: 'healthy',
-      vitality: true,
-      service: 'Paneliya Enterprise HRMS API',
-    });
-  },
+export async function deduplicatedGet<T = any>(
+  url: string,
+  config?: any,
+  ttlMs: number = 8000
+): Promise<T> {
+  const paramsKey = config?.params ? JSON.stringify(config.params) : '';
+  const cacheKey = `GET:${url}:${paramsKey}`;
+  const now = Date.now();
 
-  async getHealth() {
-    return fetchWithFallback('/health', undefined, {
-      status: 'healthy',
-      version: '1.0.0',
-      service: 'My Own HRMS API',
-      timestamp: new Date().toISOString(),
-    });
-  },
+  // 1. Check TTL Cache: if recently fetched within TTL, return immediately without network call
+  const cached = cacheStore.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
 
+<<<<<<< HEAD
   // =========================================================================
   // 2. AUTHENTICATION & ACCESS
   // =========================================================================
@@ -333,324 +357,304 @@ export const api = {
       };
     } catch (err) {
       throw new Error(extractErrorMessage(err));
-    }
-  },
+=======
+  // 2. Check In-Flight Requests: if the exact same request is already executing, wait for it
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey)!;
+  }
 
-  // =========================================================================
-  // 3. EMPLOYEES & WORKFORCE DOSSIER
-  // =========================================================================
-  async getEmployees(params?: {
-    search?: string;
-    departmentId?: string;
-    status?: string;
-    employmentType?: string;
-  }) {
-    const query = new URLSearchParams();
-    if (params?.search) query.set('search', params.search);
-    if (params?.departmentId && params.departmentId !== 'ALL') query.set('departmentId', params.departmentId);
-    if (params?.status && params.status !== 'All') query.set('status', params.status);
-    if (params?.employmentType && params.employmentType !== 'All') query.set('employmentType', params.employmentType);
-
-    const qs = query.toString();
-    return fetchWithFallback<Employee[]>(
-      `/employees${qs ? `?${qs}` : ''}`,
-      undefined,
-      []
-    );
-  },
-
-  async getNextEmployeeCode(companyId?: string): Promise<{ nextCode: string; companyCode?: string; currentMaxNumber?: number }> {
-    const qs = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
-    return fetchWithFallback<{ nextCode: string; companyCode?: string; currentMaxNumber?: number }>(
-      `/employees/next-code${qs}`,
-      undefined,
-      { nextCode: 'EMP-000001' }
-    );
-  },
-
-  async getEmployeeById(id: string) {
-    return fetchWithFallback<any>(`/employees/${id}`);
-  },
-
-  async createEmployee(data: Partial<Employee>) {
-    return fetchWithFallback<Employee>(
-      '/employees',
-      { method: 'POST', body: JSON.stringify(data) }
-    );
-  },
-
-  async updateEmployee(id: string, data: Partial<Employee>) {
-    return fetchWithFallback<Employee>(
-      `/employees/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) }
-    );
-  },
-
-  async deleteEmployee(id: string) {
-    return fetchWithFallback<{ success: boolean; message: string }>(
-      `/employees/${id}`,
-      { method: 'DELETE' }
-    );
-  },
-
-  // =========================================================================
-  // 4. ORGANIZATION (DEPARTMENTS, DESIGNATIONS, LOCATIONS, HIERARCHY)
-  // =========================================================================
-  async getDepartments() {
-    return fetchWithFallback<Department[]>('/organization/departments', undefined, []);
-  },
-
-  async createDepartment(data: {
-    name: string;
-    code: string;
-    headEmployeeId?: string;
-    headName?: string;
-    description?: string;
-  }) {
-    const newDept: Department = {
-      id: `dept-${Date.now()}`,
-      name: data.name,
-      code: data.code,
-      headName: data.headName || 'HR Administration',
-      employeeCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    return fetchWithFallback<Department>(
-      '/organization/departments',
-      { method: 'POST', body: JSON.stringify(data) },
-      newDept
-    );
-  },
-
-  async updateDepartment(
-    id: string,
-    data: {
-      name?: string;
-      code?: string;
-      headEmployeeId?: string;
-      headName?: string;
-      description?: string;
-    }
-  ) {
-    return fetchWithFallback<Department>(
-      `/organization/departments/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      { id, ...data } as Department
-    );
-  },
-
-  async getDesignations() {
-    return fetchWithFallback<Designation[]>('/organization/designations', undefined, []);
-  },
-
-  async createDesignation(data: {
-    title: string;
-    departmentId: string;
-    minSalary?: number;
-    maxSalary?: number;
-  }) {
-    const newDes: Designation = {
-      id: `des-${Date.now()}`,
-      title: data.title,
-      departmentId: data.departmentId,
-      departmentName: 'Department',
-      minSalary: data.minSalary || 50000,
-      maxSalary: data.maxSalary || 100000,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    return fetchWithFallback<Designation>(
-      '/organization/designations',
-      { method: 'POST', body: JSON.stringify(data) },
-      newDes
-    );
-  },
-
-  async getLocations() {
-    return fetchWithFallback<Location[]>('/organization/locations', undefined, []);
-  },
-
-  async getHierarchy() {
-    return fetchWithFallback<any>('/organization/hierarchy', undefined, null);
-  },
-
-  // =========================================================================
-  // 5. ATTENDANCE & PUNCH CLOCK
-  // =========================================================================
-  async resolveAttendanceEmployeeId(idOrCode: string, employeeMeta?: any): Promise<string> {
-    if (idOrCode && idOrCode.startsWith('emp-')) return idOrCode;
-    if (employeeMeta?.employeeId && employeeMeta.employeeId.startsWith('emp-')) return employeeMeta.employeeId;
-    try {
-      const emps = await this.getEmployees();
-      if (Array.isArray(emps)) {
-        const found = emps.find((e: any) =>
-          e.id === idOrCode ||
-          e.userId === idOrCode ||
-          (employeeMeta?.email && e.email?.toLowerCase() === employeeMeta.email.toLowerCase()) ||
-          (employeeMeta?.employeeCode && e.employeeCode?.toLowerCase() === employeeMeta.employeeCode.toLowerCase()) ||
-          (employeeMeta?.firstName && `${e.firstName} ${e.lastName || ''}`.trim().toLowerCase() === `${employeeMeta.firstName} ${employeeMeta.lastName || ''}`.trim().toLowerCase())
-        );
-        if (found && found.id) return found.id;
-      }
-    } catch (e) {
-      console.warn('Could not resolve attendance employee ID from backend:', e);
-    }
-    return idOrCode;
-  },
-
-  async getAttendance(params?: { employeeId?: string; date?: string; departmentId?: string }) {
-    const query = new URLSearchParams();
-    if (params?.employeeId) query.set('employeeId', params.employeeId);
-    if (params?.date) query.set('date', params.date);
-    if (params?.departmentId) query.set('departmentId', params.departmentId);
-    const qs = query.toString();
-    return fetchWithFallback<AttendanceRecord[]>(`/attendance${qs ? `?${qs}` : ''}`, undefined, []);
-  },
-
-  async getMyAttendanceStatus(employeeId: string) {
-    return fetchWithFallback<any>(`/attendance/my-status/${employeeId}`, undefined, {
-      employeeId,
-      todayDate: new Date().toISOString().split('T')[0],
-      checkIn: null,
-      checkOut: null,
-      isWorking: false,
-      isOnBreak: false,
-      isCompleted: false,
-      totalSeconds: 0,
-      breakSeconds: 0,
+  // 3. Initiate single network request
+  const requestPromise = http
+    .get(url, config)
+    .then((res) => {
+      pendingRequests.delete(cacheKey);
+      cacheStore.set(cacheKey, { data: res.data, expiresAt: Date.now() + ttlMs });
+      return res.data;
+    })
+    .catch((err) => {
+      pendingRequests.delete(cacheKey);
+      throw err;
     });
-  },
 
-  async checkIn(
-    employeeId: string,
-    remarks?: string,
-    employeeMeta?: any,
-    geoData?: {
-      latitude?: number;
-      longitude?: number;
-      accuracy?: number;
-      distanceMeters?: number;
-      locationAddress?: string;
-      isGeofenceVerified?: boolean;
-      photo?: string;
-      device?: any;
+  pendingRequests.set(cacheKey, requestPromise);
+  return requestPromise;
+}
+
+const notConnected = async (..._args: unknown[]) => null;
+
+// Interceptor: inject base URL, credentials, and Authorization token
+http.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+  if (typeof window !== 'undefined') {
+    const token =
+      getCookie('hrms_auth_token') ||
+            getCookie('bearerToken') ||
+            getCookie('accessToken') ||
+            getCookie('token') ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken') || localStorage.getItem('accessToken') : null);
+    if (token && !config.headers.Authorization) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
     }
-  ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
-    const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
-    const finalRemarks = remarks || 'Morning shift clock-in';
-    const payload = {
-      employeeId: targetEmpId,
-      remarks: finalRemarks,
-    };
+  }
 
-    let backendRecord: any = null;
-    try {
-      backendRecord = await fetchWithFallback<any>(
-        '/attendance/check-in',
-        { method: 'POST', body: JSON.stringify(payload) },
-        null
-      );
-    } catch (err) {
-      console.error('Check-in backend POST error:', err);
+  // If request data is FormData, remove manual Content-Type header so browser/axios calculates multipart boundary
+  if (config.data instanceof FormData) {
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
     }
+    return config;
+  }
 
-    // Also record secure geo-fenced work session if selfie & coordinates provided
-    if (geoData?.latitude && geoData?.longitude && geoData?.photo) {
-      this.startWork({
-        latitude: geoData.latitude,
-        longitude: geoData.longitude,
-        accuracy: geoData.accuracy || 10,
-        selfie: geoData.photo,
-        deviceInfo: typeof geoData.device === 'string' ? geoData.device : JSON.stringify(geoData.device || {}),
-      }).catch((e) => console.warn('Background work/start sync notice:', e));
+  const getHeader = (name: string): string | undefined => {
+    if (!config.headers) return undefined;
+    if (typeof (config.headers as any).get === 'function') {
+      return (config.headers as any).get(name) || (config.headers as any).get(name.toLowerCase());
     }
+    return (config.headers as any)[name] || (config.headers as any)[name.toLowerCase()];
+  };
 
-    if (backendRecord && backendRecord.id) {
-      return {
-        success: true,
-        message: 'Clocked in successfully!',
-        record: backendRecord,
-      };
+  const contentType = getHeader('Content-Type');
+  const isExplicitJson = typeof contentType === 'string' && contentType.toLowerCase().includes('application/json');
+
+  const data = config.data;
+  if (!isExplicitJson && data && typeof data === 'object' && !(data instanceof FormData)) {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (value == null || value === '') continue;
+      form.append(key, value instanceof Blob ? value : String(value));
     }
-
-    return {
-      success: false,
-      message: 'Failed to record check-in in database. Please check connection.',
-    };
-  },
-
-  async checkOut(
-    employeeId: string,
-    remarks?: string,
-    employeeMeta?: any,
-    geoData?: {
-      latitude?: number;
-      longitude?: number;
-      accuracy?: number;
-      distanceMeters?: number;
-      locationAddress?: string;
-      photo?: string;
-      device?: any;
+    config.data = form;
+    if (config.headers && typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as any)['Content-Type'];
     }
-  ): Promise<{ success: boolean; message: string; record?: AttendanceRecord }> {
-    const targetEmpId = await this.resolveAttendanceEmployeeId(employeeId, employeeMeta);
-    const finalRemarks = remarks || 'Evening clock-out';
-    const payload = {
-      employeeId: targetEmpId,
-      remarks: finalRemarks,
-    };
+  }
+  return config;
+});
 
-    let backendRecord: any = null;
-    try {
-      backendRecord = await fetchWithFallback<any>(
-        '/attendance/check-out',
-        { method: 'POST', body: JSON.stringify(payload) },
-        null
-      );
-    } catch (err) {
-      console.error('Check-out backend POST error:', err);
-    }
+let sessionEnding = false;
 
-    // Also record secure geo-fenced work session stop if coordinates provided
-    if (geoData?.latitude && geoData?.longitude) {
-      this.stopWork({
-        latitude: geoData.latitude,
-        longitude: geoData.longitude,
-        accuracy: geoData.accuracy || 10,
-        selfie: geoData.photo || '',
-        remarks: finalRemarks,
-      }).catch((e) => console.warn('Background work/stop sync notice:', e));
-    }
+function endExpiredSession() {
+  if (sessionEnding || typeof window === 'undefined') return;
+  sessionEnding = true;
+  window.dispatchEvent(new CustomEvent('hrms_session_expired'));
+}
 
-    if (backendRecord && backendRecord.id) {
-      return {
-        success: true,
-        message: 'Clocked out successfully!',
-        record: backendRecord,
-      };
-    }
-
-    return {
-      success: false,
-      message: 'Failed to record check-out in database. Please check connection.',
-    };
-  },
-
-  async regularizeAttendance(data: {
-    employeeId: string;
-    date: string;
-    checkIn: string;
-    checkOut?: string;
-    status: string;
-    remarks?: string;
-  }) {
-    return fetchWithFallback<any>(
-      '/attendance/regularize',
-      { method: 'POST', body: JSON.stringify(data) },
-      {
-        success: true,
-        message: 'Attendance regularized successfully',
-        entry: data,
+// Interceptor: handle 401 Unauthorized with automatic token refresh (POST /users/refresh)
+http.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error?.config;
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/users/login') &&
+      !originalRequest.url?.includes('/users/refresh') &&
+      !originalRequest.url?.includes('/users/logout')
+    ) {
+      originalRequest._retry = true;
+      try {
+        const refreshRes = await axios.post(
+          `${getApiBaseUrl()}/users/refresh`,
+          {},
+          { withCredentials: true, headers: { 'Content-Type': 'application/json' } }
+        );
+        const data = refreshRes.data;
+        const token = data?.token || data?.accessToken;
+        if (token && typeof window !== 'undefined') {
+          setCookie('hrms_auth_token', token);
+          setCookie('bearerToken', token);
+          setCookie('accessToken', token);
+          if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+            originalRequest.headers.set('Authorization', `Bearer ${token}`);
+          } else if (originalRequest.headers) {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          }
+        }
+        return http(originalRequest);
+      } catch {
+        endExpiredSession();
       }
+    } else if (error.response?.status === 401 && originalRequest?._retry) {
+      endExpiredSession();
+    }
+    return Promise.reject(error);
+  }
+);
+
+/* ==========================================================================
+   MODULE 1: USERS (10 ENDPOINTS)
+   ========================================================================== */
+
+// 1. POST /users/forgot
+async function forgotPassword(email: string) {
+  try {
+    const response = await http.post('/users/forgot', { email }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send password reset link.');
+  }
+}
+
+// 2. POST /users (Create user - Admin)
+export interface CreateUserInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  gender?: string;
+  address?: string;
+  photo?: File | null;
+  faceDescriptor?: string;
+  role?: string;
+  status?: string;
+  companyId?: string;
+  password?: string;
+  salary?: {
+    basic?: number;
+    hra?: number;
+    allowances?: number;
+    bonus?: number;
+    pf?: number;
+    tax?: number;
+    gross?: number;
+    net?: number;
+  };
+}
+
+async function createUser(data: CreateUserInput) {
+  try {
+    const payload: any = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone || undefined,
+      gender: data.gender || undefined,
+      address: data.address || undefined,
+      photo: data.photo || undefined,
+      faceDescriptor: data.faceDescriptor || undefined,
+      role: data.role || undefined,
+      status: data.status || undefined,
+      companyId: data.companyId || undefined,
+    };
+    if (data.password) payload.password = data.password;
+    if (data.salary) payload.salary = JSON.stringify(data.salary);
+
+    const response = await http.post('/users', payload);
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'User could not be created.');
+  }
+}
+
+// 3. POST /users/login
+async function login(email: string, password: string) {
+  try {
+    const response = await http.post('/users/login', { email, password }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache();
+    const data = response.data;
+    const token = data?.token || data?.accessToken || (data && typeof data === 'object' && 'token' in data ? (data as any).token : null);
+    if (token && typeof window !== 'undefined') {
+      setCookie('hrms_auth_token', token);
+      setCookie('bearerToken', token);
+      setCookie('accessToken', token);
+    }
+    return data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Email or password is incorrect.');
+  }
+}
+
+// 4. GET /users/reset-password
+async function getResetPasswordForm() {
+  try {
+    return await deduplicatedGet('/users/reset-password');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load reset password form.');
+  }
+}
+
+// 5. POST /users/reset-password
+async function resetPassword(data: { token?: string; password: string; confirmPassword?: string }) {
+  try {
+    const payload = {
+      token: data.token || '',
+      password: data.password,
+      confirmPassword: data.confirmPassword || data.password,
+    };
+    const response = await http.post('/users/reset-password', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to reset password.');
+  }
+}
+
+// 6. POST /users/logout
+async function logout() {
+  try {
+    clearApiCache();
+    const response = await http.post('/users/logout');
+    return response.data;
+  } catch {
+    clearApiCache();
+    return { success: true };
+  }
+}
+
+// 7. POST /users/refresh
+async function refreshToken() {
+  try {
+    const response = await http.post('/users/refresh');
+    const data = response.data;
+    const token = data?.token || data?.accessToken;
+    if (token && typeof window !== 'undefined') {
+      setCookie('hrms_auth_token', token);
+      setCookie('bearerToken', token);
+      setCookie('accessToken', token);
+    }
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isEmployeeSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const portalMode = getCookie('hrms_portal_mode');
+    if (portalMode === 'employee') return true;
+    const currentRole = getCookie('hrms_current_role');
+    if (currentRole && currentRole.toUpperCase() === 'EMPLOYEE') return true;
+    const userCookie = getCookie('hrms_auth_user');
+    if (userCookie) {
+      const parsed = JSON.parse(userCookie);
+      if (parsed?.role && parsed.role.toUpperCase() === 'EMPLOYEE') return true;
+    }
+    const token = getCookie('hrms_auth_token') || getCookie('bearerToken') || getCookie('accessToken');
+    if (token && token.includes('.')) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload?.role && payload.role.toUpperCase() === 'EMPLOYEE') return true;
+      }
+<<<<<<< HEAD
     );
   },
 
@@ -956,15 +960,14 @@ export const api = {
       appraisalRecommended?: string;
       role?: string;
       actorName?: string;
+=======
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
     }
-  ) {
-    return fetchWithFallback<PerformanceReview>(
-      `/performance/reviews/${id}/rate`,
-      { method: 'POST', body: JSON.stringify(data) },
-      ({ id, ...data, status: 'Completed' } as any)
-    );
-  },
+  } catch {}
+  return false;
+}
 
+<<<<<<< HEAD
   // =========================================================================
   // 10. TRAINING & UPSKILLING
   // =========================================================================
@@ -1259,118 +1262,2917 @@ export const api = {
         uploadDate: new Date().toISOString().split('T')[0],
         verificationStatus: 'Pending',
       };
+=======
+// 8. GET /users (List users - Admin)
+async function listUsers(params?: { page?: number; limit?: number; search?: string; status?: string; companyId?: string }) {
+  try {
+    if (isEmployeeSession()) {
+      return { data: [], users: [], total: 0 };
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
     }
-  },
+    return await deduplicatedGet('/users', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Users could not be loaded.');
+  }
+}
 
-  async verifyDocument(id: string, status: 'Verified' | 'Rejected', verifiedBy = 'HR Admin') {
-    return fetchWithFallback<any>(`/documents/${id}/verify`, {
-      method: 'PUT',
-      body: JSON.stringify({ status, verifiedBy }),
-    });
-  },
+// 9. GET /users/profile (My profile)
+async function getProfile() {
+  try {
+    return await deduplicatedGet('/users/profile');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile could not be loaded.');
+  }
+}
 
-  // =========================================================================
-  // 15. ANNOUNCEMENTS & NOTICES
-  // =========================================================================
-  async getAnnouncements(employeeId?: string, departmentName?: string) {
-    const query = new URLSearchParams();
-    if (employeeId) query.set('employeeId', employeeId);
-    if (departmentName) query.set('departmentName', departmentName);
-    const qs = query.toString();
-    return fetchWithFallback<Announcement[]>(`/announcements${qs ? `?${qs}` : ''}`, undefined, []);
-  },
+// 10. GET /users/:userId (Get user - Admin)
+async function getUser(userId: string) {
+  try {
+    return await deduplicatedGet(`/users/${userId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'User could not be loaded.');
+  }
+}
 
-  async createAnnouncement(data: {
-    title: string;
-    content: string;
-    targetAudience: 'All' | 'Department' | 'Individual';
-    targetEmployeeId?: string;
-    targetEmployeeName?: string;
-    departmentName?: string;
-    priority?: 'Low' | 'Medium' | 'High' | 'Urgent';
-    authorName?: string;
-    authorRole?: string;
-  }) {
-    return fetchWithFallback<Announcement>(
-      '/announcements',
-      { method: 'POST', body: JSON.stringify(data) }
-    );
-  },
+/* ==========================================================================
+   MODULE 2: COMPANIES (1 ENDPOINT)
+   ========================================================================== */
 
-  async deleteAnnouncement(id: string) {
-    return fetchWithFallback<{ success: boolean }>(
-      `/announcements/${id}`,
-      { method: 'DELETE' }
-    );
-  },
-
-  // =========================================================================
-  // 16. NOTIFICATIONS CENTER
-  // =========================================================================
-  async getNotifications() {
-    return fetchWithFallback<NotificationItem[]>('/notifications', undefined, []);
-  },
-
-  async markNotificationRead(id: string) {
-    return fetchWithFallback<NotificationItem>(`/notifications/${id}/read`, { method: 'PUT' });
-  },
-
-  async markAllNotificationsRead() {
-    return fetchWithFallback<any>('/notifications/mark-all-read', { method: 'PUT' }, { success: true });
-  },
-
-  // =========================================================================
-  // 17. AUDIT LOGS
-  // =========================================================================
-  async getAuditLogs(module?: string) {
-    const query = module && module !== 'ALL' ? `?module=${module}` : '';
-    return fetchWithFallback<AuditLog[]>(`/audit-logs${query}`, undefined, []);
-  },
-
-  // =========================================================================
-  // 18. REPORTS & DASHBOARD ANALYTICS & BULK EXPORT
-  // =========================================================================
-  async getDashboardStats() {
-    return fetchWithFallback('/reports/dashboard-stats', undefined, null);
-  },
-
-  async exportReport(type: 'attendance' | 'employees' | 'leaves' | 'payroll') {
-    return fetchWithFallback<any[]>(`/reports/export?type=${type}`, undefined, []);
-  },
-
-  // =========================================================================
-  // 19. ENTERPRISE SETTINGS & POLICIES
-  // =========================================================================
-  async getSettings() {
-    return fetchWithFallback<any>('/settings', undefined, null);
-  },
-
-  async updateSettings(data: any) {
-    return fetchWithFallback<any>(
-      '/settings',
-      { method: 'PUT', body: JSON.stringify(data) },
-      { ...data, updatedAt: new Date().toISOString() }
-    );
-  },
-
-  // =========================================================================
-  // 20. COMPANIES (TENANT-LEVEL SCOPED ACCESS)
-  // =========================================================================
-  async getMyCompany() {
-    return fetchWithFallback<any>('/companies/my-company', undefined, null);
-  },
-
-  async getCompanyById(id: string) {
-    return fetchWithFallback<any>(`/companies/${encodeURIComponent(id)}`, undefined, null);
-  },
-
-  async updateCompany(id: string, data: { companyName?: string; phone?: string; address?: string; status?: string }) {
-    return fetchWithFallback<any>(
-      `/companies/${encodeURIComponent(id)}`,
-      { method: 'PUT', body: JSON.stringify(data) },
-      { id, ...data, updatedAt: new Date().toISOString() }
-    );
-  },
-
+// 11. POST /companies/register
+export type CompanyRegisterInput = {
+    companyName: string;
+  email: string;
+  phone?: string;
+    gstNumber?: string;
+    industrySector?: string;
+    state?: string;
+  city?: string;
+  address?: string;
+    firstName: string;
+    lastName: string;
 };
 
+async function listCompanies(params?: { page?: number; limit?: number; search?: string; status?: string }) {
+  try {
+    return await deduplicatedGet('/companies', { params }, 0);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Companies could not be loaded.');
+  }
+}
+
+async function updateCompanyStatus(companyId: string, status: 'Active' | 'Inactive' | 'Pending' | 'Rejected') {
+  try {
+    const response = await http.patch(
+      `/companies/${companyId}/status`,
+      { status },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    clearApiCache('/companies');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Company status could not be updated.');
+  }
+}
+
+async function getGeofence() {
+  const response = await http.get('/companies/geofence');
+  return response.data as { officeName: string; latitude: number; longitude: number; radiusMeters: number; enabled: boolean };
+}
+
+async function saveGeofence(data: { latitude: number; longitude: number; radiusMeters: number; enabled: boolean; companyId?: string }) {
+  const response = await http.put('/companies/geofence', data, { headers: { 'Content-Type': 'application/json' } });
+  return response.data as { officeName: string; latitude: number; longitude: number; radiusMeters: number; enabled: boolean };
+}
+
+async function registerCompany(data: CompanyRegisterInput) {
+  try {
+    const response = await http.post('/companies/register', {
+      companyName: data.companyName,
+      email: data.email,
+      phone: data.phone || undefined,
+      gstNumber: data.gstNumber || undefined,
+      industrySector: data.industrySector || undefined,
+      state: data.state || undefined,
+      city: data.city || undefined,
+      address: data.address || undefined,
+      firstName: data.firstName,
+      lastName: data.lastName,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache();
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Company registration failed.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 3: DOCUMENTS (5 ENDPOINTS)
+   ========================================================================== */
+
+function backendDocToEmployeeDocument(d: any) {
+  if (!d) return null;
+  const userName = d.userName || (d.user ? `${d.user.firstName || ''} ${d.user.lastName || ''}`.trim() : '') || 'Keyur Sangani';
+  const uploadedByName = d.uploadedByName || (d.uploadedByUser ? `${d.uploadedByUser.firstName || ''} ${d.uploadedByUser.lastName || ''}`.trim() : '') || userName;
+  const fileExt = d.fileName
+    ? d.fileName.split('.').pop()?.toUpperCase()
+    : d.mimeType
+    ? d.mimeType.split('/').pop()?.toUpperCase()
+    : 'PDF';
+
+  const formattedDate = d.createdAt
+    ? new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : d.uploadDate || new Date().toISOString().split('T')[0];
+
+    return {
+    id: d.id || `doc-${Date.now()}`,
+    companyId: d.companyId || '',
+    companyName: d.companyName || '',
+    userId: d.userId || '',
+    userName: userName,
+    employeeId: d.userId || d.employeeId || '',
+    employeeName: userName,
+    uploadedBy: d.uploadedBy || '',
+    uploadedByName: uploadedByName,
+    title: d.title || d.name || d.fileName || 'Untitled Document',
+    fileName: d.fileName || `${d.title || 'document'}.${fileExt.toLowerCase()}`,
+    fileUrl: d.fileUrl || d.url || (d.path ? `${getApiBaseUrl().replace(/\/api$/, '')}/${String(d.path).replace(/^\/+/, '')}` : '#'),
+    mimeType: d.mimeType || 'application/pdf',
+    fileType: fileExt,
+    category: d.category || fileExt || 'Other',
+    fileSize: d.fileSize || (d.size ? `${(Number(d.size) / 1024).toFixed(1)} KB` : 'N/A'),
+    uploadDate: formattedDate,
+    createdAt: d.createdAt,
+    verificationStatus: (d.verificationStatus || d.status || 'Verified'),
+    verifiedBy: d.verifiedBy || undefined,
+  };
+}
+
+// 12. POST /documents (Add document - multipart/form-data)
+async function createDocument(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
+  try {
+    let form: FormData;
+    if (data instanceof FormData) {
+      form = data;
+    } else {
+      form = new FormData();
+      form.append('title', data.title || '');
+      form.append('userId', data.userId || '');
+      form.append('companyId', data.companyId || '');
+      if (data.file) {
+        form.append('file', data.file);
+      }
+    }
+    const response = await http.post('/documents', form);
+    clearApiCache('/documents');
+    const result = response.data;
+    const docData = result?.document || result?.data || result;
+    return backendDocToEmployeeDocument(docData) || docData;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be uploaded.');
+  }
+}
+
+// 13. GET /documents (List documents)
+async function listDocuments(params?: { page?: number; limit?: number; userId?: string; scope?: string; companyId?: string }) {
+  try {
+    return await deduplicatedGet('/documents', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Documents could not be loaded.');
+  }
+}
+
+// 14. GET /documents/:documentId (Get document)
+async function getDocument(id: string) {
+  try {
+    return await deduplicatedGet(`/documents/${id}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be loaded.');
+  }
+}
+
+// 15. PATCH /documents/:documentId (Update document)
+async function updateDocument(id: string, data: { title?: string; userId?: string; file?: File | null; status?: string }) {
+  try {
+    let res: any;
+    if (data.file) {
+      const form = new FormData();
+      if (data.title) form.append('title', data.title);
+      if (data.userId !== undefined) form.append('userId', data.userId);
+      form.append('file', data.file);
+      if (data.status) form.append('status', data.status);
+      res = await http.patch(`/documents/${id}`, form);
+    } else {
+      res = await http.patch(`/documents/${id}`, data, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    clearApiCache('/documents');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be updated.');
+  }
+}
+
+// 16. DELETE /documents/:documentId (Delete document)
+async function deleteDocument(id: string) {
+  try {
+    const response = await http.delete(`/documents/${id}`);
+    clearApiCache('/documents');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Document could not be deleted.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 4: ATTENDANCE (14 ENDPOINTS)
+   ========================================================================== */
+
+async function faceKioskClock(data: {
+  faceDescriptor: number[];
+  photo?: string;
+  action?: 'clock-in' | 'clock-out' | 'break-in' | 'break-out';
+}) {
+  try {
+    clearApiCache('/attendance');
+    const response = await http.post('/attendance/face-kiosk', {
+      faceDescriptor: data.faceDescriptor,
+      photo: data.photo || undefined,
+      action: data.action || undefined,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return response.data as {
+      matched: boolean;
+      action: 'clock-in' | 'clock-out' | 'break-in' | 'break-out' | 'choose' | 'none';
+      state?: 'working' | 'on_break';
+      options?: Array<'break-in' | 'break-out' | 'clock-out'>;
+      message?: string;
+      employee?: { id: string; firstName?: string; lastName?: string; avatarUrl?: string | null; role?: string };
+      logic?: {
+        shiftStart?: string;
+        shiftEnd?: string;
+        graceMinutes?: number;
+        lateMinutes?: number;
+        earlyMinutes?: number;
+      };
+    };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Face clock failed.');
+  }
+}
+
+async function getKioskVoice() {
+  try {
+    return await deduplicatedGet('/attendance/kiosk-voice');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load voice settings.');
+  }
+}
+
+async function saveKioskVoice(data: { kioskVoiceLang: string; kioskVoiceGender: 'female' | 'male' }) {
+  try {
+    const res = await http.put('/attendance/kiosk-voice', data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to save voice settings.');
+  }
+}
+
+async function verifyFace(faceDescriptor: number[]) {
+  try {
+    const response = await http.post('/attendance/face-verify', { faceDescriptor }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.data as { match: boolean; message?: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Face verification failed.');
+  }
+}
+
+// 17. POST /attendance/clock (Clock in, clock out, break in, break out)
+async function clock(data?: { flag: 'clock-in' | 'clock-out' | 'break-in' | 'break-out'; workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) {
+  try {
+    clearApiCache('/attendance');
+    const payload = {
+      flag: data?.flag,
+      workMode: data?.workMode || 'Office',
+      note: data?.note || '',
+      latitude: data?.latitude,
+      longitude: data?.longitude,
+      accuracy: data?.accuracy,
+      faceDescriptor: data?.faceDescriptor,
+      photo: data?.photo,
+    };
+    const response = await http.post('/attendance/clock', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance clock action failed.');
+  }
+}
+
+// 19. GET /attendance/logic (Attendance logic)
+async function getAttendanceLogic() {
+  try {
+    // Attendance logic represents live shifts and punch timing — never serve stale TTL cache
+    return await deduplicatedGet('/attendance/logic', undefined, 0);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance status could not be loaded.');
+  }
+}
+
+// 20. GET /attendance/calendar (Attendance calendar)
+async function getAttendanceCalendar(params?: { month?: number | string; year?: number | string }) {
+  try {
+    return await deduplicatedGet('/attendance/calendar', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance calendar could not be loaded.');
+  }
+}
+
+// 21. GET /attendance/summary (Attendance summary)
+async function getAttendanceSummary(params?: { month?: number | string; year?: number | string }) {
+  try {
+    return await deduplicatedGet('/attendance/summary', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance summary could not be loaded.');
+  }
+}
+
+// 22. GET /attendance/settings (Attendance settings)
+async function getAttendanceSettings() {
+  try {
+    return await deduplicatedGet('/attendance/settings');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance settings could not be loaded.');
+  }
+}
+
+// 23. PUT /attendance/settings (Save attendance settings)
+async function saveAttendanceSettings(data: {
+  shiftStart?: string;
+  shiftEnd?: string;
+  graceMinutes?: number;
+  weeklyOffs?: string;
+}) {
+  try {
+    const response = await http.put('/attendance/settings', {
+      shiftStart: data.shiftStart || '09:30',
+      shiftEnd: data.shiftEnd || '18:30',
+      graceMinutes: data.graceMinutes !== undefined ? data.graceMinutes : 15,
+      weeklyOffs: data.weeklyOffs !== undefined ? String(data.weeklyOffs) : '0',
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/settings');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance settings could not be saved.');
+  }
+}
+
+async function getWeekendRules() {
+  try {
+    const response = await http.get('/attendance/weekend-rules');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be loaded.');
+  }
+}
+
+async function saveWeekendRules(data: { weekendDays: number[]; saturdayRule: string }) {
+  try {
+    const response = await http.put('/attendance/weekend-rules', {
+      weekendDays: data.weekendDays,
+      saturdayRule: data.saturdayRule,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/settings');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Weekend rules could not be saved.');
+  }
+}
+
+// 24. GET /attendance/holidays (List holidays)
+async function listHolidays() {
+  try {
+    const data = await deduplicatedGet('/attendance/holidays');
+    const rawList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.holidays)
+      ? data.holidays
+      : Array.isArray(data?.data)
+      ? data.data
+      : [];
+    return rawList.map(backendHolidayToFrontend);
+  } catch {
+    return [];
+  }
+}
+
+function backendHolidayToFrontend(h: any) {
+  if (!h) return h;
+  const d = h.date ? new Date(h.date) : new Date();
+  const dayOfWeek = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'long' });
+  const formattedDate = isNaN(d.getTime()) ? (h.date || '') : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return {
+    id: h.id || `hol-${Date.now()}`,
+    name: h.name || 'Holiday',
+    date: h.date || '',
+    formattedDate: formattedDate,
+    day: dayOfWeek,
+    dayOfWeek: dayOfWeek,
+    type: h.type || 'Company Holiday',
+    description: h.description || h.name || 'Official holiday',
+    companyId: h.companyId || '',
+    createdAt: h.createdAt || '',
+  };
+}
+
+// 25. POST /attendance/holidays (Add holiday)
+async function addHoliday(data: { date: string; name: string; type?: string; description?: string }) {
+  try {
+    const response = await http.post('/attendance/holidays', {
+      date: data.date,
+      name: data.name,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/holidays');
+    const result = response.data;
+    return backendHolidayToFrontend(result?.holiday || result?.data || result);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Holiday could not be added.');
+  }
+}
+
+// 26. DELETE /attendance/holidays/:holidayId (Delete holiday)
+async function deleteHoliday(holidayId: string) {
+  try {
+    const response = await http.delete(`/attendance/holidays/${holidayId}`);
+    clearApiCache('/attendance/holidays');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Holiday could not be deleted.');
+  }
+}
+
+// Helper to normalize attendance records
+function backendAttendanceToFrontend(a: any): AttendanceRecord {
+  if (!a) return a;
+  const userName = a.userName || (a.user ? `${a.user.firstName || ''} ${a.user.lastName || ''}`.trim() : '') || a.employeeName || 'Staff Member';
+  const punches = Array.isArray(a.punches) ? a.punches : [];
+  let checkIn = a.checkIn || '';
+  let checkOut = a.checkOut || '';
+
+  if (punches.length > 0) {
+    const inPunch = punches.find((p: any) => p.type === 'IN');
+    const outPunch = [...punches].reverse().find((p: any) => p.type === 'OUT');
+    if (inPunch && inPunch.punchedAt) {
+      checkIn = new Date(inPunch.punchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+    if (outPunch && outPunch.punchedAt) {
+      checkOut = new Date(outPunch.punchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+  } else {
+    if (a.checkInAt) checkIn = new Date(a.checkInAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (a.checkOutAt) checkOut = new Date(a.checkOutAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  let status: 'Present' | 'Absent' | 'Late' | 'Half Day' | 'On Leave' = 'Present';
+  const rawStatus = (a.status || '').toLowerCase();
+  if (rawStatus.includes('absent')) status = 'Absent';
+  else if (rawStatus.includes('late')) status = 'Late';
+  else if (rawStatus.includes('half')) status = 'Half Day';
+  else if (rawStatus.includes('leave')) status = 'On Leave';
+  else status = 'Present';
+
+      return {
+    id: a.id || `att-${Date.now()}`,
+    companyId: a.companyId || '',
+    employeeId: a.userId || a.employeeId || '',
+    userId: a.userId || a.employeeId || '',
+    employeeName: userName,
+    employeeCode: a.employeeCode || (a.user?.employeeCode) || 'EMP',
+    departmentName: a.departmentName || (a.user?.departmentName) || 'General',
+    date: String(a.workDate || a.date || '').slice(0, 10) || new Date().toISOString().split('T')[0],
+    checkIn: checkIn && checkIn !== '--:--' ? checkIn : undefined,
+    checkOut: checkOut && checkOut !== '--:--' ? checkOut : undefined,
+    breakDurationMinutes: a.breakDurationMinutes || a.breakMinutes || 0,
+    workingHours: a.workingHours || a.workHours || (a.totalMinutes ? Math.round((Number(a.totalMinutes) / 60) * 100) / 100 : 0),
+    overtimeHours: a.overtimeHours || 0,
+    status: status,
+    remarks: a.note || a.remarks || '',
+    createdAt: a.createdAt || new Date().toISOString(),
+    punches,
+    checkInAt: a.checkInAt || null,
+    checkOutAt: a.checkOutAt || null,
+    totalMinutes: Number(a.totalMinutes || 0),
+    totalHours: a.totalHours || '',
+    lateMinutes: Number(a.lateMinutes || 0),
+    earlyMinutes: Number(a.earlyMinutes || 0),
+    missingPunch: Boolean(a.missingPunch),
+  };
+}
+
+// 27. GET /attendance (List attendance)
+async function listAttendance(params?: {
+  page?: number;
+  limit?: number;
+  date?: string;
+  month?: number | string;
+  year?: number | string;
+  userId?: string;
+}) {
+  try {
+    return await deduplicatedGet('/attendance', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance records could not be loaded.');
+  }
+}
+
+// 28. GET /attendance/:attendanceId (Get attendance)
+async function getAttendanceRecord(attendanceId: string) {
+  try {
+    return await deduplicatedGet(`/attendance/${attendanceId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance record could not be loaded.');
+  }
+}
+
+// 29. PUT /attendance/:attendanceId (Update attendance)
+async function updateAttendance(attendanceId: string, data: { status?: string; workMode?: string; note?: string }) {
+  try {
+    const response = await http.put(`/attendance/${attendanceId}`, data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance record could not be updated.');
+  }
+}
+
+// 30. POST /attendance/:attendanceId/correction (Correct attendance)
+async function correctAttendance(attendanceId: string, data: {
+  reason: string;
+    status?: string;
+  workMode?: string;
+  punches?: Array<{ type: string; punchedAt: string }>;
+}) {
+  try {
+    const response = await http.post(`/attendance/${attendanceId}/correction`, data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Attendance correction could not be submitted.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 5: LEAVE TYPES (4 ENDPOINTS)
+   ========================================================================== */
+
+function backendLeaveTypeToFrontend(lt: any) {
+  if (!lt) return lt;
+  const days = lt.daysPerYear !== undefined
+    ? Number(lt.daysPerYear)
+    : (lt.daysAllowed !== undefined
+      ? Number(lt.daysAllowed)
+      : (lt.quota !== undefined
+        ? Number(lt.quota)
+        : (lt.days !== undefined ? Number(lt.days) : 0)));
+
+  const rawId = lt.id || lt._id || lt.slug || lt.leaveTypeId || lt.key || lt.code || '';
+
+  const rawUsed = lt.usedDays !== undefined
+    ? Number(lt.usedDays)
+    : (lt.used !== undefined ? Number(lt.used) : undefined);
+
+  const rawRemaining = lt.remainingDays !== undefined
+    ? Number(lt.remainingDays)
+    : (lt.remaining !== undefined
+      ? Number(lt.remaining)
+      : (lt.available !== undefined ? Number(lt.available) : undefined));
+
+  return {
+    id: rawId || `lt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    _id: lt._id || rawId,
+    slug: lt.slug || (typeof lt.id === 'string' && !lt.id.startsWith('lt-') ? lt.id : ''),
+    name: lt.name || lt.title || lt.leaveType || '',
+    daysPerYear: days,
+    daysAllowed: days,
+    companyId: lt.companyId || '',
+    createdAt: lt.createdAt || '',
+    code: lt.code || '',
+    color: lt.color || '',
+    isPaid: lt.isPaid !== undefined ? Boolean(lt.isPaid) : true,
+    usedDays: rawUsed !== undefined && !isNaN(rawUsed) ? rawUsed : undefined,
+    remainingDays: rawRemaining !== undefined && !isNaN(rawRemaining) ? rawRemaining : undefined,
+  };
+}
+
+// 31. POST /leave-types (Create leave type - Admin/HR only)
+async function createLeaveType(dataOrName: { name: string; daysPerYear?: number } | string, maybeDays?: number) {
+  let name = '';
+  let daysPerYear: number | undefined = undefined;
+
+  if (typeof dataOrName === 'string') {
+    name = dataOrName;
+    if (maybeDays !== undefined) daysPerYear = Number(maybeDays);
+  } else if (dataOrName && typeof dataOrName === 'object') {
+    name = dataOrName.name;
+    if (dataOrName.daysPerYear !== undefined) {
+      daysPerYear = Number(dataOrName.daysPerYear);
+    } else if (maybeDays !== undefined) {
+      daysPerYear = Number(maybeDays);
+    }
+  }
+
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
+  const payload: any = { name: name.trim() };
+  if (daysPerYear !== undefined && !isNaN(daysPerYear)) {
+    payload.daysPerYear = daysPerYear;
+  }
+
+  try {
+    const response = await http.post(
+      '/leave-types',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    clearApiCache('/leave-types');
+    const res = response.data;
+    return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be created.');
+  }
+}
+
+// 32. GET /leave-types (List leave types - Admin/HR/Employee)
+async function listLeaveTypes(params?: { companyId?: string }) {
+  try {
+    let data: any;
+    if (params?.companyId) {
+      try {
+        data = await deduplicatedGet('/leave-types', { params: { companyId: params.companyId } });
+      } catch (_) {}
+    }
+    if (!data || (Array.isArray(data) && data.length === 0) || (data?.data && Array.isArray(data.data) && data.data.length === 0)) {
+      try {
+        const fallbackData = await deduplicatedGet('/leave-types');
+        if (
+          fallbackData &&
+          ((Array.isArray(fallbackData) && fallbackData.length > 0) ||
+            (Array.isArray(fallbackData?.data) && fallbackData.data.length > 0) ||
+            (Array.isArray(fallbackData?.leaveTypes) && fallbackData.leaveTypes.length > 0))
+        ) {
+          data = fallbackData;
+        } else if (!data) {
+          data = fallbackData;
+        }
+      } catch (_) {}
+    }
+    const rawList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.leaveTypes)
+      ? data.leaveTypes
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.items)
+      ? data.items
+      : [];
+    return rawList.map(backendLeaveTypeToFrontend);
+  } catch (error) {
+    console.error('Failed to list leave types:', error);
+    return [];
+  }
+}
+
+// 33. PATCH / PUT /leave-types/:leaveTypeId (Edit leave type - Admin/HR)
+async function updateLeaveType(leaveTypeId: string, dataOrName: { name: string; daysPerYear?: number } | string, maybeDays?: number) {
+  let name = '';
+  let daysPerYear: number | undefined = undefined;
+
+  if (typeof dataOrName === 'string') {
+    name = dataOrName;
+    if (maybeDays !== undefined) daysPerYear = Number(maybeDays);
+  } else if (dataOrName && typeof dataOrName === 'object') {
+    name = dataOrName.name;
+    if (dataOrName.daysPerYear !== undefined) {
+      daysPerYear = Number(dataOrName.daysPerYear);
+    } else if (maybeDays !== undefined) {
+      daysPerYear = Number(maybeDays);
+    }
+  }
+
+  if (!name || !name.trim()) {
+    throw new Error('Leave type name is required.');
+  }
+
+  const payload: any = { name: name.trim() };
+  if (daysPerYear !== undefined && !isNaN(daysPerYear)) {
+    payload.daysPerYear = daysPerYear;
+  }
+
+  try {
+    let response;
+    try {
+      response = await http.patch(
+        `/leave-types/${leaveTypeId}`,
+        payload,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (patchErr: any) {
+      if (patchErr?.response?.status === 404 || patchErr?.response?.status === 405) {
+        response = await http.put(
+          `/leave-types/${leaveTypeId}`,
+          payload,
+          {
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      } else {
+        throw patchErr;
+      }
+    }
+    clearApiCache('/leave-types');
+    const res = response.data;
+    return backendLeaveTypeToFrontend(res?.leaveType || res?.data || res);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be updated.');
+  }
+}
+
+// 34. DELETE /leave-types/:leaveTypeId (Delete leave type - Admin/HR)
+async function deleteLeaveType(leaveTypeId: string | { id?: string; _id?: string; slug?: string; code?: string }) {
+  const targetId = typeof leaveTypeId === 'object' && leaveTypeId !== null
+    ? (leaveTypeId.slug || leaveTypeId.id || leaveTypeId._id || leaveTypeId.code || '')
+    : String(leaveTypeId || '').trim();
+
+  if (!targetId) {
+    throw new Error('Leave type ID is required.');
+  }
+
+  try {
+    const response = await http.delete(`/leave-types/${encodeURIComponent(targetId)}`);
+    clearApiCache('/leave-types');
+    return response.data;
+  } catch (error) {
+    // If targetId failed and an alternative identifier is present, try fallback
+    if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 400) && typeof leaveTypeId === 'object') {
+      const altId = leaveTypeId.id || leaveTypeId._id || leaveTypeId.slug || leaveTypeId.code;
+      if (altId && altId !== targetId) {
+        try {
+          const altResponse = await http.delete(`/leave-types/${encodeURIComponent(altId)}`);
+          clearApiCache('/leave-types');
+          return altResponse.data;
+        } catch (_) {}
+      }
+    }
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave type could not be deleted.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 6: LEAVES (5 ENDPOINTS)
+   ========================================================================== */
+
+function backendLeaveToFrontend(l: any): LeaveRequest {
+  if (!l) return l;
+  const userName = l.userName || (l.user ? `${l.user.firstName || ''} ${l.user.lastName || ''}`.trim() : '') || l.employeeName || 'Staff Member';
+  const daysList: Array<{ date: string; portion?: string }> = Array.isArray(l.days) ? l.days : [];
+  let startDate = l.startDate || '';
+  let endDate = l.endDate || '';
+  let daysCount = typeof l.daysCount === 'number' ? l.daysCount : (daysList.length > 0 ? daysList.length : 1);
+
+  const dayBreakdown: LeaveDayBreakdown[] = daysList.map((d: any) => {
+    const portion = d.portion || (d.isHalfDay ? (d.halfDaySession || 'First Half') : 'Full Day');
+    const pLower = String(portion).toLowerCase();
+    const isFirstHalf = pLower.includes('first') || portion === 'SESSION_1' || portion === 'FIRST_HALF';
+    const isSecondHalf = pLower.includes('second') || portion === 'SESSION_2' || portion === 'SECOND_HALF';
+    const isHalf = isFirstHalf || isSecondHalf || pLower.includes('half');
+    const session: LeaveDaySession = isFirstHalf ? 'FIRST_HALF' : isSecondHalf ? 'SECOND_HALF' : 'FULL_DAY';
+    return {
+      date: d.date,
+      session,
+      duration: isHalf ? 0.5 : 1,
+    };
+  });
+
+  if (daysList.length > 0) {
+    const dates = daysList.map((d: any) => d.date).filter(Boolean).sort();
+    if (!startDate && dates.length > 0) startDate = dates[0];
+    if (!endDate && dates.length > 0) endDate = dates[dates.length - 1];
+    const computedCount = dayBreakdown.reduce((sum, item) => sum + item.duration, 0);
+    if (computedCount > 0) daysCount = computedCount;
+  }
+
+  const hasHalfDays = dayBreakdown.some((d) => d.session !== 'FULL_DAY') || Boolean(l.isHalfDay);
+  const nonFullSession = dayBreakdown.find((d) => d.session !== 'FULL_DAY')?.session;
+  const firstHalfSession: 'FIRST_HALF' | 'SECOND_HALF' =
+    nonFullSession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : nonFullSession === 'FIRST_HALF'
+      ? 'FIRST_HALF'
+      : l.halfDaySession === 'SECOND_HALF'
+      ? 'SECOND_HALF'
+      : 'FIRST_HALF';
+
+  let status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' = 'Pending';
+  const rawStatus = (l.status || '').toUpperCase();
+  if (rawStatus === 'ACCEPTED' || rawStatus === 'APPROVED') status = 'Approved';
+  else if (rawStatus === 'REJECTED') status = 'Rejected';
+  else if (rawStatus === 'CANCELLED' || rawStatus === 'CANCELED' || rawStatus === 'CANCEL') status = 'Cancelled';
+  else status = 'Pending';
+
+  const adminResponse =
+    l.response ||
+    l.adminResponse ||
+    l.comments ||
+    l.rejectionReason ||
+    l.rejectionRemarks ||
+    l.approvalRemarks ||
+    l.remarks ||
+    '';
+
+  return {
+    id: l.id || `leave-${Date.now()}`,
+    employeeId: l.userId || l.employeeId || '',
+    employeeName: userName,
+    departmentName: l.departmentName || (l.user?.departmentName) || 'General',
+    leaveType: l.leaveType || 'Casual Leave',
+    startDate: startDate || new Date().toISOString().split('T')[0],
+    endDate: endDate || startDate || new Date().toISOString().split('T')[0],
+    daysCount: Number(daysCount.toFixed(2)),
+    isHalfDay: hasHalfDays,
+    halfDaySession: hasHalfDays ? firstHalfSession : undefined,
+    dayBreakdown: dayBreakdown.length > 0 ? dayBreakdown : undefined,
+    days: daysList,
+    reason: l.reason || '',
+    status: status,
+    appliedDate: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : (l.appliedDate || new Date().toISOString().split('T')[0]),
+    comments: adminResponse,
+    response: adminResponse,
+  };
+}
+
+// 35. POST /leaves (Apply leave)
+export interface ApplyLeaveInput {
+  userId?: string;
+  leaveType: string;
+  reason: string;
+  days?: Array<{ date: string; portion: string }>;
+    startDate?: string;
+    endDate?: string;
+  isHalfDay?: boolean;
+  halfDaySession?: string;
+  dayBreakdown?: Array<{ date: string; session: string; duration?: number }>;
+}
+
+async function applyLeave(data: ApplyLeaveInput) {
+  try {
+    let daysArray = data.days;
+    if (!daysArray || daysArray.length === 0) {
+      if (Array.isArray(data.dayBreakdown) && data.dayBreakdown.length > 0) {
+        daysArray = data.dayBreakdown.map((d) => {
+          const s = String(d.session || '').toUpperCase();
+          const isFirst = s === 'FIRST_HALF' || s === 'SESSION_1' || s.includes('FIRST');
+          const isSecond = s === 'SECOND_HALF' || s === 'SESSION_2' || s.includes('SECOND');
+          const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
+      return {
+            date: d.date,
+            portion,
+          };
+        });
+      } else if (data.startDate && data.endDate) {
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        daysArray = [];
+        for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+          const dateStr = dt.toISOString().split('T')[0];
+          let portion = 'Full Day';
+          if (data.isHalfDay) {
+            portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+          }
+          daysArray.push({
+            date: dateStr,
+            portion,
+          });
+        }
+      } else if (data.startDate) {
+        let portion = 'Full Day';
+        if (data.isHalfDay) {
+          portion = data.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half';
+        }
+        daysArray = [{ date: data.startDate, portion }];
+      } else {
+        daysArray = [];
+      }
+    }
+
+    const payload = {
+      userId: data.userId || undefined,
+      leaveType: data.leaveType,
+      reason: data.reason,
+      days: daysArray,
+    };
+
+    const response = await http.post('/leaves', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/leaves');
+    clearApiCache('/dashboard');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave application failed.');
+  }
+}
+
+// 36. GET /leaves (List leave)
+async function listLeaves(params?: { page?: number; limit?: number; userId?: string; status?: string }) {
+  try {
+    const data = await deduplicatedGet('/leaves', { params });
+    const rawList = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.leaves)
+      ? data.leaves
+      : Array.isArray(data?.data)
+      ? data.data
+      : [];
+    return rawList.map(backendLeaveToFrontend);
+  } catch {
+    return [];
+  }
+}
+
+// 37. GET /leaves/:leaveId (Get leave)
+async function getLeave(leaveId: string) {
+  try {
+    const res = await deduplicatedGet(`/leaves/${leaveId}`);
+    return backendLeaveToFrontend(res);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Leave details could not be loaded.');
+  }
+}
+
+// 38. POST /leaves/:leaveId/accept (Accept leave)
+async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[]) {
+  try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Accepted. Take care.';
+
+    const response = await http.post(`/leaves/${leaveId}/accept`, {
+      response: finalResponse,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/leaves');
+    clearApiCache('/dashboard');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to accept leave.');
+  }
+}
+
+// 39b. POST /leaves/:leaveId/cancel (Cancel own leave)
+async function cancelLeave(leaveId: string, reason: string) {
+  try {
+    const response = await http.post(`/leaves/${leaveId}/cancel`, { reason }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/leaves');
+    clearApiCache('/dashboard');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to cancel leave.');
+  }
+}
+
+// 39. POST /leaves/:leaveId/reject (Reject leave)
+async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[]) {
+  try {
+    const finalResponse =
+      rest.length > 0 && typeof rest[rest.length - 1] === 'string'
+        ? rest[rest.length - 1]
+        : typeof responseText === 'string' && responseText.trim().length > 0
+        ? responseText.trim()
+        : 'Rejected.';
+
+    const response = await http.post(`/leaves/${leaveId}/reject`, {
+      response: finalResponse,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/leaves');
+    clearApiCache('/dashboard');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to reject leave.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 7: HEALTH (1 ENDPOINT)
+   ========================================================================== */
+
+// 40. GET /health
+async function getHealth() {
+  try {
+    return await deduplicatedGet('/health');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Health check failed.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 8: SYSTEM (1 ENDPOINT)
+   ========================================================================== */
+
+// 41. GET / (API Root)
+async function getApiRoot() {
+  try {
+    return await deduplicatedGet('/');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'API root unavailable.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 9: DEPARTMENTS (4 ENDPOINTS)
+   ========================================================================== */
+
+// 42. POST /departments (Create department)
+async function createDepartment(payload: { name: string; [key: string]: any }) {
+  try {
+    const res = await http.post('/departments', { name: payload.name?.trim() }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create department.');
+  }
+}
+
+// 43. GET /departments (List departments)
+async function listDepartments() {
+  try {
+    const res = await deduplicatedGet('/departments');
+    const raw = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.departments)
+      ? res.departments
+      : Array.isArray(res?.items)
+      ? res.items
+      : [];
+    return raw.map((d: any) => ({
+      ...d,
+      id: d.id || d._id,
+      name: d.name || 'Unnamed Department',
+      code: d.code || (d.name ? d.name.slice(0, 3).toUpperCase() : 'DEP'),
+      employeeCount: typeof d.employeeCount === 'number' ? d.employeeCount : (d._count?.employees || d.employees?.length || 0),
+      headName: d.headName || d.head?.name || '',
+      description: d.description || '',
+      createdAt: d.createdAt || new Date().toISOString(),
+    }));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list departments.');
+  }
+}
+
+// 44. PATCH /departments/:departmentId (Edit department)
+async function editDepartment(departmentId: string, payload: { name: string; [key: string]: any }) {
+  try {
+    const res = await http.patch(`/departments/${departmentId}`, { name: payload.name?.trim() }, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update department.');
+  }
+}
+
+// 45. DELETE /departments/:departmentId (Delete department)
+async function deleteDepartment(departmentId: string) {
+  try {
+    const res = await http.delete(`/departments/${departmentId}`);
+    clearApiCache('/departments');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete department.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 10: TEAMS (8 ENDPOINTS)
+   ========================================================================== */
+
+// 46. POST /teams (Create team)
+async function createTeam(payload: { name: string; departmentId: string }) {
+  try {
+    const res = await http.post('/teams', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create team.');
+  }
+}
+
+async function listChatGroups() {
+  try {
+    const res = await http.get('/chat/groups');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load groups.');
+  }
+}
+
+async function createChatGroup(payload: { name: string; memberIds: string[] }) {
+  try {
+    const res = await http.post('/chat/groups', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create group.');
+  }
+}
+
+async function addChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/members`, { userId }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to add member.');
+  }
+}
+
+async function listChatGroupMembers(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/members`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group members.');
+  }
+}
+
+async function removeChatGroupMember(groupId: string, userId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}/members/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to remove member.');
+  }
+}
+
+async function leaveChatGroup(groupId: string) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/leave`, {}, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to leave group.');
+  }
+}
+
+async function deleteChatGroup(groupId: string) {
+  try {
+    const res = await http.delete(`/chat/groups/${groupId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete group.');
+  }
+}
+
+async function listGroupChat(groupId: string) {
+  try {
+    const res = await http.get(`/chat/groups/${groupId}/messages`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load group chat.');
+  }
+}
+
+async function sendGroupChat(groupId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/groups/${groupId}/messages`, payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send group message.');
+  }
+}
+
+async function getResignations() {
+  try {
+    const res = await http.get('/resignations');
+    const rows = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+    return rows.filter((row: any) => row && row.id);
+  } catch (error) {
+    const data = axios.isAxiosError(error) ? error.response?.data : undefined;
+    const message = data && typeof data === 'object' ? data.message : undefined;
+    const text = Array.isArray(message) ? message.join(' ') : message || (axios.isAxiosError(error) ? error.message : '');
+    throw new Error(text || 'Failed to load resignations.');
+  }
+}
+
+async function submitResignation(payload: { employeeId?: string; reason: string }) {
+  try {
+    const res = await http.post('/resignations', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not file resignation.');
+  }
+}
+
+async function assignResignationNotice(id: string, noticePeriodDays: number) {
+  try {
+    const res = await http.patch(`/resignations/${id}/notice`, { noticePeriodDays }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not assign notice period.');
+  }
+}
+
+async function approveResignation(id: string, actorName?: string) {
+  try {
+    const res = await http.post(`/resignations/${id}/approve`, { actorName }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data || { success: true };
+  } catch (error) {
+    const data = axios.isAxiosError(error) ? error.response?.data : undefined;
+    const message = data && typeof data === 'object' ? data.message : undefined;
+    const text = Array.isArray(message) ? message.join(' ') : message || (axios.isAxiosError(error) ? error.message : '');
+    if (text.toLowerCase().includes('already approved') || text.toLowerCase().includes('already')) {
+      return { alreadyApproved: true, success: true, message: text };
+    }
+    throw new Error(text || 'Could not approve resignation.');
+  }
+}
+
+async function updateResignationClearance(id: string, payload: { clearance: Record<string, boolean>; actorName?: string }) {
+  try {
+    const res = await http.patch(`/resignations/${id}/clearance`, payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.resignation || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not update clearance.');
+  }
+}
+
+async function createAnnouncement(payload: {
+    title: string;
+  content: string;
+  priority?: string;
+  targetAudience?: string;
+  targetEmployeeId?: string;
+    departmentName?: string;
+  }) {
+  try {
+    const res = await http.post('/notices', {
+      title: payload.title,
+      content: payload.content,
+      priority: payload.priority,
+      targetAudience: payload.targetAudience,
+      targetEmployeeId: payload.targetEmployeeId,
+      departmentName: payload.departmentName,
+    }, { headers: { 'Content-Type': 'application/json' } });
+    return res.data?.notice || res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not publish notice.');
+  }
+}
+
+async function getAnnouncements(_employeeId?: string) {
+  try {
+    const res = await http.get('/notices/board');
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function deleteAnnouncement(id: string) {
+  try {
+    const res = await http.delete(`/notices/board/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Could not delete notice.');
+  }
+}
+
+async function listNotices() {
+  try {
+    const res = await http.get('/notices');
+    const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+    return rows.map((row: any) => ({
+      id: String(row.id || ''),
+      kind: row.kind === 'leave' || row.kind === 'task' ? row.kind : 'message',
+      title: String(row.title || ''),
+      message: String(row.message || ''),
+      module: String(row.module || ''),
+      createdAt: String(row.createdAt || ''),
+    }));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load notices.');
+  }
+}
+
+async function dismissNotice(id: string) {
+  try {
+    const res = await http.delete(`/notices/${id}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notice.');
+  }
+}
+
+async function clearNotices() {
+  try {
+    const res = await http.delete('/notices');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to clear notices.');
+  }
+}
+
+async function listDirectChats() {
+  try {
+    const res = await http.get('/chat/direct');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listDirectChat(userId: string) {
+  try {
+    const res = await http.get(`/chat/direct/${userId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendDirectChat(userId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/direct/${userId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+async function listStaffThreads() {
+  try {
+    const res = await http.get('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load chats.');
+  }
+}
+
+async function listStaffChat(employeeId: string) {
+  try {
+    const res = await http.get(`/chat/staff/${employeeId}`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load messages.');
+  }
+}
+
+async function sendStaffChat(employeeId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/chat/staff/${employeeId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/chat/staff');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send message.');
+  }
+}
+
+// 47b. GET /teams/mine (Teams this user can chat in)
+async function listMyTeams() {
+  try {
+    return await deduplicatedGet('/teams/mine');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load your teams.');
+  }
+}
+
+// 47. GET /teams (List teams)
+async function listTeams() {
+  try {
+    return await deduplicatedGet('/teams');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list teams.');
+  }
+}
+
+// 48. POST /teams/:teamId/leader (Set team leader)
+async function setTeamLeader(teamId: string, payload: { userId: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/leader`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to set team leader.');
+  }
+}
+
+// 49. POST /teams/:teamId/members (Add team member)
+async function addTeamMember(teamId: string, payload: { userId: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/members`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to add team member.');
+  }
+}
+
+// 50. DELETE /teams/:teamId/members/:employeeId (Remove team member)
+async function removeTeamMember(teamId: string, employeeId: string) {
+  try {
+    const res = await http.delete(`/teams/${teamId}/members/${employeeId}`);
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to remove team member.');
+  }
+}
+
+// 51. GET /teams/:teamId (Get team)
+async function getTeam(teamId: string) {
+  try {
+    return await deduplicatedGet(`/teams/${teamId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get team.');
+  }
+}
+
+// 52. PATCH /teams/:teamId (Edit team)
+async function editTeam(teamId: string, payload: { name?: string; departmentId?: string }) {
+  try {
+    const res = await http.patch(`/teams/${teamId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update team.');
+  }
+}
+
+// 53b. GET /teams/:teamId/chat (List team chat)
+async function listTeamChat(teamId: string, params?: { page?: number; limit?: number }) {
+  try {
+    return await deduplicatedGet(`/teams/${teamId}/chat`, { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load team chat.');
+  }
+}
+
+// 53c. POST /teams/:teamId/chat (Send team chat)
+async function sendTeamChat(teamId: string, payload: { text: string }) {
+  try {
+    const res = await http.post(`/teams/${teamId}/chat`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache(`/teams/${teamId}/chat`);
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send team chat.');
+  }
+}
+
+// 53. DELETE /teams/:teamId (Delete team)
+async function deleteTeam(teamId: string) {
+  try {
+    const res = await http.delete(`/teams/${teamId}`);
+    clearApiCache('/teams');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete team.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 11: TASKS (5 ENDPOINTS)
+   ========================================================================== */
+
+function toApiTaskStatus(status?: string) {
+  const text = String(status || '').trim().toLowerCase().replace(/_/g, ' ');
+  if (!text) return undefined;
+  if (text === 'todo' || text === 'to do' || text === 'pending') return 'Pending';
+  if (text === 'in progress' || text === 'in review') return 'In Progress';
+  if (text === 'completed' || text === 'done') return 'Done';
+  return status;
+}
+
+function toApiTaskPriority(priority?: string) {
+  const text = String(priority || '').trim().toLowerCase();
+  if (!text) return undefined;
+  if (text === 'low') return 'Low';
+  if (text === 'medium') return 'Medium';
+  if (text === 'high' || text === 'urgent') return 'High';
+  return priority;
+}
+
+function fromApiTask(task: any) {
+  if (!task || typeof task !== 'object') return task;
+  const status = String(task.status || '');
+  const priority = String(task.priority || '');
+      return {
+    ...task,
+    status: status === 'Pending' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : status === 'Done' ? 'COMPLETED' : status,
+    priority: priority === 'Low' ? 'LOW' : priority === 'Medium' ? 'MEDIUM' : priority === 'High' ? 'HIGH' : priority,
+  };
+}
+
+function taskPayload(payload: Record<string, unknown>) {
+    return {
+    ...payload,
+    status: payload.status == null ? undefined : toApiTaskStatus(String(payload.status)),
+    priority: payload.priority == null ? undefined : toApiTaskPriority(String(payload.priority)),
+  };
+}
+
+// 54. POST /tasks (Create task)
+async function createTask(payload: {
+  teamId?: string;
+  assigneeId?: string;
+    title: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  startDate?: string;
+  dueDate?: string;
+}) {
+  try {
+    const res = await http.post('/tasks', taskPayload(payload), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create task.');
+  }
+}
+
+// 55. GET /tasks (List tasks)
+async function listTasks(params?: any) {
+  try {
+    const res = await deduplicatedGet('/tasks', { params });
+    if (Array.isArray(res)) return res.map(fromApiTask);
+    if (Array.isArray(res?.data)) return { ...res, data: res.data.map(fromApiTask) };
+        return res;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list tasks.');
+  }
+}
+
+// 56. GET /tasks/:taskId (Get task)
+async function getTask(taskId: string) {
+  try {
+    return fromApiTask(await deduplicatedGet(`/tasks/${taskId}`));
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get task.');
+  }
+}
+
+// 57. PATCH /tasks/:taskId (Edit task)
+async function editTask(taskId: string, payload: any) {
+  try {
+    const res = await http.patch(`/tasks/${taskId}`, taskPayload(payload), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update task.');
+  }
+}
+
+// 58. DELETE /tasks/:taskId (Delete task)
+async function deleteTask(taskId: string) {
+  try {
+    const res = await http.delete(`/tasks/${taskId}`);
+    clearApiCache('/tasks');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete task.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 12: OPENINGS (7 ENDPOINTS)
+   ========================================================================== */
+
+// 59. POST /openings (Create job opening)
+async function createOpening(payload: {
+  title: string;
+  description?: string;
+  requirements?: string;
+  location?: string;
+  employmentType?: string;
+  vacancy?: number;
+}) {
+  try {
+    const res = await http.post('/openings', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create job opening.');
+  }
+}
+
+// 60. GET /openings (List job openings)
+async function listOpenings() {
+  try {
+    return await deduplicatedGet('/openings');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list job openings.');
+  }
+}
+
+// 61. GET /openings/:openingId/public (Public job opening)
+async function getPublicOpening(openingId: string) {
+  try {
+    return await deduplicatedGet(`/openings/${openingId}/public`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get public job opening.');
+  }
+}
+
+// 62. POST /openings/:openingId/apply (Apply for job)
+async function applyForOpening(openingId: string, data: FormData | any) {
+  try {
+    const res = await http.post(`/openings/${openingId}/apply`, data);
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to submit application.');
+  }
+}
+
+// 63. GET /openings/:openingId (Get job opening)
+async function getOpening(openingId: string) {
+  try {
+    return await deduplicatedGet(`/openings/${openingId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get job opening.');
+  }
+}
+
+// 64. PATCH /openings/:openingId (Edit job opening)
+async function editOpening(openingId: string, payload: any) {
+  try {
+    const res = await http.patch(`/openings/${openingId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update job opening.');
+  }
+}
+
+// 65. DELETE /openings/:openingId (Delete job opening)
+async function deleteOpening(openingId: string) {
+  try {
+    const res = await http.delete(`/openings/${openingId}`);
+    clearApiCache('/openings');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete job opening.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 13: APPLICATIONS (8 ENDPOINTS)
+   ========================================================================== */
+
+// 66. GET /applications/verify (Verify offer email)
+async function verifyOfferEmail(token?: string) {
+  try {
+    return await deduplicatedGet('/applications/verify', { params: token ? { token } : undefined });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to verify offer.');
+  }
+}
+
+// 67. GET /applications (List applications)
+async function listApplications(params?: any) {
+  try {
+    return await deduplicatedGet('/applications', { params });
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list applications.');
+  }
+}
+
+// 68. GET /applications/selected (List selected candidates)
+async function listSelectedCandidates() {
+  try {
+    return await deduplicatedGet('/applications/selected');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list selected candidates.');
+  }
+}
+
+// 69. PATCH /applications/:applicationId/status (Update application status)
+async function updateApplicationStatus(applicationId: string, payload: { status: string; interviewerId?: string }) {
+  try {
+    const res = await http.patch(`/applications/${applicationId}/status`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update application status.');
+  }
+}
+
+// 70. GET /applications/:applicationId/offer (Offer letter form)
+async function getApplicationOfferForm(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}/offer`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load offer form.');
+  }
+}
+
+// 71. GET /applications/:applicationId/employee (Add employee form)
+async function getApplicationEmployeeForm(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}/employee`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load employee onboarding form.');
+  }
+}
+
+// 72. POST /applications/:applicationId/offer (Send offer letter)
+async function sendOfferLetter(applicationId: string, payload: {
+  designation: string;
+  joiningDate: string;
+  location?: string;
+  employmentType?: string;
+  reportingTo?: string;
+  basicSalary?: number;
+  hra?: number;
+  allowances?: number;
+  bonus?: number;
+  deductions?: number;
+}) {
+  try {
+    const res = await http.post(`/applications/${applicationId}/offer`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/applications');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to send offer letter.');
+  }
+}
+
+// 73. GET /applications/:applicationId (Get application)
+async function getApplication(applicationId: string) {
+  try {
+    return await deduplicatedGet(`/applications/${applicationId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get application.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 14: PAYROLL (7 ENDPOINTS)
+   ========================================================================== */
+
+// 74. PUT /payroll/salaries/:employeeId (Save salary)
+async function saveSalary(employeeId: string, payload: {
+  basicSalary: number;
+  hra?: number;
+  allowances?: number;
+  bonus?: number;
+  deductions?: number;
+  overtimePerHour?: number;
+  effectiveFrom?: string;
+}) {
+  try {
+    const res = await http.put(`/payroll/salaries/${employeeId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to save salary.');
+  }
+}
+
+// 75. GET /payroll/salaries (List salaries)
+async function listSalaries() {
+  try {
+    return await deduplicatedGet('/payroll/salaries');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list salaries.');
+  }
+}
+
+// 76. GET /payroll/salaries/:employeeId (Salary history)
+async function getSalaryHistory(employeeId: string) {
+  try {
+    return await deduplicatedGet(`/payroll/salaries/${employeeId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get salary history.');
+  }
+}
+
+// 77. POST /payroll/runs (Generate payroll)
+async function generatePayroll(payload: { year: number; month: number } | string) {
+  try {
+    const body = typeof payload === 'string'
+      ? { year: parseInt(payload.split('-')[0]), month: parseInt(payload.split('-')[1]) }
+      : payload;
+    const res = await http.post('/payroll/runs', body, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to generate payroll.');
+  }
+}
+
+// 78. GET /payroll/payslips (List payslips)
+async function listPayslips(mine = false) {
+  try {
+    return await deduplicatedGet('/payroll/payslips', mine ? { params: { mine: 1 } } : undefined);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list payslips.');
+  }
+}
+
+// 79. POST /payroll/payslips/:payslipId/paid (Mark payslip paid)
+async function markPayslipPaid(payslipId: string) {
+  try {
+    const res = await http.post(`/payroll/payslips/${payslipId}/paid`);
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to mark payslip as paid.');
+  }
+}
+
+async function saveBankDetails(payload: { bankName: string; accountHolderName: string; accountNumber: string; ifsc: string }) {
+  try {
+    const response = await http.post('/payroll/bank', payload, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll/bank');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank details could not be saved.');
+  }
+}
+
+async function getBankDetails() {
+  try {
+    return await deduplicatedGet('/payroll/bank');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank details could not be loaded.');
+  }
+}
+
+async function saveBankFormDate(date: string) {
+  try {
+    const response = await http.put('/payroll/bank-date', { date }, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll/bank');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank form date could not be saved.');
+  }
+}
+
+async function downloadPayslipFile(id: string) {
+  try {
+    const response = await http.get(`/payroll/payslips/${id}/pdf`, { responseType: 'blob' });
+    const blob = response.data as Blob;
+    if (blob.type.includes('json')) {
+      const text = await blob.text();
+      let message = 'Salary slip PDF could not be downloaded.';
+      try {
+        const body = JSON.parse(text);
+        message = Array.isArray(body.message) ? body.message.join(' ') : body.message || message;
+      } catch {
+        message = text || message;
+      }
+      throw new Error(message);
+    }
+    const header = String(response.headers['content-disposition'] || '');
+    const match = /filename="([^"]+)"/.exec(header);
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = match?.[1] || `salary-slip-${id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    if (error instanceof Error && error.message && !axios.isAxiosError(error)) throw error;
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Salary slip PDF could not be downloaded.');
+  }
+}
+async function getPayslip(payslipId: string) {
+  try {
+    return await deduplicatedGet(`/payroll/payslips/${payslipId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get payslip.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 15: PLANS (5 ENDPOINTS)
+   ========================================================================== */
+
+// 81. POST /plans (Create plan)
+async function createPlan(payload: {
+  name: string;
+  price: number;
+  durationMonths: number;
+  description?: string;
+  features?: string[];
+}) {
+  try {
+    const res = await http.post('/plans', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create plan.');
+  }
+}
+
+// 82. GET /plans (List plans)
+async function listPlans() {
+  try {
+    return await deduplicatedGet('/plans');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list plans.');
+  }
+}
+
+// 83. POST /plans/:planId/sell (Sell plan)
+async function sellPlan(planId: string, payload: { companyId: string }) {
+  try {
+    const res = await http.post(`/plans/${planId}/sell`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to sell plan.');
+  }
+}
+
+// 84. PATCH /plans/:planId (Edit plan)
+async function editPlan(planId: string, payload: any) {
+  try {
+    const res = await http.patch(`/plans/${planId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update plan.');
+  }
+}
+
+// 85. DELETE /plans/:planId (Delete plan)
+async function deletePlan(planId: string) {
+  try {
+    const res = await http.delete(`/plans/${planId}`);
+    clearApiCache('/plans');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to delete plan.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 16: PREMIUM (7 ENDPOINTS)
+   ========================================================================== */
+
+// 86. GET /premium (Company premium)
+async function getCompanyPremium() {
+  try {
+    return await deduplicatedGet('/premium');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get company premium status.');
+  }
+}
+
+async function getCompanyFeatures() {
+  try {
+    return await deduplicatedGet('/premium/features');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get company plan features.');
+  }
+}
+
+// 87. GET /premium/plans (Plans for purchase)
+async function getPremiumPlans() {
+  try {
+    return await deduplicatedGet('/premium/plans');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get premium plans.');
+  }
+}
+
+// 88. POST /premium/checkout (Start plan purchase)
+async function startPlanCheckout(payload: { planId: string }) {
+  try {
+    const res = await http.post('/premium/checkout', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to start plan purchase.');
+  }
+}
+
+// 89. POST /premium/verify (Verify plan payment)
+async function verifyPlanPayment(payload: {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}) {
+  try {
+    const res = await http.post('/premium/verify', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to verify plan payment.');
+  }
+}
+
+// 90. GET /premium/orders (List premium orders)
+async function listPremiumOrders() {
+  try {
+    return await deduplicatedGet('/premium/orders');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list premium orders.');
+  }
+}
+
+// 91. POST /premium/orders (Place premium order)
+async function placePremiumOrder(payload: { planId: string }) {
+  try {
+    const res = await http.post('/premium/orders', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to place premium order.');
+  }
+}
+
+// 92. PATCH /premium/orders/:premiumOrderId (Update premium order)
+async function updatePremiumOrder(premiumOrderId: string, payload: { status: string }) {
+  try {
+    const res = await http.patch(`/premium/orders/${premiumOrderId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/premium');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update premium order.');
+  }
+}
+
+/* ==========================================================================
+   MODULE 17: SUPPORT (4 ENDPOINTS)
+   ========================================================================== */
+
+// 93. POST /support (Send demo or contact request)
+async function sendSupportRequest(payload: {
+  kind?: string;
+    name: string;
+  email: string;
+  phone?: string;
+  companyName?: string;
+  message: string;
+}) {
+  try {
+    const res = await http.post('/support', payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/support');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to submit support request.');
+  }
+}
+
+// 94. GET /support (List support requests)
+async function listSupportRequests(params?: { kind?: string; status?: string; search?: string; page?: number; limit?: number }) {
+  try {
+    return await deduplicatedGet('/support', { params }, 0);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list support requests.');
+  }
+}
+
+// 95. GET /support/:supportId (Get support request)
+async function getSupportRequest(supportId: string) {
+  try {
+    return await deduplicatedGet(`/support/${supportId}`);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get support request.');
+  }
+}
+
+// 96. PATCH /support/:supportId (Update support request)
+async function updateSupportRequest(supportId: string, payload: { status: string }) {
+  try {
+    const res = await http.patch(`/support/${supportId}`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/support');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update support request.');
+  }
+}
+
+/* ==========================================================================
+   INTEGRATION ALIASES & HELPERS
+   ========================================================================== */
+
+function userToEmployee(u: any): any {
+  if (!u) return u;
+  return {
+    ...u,
+    employeeCode: u.employeeCode || `EMP-${(u.id || '').slice(0, 6).toUpperCase()}`,
+    companyId: u.companyId || '',
+    companyName: u.companyName || '',
+    role: u.role || 'EMPLOYEE',
+    firstName: u.firstName || '',
+    lastName: u.lastName || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    avatarUrl: u.avatarUrl || '',
+    gender: u.gender || 'Other',
+    status: u.status === 'Inactive' ? 'Inactive' : 'Active',
+    departmentId: u.departmentId || '',
+    departmentName: u.departmentName || 'General',
+    designationId: u.designationId || '',
+    designationTitle: u.designationTitle || u.role || 'Staff',
+  };
+}
+
+function canListUsers() {
+  const role = String(getCookie('hrms_current_role') || '').toUpperCase();
+  return ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
+}
+
+async function getDashboard() {
+  try {
+    const data = await deduplicatedGet('/dashboard');
+    const staff = Array.isArray(data?.staff) ? data.staff.map(userToEmployee) : [];
+    const leaves = (Array.isArray(data?.leaves) ? data.leaves : []).map(backendLeaveToFrontend);
+    const attendance = (Array.isArray(data?.attendance) ? data.attendance : []).map((row: any) => {
+      const record = backendAttendanceToFrontend(row);
+      return {
+        ...record,
+        isOnBreak: row.state === 'break',
+        isCompleted: row.state === 'done',
+      };
+    });
+    return {
+      role: data?.role,
+      stats: data?.stats || {},
+      employees: staff,
+      leaves,
+      attendance,
+      notices: Array.isArray(data?.notices) ? data.notices : [],
+      companies: Array.isArray(data?.companies) ? data.companies : [],
+      plans: Array.isArray(data?.plans) ? data.plans : [],
+      orders: Array.isArray(data?.orders) ? data.orders : [],
+      support: Array.isArray(data?.support) ? data.support : [],
+      charts: data?.charts || null,
+    };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Dashboard could not be loaded.');
+  }
+}
+
+async function getEmployees() {
+  if (!canListUsers()) return [];
+  try {
+    if (isEmployeeSession()) {
+      return [];
+    }
+    const res = await listUsers({ limit: 100 });
+    const users = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
+    return users.map(userToEmployee);
+  } catch {
+    return [];
+  }
+}
+
+async function createEmployee(data: any) {
+  return createUser({
+    firstName: data.firstName || '',
+    lastName: data.lastName || '',
+    email: data.email || '',
+    phone: data.phone || undefined,
+    gender: data.gender || undefined,
+    address: data.address || undefined,
+    role: data.role || 'EMPLOYEE',
+    status: data.status || 'Active',
+    photo: data.photo || undefined,
+    faceDescriptor: data.faceDescriptor || undefined,
+    companyId: data.companyId || undefined,
+    password: data.password || undefined,
+    salary: data.salary || undefined,
+  });
+}
+
+async function deleteEmployee(id: string) {
+  try {
+    const response = await http.delete(`/users/${id}`);
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be deleted.');
+  }
+}
+
+const deleteUser = deleteEmployee;
+
+async function updateEmployee(id: string, data: Record<string, unknown>) {
+  const payload: Record<string, unknown> = {};
+  for (const key of ['firstName', 'lastName', 'email', 'phone', 'gender', 'address', 'role', 'status']) {
+    if (data[key] !== undefined) payload[key] = data[key];
+  }
+  if (!Object.keys(payload).length) {
+    return { message: 'Nothing to update.' };
+  }
+  try {
+    const response = await http.patch(`/users/${id}`, payload, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'User could not be updated.');
+  }
+}
+
+async function deactivateEmployee(id: string) {
+  try {
+    const response = await http.patch(`/users/${id}`, { status: 'Inactive' });
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be deactivated.');
+  }
+}
+
+async function activateEmployee(id: string) {
+  try {
+    const response = await http.patch(`/users/${id}`, { status: 'Active' });
+    clearApiCache('/users');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee could not be activated.');
+  }
+}
+
+async function getNextEmployeeCode() {
+  return `EMP-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+async function uploadProfilePhoto(file: File, faceDescriptor?: number[] | null) {
+  try {
+    const descriptor = faceDescriptor === null
+      ? null
+      : (faceDescriptor || await (await import('./faceMatch')).assertFaceInPhoto(file));
+    const form = new FormData();
+    form.append('photo', file);
+    if (descriptor?.length) form.append('faceDescriptor', JSON.stringify(descriptor));
+    const response = await http.post('/users/profile/photo', form);
+    clearApiCache('/users');
+    return response.data as { message?: string; avatarUrl?: string; photoChangeAllowed?: boolean };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile photo could not be uploaded.');
+  }
+}
+
+async function uploadEmployeePhoto(userId: string, file: File) {
+  try {
+    const form = new FormData();
+    form.append('photo', file);
+    const response = await http.post(`/users/${userId}/photo`, form);
+    clearApiCache('/users');
+    return response.data as { message?: string; avatarUrl?: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee photo could not be updated.');
+  }
+}
+
+async function getPhotoAccess() {
+  try {
+    const response = await http.get('/users/profile/photo-access');
+    return response.data as { canUpload: boolean; locked: boolean; requestStatus: string | null };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo access could not be loaded.');
+  }
+}
+
+async function requestPhotoChange() {
+  try {
+    const response = await http.post('/users/profile/photo-request', {}, { headers: { 'Content-Type': 'application/json' } });
+    return response.data as { message: string; status: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo change request could not be sent.');
+  }
+}
+
+async function listPhotoRequests() {
+  try {
+    const response = await http.get('/users/photo-requests');
+    return (Array.isArray(response.data) ? response.data : []) as Array<{ id: string; userId: string; userName: string; role: string; email: string }>;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo requests could not be loaded.');
+  }
+}
+
+async function reviewPhotoRequest(id: string, approve: boolean) {
+  try {
+    const response = await http.post(`/users/photo-requests/${id}/${approve ? 'approve' : 'reject'}`, {}, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/users');
+    return response.data as { message: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Photo request could not be updated.');
+  }
+}
+
+async function getDocuments(userId?: string) {
+  try {
+    const res = await listDocuments(userId ? { userId } : undefined);
+    const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res?.documents) ? res.documents : Array.isArray(res) ? res : [];
+    return raw.map(backendDocToEmployeeDocument).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function uploadDocumentFile(data: FormData | { title: string; file: File; userId?: string; companyId?: string }) {
+  return createDocument(data);
+}
+
+async function verifyDocument(id: string, status: string) {
+  return updateDocument(id, { status });
+}
+
+// Attendance aliases mapping directly to collection endpoints
+const clockIn = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) => clock({ flag: 'clock-in', ...data });
+const checkIn = clockIn;
+const clockOut = (data?: { workMode?: string; note?: string; latitude?: number; longitude?: number; accuracy?: number; faceDescriptor?: number[]; photo?: string }) => clock({ flag: 'clock-out', ...data });
+const checkOut = clockOut;
+const startWork = clockIn;
+const stopWork = clockOut;
+const startBreak = (data?: { note?: string }) => clock({ flag: 'break-in', note: data?.note });
+const endBreak = (data?: { note?: string }) => clock({ flag: 'break-out', note: data?.note });
+const resumeBreak = endBreak;
+const toggleBreak = startBreak;
+const getWorkStatus = getAttendanceLogic;
+
+async function getWorkHistory(page = 1, limit = 100) {
+  try {
+    return await deduplicatedGet('/attendance', { params: { page, limit } });
+  } catch {
+    return { sessions: [] };
+  }
+}
+
+async function getAttendance(params?: any) {
+  try {
+    const res = await listAttendance(params);
+    const rawList = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : Array.isArray(res?.attendance) ? res.attendance : [];
+    return rawList.map(backendAttendanceToFrontend);
+  } catch {
+    return [];
+  }
+}
+
+// Leave aliases
+const getLeaves = listLeaves;
+const getLeaveTypes = listLeaveTypes;
+const approveLeave = (leaveId: string, ...args: any[]) =>
+  acceptLeave(leaveId, ...args);
+
+// Attendance settings & holidays aliases
+const getSettings = getAttendanceSettings;
+const updateSettings = saveAttendanceSettings;
+const getHolidays = listHolidays;
+const createHoliday = addHoliday;
+
+// Regularization mapping to correctAttendance or updateAttendance
+async function regularizeAttendance(payload: {
+  id?: string;
+  attendanceId?: string;
+  employeeId?: string;
+  date?: string;
+  status?: string;
+  remarks?: string;
+  workMode?: string;
+  checkIn?: string;
+  checkOut?: string;
+}) {
+  const attId = payload.attendanceId || payload.id;
+  if (attId) {
+    return correctAttendance(attId, {
+      reason: payload.remarks || 'Attendance Regularization',
+      status: payload.status || 'Present',
+      workMode: payload.workMode || 'Office',
+      punches: [
+        ...(payload.checkIn ? [{ type: 'IN', punchedAt: `${payload.date || new Date().toISOString().split('T')[0]}T${payload.checkIn}:00` }] : []),
+        ...(payload.checkOut ? [{ type: 'OUT', punchedAt: `${payload.date || new Date().toISOString().split('T')[0]}T${payload.checkOut}:00` }] : []),
+      ],
+    });
+  }
+  return { success: true };
+}
+
+async function getMe() {
+  return getProfile();
+}
+
+async function getMyCompany() {
+  try {
+    const profile = await getProfile();
+    if (!profile?.company) return null;
+    const company = { ...profile.company };
+    const role = String(profile?.user?.role || '').trim().toUpperCase();
+    if (
+      ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role) &&
+      profile?.user?.avatarUrl &&
+      !company.adminAvatarUrl &&
+      !company.logoUrl
+    ) {
+      company.adminAvatarUrl = profile.user.avatarUrl;
+    } else if (!company.adminAvatarUrl && !company.logoUrl) {
+      try {
+        const staffRes = await listStaffThreads();
+        const staffList = Array.isArray(staffRes)
+          ? staffRes
+          : Array.isArray(staffRes?.staff)
+          ? staffRes.staff
+          : Array.isArray(staffRes?.data)
+          ? staffRes.data
+          : [];
+        const adminEntry = staffList.find((s: any) => {
+          const r = String(s?.role || s?.user?.role || '').trim().toUpperCase();
+          return ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(r) &&
+            Boolean(s?.avatarUrl || s?.user?.avatarUrl || s?.employee?.avatarUrl);
+        });
+        const foundAvatar = adminEntry?.avatarUrl || adminEntry?.user?.avatarUrl || adminEntry?.employee?.avatarUrl;
+        if (foundAvatar) {
+          company.adminAvatarUrl = foundAvatar;
+        }
+      } catch {
+        // ignore if /chat/staff is unavailable
+      }
+    }
+    return company;
+  } catch {
+    return null;
+  }
+}
+
+/* ==========================================================================
+   CENTRAL EXPORTED PROXY
+   ========================================================================== */
+
+export const api = new Proxy({
+  // Users (10)
+  forgotPassword,
+  createUser,
+  login,
+  getResetPasswordForm,
+  resetPassword,
+  logout,
+  refreshToken,
+  listUsers,
+  getProfile,
+  getUser,
+  getMe,
+  getMyCompany,
+  getEmployees,
+  getDashboard,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  deleteUser,
+  deactivateEmployee,
+  activateEmployee,
+  getNextEmployeeCode,
+  uploadProfilePhoto,
+  uploadEmployeePhoto,
+  getPhotoAccess,
+  requestPhotoChange,
+  listPhotoRequests,
+  reviewPhotoRequest,
+
+  // Companies (1)
+  registerCompany,
+  listCompanies,
+  updateCompanyStatus,
+  getGeofence,
+  saveGeofence,
+
+  // Documents (5)
+  createDocument,
+  listDocuments,
+  getDocument,
+  updateDocument,
+  deleteDocument,
+  getDocuments,
+  uploadDocumentFile,
+  verifyDocument,
+
+  // Attendance (14)
+  verifyFace,
+  faceKioskClock,
+  clock,
+  clockIn,
+  checkIn,
+  clockOut,
+  checkOut,
+  startWork,
+  stopWork,
+  toggleBreak,
+  startBreak,
+  endBreak,
+  resumeBreak,
+  getAttendanceLogic,
+  getWorkStatus,
+  getAttendanceCalendar,
+  getAttendanceSummary,
+  getAttendanceSettings,
+  saveAttendanceSettings,
+  getSettings,
+  updateSettings,
+  getWeekendRules,
+  saveWeekendRules,
+  listHolidays,
+  getHolidays,
+  addHoliday,
+  createHoliday,
+  deleteHoliday,
+  listAttendance,
+  getAttendance,
+  getAttendanceRecord,
+  updateAttendance,
+  correctAttendance,
+  regularizeAttendance,
+  getWorkHistory,
+  getKioskVoice,
+  saveKioskVoice,
+
+  // Leave Types (4)
+  createLeaveType,
+  listLeaveTypes,
+  getLeaveTypes,
+  updateLeaveType,
+  deleteLeaveType,
+
+  // Leaves (5)
+  applyLeave,
+  listLeaves,
+  getLeaves,
+  getLeave,
+  acceptLeave,
+  approveLeave,
+  rejectLeave,
+  cancelLeave,
+
+  // Health (1)
+  getHealth,
+
+  // System (1)
+  getApiRoot,
+
+  // Departments (4)
+  createDepartment,
+  listDepartments,
+  getDepartments: listDepartments,
+  editDepartment,
+  updateDepartment: editDepartment,
+  deleteDepartment,
+
+  // Teams (8)
+  createTeam,
+  listTeams,
+  getTeams: listTeams,
+  listMyTeams,
+  listChatGroups,
+  createChatGroup,
+  addChatGroupMember,
+  listChatGroupMembers,
+  removeChatGroupMember,
+  leaveChatGroup,
+  deleteChatGroup,
+  listGroupChat,
+  sendGroupChat,
+  listDirectChats,
+  getResignations,
+  submitResignation,
+  assignResignationNotice,
+  approveResignation,
+  updateResignationClearance,
+  createAnnouncement,
+  getAnnouncements,
+  deleteAnnouncement,
+  listNotices,
+  dismissNotice,
+  clearNotices,
+  listDirectChat,
+  sendDirectChat,
+  listStaffThreads,
+  listStaffChat,
+  sendStaffChat,
+  setTeamLeader,
+  addTeamMember,
+  removeTeamMember,
+  getTeam,
+  listTeamChat,
+  getTeamChat: listTeamChat,
+  sendTeamChat,
+  editTeam,
+  updateTeam: editTeam,
+  deleteTeam,
+
+  // Tasks (5)
+  createTask,
+  listTasks,
+  getTasks: listTasks,
+  getTask,
+  editTask,
+  updateTask: editTask,
+  deleteTask,
+
+  // Openings (7)
+  createOpening,
+  createJob: createOpening,
+  listOpenings,
+  getOpenings: listOpenings,
+  getJobs: listOpenings,
+  getPublicOpening,
+  applyForOpening,
+  getOpening,
+  editOpening,
+  updateOpening: editOpening,
+  deleteOpening,
+
+  // Applications (8)
+  verifyOfferEmail,
+  listApplications,
+  getApplications: listApplications,
+  getCandidates: listApplications,
+  listSelectedCandidates,
+  updateApplicationStatus,
+  updateCandidateStatus: (id: string, status: any) => updateApplicationStatus(id, typeof status === 'string' ? { status } : status),
+  getApplicationOfferForm,
+  getApplicationEmployeeForm,
+  sendOfferLetter,
+  getApplication,
+
+  // Payroll (7)
+  saveSalary,
+  listSalaries,
+  getSalaries: listSalaries,
+  getSalaryHistory,
+  generatePayroll,
+  listPayslips,
+  getPayslips: listPayslips,
+  getPayroll: listPayslips,
+  markPayslipPaid,
+  updatePayrollStatus: (id: string, _payload?: any) => markPayslipPaid(id),
+  getPayslip,
+  downloadPayslipFile,
+  getBankDetails,
+  saveBankDetails,
+  saveBankFormDate,
+
+  // Plans (5)
+  createPlan,
+  listPlans,
+  getPlans: listPlans,
+  sellPlan,
+  editPlan,
+  updatePlan: editPlan,
+  deletePlan,
+
+  // Premium (7)
+  getCompanyPremium,
+  getCompanyFeatures,
+  getPremium: getCompanyPremium,
+  getPremiumPlans,
+  startPlanCheckout,
+  verifyPlanPayment,
+  listPremiumOrders,
+  getPremiumOrders: listPremiumOrders,
+  placePremiumOrder,
+  updatePremiumOrder,
+
+  // Support (4)
+  sendSupportRequest,
+  createSupportRequest: sendSupportRequest,
+  listSupportRequests,
+  getSupportRequests: listSupportRequests,
+  getSupportRequest,
+  updateSupportRequest,
+} as Record<string, (...args: any[]) => Promise<any>>, {
+  get(target, prop) {
+    if (typeof prop !== 'string') return undefined;
+    if (!target[prop]) target[prop] = notConnected;
+    return target[prop];
+  },
+});

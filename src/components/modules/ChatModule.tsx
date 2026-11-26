@@ -20,12 +20,20 @@ import {
   User as UserIcon,
   Pencil,
   Trash2,
+  Pin,
+  Mic,
+  Square,
+  Loader2,
+  AlertCircle,
+  Eye,
+  MoreVertical,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { Employee, ChatConversation, ChatMessage, ChatAttachment } from '../../types/hrms';
 import {
   getAllConversations,
+  getAllMessagesMap,
   getMessagesForConversation,
   sendChatMessage,
   editChatMessage,
@@ -34,9 +42,23 @@ import {
   clearAllChats,
   markConversationAsRead,
   syncConversationsWithEmployees,
+  setActiveChatConversation,
+  markOpenConversationRead,
   ADMIN_USER_ID,
   ADMIN_NAME,
 } from '../../lib/chatService';
+import { clearChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
+import { api } from '../../lib/api';
+import {
+  prepareChatAttachmentFromFile,
+  getAttachmentPreviewText,
+  detectAttachmentKind,
+  formatAudioDuration,
+  resolveAttachmentUrl,
+  dataUrlToBlob,
+} from '../../lib/chatMediaUtils';
+import { ChatAttachmentCard } from '../chat/ChatAttachmentCard';
+import { ChatAttachmentPreviewModal } from '../chat/ChatAttachmentPreviewModal';
 
 interface ChatModuleProps {
   employees?: Employee[];
@@ -53,58 +75,204 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 }) => {
   const { user, portalMode: authPortalMode } = useAuth();
   const portalMode = propPortalMode || authPortalMode || 'admin';
-  const { isConnected, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping } = useSocket();
+  const { isConnected, showToast, emitChatMessage, emitChatEdit, emitChatDelete, emitChatTyping, emitChatRead, joinTeamChat, emitTeamChatTyping } = useSocket();
 
   // Determine current user chat identity
-  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user.employeeId || user.id || '';
+  const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
   const currentUserName =
     portalMode === 'admin'
-      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || ADMIN_NAME
-      : `${user.firstName || 'Staff'} ${user.lastName || 'Member'}`.trim();
+      ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || ADMIN_NAME
+      : `${user?.firstName || 'Staff'} ${user?.lastName || 'Member'}`.trim();
   const currentUserRole = portalMode === 'admin' ? ('admin' as const) : ('employee' as const);
+  const teamMode = portalMode === 'employee';
+  const canMakeGroup = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN'].includes(String(user?.role || '').toUpperCase());
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string>('conv-general');
+  const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'broadcast'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'direct' | 'groups' | 'broadcast'>('all');
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupAdding, setGroupAdding] = useState(false);
+  const [groupMemberRows, setGroupMemberRows] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [groupPanel, setGroupPanel] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
+  const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
+  const [previewAttachment, setPreviewAttachment] = useState<ChatAttachment | null>(null);
+  const [isPreparingAttachment, setIsPreparingAttachment] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+  const [headerMenu, setHeaderMenu] = useState<'list' | 'thread' | null>(null);
+  const [messageMenuId, setMessageMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const closeMenus = () => {
+      setHeaderMenu(null);
+      setMessageMenuId(null);
+    };
+    window.addEventListener('click', closeMenus);
+    return () => window.removeEventListener('click', closeMenus);
+  }, []);
+
+  // Voice recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const recordingSecondsRef = useRef<number>(0);
+  const recordingActionRef = useRef<'attach' | 'send' | 'cancel'>('attach');
 
   // Real-time socket typing state
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const typingTimeoutRef = useRef<any>(null);
 
+  // Custom confirmation modal state (replaces native window.confirm)
+  const [customConfirmAction, setCustomConfirmAction] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   // Edit and Delete Message states
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!deletingMessageId) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDeletingMessageId(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [deletingMessageId]);
 
+
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const serverTeamIdsRef = useRef<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileInputAccept, setFileInputAccept] = useState<string>('*/*');
 
   // Load and sync conversations
   const loadConversations = () => {
     const list = syncConversationsWithEmployees(employees);
-    setConversations([...list]);
+    const map = getAllMessagesMap();
+    const withPreview = list.map((conv) => {
+      const thread = map[conv.id];
+      if (!thread?.length) {
+        return conv.lastMessage ? { ...conv, lastMessage: '' } : conv;
+      }
+      const last = thread[thread.length - 1];
+      return {
+        ...conv,
+        lastMessage: last.content || getAttachmentPreviewText(last.attachments),
+        lastMessageTimestamp: last.timestamp,
+        lastSenderId: last.senderId,
+      };
+    });
+    // Pin General (broadcast) chat at the very top, followed by all employees below
+    withPreview.sort((a, b) => {
+      if (a.type === 'broadcast' && b.type !== 'broadcast') return -1;
+      if (b.type === 'broadcast' && a.type !== 'broadcast') return 1;
+      const tA = a.lastMessageTimestamp ? new Date(a.lastMessageTimestamp).getTime() : 0;
+      const tB = b.lastMessageTimestamp ? new Date(b.lastMessageTimestamp).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return (a.title || '').localeCompare(b.title || '');
+    });
+    setConversations(withPreview);
   };
 
+  const toTeamMessage = (row: { id: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null }, teamId: string): ChatMessage => ({
+    id: row.id,
+    conversationId: teamId,
+    senderId: row.userId,
+    senderName: row.userName || 'Team member',
+    senderRole: 'employee',
+    recipientId: teamId,
+    recipientName: '',
+    content: row.text,
+    timestamp: row.createdAt,
+    status: row.readAt ? 'read' : 'delivered',
+  });
+
+  const myStaffId = user?.id || '';
+  const staffEmployeeId = (conversationId: string) => (
+    conversationId.startsWith('direct-') ? conversationId.slice('direct-'.length) : ''
+  );
+  const roleLabel = (role: string) => (
+    role === 'ADMIN' ? 'Admin' : role === 'HR' ? 'HR' : role === 'MANAGER' ? 'Manager' : 'Employee'
+  );
+  const toDirectConversation = (person: { userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
+    id: `direct-${person.userId}`,
+    type: 'direct',
+    title: person.name,
+    participantIds: [person.userId, myStaffId],
+    participantNames: {
+      [person.userId]: person.name,
+      [myStaffId]: currentUserName,
+    },
+    participantDesignations: { [person.userId]: roleLabel(person.role) },
+    participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
+    lastMessage: person.lastMessage || '',
+    lastMessageTimestamp: person.lastMessageAt || undefined,
+    unreadCount: {},
+    updatedAt: person.lastMessageAt || new Date().toISOString(),
+  });
+  const groupIdOf = (conversationId: string) => (
+    conversationId.startsWith('group-') ? conversationId.slice('group-'.length) : ''
+  );
+  const toGroupConversation = (group: { id: string; name: string; createdBy?: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
+    id: `group-${group.id}`,
+    type: 'direct',
+    title: group.name,
+    createdBy: group.createdBy || '',
+    participantIds: [`group-${group.id}`],
+    participantNames: { [`group-${group.id}`]: group.name },
+    participantDesignations: { [`group-${group.id}`]: `Group · ${group.memberCount || 0} members` },
+    lastMessage: group.lastMessage?.startsWith('system:') ? group.lastMessage.slice(7) : (group.lastMessage || ''),
+    lastMessageTimestamp: group.lastMessageAt || undefined,
+    unreadCount: {},
+    updatedAt: group.lastMessageAt || new Date().toISOString(),
+  });
+
   useEffect(() => {
-    loadConversations();
-    const handleUpdate = () => {
-      loadConversations();
-    };
-    window.addEventListener('hrms_chat_updated', handleUpdate);
+    let cancelled = false;
+    if (!myStaffId) return;
+    const loadChats = () => Promise.all([api.listDirectChats(), api.listChatGroups()])
+      .then(([peopleRes, groupRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }]) => {
+        if (cancelled) return;
+        const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
+        const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+        setChatPeople(people);
+        setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
+      })
+      .catch((err: { message?: string }) => {
+        if (!cancelled) showToast({ title: 'Chat', message: err?.message || 'Could not load chat.', type: 'error', module: 'chat' });
+      });
+    loadChats();
     return () => {
-      window.removeEventListener('hrms_chat_updated', handleUpdate);
+      cancelled = true;
     };
-  }, [employees]);
+  }, [myStaffId]);
 
   // Handle initial targeted employee chat from directory or dashboard
   useEffect(() => {
+    if (teamMode) return;
     if (initialEmployeeId) {
-      const targetConvId = `conv-user-1-${initialEmployeeId}`;
+      const targetConvId = `direct-${initialEmployeeId}`;
       const found = conversations.find((c) => c.id === targetConvId);
       if (found) {
         setActiveConversationId(targetConvId);
@@ -124,45 +292,200 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     }
   }, [initialEmployeeId, conversations, employees]);
 
-  // If active conversation not in list or not set, pick the first sensible conversation
+  // Open the direct HR/staff thread first. General broadcast stays available, but it is not the default inbox.
   useEffect(() => {
-    if (conversations.length > 0 && !conversations.some((c) => c.id === activeConversationId)) {
-      if (portalMode === 'employee') {
-        // Employees usually want to talk to Admin first
-        const adminConv = conversations.find((c) => c.id === `conv-user-1-${currentUserId}`);
-        setActiveConversationId(adminConv ? adminConv.id : conversations[0].id);
-      } else {
-        setActiveConversationId(conversations[0].id);
+    if (conversations.length === 0) return;
+    if (activeConversationId && conversations.some((c) => c.id === activeConversationId)) return;
+    const preferred = conversations.find((c) => c.type === 'direct') || conversations[0];
+    setActiveConversationId(preferred.id);
+  }, [conversations, activeConversationId, portalMode, currentUserId]);
+
+  const notifyMessagesRead = (conversationId: string) => {
+    if (teamMode) return;
+    const conv = getAllConversations().find((item) => item.id === conversationId);
+    const otherId =
+      conv?.type === 'broadcast'
+        ? 'all'
+        : conv?.participantIds?.find((id) => id !== currentUserId) || 'all';
+    emitChatRead({
+      conversationId,
+      readerId: currentUserId,
+      recipientId: otherId,
+    });
+    api.markChatRead(conversationId).catch(() => { });
+  };
+
+  useEffect(() => subscribeChatUnread(setUnreadMap), []);
+
+  useEffect(() => {
+    setGroupPanel(false);
+    setActiveChatConversation(activeConversationId);
+    if (activeConversationId) clearChatUnread(activeConversationId);
+  }, [activeConversationId]);
+
+  useEffect(() => () => setActiveChatConversation(''), []);
+
+  // Generate a temporary Blob URL when previewing a pending audio attachment
+  useEffect(() => {
+    if (!pendingAttachment || detectAttachmentKind(pendingAttachment) !== 'audio' || !pendingAttachment.url) {
+      setPendingAudioPreviewUrl('');
+      return;
+    }
+    const resolved = resolveAttachmentUrl(pendingAttachment.url);
+    if (resolved.startsWith('data:')) {
+      try {
+        const blob = dataUrlToBlob(resolved);
+        const objUrl = URL.createObjectURL(blob);
+        setPendingAudioPreviewUrl(objUrl);
+        return () => URL.revokeObjectURL(objUrl);
+      } catch {
+        setPendingAudioPreviewUrl(resolved);
+        return;
       }
     }
-  }, [conversations, activeConversationId, portalMode, currentUserId]);
+    setPendingAudioPreviewUrl(resolved);
+  }, [pendingAttachment]);
+
+  // Clean up any active microphone stream/timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   // Load messages when active conversation changes
   useEffect(() => {
     if (!activeConversationId) return;
+    const directId = staffEmployeeId(activeConversationId);
+    const groupId = groupIdOf(activeConversationId);
+    if (directId || groupId) {
+      let cancelled = false;
+      const load = () => {
+        const request = groupId ? api.listGroupChat(groupId) : api.listDirectChat(directId);
+        request
+          .then((res: { data?: Array<{ id: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null }> }) => {
+            if (cancelled) return;
+            const rows = Array.isArray(res?.data) ? res.data : [];
+            const next = rows.map((row) => toTeamMessage(row, activeConversationId));
+            setMessages((prev) => {
+              if (
+                prev.length === next.length
+                && prev.every((item, index) => item.id === next[index]?.id && item.status === next[index]?.status)
+              ) return prev;
+              return next;
+            });
+            const last = next[next.length - 1];
+            if (last) {
+              const preview = last.content.startsWith('system:') ? last.content.slice(7) : last.content;
+              setConversations((prev) => prev.map((conv) => (
+                conv.id === activeConversationId
+                  ? { ...conv, lastMessage: preview, lastMessageTimestamp: last.timestamp, lastSenderId: last.senderId }
+                  : conv
+              )));
+            }
+          })
+          .catch(() => undefined);
+      };
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }
     const msgs = getMessagesForConversation(activeConversationId);
     setMessages(msgs);
     markConversationAsRead(activeConversationId, currentUserId);
+    if (msgs.some((msg) => msg.senderId !== currentUserId)) {
+      notifyMessagesRead(activeConversationId);
+    }
   }, [activeConversationId, currentUserId]);
 
   // Listen to message updates
   useEffect(() => {
+    const onMessage = (event: Event) => {
+      const row = (event as CustomEvent).detail as { id: string; senderId: string; recipientId: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null };
+      if (!row?.id || !row.senderId || !row.recipientId) return;
+      const otherId = row.senderId === myStaffId ? row.recipientId : row.senderId;
+      const conversationId = `direct-${otherId}`;
+      setConversations((prev) => prev.map((conv) => (
+        conv.id === conversationId
+          ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+          : conv
+      )));
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, conversationId)]));
+      if (row.senderId !== myStaffId) api.listDirectChat(otherId).catch(() => undefined);
+    };
+    window.addEventListener('hrms_direct_chat_message', onMessage);
+    const onRead = (event: Event) => {
+      const read = (event as CustomEvent).detail as { readerId?: string };
+      if (!read?.readerId) return;
+      const conversationId = `direct-${read.readerId}`;
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => prev.map((item) => (
+        item.senderId !== read.readerId ? { ...item, status: 'read' } : item
+      )));
+    };
+    window.addEventListener('hrms_direct_chat_read', onRead);
+    const onGroup = (event: Event) => {
+      const row = (event as CustomEvent).detail as { id: string; groupId: string; userId: string; userName: string; text: string; createdAt: string; readAt?: string | null };
+      if (!row?.groupId || !row.id) return;
+      const conversationId = `group-${row.groupId}`;
+      const preview = row.text.startsWith('system:') ? row.text.slice(7) : row.text;
+      setConversations((prev) => prev.map((conv) => (
+        conv.id === conversationId
+          ? { ...conv, lastMessage: preview, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+          : conv
+      )));
+      if (conversationId !== activeConversationId) return;
+      setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, conversationId)]));
+    };
+    window.addEventListener('hrms_group_chat_message', onGroup);
+    const onGroupList = () => {
+      api.listChatGroups()
+        .then((groupRes: { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }) => {
+          const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+          setConversations((prev) => [
+            ...groups.map(toGroupConversation),
+            ...prev.filter((conv) => !conv.id.startsWith('group-')),
+          ]);
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener('hrms_group_chat_list', onGroupList);
+    return () => {
+      window.removeEventListener('hrms_direct_chat_message', onMessage);
+      window.removeEventListener('hrms_direct_chat_read', onRead);
+      window.removeEventListener('hrms_group_chat_message', onGroup);
+      window.removeEventListener('hrms_group_chat_list', onGroupList);
+    };
+  }, [activeConversationId, myStaffId]);
+
+  useEffect(() => {
+    if (teamMode) return;
     const handleMessageUpdate = () => {
-      if (activeConversationId) {
-        const msgs = getMessagesForConversation(activeConversationId);
-        setMessages(msgs);
-      }
+      if (!activeConversationId || staffEmployeeId(activeConversationId)) return;
+      const hadUnread = markConversationAsRead(activeConversationId, currentUserId);
+      setMessages(getMessagesForConversation(activeConversationId));
+      if (hadUnread) notifyMessagesRead(activeConversationId);
     };
     window.addEventListener('hrms_chat_updated', handleMessageUpdate);
     return () => {
       window.removeEventListener('hrms_chat_updated', handleMessageUpdate);
     };
-  }, [activeConversationId]);
+  }, [activeConversationId, currentUserId, isConnected]);
 
-  // Auto-scroll to bottom of thread
+  // Auto-scroll ONLY the internal messages container (never scrolls outer page/ancestors)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, activeConversationId]);
 
   // Real-time remote typing indicator via WebSocket
   useEffect(() => {
@@ -195,7 +518,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     if (conv.type === 'broadcast') {
       return {
         id: 'all',
-        name: conv.title || '📢 General Staff Helpdesk & Broadcast',
+        name: (conv.title || 'General Staff Helpdesk & Broadcast').replace(/^📢\s*/, ''),
         role: 'Broadcast Channel',
         code: 'ALL-STAFF',
         email: 'helpdesk@paneliya.com',
@@ -213,7 +536,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     // If current user is an employee chatting directly with admin
     const isDirectWithAdmin =
       portalMode === 'employee' &&
-      (conv.id === `conv-user-1-${currentUserId}` ||
+      (conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}` ||
         (conv.participantIds?.includes(currentUserId) && conv.participantIds?.includes(ADMIN_USER_ID)));
 
     if (isDirectWithAdmin) {
@@ -282,9 +605,48 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     return { id: targetId || conv.id, name, role, code, email, designation, initials };
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputText.trim() && !pendingAttachment) return;
+  const sendTeamText = async (text: string) => {
+    const clean = text.trim();
+    const directId = activeConversation ? staffEmployeeId(activeConversation.id) : '';
+    const groupId = activeConversation ? groupIdOf(activeConversation.id) : '';
+    if (!clean || !activeConversation || (!directId && !groupId)) return;
+    try {
+      const res = groupId
+        ? await api.sendGroupChat(groupId, { text: clean })
+        : await api.sendDirectChat(directId, { text: clean });
+      const row = res?.chat;
+      if (row?.id) {
+        setMessages((prev) => (prev.some((item) => item.id === row.id) ? prev : [...prev, toTeamMessage(row, activeConversation.id)]));
+        setConversations((prev) => prev.map((conv) => (
+          conv.id === activeConversation.id
+            ? { ...conv, lastMessage: row.text, lastMessageTimestamp: row.createdAt, lastSenderId: row.userId }
+            : conv
+        )));
+      }
+    } catch (err: any) {
+      showToast({
+        title: 'Message not sent',
+        message: err?.message || 'Could not send this message.',
+        type: 'error',
+        module: 'chat',
+      });
+    }
+  };
+
+  const dispatchChatMessage = (text: string, attachment: ChatAttachment | null) => {
+    if (activeConversation && (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id))) {
+      if (attachment) {
+        showToast({
+          title: 'Text only',
+          message: 'Team chat saves text messages.',
+          type: 'warning',
+          module: 'chat',
+        });
+      }
+      void sendTeamText(text);
+      return;
+    }
+    if (!text.trim() && !attachment) return;
     if (!activeConversation) return;
 
     const other = getOtherParticipantInfo(activeConversation);
@@ -296,11 +658,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       senderRole: currentUserRole,
       recipientId: other.id,
       recipientName: other.name,
-      content: inputText.trim(),
-      attachments: pendingAttachment ? [pendingAttachment] : undefined,
+      content: text.trim(),
+      attachments: attachment ? [attachment] : undefined,
     });
 
-    // Real-time broadcast through WebSocket
+    // Persist on the server, then broadcast to the other person.
+    api.saveChatMessage(sent).catch((err: any) => {
+      showToast({
+        title: 'Message Sync Warning',
+        message: attachment
+          ? 'Sent live, but server could not store this attachment (file may exceed backend payload limit).'
+          : err?.message || 'Message could not be saved on server.',
+        type: 'warning',
+        module: 'chat',
+      });
+    });
     emitChatMessage(sent);
     emitChatTyping({
       conversationId: activeConversation.id,
@@ -308,45 +680,173 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       userName: currentUserName,
       isTyping: false,
     });
+  };
+
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isPreparingAttachment) return;
+    if (!inputText.trim() && !pendingAttachment) return;
+    if (!activeConversation) return;
+
+    dispatchChatMessage(inputText, pendingAttachment);
 
     setInputText('');
     setPendingAttachment(null);
-    inputRef.current?.focus();
+    setAttachmentError(null);
+    inputRef.current?.focus({ preventScroll: true });
   };
 
-  const handleQuickReply = (text: string) => {
-    if (!activeConversation) return;
-    const other = getOtherParticipantInfo(activeConversation);
-
-    const sent = sendChatMessage({
-      conversationId: activeConversation.id,
-      senderId: currentUserId,
-      senderName: currentUserName,
-      senderRole: currentUserRole,
-      recipientId: other.id,
-      recipientName: other.name,
-      content: text,
-    });
-
-    // Real-time broadcast through WebSocket
-    emitChatMessage(sent);
+  const handleOpenAttachFile = (accept: string) => {
+    setAttachmentError(null);
+    setFileInputAccept(accept);
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 50);
   };
 
-  const handleAddSampleAttachment = (type: 'document' | 'image') => {
-    if (type === 'document') {
-      setPendingAttachment({
-        id: `att-${Date.now()}`,
-        name: 'Sprint_Work_Report.pdf',
-        size: '1.4 MB',
-        type: 'pdf',
+  const handleRealFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setAttachmentError(null);
+    setIsPreparingAttachment(true);
+    try {
+      const prepared = await prepareChatAttachmentFromFile(file);
+      setPendingAttachment(prepared);
+    } catch (err: any) {
+      const msg = err?.message || 'Unable to attach the selected file.';
+      setAttachmentError(msg);
+      showToast({
+        title: 'Attachment Error',
+        message: msg,
+        type: 'error',
+        module: 'chat',
       });
+    } finally {
+      setIsPreparingAttachment(false);
+    }
+  };
+
+  const cleanupRecordingResources = () => {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    setIsRecordingVoice(false);
+  };
+
+  const handleStartVoiceRecording = async () => {
+    setAttachmentError(null);
+    if (
+      typeof window === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      const msg = 'Voice recording is not supported in this browser. You can still attach an audio file.';
+      setAttachmentError(msg);
+      showToast({ title: 'Voice Recording Unavailable', message: msg, type: 'warning', module: 'chat' });
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+
+      const preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ];
+      const chosenMime = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t));
+      const recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+
+      recordingChunksRef.current = [];
+      recordingSecondsRef.current = 0;
+      recordingActionRef.current = 'attach';
+      setRecordingSeconds(0);
+      setIsRecordingVoice(true);
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          recordingChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const action = recordingActionRef.current;
+        const durationSec = Math.max(1, recordingSecondsRef.current);
+        const chunks = [...recordingChunksRef.current];
+        const mimeType = recorder.mimeType || chosenMime || 'audio/webm';
+        cleanupRecordingResources();
+
+        if (action === 'cancel' || chunks.length === 0) return;
+
+        setIsPreparingAttachment(true);
+        try {
+          const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const blob = new Blob(chunks, { type: mimeType });
+          const voiceFile = new File([blob], `voice-note-${stamp}.${ext}`, { type: mimeType });
+          const prepared = await prepareChatAttachmentFromFile(voiceFile, durationSec);
+
+          if (action === 'send') {
+            dispatchChatMessage(inputText, prepared);
+            setInputText('');
+            setPendingAttachment(null);
+          } else {
+            setPendingAttachment(prepared);
+          }
+        } catch (err: any) {
+          const msg = err?.message || 'Could not process recorded voice note.';
+          setAttachmentError(msg);
+          showToast({ title: 'Voice Note Error', message: msg, type: 'error', module: 'chat' });
+        } finally {
+          setIsPreparingAttachment(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(250);
+      recordingTimerRef.current = window.setInterval(() => {
+        recordingSecondsRef.current += 1;
+        setRecordingSeconds(recordingSecondsRef.current);
+      }, 1000);
+    } catch (err: any) {
+      cleanupRecordingResources();
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Microphone permission was denied. Please allow microphone access to record voice notes.'
+          : 'Unable to access microphone. Check your audio input device.';
+      setAttachmentError(msg);
+      showToast({ title: 'Microphone Error', message: msg, type: 'error', module: 'chat' });
+    }
+  };
+
+  const handleStopVoiceRecording = (action: 'attach' | 'send') => {
+    recordingActionRef.current = action;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
     } else {
-      setPendingAttachment({
-        id: `att-${Date.now()}`,
-        name: 'Architecture_Diagram.png',
-        size: '850 KB',
-        type: 'image',
-      });
+      cleanupRecordingResources();
+    }
+  };
+
+  const handleCancelVoiceRecording = () => {
+    recordingActionRef.current = 'cancel';
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    } else {
+      cleanupRecordingResources();
     }
   };
 
@@ -391,32 +891,60 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   const handleClearActiveConversation = () => {
+    if (teamMode) return;
     if (!activeConversation) return;
-    if (window.confirm('Are you sure you want to clear all messages in this conversation?')) {
-      clearConversationMessages(activeConversation.id);
-      setMessages([]);
-      loadConversations();
-    }
+    setCustomConfirmAction({
+      title: 'Clear Conversation?',
+      message: 'Are you sure you want to clear all messages in this conversation?',
+      onConfirm: () => {
+        clearConversationMessages(activeConversation.id);
+        setMessages([]);
+        loadConversations();
+        setCustomConfirmAction(null);
+      },
+    });
   };
 
   const handleClearAllChats = () => {
-    if (window.confirm('Are you sure you want to delete all chat history across all conversations?')) {
-      clearAllChats();
-      setMessages([]);
-      loadConversations();
-    }
+    if (teamMode) return;
+    setCustomConfirmAction({
+      title: 'Delete All Chat History?',
+      message: 'Are you sure you want to delete all chat history across all conversations? This action cannot be undone.',
+      onConfirm: () => {
+        clearAllChats();
+        setMessages([]);
+        loadConversations();
+        setCustomConfirmAction(null);
+      },
+    });
   };
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
-    if (
-      conv.id?.includes('admin-keyur') ||
-      conv.participantIds?.includes('admin-keyur')
-    ) {
-      return false;
+    if (portalMode === 'admin' && conv.type === 'direct' && user?.email) {
+      const otherEmail = Object.entries(conv.participantEmails || {})
+        .find(([pid]) => pid !== ADMIN_USER_ID)?.[1]
+        ?.toLowerCase();
+      if (otherEmail && otherEmail === user.email.toLowerCase()) {
+        return false;
+      }
     }
 
-    if (filterTab === 'direct' && conv.type !== 'direct') return false;
+    if (portalMode === 'employee') {
+      const mine =
+        conv.id.startsWith('direct-') ||
+        conv.id.startsWith('group-') ||
+        serverTeamIdsRef.current.has(conv.id) ||
+        conv.type === 'broadcast' ||
+        conv.participantIds?.includes(currentUserId) ||
+        conv.participantIds?.includes(user?.id || '') ||
+        conv.id === `conv-${ADMIN_USER_ID}-${currentUserId}` ||
+        conv.id === `conv-${ADMIN_USER_ID}-${user?.id || ''}`;
+      if (!mine) return false;
+    }
+
+    if (filterTab === 'direct' && (conv.type !== 'direct' || conv.id.startsWith('group-'))) return false;
+    if (filterTab === 'groups' && !conv.id.startsWith('group-')) return false;
     if (filterTab === 'broadcast' && conv.type !== 'broadcast') return false;
 
     if (!searchQuery.trim()) return true;
@@ -439,75 +967,100 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Quick reply options depending on portal mode
-  const quickReplies =
-    portalMode === 'admin'
-      ? [
-          'Please share your daily progress update.',
-          'Approved, you may proceed.',
-          'Regarding your leave request: please check your email.',
-          'Acknowledged 👍',
-        ]
-      : [
-          'Good morning sir, task completed.',
-          'Please review my leave application.',
-          'I have uploaded the verification document.',
-          'Understood, thank you sir! 👍',
-        ];
+  const avatarClass = (kind: 'broadcast' | 'admin' | 'staff') =>
+    kind === 'broadcast'
+      ? 'bg-[#d8f3dc] text-[#1b4332]'
+      : kind === 'admin'
+        ? 'bg-[#1b4332] text-white'
+        : 'bg-[#e9ecef] text-[#343a40]';
 
   return (
+<<<<<<< HEAD
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex h-[calc(100dvh-12.5rem)] min-h-[420px] md:h-[calc(100vh-140px)] md:min-h-[520px] overflow-hidden select-none w-full max-w-full">
+=======
+    <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
+      <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-slate-50/50 shrink-0 ${
-          mobileShowThread ? 'hidden md:flex' : 'flex'
-        }`}
+        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#dee2e6] flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
+          }`}
       >
-        {/* Header & Search */}
-        <div className="p-4 border-b border-slate-200 bg-white space-y-3">
+        <div className="px-4 py-3.5 bg-white border-b border-[#dee2e6] space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Team Chat</h2>
-                <p className="text-[11px] text-slate-500">
-                  {portalMode === 'admin' ? 'Admin Staff Communication' : 'Direct HR & Peer Messages'}
-                </p>
-              </div>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight text-[#212529]">Chats</h2>
+              <p className="text-[11px] text-[#6c757d]">
+                {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                {conversations.length} chats
-              </span>
+            {(canMakeGroup || !teamMode) && (
+            <div className="relative">
               <button
                 type="button"
-                id="btn-clear-all-chats"
-                onClick={handleClearAllChats}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Clear all chat history"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setHeaderMenu((open) => (open === 'list' ? null : 'list'));
+                }}
+                className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
+                title="Chat menu"
               >
-                <Trash2 className="w-4 h-4" />
+                <MoreVertical className="w-5 h-5" />
               </button>
+              {headerMenu === 'list' && (
+                <div
+                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {canMakeGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenu(null);
+                        setGroupName('');
+                        setGroupMemberIds([]);
+                        setGroupAdding(false);
+                        setGroupOpen(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                    >
+                      New group
+                    </button>
+                  )}
+                  {!teamMode && (
+                    <button
+                      type="button"
+                      id="btn-clear-all-chats"
+                      onClick={() => {
+                        setHeaderMenu(null);
+                        handleClearAllChats();
+                      }}
+                      className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                    >
+                      Clear all chats
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+            )}
           </div>
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="input-search-conversations"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search staff, code, or messages..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
+              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6c757d] hover:text-[#212529] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -515,52 +1068,39 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 pt-1">
-            <button
-              onClick={() => setFilterTab('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'all'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilterTab('direct')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'direct'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              1-on-1 Staff
-            </button>
-            <button
-              onClick={() => setFilterTab('broadcast')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                filterTab === 'broadcast'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-              }`}
-            >
-              General Channel
-            </button>
+          <div className="flex items-center gap-1.5">
+            {([
+              ['all', 'All'],
+              ['direct', 'Direct'],
+              ['groups', 'Groups'],
+              ['broadcast', 'General'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setFilterTab(id)}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${filterTab === id
+                  ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                  : 'bg-[#f8f9fa] text-[#495057] border border-[#dee2e6] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 [scrollbar-width:thin]">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-white [scrollbar-width:thin]">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-2">
               <Users className="w-8 h-8 mx-auto stroke-1" />
-              <p className="text-xs font-medium">No conversations found</p>
+              <p className="text-xs font-medium">{teamMode ? 'No Admin, HR, or Manager to message.' : 'No people to message.'}</p>
             </div>
           ) : (
             filteredConversations.map((conv) => {
               const other = getOtherParticipantInfo(conv);
               const isActive = conv.id === activeConversationId;
-              const unread = conv.unreadCount?.[currentUserId] || 0;
+              const unread = unreadMap[conv.id] || 0;
 
               return (
                 <button
@@ -569,62 +1109,62 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   onClick={() => {
                     setActiveConversationId(conv.id);
                     setMobileShowThread(true);
+                    clearChatUnread(conv.id);
+                    markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 relative ${
-                    isActive
-                      ? 'bg-white border-l-4 border-slate-900 shadow-xs'
-                      : 'hover:bg-white/80'
-                  }`}
+                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 cursor-pointer border-l-[3px] ${conv.type === 'broadcast'
+                    ? 'border-b border-[#dee2e6]'
+                    : 'border-b border-[#e9ecef]'
+                    } ${isActive
+                      ? 'bg-[#d8f3dc]/60 border-l-[#2d6a4f]'
+                      : 'border-l-transparent hover:bg-[#f8f9fa]'
+                    }`}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
-                        conv.type === 'broadcast'
-                          ? 'bg-amber-100 text-amber-800'
-                          : other.role === 'Admin'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
+                        conv.type === 'broadcast' ? 'broadcast' : other.role === 'Admin' ? 'admin' : 'staff',
+                      )}`}
                     >
-                      {conv.type === 'broadcast' ? '📢' : other.initials}
+                      {conv.type === 'broadcast' ? 'All' : other.initials}
                     </div>
-                    {/* Online indicator */}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
-                        {other.name}
-                        {other.role === 'Admin' && (
-                          <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white text-[9px] font-semibold">
-                            Admin
+                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                      <span className="text-[14px] font-medium text-[#212529] truncate flex items-center gap-1.5">
+                        <span className="truncate">{other.name}</span>
+                        {conv.id.startsWith('group-') && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0">
+                            Group
+                          </span>
+                        )}
+                        {conv.type === 'broadcast' && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0"
+                            title="Pinned General Chat"
+                          >
+                            <Pin className="w-2.5 h-2.5 shrink-0" />
+                            Pinned
                           </span>
                         )}
                       </span>
-                      <span className="text-[10px] text-slate-400 shrink-0 ml-1">
-                        {formatTime(conv.lastMessageTimestamp)}
-                      </span>
+                      {conv.lastMessage ? (
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-1">
+                          {formatTime(conv.lastMessageTimestamp)}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <p className="text-[11px] text-slate-500 truncate mb-1">
-                      {other.code} • {other.designation}
-                    </p>
-
-                    <p
-                      className={`text-xs truncate ${
-                        unread > 0 ? 'font-bold text-slate-900' : 'text-slate-500 font-normal'
-                      }`}
-                    >
+                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#212529] font-medium' : 'text-[#6c757d]'}`}>
                       {conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>
 
-                  {/* Unread badge */}
                   {unread > 0 && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-bold">
+                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
                       {unread}
                     </span>
                   )}
@@ -637,20 +1177,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
       {/* RIGHT COLUMN: Active Chat Thread */}
       <div
-        className={`flex-1 flex flex-col bg-slate-50/30 overflow-hidden ${
-          mobileShowThread ? 'flex' : 'hidden md:flex'
-        }`}
+        className={`relative flex-1 flex flex-col min-h-0 overflow-hidden ${mobileShowThread ? 'flex' : 'hidden md:flex'
+          }`}
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            {/* Thread Header */}
-            <div className="h-16 px-4 sm:px-6 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 shadow-xs">
+            <div className="h-[62px] px-3 sm:px-5 bg-white border-b border-[#dee2e6] text-[#212529] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden"
+                  className="p-1.5 -ml-1 rounded-full text-[#495057] hover:bg-[#f8f9fa] md:hidden cursor-pointer"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -659,71 +1197,249 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
-                      activeConversation.type === 'broadcast'
-                        ? 'bg-amber-100 text-amber-800'
-                        : activeOtherInfo.role === 'Admin'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs border border-[#95d5b2]/60 ${avatarClass(
+                      activeConversation.type === 'broadcast' ? 'broadcast' : activeOtherInfo.role === 'Admin' ? 'admin' : 'staff',
+                    )}`}
                   >
-                    {activeConversation.type === 'broadcast' ? '📢' : activeOtherInfo.initials}
+                    {activeConversation.type === 'broadcast' ? 'All' : activeOtherInfo.initials}
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                 </div>
 
-                {/* Recipient Details */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 truncate">
-                      {activeOtherInfo.name}
-                    </h3>
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
-                        isConnected
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      }`}
-                      title={isConnected ? 'Connected to WebSocket Gateway on port 4000' : 'Disconnected from WebSocket'}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                        }`}
-                      />
-                      <span>{isConnected ? 'Real-Time Socket Live' : 'Reconnecting...'}</span>
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {activeOtherInfo.code} • {activeOtherInfo.designation}
-                    {activeOtherInfo.email && ` (${activeOtherInfo.email})`}
+                  <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
+                  <p className="text-[11px] text-[#6c757d] truncate">
+                    {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
                   </p>
                 </div>
               </div>
 
-              {/* Status / Channel pill & Clear Chat */}
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200/60">
-                  {activeConversation.type === 'broadcast' ? 'All Staff Group' : 'Direct Encrypted Chat'}
-                </span>
+              {(activeConversation.id.startsWith('group-') || !teamMode) && (
+              <div className="relative shrink-0">
                 <button
                   type="button"
-                  id="btn-clear-conversation-chat"
-                  onClick={handleClearActiveConversation}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 rounded-lg transition-colors cursor-pointer"
-                  title="Clear all messages in this conversation"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setHeaderMenu((open) => (open === 'thread' ? null : 'thread'));
+                  }}
+                  className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
+                  title="More"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Clear Chat</span>
+                  <MoreVertical className="w-5 h-5" />
                 </button>
+                {headerMenu === 'thread' && (
+                  <div
+                    className="absolute right-0 top-10 z-30 w-52 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {activeConversation.id.startsWith('group-') ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setHeaderMenu(null);
+                            setGroupPanel(true);
+                            try {
+                              const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
+                              setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not load members.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                        >
+                          Group info
+                        </button>
+                        {canMakeGroup && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHeaderMenu(null);
+                              setGroupMemberIds([]);
+                              setGroupAdding(true);
+                              setGroupOpen(true);
+                            }}
+                            className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                          >
+                            Add member
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setHeaderMenu(null);
+                            try {
+                              await api.leaveChatGroup(groupIdOf(activeConversation.id));
+                              setGroupPanel(false);
+                              setActiveConversationId('');
+                              const groupRes = await api.listChatGroups();
+                              const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                              setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                              showToast({ title: 'Group', message: 'You left the group.', type: 'success', module: 'chat' });
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not leave the group.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                        >
+                          Leave group
+                        </button>
+                        {(String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id) && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setHeaderMenu(null);
+                              try {
+                                await api.deleteChatGroup(groupIdOf(activeConversation.id));
+                                setGroupPanel(false);
+                                setActiveConversationId('');
+                                const groupRes = await api.listChatGroups();
+                                const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                                setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                                showToast({ title: 'Group', message: 'Group deleted.', type: 'success', module: 'chat' });
+                              } catch (err: any) {
+                                showToast({ title: 'Group', message: err?.message || 'Could not delete the group.', type: 'error', module: 'chat' });
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                          >
+                            Delete group
+                          </button>
+                        )}
+                      </>
+                    ) : !teamMode ? (
+                      <button
+                        type="button"
+                        id="btn-clear-conversation-chat"
+                        onClick={() => {
+                          setHeaderMenu(null);
+                          handleClearActiveConversation();
+                        }}
+                        className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                      >
+                        Clear chat
+                      </button>
+                    ) : null}
+                  </div>
+                )}
               </div>
+              )}
             </div>
 
+            {groupPanel && activeConversation.id.startsWith('group-') && (
+              <div className="absolute inset-0 z-20 flex flex-col bg-white">
+                <div className="h-[62px] px-3 border-b border-[#dee2e6] flex items-center gap-2 shrink-0">
+                  <button type="button" onClick={() => setGroupPanel(false)} className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer" title="Back to chat">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div className="min-w-0">
+                    <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
+                    <p className="text-[11px] text-[#6c757d]">{groupMemberRows.length} members</p>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                {groupMemberRows.map((member) => {
+                  const groupBoss = String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id;
+                  return (
+                    <div key={member.userId} className="flex items-center justify-between gap-2 text-sm text-slate-700">
+                      <span className="truncate">
+                        {member.name}
+                        <span className="ml-2 text-[11px] text-slate-400">
+                          {roleLabel(member.role)}
+                          {member.userId === activeConversation.createdBy ? ' · Creator' : ''}
+                        </span>
+                      </span>
+                      {groupBoss && member.userId !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.removeChatGroupMember(groupIdOf(activeConversation.id), member.userId);
+                              const res = await api.listChatGroupMembers(groupIdOf(activeConversation.id));
+                              setGroupMemberRows(Array.isArray(res?.data) ? res.data : []);
+                              showToast({ title: 'Group', message: 'Member removed.', type: 'success', module: 'chat' });
+                            } catch (err: any) {
+                              showToast({ title: 'Group', message: err?.message || 'Could not remove member.', type: 'error', module: 'chat' });
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-rose-600 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+                <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-[#dee2e6]">
+                  {canMakeGroup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGroupMemberIds([]);
+                        setGroupAdding(true);
+                        setGroupOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-full border border-[#95d5b2] text-[#1b4332] text-[11px] font-semibold cursor-pointer"
+                    >
+                      Add member
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.leaveChatGroup(groupIdOf(activeConversation.id));
+                        setGroupPanel(false);
+                        setActiveConversationId('');
+                        const groupRes = await api.listChatGroups();
+                        const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                        setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                        showToast({ title: 'Group', message: 'You left the group.', type: 'success', module: 'chat' });
+                      } catch (err: any) {
+                        showToast({ title: 'Group', message: err?.message || 'Could not leave the group.', type: 'error', module: 'chat' });
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-slate-300 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                  >
+                    Leave group
+                  </button>
+                  {(String(user?.role || '').toUpperCase() === 'ADMIN' || activeConversation.createdBy === user?.id) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await api.deleteChatGroup(groupIdOf(activeConversation.id));
+                          setGroupPanel(false);
+                          setActiveConversationId('');
+                          const groupRes = await api.listChatGroups();
+                          const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                          setConversations((prev) => [...groups.map(toGroupConversation), ...prev.filter((conv) => !conv.id.startsWith('group-'))]);
+                          showToast({ title: 'Group', message: 'Group deleted.', type: 'success', module: 'chat' });
+                        } catch (err: any) {
+                          showToast({ title: 'Group', message: err?.message || 'Could not delete the group.', type: 'error', module: 'chat' });
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-rose-600 text-white text-[11px] font-semibold cursor-pointer"
+                    >
+                      Delete group
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 [scrollbar-width:thin]">
-              {/* Day divider */}
-              <div className="flex items-center justify-center">
-                <span className="px-3 py-1 rounded-full bg-slate-200/70 text-slate-600 text-[11px] font-medium">
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-4 space-y-2 [scrollbar-width:thin]"
+              style={{
+                backgroundColor: '#e9ecef',
+                backgroundImage: 'radial-gradient(rgba(73,80,87,0.09) 0.7px, transparent 0.7px)',
+                backgroundSize: '16px 16px',
+              }}
+            >
+              <div className="flex items-center justify-center py-2">
+                <span className="px-3 py-1 rounded-lg bg-white border border-[#dee2e6] text-[#495057] text-[11px] font-semibold shadow-xs">
                   Today
                 </span>
               </div>
@@ -736,87 +1452,111 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               ) : (
                 messages.map((msg) => {
-                  const isMe = msg.senderId === currentUserId;
-                  const canManage = isMe || currentUserRole === 'admin';
+                  const systemText = msg.content.startsWith('system:') ? msg.content.slice(7) : '';
+                  if (systemText) {
+                    return (
+                      <div key={msg.id} className="flex justify-center py-1">
+                        <span className="px-3 py-1 rounded-lg bg-[#f8f9fa] border border-[#dee2e6] text-[12px] text-[#495057] shadow-xs">
+                          {systemText}
+                        </span>
+                      </div>
+                    );
+                  }
+                  const isMe =
+                    msg.senderId === currentUserId ||
+                    msg.senderId === user?.id ||
+                    msg.senderId === user?.employeeId ||
+                    (portalMode === 'admin' && msg.senderId === ADMIN_USER_ID);
+                  const canManage = !teamMode && (isMe || currentUserRole === 'admin');
                   const isEditingThis = editingMessageId === msg.id;
 
                   return (
                     <div
                       key={msg.id}
-                      className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 relative`}
+                      className={`group flex ${isMe ? 'justify-end' : 'justify-start'}`}
                     >
-                      {/* Sender label for incoming */}
-                      {!isMe && (
-                        <div className="flex items-center gap-1.5 ml-1">
-                          <span className="text-[11px] font-bold text-slate-700">
-                            {msg.senderName}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            ({msg.senderRole === 'admin' ? 'Administrator' : 'Staff'})
-                          </span>
-                        </div>
+                      {!isMe && activeConversation.type === 'broadcast' && (
+                        <span className="sr-only">{msg.senderName}</span>
                       )}
 
                       {/* Bubble Container with Action Buttons */}
                       <div className="relative group/bubble max-w-[85%] sm:max-w-md md:max-w-lg">
                         {/* Hover action menu for Edit & Delete */}
                         {canManage && !isEditingThis && (
-                          <div
-                            className={`absolute -top-3 z-10 flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200 shadow-md opacity-0 group-hover/bubble:opacity-100 transition-opacity ${
-                              isMe ? 'right-2' : 'left-2'
-                            }`}
-                          >
+                          <div className={`absolute top-1 z-10 ${isMe ? 'left-1' : 'right-1'}`}>
                             <button
-                              id={`btn-edit-msg-${msg.id}`}
                               type="button"
-                              onClick={() => handleStartEdit(msg)}
-                              className="p-1 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                              title="Edit message"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setMessageMenuId((open) => (open === msg.id ? null : msg.id));
+                              }}
+                              className={`p-1 rounded-full cursor-pointer ${isMe ? 'text-white/80 hover:bg-white/15' : 'text-[#6c757d] hover:bg-[#f8f9fa]'}`}
+                              title="Message menu"
                             >
-                              <Pencil className="w-3 h-3" />
+                              <MoreVertical className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              id={`btn-delete-msg-${msg.id}`}
-                              type="button"
-                              onClick={() => setDeletingMessageId(msg.id)}
-                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Delete message"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                            {messageMenuId === msg.id && (
+                              <div
+                                className={`absolute top-6 z-30 w-36 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg ${isMe ? 'right-0' : 'left-0'}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  id={`btn-edit-msg-${msg.id}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setMessageMenuId(null);
+                                    handleStartEdit(msg);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  id={`btn-delete-msg-${msg.id}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setMessageMenuId(null);
+                                    setDeletingMessageId(msg.id);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
 
                         {/* Message Bubble */}
                         <div
-                          className={`p-3.5 rounded-2xl shadow-xs transition-all ${
-                            isMe
-                              ? 'bg-slate-900 text-white rounded-tr-xs'
-                              : 'bg-white text-slate-900 border border-slate-200/80 rounded-tl-xs'
-                          }`}
+                          className={`px-3 py-2 shadow-sm ${isMe
+                            ? 'bg-[#2d6a4f] text-white border border-[#1b4332] rounded-lg rounded-tr-none'
+                            : 'bg-white text-[#212529] border border-[#dee2e6] rounded-lg rounded-tl-none'
+                            }`}
                         >
+                          {!isMe && activeConversation.id.startsWith('group-') && (
+                            <p className="text-[12px] font-semibold text-[#1b4332] leading-tight mb-0.5">
+                              {msg.senderName}
+                            </p>
+                          )}
                           {/* Attachments */}
                           {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mb-2 space-y-1.5">
+                            <div className={msg.content ? 'mb-2 space-y-2' : 'space-y-2'}>
                               {msg.attachments.map((att) => (
-                                <div
+                                <ChatAttachmentCard
                                   key={att.id}
-                                  className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-medium border ${
-                                    isMe
-                                      ? 'bg-white/10 border-white/20 text-white'
-                                      : 'bg-slate-50 border-slate-200 text-slate-800'
-                                  }`}
-                                >
-                                  {att.type === 'image' ? (
-                                    <ImageIcon className="w-4 h-4 text-blue-400 shrink-0" />
-                                  ) : (
-                                    <FileText className="w-4 h-4 text-rose-400 shrink-0" />
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-semibold">{att.name}</p>
-                                    <p className="text-[10px] opacity-75">{att.size}</p>
-                                  </div>
-                                </div>
+                                  attachment={att}
+                                  isMe={isMe}
+                                  onPreview={(selected) => setPreviewAttachment(selected)}
+                                  onError={(errMsg) =>
+                                    showToast({
+                                      title: 'Attachment Error',
+                                      message: errMsg,
+                                      type: 'error',
+                                      module: 'chat',
+                                    })
+                                  }
+                                />
                               ))}
                             </div>
                           )}
@@ -859,30 +1599,31 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                                 </button>
                               </div>
                             </div>
-                          ) : (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">
+                          ) : msg.content ? (
+                            <p
+                              style={{ color: isMe ? '#ffffff' : '#212529' }}
+                              className={`text-[14.5px] leading-snug whitespace-pre-wrap break-words pr-1 ${isMe ? 'text-white' : 'text-[#212529]'
+                                }`}
+                            >
                               {msg.content}
                             </p>
-                          )}
+                          ) : null}
 
-                          {/* Timestamp & Status */}
                           <div
-                            className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                              isMe ? 'text-slate-300' : 'text-slate-400'
-                            }`}
+                            style={{ color: isMe ? '#d8f3dc' : '#6c757d' }}
+                            className={`flex items-center justify-end gap-1 -mb-0.5 mt-1 text-[11px] ${isMe ? 'text-[#d8f3dc]' : 'text-[#6c757d]'
+                              }`}
                           >
-                            {msg.isEdited && (
-                              <span className="italic text-[9px] opacity-75 mr-0.5">
-                                (edited)
-                              </span>
-                            )}
+                            {msg.isEdited && <span className="italic text-[10px]">edited</span>}
                             <span>{formatTime(msg.timestamp)}</span>
                             {isMe && (
-                              <span>
+                              <span title={msg.status === 'read' ? 'Read' : msg.status === 'delivered' ? 'Delivered' : 'Sent'}>
                                 {msg.status === 'read' ? (
-                                  <CheckCheck className="w-3.5 h-3.5 text-blue-400 inline" />
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] inline" style={{ color: '#53bdeb' }} />
+                                ) : msg.status === 'delivered' ? (
+                                  <CheckCheck className="w-[16px] h-[16px] text-[#d8f3dc] inline" />
                                 ) : (
-                                  <Check className="w-3.5 h-3.5 text-slate-400 inline" />
+                                  <Check className="w-[15px] h-[15px] text-[#d8f3dc] inline" />
                                 )}
                               </span>
                             )}
@@ -896,37 +1637,91 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Reply Suggestions */}
-            <div className="px-4 py-2 bg-slate-100/60 border-t border-slate-200 flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
-              <span className="text-[10px] font-semibold text-slate-400 shrink-0 uppercase tracking-wider">
-                Quick:
-              </span>
-              {quickReplies.map((reply, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleQuickReply(reply)}
-                  className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-xs whitespace-nowrap transition-colors shrink-0 shadow-2xs"
-                >
-                  {reply}
-                </button>
-              ))}
-            </div>
+            {/* Attachment preparation / error status */}
+            {isPreparingAttachment && (
+              <div className="px-4 py-2 bg-[#f8f9fa] border-t border-[#dee2e6] flex items-center gap-2 text-xs text-[#495057]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2d6a4f]" />
+                <span>Preparing attachment...</span>
+              </div>
+            )}
 
-            {/* Attachment preview if pending */}
-            {pendingAttachment && (
-              <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-700" />
-                  <span className="text-xs font-medium text-slate-800">
-                    Attached: {pendingAttachment.name} ({pendingAttachment.size})
-                  </span>
+            {attachmentError && (
+              <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 flex items-center justify-between gap-2 text-xs text-rose-700">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{attachmentError}</span>
                 </div>
                 <button
-                  onClick={() => setPendingAttachment(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  type="button"
+                  onClick={() => setAttachmentError(null)}
+                  className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            )}
+
+            {/* Attachment preview if pending */}
+            {pendingAttachment && (
+              <div className="px-4 py-2.5 bg-[#f8f9fa] border-t border-[#dee2e6] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {detectAttachmentKind(pendingAttachment) === 'image' && pendingAttachment.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingAttachment.url}
+                      alt={pendingAttachment.name}
+                      onClick={() => setPreviewAttachment(pendingAttachment)}
+                      className="w-11 h-11 rounded-lg object-cover border border-[#ced4da] shrink-0 cursor-pointer"
+                    />
+                  ) : detectAttachmentKind(pendingAttachment) === 'audio' ? (
+                    <div className="w-9 h-9 rounded-full bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                      <Mic className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[#212529] truncate">
+                      {pendingAttachment.name}
+                    </p>
+                    <p className="text-[11px] text-[#6c757d]">
+                      {pendingAttachment.size}
+                      {pendingAttachment.duration ? ` • ${formatAudioDuration(pendingAttachment.duration)}` : ''}
+                    </p>
+                    {detectAttachmentKind(pendingAttachment) === 'audio' && pendingAudioPreviewUrl && (
+                      <audio
+                        controls
+                        src={pendingAudioPreviewUrl}
+                        className="mt-1.5 h-8 w-full max-w-xs"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {detectAttachmentKind(pendingAttachment) !== 'audio' && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment(pendingAttachment)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-[#dee2e6] text-[#1b4332] hover:bg-[#d8f3dc] transition-colors cursor-pointer"
+                      title="Preview before sending"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Preview</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPendingAttachment(null)}
+                    className="p-1.5 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Remove attachment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -934,67 +1729,139 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {typingUser && (
               <div className="px-4 py-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-50/80 border-t border-indigo-100 flex items-center gap-2 animate-in fade-in duration-150">
                 <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
-                <span>✍️ {typingUser} is typing...</span>
+                <span className="inline-flex items-center gap-1"><Pencil className="w-3 h-3" /> {typingUser} is typing...</span>
               </div>
             )}
 
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 sm:p-4 bg-white border-t border-slate-200 flex items-center gap-2"
+              className="px-3 py-2.5 bg-white border-t border-[#e9ecef] flex items-center gap-2"
             >
-              {/* Attachment Actions */}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleAddSampleAttachment('document')}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                  title="Attach Document"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddSampleAttachment('image')}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors hidden sm:block"
-                  title="Attach Image"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Text Input */}
+              {/* Hidden File Input for Real Attachments */}
               <input
-                ref={inputRef}
-                id="input-chat-message"
-                type="text"
-                value={inputText}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setInputText(val);
-                  if (activeConversation) {
-                    emitChatTyping({
-                      conversationId: activeConversation.id,
-                      userId: currentUserId,
-                      userName: currentUserName,
-                      isTyping: val.length > 0,
-                    });
-                  }
-                }}
-                placeholder={`Message ${activeOtherInfo.name}... (Press Enter to send)`}
-                className="flex-1 py-2.5 px-3.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
+                ref={fileInputRef}
+                type="file"
+                accept={fileInputAccept}
+                onChange={handleRealFileChange}
+                className="hidden"
               />
 
-              {/* Send Button */}
-              <button
-                id="btn-send-chat-message"
-                type="submit"
-                disabled={!inputText.trim() && !pendingAttachment}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-              >
-                <span>Send</span>
-                <Send className="w-3.5 h-3.5" />
-              </button>
+              {isRecordingVoice ? (
+                <div className="flex-1 flex items-center justify-between gap-2 px-3.5 py-2 rounded-full bg-[#f8f9fa] border border-[#95d5b2]">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse shrink-0" />
+                    <span className="text-xs font-semibold text-[#1b4332] truncate">
+                      Recording voice note
+                    </span>
+                    <span className="text-xs font-mono font-bold text-[#2d6a4f] tabular-nums">
+                      {formatAudioDuration(recordingSeconds)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelVoiceRecording}
+                      className="p-1.5 rounded-full text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Cancel recording"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStopVoiceRecording('attach')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-white border border-[#dee2e6] text-[#1b4332] hover:bg-[#d8f3dc] transition-colors cursor-pointer"
+                      title="Stop and preview voice note"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStopVoiceRecording('send')}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-[#2d6a4f] hover:bg-[#1b4332] text-white transition-colors cursor-pointer shadow-xs"
+                      title="Send voice note now"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>Send</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Attachment Actions */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenAttachFile(
+                          '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
+                        )
+                      }
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Document, PDF, or Audio"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAttachFile('image/*')}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Photo"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartVoiceRecording}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Record Voice Note"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Text Input */}
+                  <input
+                    ref={inputRef}
+                    id="input-chat-message"
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInputText(val);
+                      if (activeConversation) {
+                        if (activeConversation && (staffEmployeeId(activeConversation.id) || groupIdOf(activeConversation.id))) {
+                          if (val.length > 0) emitTeamChatTyping(activeConversation.id);
+                        } else {
+                          emitChatTyping({
+                            conversationId: activeConversation.id,
+                            userId: currentUserId,
+                            userName: currentUserName,
+                            isTyping: val.length > 0,
+                          });
+                        }
+                      }
+                    }}
+                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type a message...'}
+                    className="flex-1 py-2.5 px-4 text-[14px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
+                  />
+
+                  <button
+                    id="btn-send-chat-message"
+                    type="submit"
+                    disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
+                    className="w-10 h-10 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
+                    title="Send"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </form>
           </>
         ) : (
@@ -1017,29 +1884,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeletingMessageId(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Delete Message?</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Remove from conversation</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Delete Message?</h3>
-                <p className="text-xs text-slate-500">Remove from conversation</p>
-              </div>
+              <button
+                onClick={() => setDeletingMessageId(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="p-4 sm:p-6 overflow-y-auto text-xs sm:text-sm text-slate-600 leading-relaxed flex-1">
               Are you sure you want to permanently delete this message for everyone in this conversation?
-            </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
               <button
                 id="btn-cancel-delete-msg"
                 type="button"
                 onClick={() => setDeletingMessageId(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1047,7 +1925,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 id="btn-confirm-delete-msg"
                 type="button"
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
               >
                 Delete Message
               </button>
@@ -1055,6 +1933,138 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           </div>
         </div>
       )}
+
+      {/* Custom Confirmation Modal */}
+      {customConfirmAction && (
+        <div
+          id="custom-confirm-chat-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCustomConfirmAction(null);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">{customConfirmAction.title}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Action confirmation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCustomConfirmAction(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto text-xs sm:text-sm text-slate-600 leading-relaxed flex-1">
+              {customConfirmAction.message}
+            </div>
+
+            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCustomConfirmAction(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={customConfirmAction.onConfirm}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Attachment Lightbox / Document & PDF Preview Modal */}
+      {groupOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md" onClick={() => setGroupOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200" onClick={(event) => event.stopPropagation()}>
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">{groupAdding ? 'Add member' : 'New group'}</h3>
+              <button type="button" onClick={() => setGroupOpen(false)} className="p-2 text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {groupAdding ? null : (
+                <input
+                  value={groupName}
+                  onChange={(event) => setGroupName(event.target.value)}
+                  placeholder="Group name"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"
+                />
+              )}
+              {chatPeople.filter((person) => String(user?.role || '').toUpperCase() === 'ADMIN' || person.role === 'ADMIN' || person.role === 'HR' || person.role === 'MANAGER').map((person) => (
+                <label key={person.userId} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={person.role === 'ADMIN' || groupMemberIds.includes(person.userId)}
+                    disabled={person.role === 'ADMIN'}
+                    onChange={() => setGroupMemberIds((prev) => prev.includes(person.userId) ? prev.filter((id) => id !== person.userId) : [...prev, person.userId])}
+                  />
+                  <span>{person.name}</span>
+                  <span className="text-[11px] text-slate-400">{person.role === 'ADMIN' ? 'Admin · always added' : roleLabel(person.role)}</span>
+                </label>
+              ))}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (groupAdding && activeConversation) {
+                      const groupId = groupIdOf(activeConversation.id);
+                      for (const userId of groupMemberIds) await api.addChatGroupMember(groupId, userId);
+                      const members = await api.listChatGroupMembers(groupId);
+                      setGroupMemberRows(Array.isArray(members?.data) ? members.data : []);
+                      showToast({ title: 'Group', message: 'Members added.', type: 'success', module: 'chat' });
+                    } else {
+                      const created = await api.createChatGroup({ name: groupName, memberIds: groupMemberIds });
+                      if (created?.id) setActiveConversationId(`group-${created.id}`);
+                      showToast({ title: 'Group', message: 'Group created.', type: 'success', module: 'chat' });
+                    }
+                    setGroupOpen(false);
+                    const [peopleRes, groupRes] = await Promise.all([api.listDirectChats(), api.listChatGroups()]);
+                    const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
+                    const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+                    setChatPeople(people);
+                    setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
+                  } catch (err: any) {
+                    showToast({ title: 'Group', message: err?.message || 'Could not save the group.', type: 'error', module: 'chat' });
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <ChatAttachmentPreviewModal
+        attachment={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        onError={(errMsg) =>
+          showToast({
+            title: 'Download Error',
+            message: errMsg,
+            type: 'error',
+            module: 'chat',
+          })
+        }
+      />
+      </div>
     </div>
   );
 };

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
+    "dev:https": "next dev -H 0.0.0.0 --experimental-https",
+    "https-proxy": "node https-proxy.mjs",
     "mobile": "npx localtunnel --port 3000 --subdomain paneliya-hrms",
     "tunnel": "npx localtunnel --port 3000",
     "build": "next build",
@@ -11,12 +13,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "axios": "^1.21.0",
+=======
+    "@vladmandic/face-api": "^1.7.15",
+    "axios": "^1.21.1",
+>>>>>>> fc7234f7761e53c36c8bb346462e72bd91dbddd4
     "lucide-react": "^1.59.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "socket.io-client": "^4.8.4"
+    "socket.io-client": "^4.8.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -24,7 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

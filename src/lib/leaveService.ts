@@ -3,36 +3,25 @@ import { getAllEmployees } from './employeeService';
 
 const LEAVES_STORAGE_KEY = 'hrms_leave_requests';
 
+// Pure In-Memory Leave Storage - live from database via API
+let liveLeavesStore: LeaveRequest[] = [];
+
+export function setLiveLeaves(leaves: LeaveRequest[]): void {
+  liveLeavesStore = Array.isArray(leaves) ? [...leaves] : [];
+}
+
 export function getAllLeaves(): LeaveRequest[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(LEAVES_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (l) =>
-            l.employeeId !== 'emp-2' &&
-            l.employeeId !== 'emp-3' &&
-            l.employeeName !== 'Rahul Sharma' &&
-            l.employeeName !== 'Priya Patel'
-        );
-      }
-    }
-    return [];
-  } catch (err) {
-    console.error('Failed to load leaves:', err);
-    return [];
-  }
+  return liveLeavesStore;
 }
 
 export function saveLeaves(leaves: LeaveRequest[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LEAVES_STORAGE_KEY, JSON.stringify(leaves));
+  liveLeavesStore = Array.isArray(leaves) ? [...leaves] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(LEAVES_STORAGE_KEY);
+      localStorage.removeItem('hrms_leave_requests_data');
+    } catch {}
     window.dispatchEvent(new Event('hrms_leaves_updated'));
-  } catch (err) {
-    console.error('Failed to save leaves:', err);
   }
 }
 

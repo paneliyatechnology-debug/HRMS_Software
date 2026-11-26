@@ -1,764 +1,1075 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   LogOut,
-  CheckCircle,
   Clock,
-  Check,
-  FileText,
-  Plus,
-  Printer,
-  X,
-  AlertCircle,
-  Building,
-  Search,
-  Calendar,
-  User,
   ShieldCheck,
   CheckCircle2,
+  FileText,
+  AlertCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  Filter,
+  Users,
+  CheckSquare,
+  X,
   Send,
-  HelpCircle,
-  Info,
+  Loader2,
+  Calendar,
+  Laptop,
+  CreditCard,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
-import { Resignation, Employee } from '../../types/hrms';
-import { api } from '../../lib/api';
-import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 
 interface ResignationsModuleProps {
   portalMode?: 'employee' | 'admin';
 }
 
-export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMode: propPortalMode }) => {
-  const { user, portalMode: authPortalMode } = useAuth();
-  const { showToast } = useSocket();
+interface ResignationItem {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  employeeCode?: string;
+  departmentName?: string;
+  designationTitle?: string;
+  reason: string;
+  status: 'Pending' | 'Notice Period' | 'Clearance' | 'Approved' | 'Relieved' | string;
+  noticePeriodDays?: number;
+  noticeAssigned?: boolean;
+  submittedAt?: string;
+  lastWorkingDay?: string;
+  clearance?: {
+    itAssets?: boolean;
+    finance?: boolean;
+    hrExit?: boolean;
+    handover?: boolean;
+    [key: string]: boolean | undefined;
+  };
+  approvedAt?: string;
+  approvedBy?: string;
+}
 
-  const currentPortal = propPortalMode || authPortalMode || 'employee';
-  const isEmployeeView = currentPortal === 'employee';
+export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
+  portalMode = 'admin',
+}) => {
+  const { user } = useAuth();
+  const userRole = (user?.role || 'EMPLOYEE').toUpperCase();
+  const isAdminOrHr = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR' || userRole === 'HR_ADMIN';
 
-  const [resignations, setResignations] = useState<Resignation[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [resignations, setResignations] = useState<ResignationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Admin filter & search
-  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'completed'>('all');
+  // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Form states (Used by employee & admin modal)
-  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
-  const [resigningEmpId, setResigningEmpId] = useState('');
-  const [noticeDays, setNoticeDays] = useState(30);
-  const [reason, setReason] = useState('');
+  // Modals
+  const [isFileModalOpen, setIsFileModalOpen] = useState(false);
+  const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<ResignationItem | null>(null);
+  const [approveConfirmRecord, setApproveConfirmRecord] = useState<ResignationItem | null>(null);
 
-  // Modal: Relieving Letter
-  const [relievingLetterItem, setRelievingLetterItem] = useState<Resignation | null>(null);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [resData, empData] = await Promise.all([api.getResignations(), api.getEmployees()]);
-      setResignations(resData || []);
-      setEmployees(empData || []);
-      if (empData && empData.length > 0 && !resigningEmpId) {
-        setResigningEmpId(user.employeeId || empData[0].id);
-      }
-    } catch (err) {
-      console.error('Failed to load resignations:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Determine current logged in employee record
-  const currentEmpId = user.employeeId || user.id || '';
-  const currentEmp = employees.find(
-    (e) =>
-      e.id === currentEmpId ||
-      e.employeeCode === currentEmpId ||
-      (user.email && e.email?.toLowerCase() === user.email.toLowerCase())
-  );
-  const effectiveEmpId = currentEmp?.id || currentEmpId;
-
-  // Filter resignation for employee view
-  const myResignation = resignations.find(
-    (r) =>
-      r.employeeId === effectiveEmpId ||
-      r.employeeId === currentEmpId ||
-      r.employeeCode === (currentEmp?.employeeCode || (user as any).employeeCode) ||
-      (r.employeeName && user.firstName && r.employeeName.toLowerCase().includes(user.firstName.toLowerCase()))
-  );
-
-  // Calculate projected last working day
-  const calculateLastWorkingDay = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + Number(days));
-    return d.toISOString().split('T')[0];
-  };
-
-  // Submit resignation (Employee self-service or Admin filing)
-  const handleSubmitResignation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reason.trim()) {
-      showToast({ type: 'warning', title: 'Reason required', message: 'Please provide a reason for resignation.' });
-      return;
-    }
-
-    const targetId = isEmployeeView ? effectiveEmpId : (resigningEmpId || effectiveEmpId);
-    if (!targetId) {
-      showToast({ type: 'error', title: 'Missing Employee ID', message: 'Could not identify employee record.' });
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const created = await api.submitResignation({
-        employeeId: targetId,
-        reason: reason.trim(),
-        noticePeriodDays: Number(noticeDays) || 30,
-      });
-
-      setResignations((prev) => [created, ...prev.filter((r) => r.id !== created.id)]);
-      showToast({
-        type: 'success',
-        title: 'Resignation Submitted',
-        message: 'Resignation request submitted to Admin successfully!',
-      });
-
-      setIsSubmitOpen(false);
-      setReason('');
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Submission Failed', message: err.message || 'Could not file resignation.' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // 1-Click Complete Approval by Admin
-  const handleApproveResignation = async (resId: string) => {
-    setApprovingId(resId);
-    try {
-      const actorName = `${user.firstName || 'HR'} ${user.lastName || 'Admin'}`;
-      const updated = await api.approveResignation(resId, actorName);
-
-      setResignations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...updated, status: 'Completed' } : r)));
-      showToast({
-        type: 'success',
-        title: 'Resignation Approved',
-        message: 'Resignation approved! All department clearances marked complete and employee status updated to Resigned.',
-      });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Approval Failed', message: err.message || 'Could not approve resignation.' });
-    } finally {
-      setApprovingId(null);
-    }
-  };
-
-  // Individual clearance item toggle by Admin
-  const handleToggleClearance = async (res: Resignation, key: keyof Resignation['clearance']) => {
-    const updatedClearance = {
-      ...res.clearance,
-      [key]: !res.clearance[key],
-    };
-
-    try {
-      const actorName = `${user.firstName || 'HR'} ${user.lastName || 'Admin'}`;
-      const updated = await api.updateResignationClearance(res.id, {
-        clearance: updatedClearance,
-        actorName,
-      });
-
-      setResignations((prev) => prev.map((r) => (r.id === res.id ? { ...r, ...updated } : r)));
-      showToast({
-        type: 'success',
-        title: 'Clearance Updated',
-        message: `Updated clearance workflow item.`,
-      });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Update Failed', message: err.message || 'Could not update clearance.' });
-    }
-  };
-
-  // Filtered resignations for Admin view
-  const filteredResignations = resignations.filter((res) => {
-    if (filterTab === 'pending' && res.status === 'Completed') return false;
-    if (filterTab === 'completed' && res.status !== 'Completed') return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = res.employeeName?.toLowerCase().includes(q);
-      const matchCode = res.employeeCode?.toLowerCase().includes(q);
-      const matchDept = res.departmentName?.toLowerCase().includes(q);
-      const matchReason = res.reason?.toLowerCase().includes(q);
-      return matchName || matchCode || matchDept || matchReason;
-    }
-    return true;
+  // Form states
+  const [fileReason, setFileReason] = useState('');
+  const [assignNoticeDays, setAssignNoticeDays] = useState(30);
+  const [clearanceState, setClearanceState] = useState<{
+    itAssets: boolean;
+    finance: boolean;
+    hrExit: boolean;
+    handover: boolean;
+  }>({
+    itAssets: false,
+    finance: false,
+    hrExit: false,
+    handover: false,
   });
 
-  const pendingCount = resignations.filter((r) => r.status !== 'Completed').length;
-  const completedCount = resignations.filter((r) => r.status === 'Completed').length;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Fetch resignations
+  const loadResignations = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await api.getResignations();
+      const rows = Array.isArray(data) ? data : [];
+      const formatted: ResignationItem[] = rows.map((r: any) => ({
+        id: String(r.id || r._id || Math.random()),
+        employeeId: String(r.employeeId || r.userId || ''),
+        employeeName: r.employeeName || (r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'Staff Member'),
+        employeeCode: r.employeeCode || r.user?.employeeCode || 'EMP',
+        departmentName: r.departmentName || r.department || r.user?.departmentName || 'General',
+        designationTitle: r.designationTitle || r.designation || r.user?.designationTitle || 'Employee',
+        reason: r.reason || 'No reason provided',
+        status: r.status === 'Completed' || r.approvedAt ? 'Completed' : r.noticeAssigned ? 'Notice Period' : (r.status || 'Submitted'),
+        noticePeriodDays: Number(r.noticePeriodDays || 0),
+        noticeAssigned: Boolean(r.noticeAssigned),
+        submittedAt: r.submittedAt || r.createdAt || new Date().toISOString(),
+        lastWorkingDay: r.lastWorkingDay || r.effectiveDate || '',
+        clearance: typeof r.clearance === 'object' && r.clearance ? r.clearance : {},
+        approvedAt: r.approvedAt,
+        approvedBy: r.approvedBy,
+      }));
+      setResignations(formatted);
+    } catch (err: any) {
+      setError(err?.message || 'Could not load resignations from server.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadResignations();
+  }, [loadResignations]);
+  useCompanyLive(['resignations', 'employees'], loadResignations);
+
+  // File Resignation Submit
+  const handleFileResignation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fileReason.trim()) {
+      setActionError('Please state the reason for separation.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await api.submitResignation({
+        employeeId: user?.id,
+        reason: fileReason.trim(),
+      });
+
+      setSuccessToast('Your resignation has been formally submitted to Human Resources.');
+      setTimeout(() => setSuccessToast(null), 4000);
+      setIsFileModalOpen(false);
+      setFileReason('');
+      await loadResignations();
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not file resignation.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Assign Notice Period Submit
+  const handleAssignNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRecord) return;
+
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await api.assignResignationNotice(selectedRecord.id, assignNoticeDays);
+      setSuccessToast(`Notice period of ${assignNoticeDays} days assigned successfully.`);
+      setTimeout(() => setSuccessToast(null), 3000);
+      setIsNoticeModalOpen(false);
+      setSelectedRecord(null);
+      await loadResignations();
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not assign notice period.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Update Clearance Submit
+  const handleUpdateClearance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRecord) return;
+
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await api.updateResignationClearance(selectedRecord.id, {
+        clearance: clearanceState,
+        actorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'HR Admin',
+      });
+
+      setSuccessToast('Departmental clearance checklist updated.');
+      setTimeout(() => setSuccessToast(null), 3000);
+      setIsClearanceModalOpen(false);
+      setSelectedRecord(null);
+      await loadResignations();
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not update clearance checklist.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Open Approve Confirmation Popup
+  const handleApproveResignation = (record: ResignationItem) => {
+    setActionError(null);
+    setApproveConfirmRecord(record);
+  };
+
+  // Confirm & Execute Resignation Approval
+  const confirmApproveResignation = async () => {
+    const record = approveConfirmRecord;
+    if (!record) return;
+
+    const actor = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'HR Admin';
+    setIsSubmitting(true);
+    setActionError(null);
+
+    try {
+      const res = await api.approveResignation(record.id, actor);
+      const isAlready = res?.alreadyApproved;
+
+      setResignations((prev) =>
+        prev.map((item) =>
+          item.id === record.id
+            ? {
+                ...item,
+                status: 'Approved',
+                approvedAt: item.approvedAt || new Date().toISOString(),
+                approvedBy: item.approvedBy || actor,
+              }
+            : item
+        )
+      );
+
+      setApproveConfirmRecord(null);
+      setSuccessToast(
+        isAlready
+          ? `${record.employeeName}'s resignation is already approved.`
+          : `Resignation approved and employee separation confirmed.`
+      );
+      setTimeout(() => setSuccessToast(null), 3500);
+      await loadResignations();
+    } catch (err: any) {
+      const errMsg = err?.message || '';
+      if (errMsg.toLowerCase().includes('already approved') || errMsg.toLowerCase().includes('already')) {
+        setApproveConfirmRecord(null);
+        setSuccessToast(`${record.employeeName}'s resignation is already approved.`);
+        setTimeout(() => setSuccessToast(null), 3500);
+        await loadResignations();
+        return;
+      }
+      setActionError(errMsg || 'Could not approve resignation.');
+      await loadResignations();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Open Clearance Modal
+  const openClearanceModal = (rec: ResignationItem) => {
+    setSelectedRecord(rec);
+    setClearanceState({
+      itAssets: Boolean(rec.clearance?.itAssets),
+      finance: Boolean(rec.clearance?.finance),
+      hrExit: Boolean(rec.clearance?.hrExit),
+      handover: Boolean(rec.clearance?.handover),
+    });
+    setIsClearanceModalOpen(true);
+  };
+
+  // Open Notice Modal
+  const openNoticeModal = (rec: ResignationItem) => {
+    setSelectedRecord(rec);
+    setAssignNoticeDays(rec.noticePeriodDays || 30);
+    setIsNoticeModalOpen(true);
+  };
+
+  // My own resignation record if employee
+  const myResignation = resignations.find(
+    (r) =>
+      r.employeeId === user?.id ||
+      r.employeeId === (user as any)?.userId ||
+      (user?.employeeCode && r.employeeCode === user.employeeCode)
+  );
+
+  // Filtered Resignations for Admin Table
+  const filteredResignations = resignations.filter((rec) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      rec.employeeName?.toLowerCase().includes(q) ||
+      rec.employeeCode?.toLowerCase().includes(q) ||
+      rec.reason.toLowerCase().includes(q);
+    const recStatus = (rec.status || '').toUpperCase();
+    const matchesStatus =
+      statusFilter === 'ALL' ||
+      (statusFilter === 'APPROVED' && (recStatus.includes('APPROV') || recStatus.includes('RELIEV') || recStatus.includes('COMPLET'))) ||
+      (statusFilter === 'NOTICE PERIOD' && recStatus.includes('NOTICE')) ||
+      (statusFilter === 'CLEARANCE' && recStatus.includes('CLEARANCE')) ||
+      (statusFilter === 'PENDING' && (recStatus.includes('PENDING') || recStatus.includes('SUBMIT')));
+    return matchesSearch && matchesStatus;
+  });
+
+  const getStatusBadge = (status: string) => {
+    const s = (status || '').toUpperCase();
+    if (s.includes('APPROV') || s.includes('RELIEV') || s.includes('COMPLET')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          Approved / Relieved
+        </span>
+      );
+    }
+    if (s.includes('CLEARANCE')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-fit">
+          <ShieldCheck className="w-3 h-3 text-blue-600" />
+          Clearance In Progress
+        </span>
+      );
+    }
+    if (s.includes('NOTICE') || s.includes('ON_NOTICE')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+          <Clock className="w-3 h-3 text-amber-600" />
+          Serving Notice
+        </span>
+      );
+    }
+    if (s.includes('REJECT')) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
+          <AlertCircle className="w-3 h-3 text-rose-600" />
+          Rejected
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 w-fit">
+        Pending Review
+      </span>
+    );
+  };
+
+  const formatDate = (isoStr?: string) => {
+    if (!isoStr) return '—';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return isoStr;
+    }
+  };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
-      {/* Module Title & Subtitle */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-              <LogOut className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                {isEmployeeView ? 'My Resignation & Exit Pipeline' : 'Resignations & Exit Clearances'}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isEmployeeView
-                  ? 'Submit formal resignation to HR Administration, monitor clearance status, and download relieving certificate.'
-                  : 'Review employee resignation filings, approve exit requests, conduct department handoffs, and issue relieving letters.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {!isEmployeeView && (
-          <button
-            onClick={() => {
-              setResigningEmpId(employees[0]?.id || 'emp-1');
-              setIsSubmitOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>File Employee Resignation</span>
-          </button>
-        )}
-      </div>
-
-      {/* ========================================================================= */}
-      {/* EMPLOYEE PORTAL VIEW                                                      */}
-      {/* ========================================================================= */}
-      {isEmployeeView && (
-        <div className="space-y-6">
-          {myResignation ? (
-            /* Active / Completed Resignation Card for Employee */
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-100">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        myResignation.status === 'Completed'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : 'bg-amber-100 text-amber-800 border border-amber-300'
-                      }`}
-                    >
-                      {myResignation.status === 'Completed' ? '✓ Resignation Approved & Completed' : '⏳ Submitted (Pending Admin Clearance)'}
-                    </span>
-                    <span className="text-xs text-slate-400">ID: {myResignation.id}</span>
-                  </div>
-                  <h2 className="text-xl font-extrabold text-slate-900 mt-1">
-                    {myResignation.employeeName} ({myResignation.employeeCode})
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Department: <strong>{myResignation.departmentName || currentEmp?.departmentName || 'General'}</strong> • Filed on <strong>{myResignation.resignationDate}</strong>
-                  </p>
-                </div>
-
-                <div className="text-left sm:text-right bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
-                    Expected Last Working Day
-                  </span>
-                  <span className="text-lg font-black text-slate-900">{myResignation.lastWorkingDay}</span>
-                  <span className="text-xs text-emerald-600 font-bold block mt-0.5">
-                    Notice: {myResignation.noticePeriodDays} Days
-                  </span>
-                </div>
-              </div>
-
-              {/* Stated Exit Reason */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-                <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide block">
-                  Your Stated Exit Reason:
-                </span>
-                <p className="text-xs text-slate-600 leading-relaxed italic">
-                  &ldquo;{myResignation.reason}&rdquo;
-                </p>
-              </div>
-
-              {/* Multi-Department Clearance Pipeline (Read-Only for Employee) */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Exit Clearance Tracking Status
-                  </h3>
-                  <span className="text-xs font-bold text-slate-500">
-                    {[
-                      myResignation.clearance?.departmentClearance,
-                      myResignation.clearance?.assetReturned,
-                      myResignation.clearance?.financeSettlement,
-                      myResignation.clearance?.exitInterviewCompleted,
-                    ].filter(Boolean).length}{' '}
-                    of 4 Cleared
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[
-                    { key: 'departmentClearance' as const, label: '1. Department Handover', desc: 'Knowledge transfer & handoff' },
-                    { key: 'assetReturned' as const, label: '2. IT Asset Return', desc: 'Laptop, ID card & hardware' },
-                    { key: 'financeSettlement' as const, label: '3. Finance Settlement', desc: 'Full & final payroll settlement' },
-                    { key: 'exitInterviewCompleted' as const, label: '4. Exit Interview', desc: 'HR exit review & feedback' },
-                  ].map(({ key, label, desc }) => {
-                    const done = Boolean(myResignation.clearance?.[key]);
-                    return (
-                      <div
-                        key={key}
-                        className={`p-4 rounded-2xl border transition-all ${
-                          done
-                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-600'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-bold">{label}</span>
-                          {done ? (
-                            <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" /> Cleared
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[11px] font-bold text-slate-400 bg-slate-200/70 px-2 py-0.5 rounded-full">
-                              <Clock className="w-3 h-3" /> Pending
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400">{desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Completed Banner & Relieving Certificate */}
-              {myResignation.status === 'Completed' ? (
-                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-300 flex flex-wrap items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-emerald-900 text-sm flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      All Exit Clearances Signed Off & Approved!
-                    </h4>
-                    <p className="text-xs text-emerald-700 leading-relaxed">
-                      Your formal resignation has been processed and approved by Administration. Your relieving and service certificate has been generated.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setRelievingLetterItem(myResignation)}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-emerald-600/20 active:scale-95 transition cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>View & Print Relieving Letter</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-amber-800 flex items-center gap-2.5">
-                  <Info className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>
-                    Your resignation is currently pending Admin clearance approval. Once HR Admin marks all clearances completed, your status will update and your official Relieving Letter will be available here.
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Employee Resignation Submission Form */
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-2xl mx-auto space-y-6">
-              <div className="space-y-1.5 pb-4 border-b border-slate-100">
-                <span className="text-[11px] font-extrabold uppercase text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                  Employee Self-Service
-                </span>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
-                  Submit Resignation Request to Admin
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Please fill out the form below to file your formal resignation. This will notify HR Administration and begin your exit clearance pipeline.
-                </p>
-              </div>
-
-              {/* Employee Quick Info Badge */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-sm">
-                  {user.firstName?.[0] || 'E'}
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">
-                    {user.firstName || 'Employee'} {user.lastName || ''} ({currentEmp?.employeeCode || (user as any).employeeCode || effectiveEmpId})
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Department: {currentEmp?.departmentName || 'Engineering & Operations'} • Employee ID: {effectiveEmpId}
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmitResignation} className="space-y-5 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
-                    Agreed Notice Period (Days) <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={noticeDays}
-                    onChange={(e) => setNoticeDays(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-semibold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 transition"
-                  >
-                    <option value={15}>15 Days (Accelerated Release)</option>
-                    <option value={30}>30 Days (Standard Notice Period)</option>
-                    <option value={45}>45 Days</option>
-                    <option value={60}>60 Days (Senior Level / Leadership)</option>
-                    <option value={90}>90 Days (Executive)</option>
-                  </select>
-                  <div className="mt-2 text-[11px] text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>
-                      Calculated Last Working Day: <strong>{calculateLastWorkingDay(noticeDays)}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
-                    Reason for Resignation <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    placeholder="Please explain the reason for your resignation (e.g., career advancement, higher education, personal relocation, health)..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 transition"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Your reason will be recorded in the audit trail and shared with HR Administration for clearance processing.
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-                  <button
-                    type="submit"
-                    disabled={submitting || !reason.trim()}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>{submitting ? 'Submitting to Admin...' : 'Submit Resignation to Admin'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+    <div className="space-y-6 w-full max-w-6xl mx-auto select-none">
+      {/* Toast Notification */}
+      {successToast && (
+        <div className="fixed top-5 right-5 z-50 p-4 rounded-2xl bg-emerald-900 text-white shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-xs font-semibold">{successToast}</span>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* ADMIN PORTAL VIEW                                                         */}
-      {/* ========================================================================= */}
-      {!isEmployeeView && (
-        <div className="space-y-6">
-          {/* Admin Stats Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Total Resignations
-              </span>
-              <span className="text-2xl font-black text-slate-900 mt-1 block">{resignations.length}</span>
-              <span className="text-[11px] text-slate-400">Total recorded filings</span>
+      {/* Top Header Card */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-rose-700 text-white flex items-center justify-center shadow-md shrink-0">
+              <LogOut className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">Resignations &amp; Clearance</h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  {resignations.length} {resignations.length === 1 ? 'Record' : 'Records'}
+                    </span>
+                  </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Staff separation workflows, notice period management, clearance checklist, and relieving letters
+                  </p>
+                </div>
+                </div>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={loadResignations}
+              disabled={isLoading}
+              className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition cursor-pointer"
+              title="Refresh Resignations"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+
+                  <button
+              type="button"
+              onClick={() => setIsFileModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 shadow-2xs transition-all inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>File Resignation</span>
+            </button>
+                </div>
+              </div>
+
+        {/* Quick KPI Stat Bar for Admin/HR */}
+        {isAdminOrHr && (
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Total Separations</span>
+              <p className="text-lg font-bold text-slate-900 mt-0.5">{resignations.length}</p>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">
-                Pending Clearance
-              </span>
-              <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingCount}</span>
-              <span className="text-[11px] text-slate-400">Awaiting clearance / approval</span>
-            </div>
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-amber-700">Serving Notice</span>
+              <p className="text-lg font-bold text-amber-800 mt-0.5">
+                {resignations.filter((r) => (r.status || '').toUpperCase().includes('NOTICE')).length}
+                </p>
+              </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
-                Approved & Completed
-              </span>
-              <span className="text-2xl font-black text-emerald-600 mt-1 block">{completedCount}</span>
-              <span className="text-[11px] text-slate-400">Relieving certificates issued</span>
-            </div>
-          </div>
+            <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+              <span className="text-[10px] uppercase font-bold text-blue-700">Under Clearance</span>
+              <p className="text-lg font-bold text-blue-800 mt-0.5">
+                {resignations.filter((r) => (r.status || '').toUpperCase().includes('CLEARANCE')).length}
+              </p>
+                </div>
 
-          {/* Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200">
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-              <button
-                onClick={() => setFilterTab('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                All Filings ({resignations.length})
-              </button>
-              <button
-                onClick={() => setFilterTab('pending')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'pending' ? 'bg-white text-amber-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Pending ({pendingCount})
-              </button>
-              <button
-                onClick={() => setFilterTab('completed')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'completed' ? 'bg-white text-emerald-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Completed ({completedCount})
-              </button>
-            </div>
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+              <span className="text-[10px] uppercase font-bold text-emerald-700">Approved / Relieved</span>
+              <p className="text-lg font-bold text-emerald-800 mt-0.5">
+                {resignations.filter((r) => {
+                  const s = (r.status || '').toUpperCase();
+                  return s.includes('APPROV') || s.includes('RELIEV') || s.includes('COMPLET') || Boolean(r.approvedAt);
+                }).length}
+              </p>
+                        </div>
+                      </div>
+        )}
+              </div>
 
-            {/* Search Input */}
-            <div className="relative flex-1 sm:max-w-xs">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Main View Area */}
+      {isLoading ? (
+        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+          <BouncingDotsLoader size="md" colorClass="bg-rose-600" className="mx-auto mb-2" />
+          <p className="text-xs font-bold text-slate-700">Loading separation records...</p>
+          <p className="text-[11px] text-slate-400">Querying organization resignation and clearance status</p>
+                  </div>
+      ) : error ? (
+        <div className="p-8 text-center bg-white rounded-2xl border border-rose-200 text-rose-800 space-y-3">
+          <AlertCircle className="w-7 h-7 text-rose-600 mx-auto" />
+          <p className="text-xs font-bold">{error}</p>
+                  <button
+            type="button"
+            onClick={loadResignations}
+            className="px-4 py-2 rounded-xl bg-rose-100 text-rose-800 text-xs font-bold hover:bg-rose-200 transition cursor-pointer"
+                  >
+            Retry Loading
+                  </button>
+                </div>
+      ) : isAdminOrHr ? (
+        /* ADMIN & HR VIEW: Full Workforce Table */
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* Table Header Filter Bar */}
+          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 sm:w-72">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search by employee name or code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white text-slate-900 focus:border-emerald-600 transition"
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:border-rose-600"
               />
-            </div>
-          </div>
+              </div>
 
-          {/* Resignations List */}
+            <div className="flex items-center gap-2">
+                  <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="PENDING">Pending Review</option>
+                <option value="NOTICE PERIOD">Serving Notice</option>
+                <option value="CLEARANCE">Clearance In Progress</option>
+                <option value="APPROVED">Approved / Relieved</option>
+                  </select>
+                  </div>
+                </div>
+
           {filteredResignations.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 p-8 space-y-3">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <div className="p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <LogOut className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-800">No resignation records found</h3>
+              <h3 className="text-sm font-bold text-slate-900">No Resignation Records Found</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                No resignation filings match the selected filters.
-              </p>
-            </div>
+                {searchQuery || statusFilter !== 'ALL'
+                  ? 'No separation requests match your selected filters.'
+                  : 'There are currently no resignation or clearance requests on file.'}
+                  </p>
+                </div>
           ) : (
-            <div className="space-y-5">
-              {filteredResignations.map((res) => {
-                const isCompleted = res.status === 'Completed';
-                const isApproving = approvingId === res.id;
-                return (
-                  <div
-                    key={res.id}
-                    className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-5 hover:shadow-md transition"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                              isCompleted
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : 'bg-amber-100 text-amber-800 border border-amber-300'
-                            }`}
-                          >
-                            {isCompleted ? '✓ Completed / Relieved' : '⏳ Clearance Pending'}
-                          </span>
-                          <span className="text-[11px] text-slate-400">ID: {res.id}</span>
+            <>
+              {/* Mobile Card View (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filteredResignations.map((rec) => {
+                  const cl = rec.clearance || {};
+                  const totalChecks = 4;
+                  const doneChecks = [cl.itAssets, cl.finance, cl.hrExit, cl.handover].filter(Boolean).length;
+                  const recStatusUpper = (rec.status || '').toUpperCase();
+                  const isApproved =
+                    recStatusUpper.includes('APPROV') ||
+                    recStatusUpper.includes('RELIEV') ||
+                    recStatusUpper.includes('COMPLET') ||
+                    Boolean(rec.approvedAt) ||
+                    Boolean(rec.approvedBy);
+                  return (
+                    <div key={`mob-${rec.id}`} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
+                            {rec.employeeName?.[0] || 'E'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 text-sm truncate">{rec.employeeName}</p>
+                            <p className="text-[11px] text-slate-400 font-mono truncate">
+                              {rec.employeeCode} • {rec.departmentName}
+                            </p>
+                          </div>
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 mt-1">
-                          {res.employeeName} ({res.employeeCode})
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          {res.departmentName || 'General'} • Resigned on {res.resignationDate}
-                        </p>
+                        {getStatusBadge(rec.status)}
                       </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
-                            Last Working Day
-                          </span>
-                          <span className="text-base font-extrabold text-slate-900">{res.lastWorkingDay}</span>
-                          <span className="text-xs text-emerald-600 font-semibold block">Notice: {res.noticePeriodDays} Days</span>
+                      <p className="text-xs text-slate-600 line-clamp-2">{rec.reason}</p>
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Notice Period</span>
+                          <span className="font-semibold text-slate-800">{rec.noticeAssigned ? `${rec.noticePeriodDays} Days` : 'Not assigned'}</span>
                         </div>
-
-                        {/* Admin 1-Click Approve Button */}
-                        {!isCompleted && (
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Clearance</span>
+                          <span className="font-semibold text-slate-800">{doneChecks} / {totalChecks} Cleared</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openNoticeModal(rec)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer active:scale-95"
+                        >
+                          Notice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openClearanceModal(rec)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer active:scale-95"
+                        >
+                          Clearance
+                        </button>
+                        {!isApproved && (
                           <button
                             type="button"
-                            disabled={isApproving}
-                            onClick={() => handleApproveResignation(res.id)}
-                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                            onClick={() => handleApproveResignation(rec)}
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95 ml-auto"
                           >
-                            <CheckCircle className="w-4 h-4" />
-                            <span>{isApproving ? 'Approving...' : 'Approve Resignation'}</span>
+                            Approve
                           </button>
                         )}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Stated Reason */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 text-xs text-slate-600 border border-slate-100">
-                      <span className="font-bold block text-slate-800 mb-0.5">Stated Exit Reason:</span>
-                      <p className="italic">&ldquo;{res.reason}&rdquo;</p>
-                    </div>
+              <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
+              <table className="w-full text-left text-xs min-w-[760px]">
+                <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                    <th className="py-2.5 px-4 font-medium">REASON FOR RESIGNATION</th>
+                    <th className="py-2.5 px-4 font-medium">NOTICE PERIOD</th>
+                    <th className="py-2.5 px-4 font-medium">CLEARANCE PROGRESS</th>
+                    <th className="py-2.5 px-4 font-medium">STATUS</th>
+                    <th className="py-2.5 px-4 font-medium text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredResignations.map((rec) => {
+                    const cl = rec.clearance || {};
+                    const totalChecks = 4;
+                    const doneChecks = [cl.itAssets, cl.finance, cl.hrExit, cl.handover].filter(Boolean).length;
+                    const recStatusUpper = (rec.status || '').toUpperCase();
+                    const isApproved =
+                      recStatusUpper.includes('APPROV') ||
+                      recStatusUpper.includes('RELIEV') ||
+                      recStatusUpper.includes('COMPLET') ||
+                      Boolean(rec.approvedAt) ||
+                      Boolean(rec.approvedBy);
 
-                    {/* Interactive Clearance Checklist for Admin */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                          Exit Clearance Workflow Checklist (Click to Toggle)
-                        </h4>
-                        <span className="text-[11px] font-bold text-slate-500">
-                          {[
-                            res.clearance?.departmentClearance,
-                            res.clearance?.assetReturned,
-                            res.clearance?.financeSettlement,
-                            res.clearance?.exitInterviewCompleted,
-                          ].filter(Boolean).length}{' '}
-                          / 4 Complete
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                        {[
-                          { key: 'departmentClearance' as const, label: '1. Department Handover' },
-                          { key: 'assetReturned' as const, label: '2. IT Asset Return' },
-                          { key: 'financeSettlement' as const, label: '3. Finance Settlement' },
-                          { key: 'exitInterviewCompleted' as const, label: '4. Exit Interview' },
-                        ].map(({ key, label }) => {
-                          const done = res.clearance?.[key];
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              onClick={() => handleToggleClearance(res, key)}
-                              className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-                                done
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs'
-                                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                              }`}
-                            >
-                              <span className="text-xs font-bold">{label}</span>
-                              {done ? (
-                                <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                              ) : (
-                                <Clock className="w-4 h-4 text-slate-400" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Completed Clearance Banner & Relieving Letter */}
-                    {isCompleted && (
-                      <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h5 className="font-bold text-emerald-800 text-xs flex items-center gap-1.5">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" /> Exit Clearances 100% Completed
-                          </h5>
-                          <p className="text-[11px] text-emerald-700 mt-0.5">
-                            Employee marked as Resigned in roster. Ready to generate Relieving and Service Certificate.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setRelievingLetterItem(res)}
-                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>View Relieving Letter</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                return (
+                      <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
+                            {rec.employeeName?.[0] || 'E'}
+                </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{rec.employeeName}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              {rec.employeeCode} • {rec.departmentName}
+                        </p>
             </div>
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={rec.reason}>
+                          {rec.reason}
+                        </td>
+
+                        <td className="py-3 px-4 font-mono text-slate-700">
+                          <div className="space-y-0.5">
+                            <span className="font-semibold">{rec.noticeAssigned ? `${rec.noticePeriodDays} Days` : 'Not assigned'}</span>
+                            {rec.submittedAt && (
+                              <p className="text-[10px] text-slate-400">Filed {formatDate(rec.submittedAt)}</p>
+                            )}
+            </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                              <span>{doneChecks} / {totalChecks} Cleared</span>
+            </div>
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  doneChecks === totalChecks ? 'bg-emerald-500' : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${(doneChecks / totalChecks) * 100}%` }}
+                              />
+          </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">{getStatusBadge(rec.status)}</td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+              <button
+                            type="button"
+                              onClick={() => openNoticeModal(rec)}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                              title="Assign Notice Days"
+                            >
+                              Notice
+              </button>
+
+              <button
+                              type="button"
+                              onClick={() => openClearanceModal(rec)}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
+                              title="Departmental Clearance Checklist"
+                            >
+                              Clearance
+              </button>
+
+                            {isApproved ? (
+                              <span
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs"
+                                title="Resignation Approved"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Approved
+                              </span>
+                            ) : (
+              <button
+                                type="button"
+                                onClick={() => handleApproveResignation(rec)}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs active:scale-95"
+                                title="Approve Relieving"
+                              >
+                                Approve
+              </button>
+                            )}
+            </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            </>
           )}
         </div>
+      ) : (
+        /* EMPLOYEE / MANAGER PERSONAL VIEW */
+        <div className="space-y-5">
+          {myResignation ? (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Your Resignation Case</span>
+                  <h3 className="text-base font-bold text-slate-900 mt-0.5">Separation Status &amp; Relieving</h3>
+                </div>
+                {getStatusBadge(myResignation.status)}
+          </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Notice Period</span>
+                  <p className="text-sm font-bold text-slate-800">
+                    {myResignation.noticeAssigned ? `${myResignation.noticePeriodDays} Days` : 'HR or Admin will assign it'}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Submitted on {formatDate(myResignation.submittedAt)}</p>
+              </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Reason on Record</span>
+                  <p className="text-xs font-semibold text-slate-700 line-clamp-2">{myResignation.reason}</p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Approval / Relieving</span>
+                  <p className="text-xs font-semibold text-slate-800">
+                    {myResignation.approvedAt ? `Relieved on ${formatDate(myResignation.approvedAt)}` : 'In review by HR'}
+              </p>
+            </div>
+              </div>
+
+              {/* Clearance Checklist Status */}
+                    <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
+                  Departmental Clearance Progress
+                        </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Laptop className="w-4 h-4 text-slate-500" />
+                      <span className="text-xs font-semibold text-slate-800">IT Hardware &amp; Assets Handover</span>
+                    </div>
+                    {myResignation.clearance?.itAssets ? (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Cleared
+                        </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-600">Pending Return</span>
+                    )}
+                        </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className="w-4 h-4 text-slate-500" />
+                      <span className="text-xs font-semibold text-slate-800">Finance &amp; Dues Settlement</span>
+                    </div>
+                    {myResignation.clearance?.finance ? (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Cleared
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-600">Pending Review</span>
+                    )}
+                      </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <UserCheck className="w-4 h-4 text-slate-500" />
+                      <span className="text-xs font-semibold text-slate-800">HR Exit Interview</span>
+                    </div>
+                    {myResignation.clearance?.hrExit ? (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Completed
+                          </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-600">Scheduled</span>
+                    )}
+                        </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Briefcase className="w-4 h-4 text-slate-500" />
+                      <span className="text-xs font-semibold text-slate-800">Project Knowledge Transfer</span>
+                    </div>
+                    {myResignation.clearance?.handover ? (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Signed Off
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-600">In Progress</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-8 sm:p-12 text-center space-y-4 shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+                <LogOut className="w-7 h-7" />
+              </div>
+                        <div>
+                <h3 className="text-base font-bold text-slate-900">No Resignation on File</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                  You are currently active in your role. If you plan to tender a formal resignation, you can submit your notice and separation request directly through this portal.
+                          </p>
+                        </div>
+                          <button
+                            type="button"
+                onClick={() => setIsFileModalOpen(true)}
+                className="px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 shadow-2xs transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
+                          >
+                <Plus className="w-4 h-4" />
+                <span>Submit Separation Request</span>
+                          </button>
+            </div>
+                        )}
+                      </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: File Resignation on Behalf of Employee (Admin)                     */}
-      {/* ========================================================================= */}
-      {isSubmitOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <LogOut className="w-5 h-5 text-emerald-600" />
-                File Employee Resignation
-              </h3>
+      {/* MODAL 1: File Resignation Modal */}
+      {isFileModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-bold">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">File Formal Resignation</h3>
+                  <p className="text-[11px] text-slate-400">Submit your separation notice to Human Resources</p>
+                </div>
+              </div>
               <button
-                onClick={() => setIsSubmitOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                type="button"
+                onClick={() => setIsFileModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
-            </div>
+                    </div>
 
-            <form onSubmit={handleSubmitResignation} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
-                <select
-                  value={resigningEmpId}
-                  onChange={(e) => setResigningEmpId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName || 'General'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <form onSubmit={handleFileResignation} className="p-6 space-y-4 overflow-y-auto">
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{actionError}</span>
+                    </div>
+              )}
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notice Period (Days)</label>
-                <select
-                  value={noticeDays}
-                  onChange={(e) => setNoticeDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  <option value={15}>15 Days (Accelerated)</option>
-                  <option value={30}>30 Days (Standard Notice)</option>
-                  <option value={45}>45 Days</option>
-                  <option value={60}>60 Days (Senior Executive)</option>
-                  <option value={90}>90 Days</option>
-                </select>
-              </div>
+              <p className="text-xs text-slate-600 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                Notice period is not chosen here. HR or Admin will assign it after this request is filed.
+              </p>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Exit Reason *</label>
+                    <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Reason for Resignation *</label>
                 <textarea
+                  rows={4}
                   required
-                  rows={3}
-                  placeholder="State reason for resignation (career advancement, relocation, further studies...)"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white"
+                  placeholder="State your formal reason for leaving, career transition, or personal reasons..."
+                  value={fileReason}
+                  onChange={(e) => setFileReason(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
                 />
-              </div>
+                      </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSubmitOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                            <button
+                              type="button"
+                  onClick={() => setIsFileModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
-                  disabled={submitting || !reason.trim()}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
                 >
-                  {submitting ? 'Submitting...' : 'Confirm & File Resignation'}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Submit Resignation</span>
+                    </>
+                              )}
+                            </button>
+                      </div>
+            </form>
+                    </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Assign Notice Period (Admin & HR) */}
+      {isNoticeModalOpen && selectedRecord && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                  <Clock className="w-4 h-4" />
+              </div>
+                        <div>
+                  <h3 className="text-sm font-bold text-slate-900">Assign Notice Period</h3>
+                  <p className="text-[11px] text-slate-400">For {selectedRecord.employeeName}</p>
+                </div>
+                        </div>
+                        <button
+                type="button"
+                onClick={() => setIsNoticeModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                        >
+                <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+            <form onSubmit={handleAssignNotice} className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Notice Days</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={assignNoticeDays}
+                  onChange={(e) => setAssignNoticeDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-800"
+                />
+                  </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsNoticeModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  {isSubmitting ? 'Saving...' : 'Update Notice'}
+                </button>
+            </div>
+            </form>
+            </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Departmental Clearance Checklist (Admin & HR) */}
+      {isClearanceModalOpen && selectedRecord && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Clearance Checklist</h3>
+                  <p className="text-[11px] text-slate-400">Departmental sign-offs for {selectedRecord.employeeName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsClearanceModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateClearance} className="p-6 space-y-4 overflow-y-auto">
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clearanceState.itAssets}
+                    onChange={(e) => setClearanceState((p) => ({ ...p, itAssets: e.target.checked }))}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                  />
+              <div>
+                    <span className="text-xs font-bold text-slate-800 block">IT Hardware &amp; Assets Returned</span>
+                    <span className="text-[10px] text-slate-400">Laptop, security keys, monitors and accessories</span>
+              </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clearanceState.finance}
+                    onChange={(e) => setClearanceState((p) => ({ ...p, finance: e.target.checked }))}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                  />
+              <div>
+                    <span className="text-xs font-bold text-slate-800 block">Finance Dues &amp; Claims Cleared</span>
+                    <span className="text-[10px] text-slate-400">Salary advances, expense reimbursements verified</span>
+              </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clearanceState.hrExit}
+                    onChange={(e) => setClearanceState((p) => ({ ...p, hrExit: e.target.checked }))}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                  />
+              <div>
+                    <span className="text-xs font-bold text-slate-800 block">HR Exit Interview Completed</span>
+                    <span className="text-[10px] text-slate-400">Formal feedback received and documentation archived</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clearanceState.handover}
+                    onChange={(e) => setClearanceState((p) => ({ ...p, handover: e.target.checked }))}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">Knowledge Transfer &amp; Handover</span>
+                    <span className="text-[10px] text-slate-400">Project repos, client credentials and documents handed over</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsClearanceModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Clearance'}
                 </button>
               </div>
             </form>
@@ -766,81 +1077,86 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({ portalMo
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: Printable Relieving & Experience Certificate                       */}
-      {/* ========================================================================= */}
-      {relievingLetterItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Building className="w-5 h-5 text-emerald-600" />
-                <span className="font-bold text-slate-900 text-base">Service & Relieving Certificate</span>
+      {/* Approve Resignation Confirmation Popup */}
+      {approveConfirmRecord && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => !isSubmitting && setApproveConfirmRecord(null)}
+        >
+          <div
+            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-4 h-4" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Letter</span>
-                </button>
-                <button
-                  onClick={() => setRelievingLetterItem(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Approve Resignation</h3>
+                  <p className="text-[11px] text-slate-400">Confirm employee separation &amp; relieving</p>
+                </div>
               </div>
+                <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setApproveConfirmRecord(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+                </button>
             </div>
 
-            {/* Official Certificate Format */}
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-4 leading-relaxed font-serif">
-              <div className="text-center pb-3 border-b border-slate-200">
-                <h4 className="font-black text-slate-900 text-base tracking-wide font-sans">
-                  PANELIYA TECHNOLOGY INC.
-                </h4>
-                <p className="text-[10px] text-slate-500 font-sans">
-                  Enterprise Cloud & Next-Gen Software Engineering
-                </p>
-              </div>
-
-              <div className="flex justify-between font-sans text-[11px] font-semibold text-slate-500">
-                <span>Ref: PTI/REL/{relievingLetterItem.employeeCode}/2026</span>
-                <span>Date: {relievingLetterItem.lastWorkingDay}</span>
-              </div>
-
-              <h5 className="font-bold text-slate-900 text-sm text-center font-sans uppercase underline tracking-wider pt-2">
-                TO WHOMSOEVER IT MAY CONCERN
-              </h5>
-
-              <p>
-                This is to certify that <strong>{relievingLetterItem.employeeName}</strong> (Employee ID:{' '}
-                <strong>{relievingLetterItem.employeeCode}</strong>) was employed with{' '}
-                <strong>Paneliya Technology Inc.</strong> in the department of{' '}
-                <strong>{relievingLetterItem.departmentName || 'Engineering & Operations'}</strong>.
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to approve separation and relieving for{' '}
+                <strong className="text-slate-900">{approveConfirmRecord.employeeName}</strong>?
               </p>
 
-              <p>
-                {relievingLetterItem.employeeName} tendered resignation on{' '}
-                <strong>{relievingLetterItem.resignationDate}</strong> and has been formally relieved of all duties
-                and responsibilities with effect from the close of business hours on{' '}
-                <strong>{relievingLetterItem.lastWorkingDay}</strong> after successfully fulfilling all departmental
-                handover, IT equipment return, and financial settlements.
-              </p>
-
-              <p>
-                During the tenure with Paneliya Technology, conduct and professional dedication were found to be
-                exemplary. We wish {relievingLetterItem.employeeName} every success in all future professional
-                endeavors.
-              </p>
-
-              <div className="pt-6 font-sans text-xs">
-                <p className="font-bold text-slate-900">For Paneliya Technology Inc.</p>
-                <div className="mt-8">
-                  <p className="font-bold text-slate-800">Authorized Signatory</p>
-                  <p className="text-slate-500 text-[11px]">Human Resources & Operations</p>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Employee</span>
+                  <span className="font-semibold text-slate-800">{approveConfirmRecord.employeeName}</span>
                 </div>
+                {approveConfirmRecord.employeeCode && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Employee ID</span>
+                    <span className="font-mono text-slate-700">{approveConfirmRecord.employeeCode}</span>
+                  </div>
+                )}
+                {approveConfirmRecord.lastWorkingDay && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Last Working Date</span>
+                    <span className="font-medium text-slate-800">{approveConfirmRecord.lastWorkingDay}</span>
+                  </div>
+                )}
+              </div>
+
+              {actionError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{actionError}</span>
+              </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setApproveConfirmRecord(null)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmApproveResignation}
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isSubmitting ? 'Approving...' : 'Confirm & Approve'}</span>
+                </button>
               </div>
             </div>
           </div>
