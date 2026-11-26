@@ -49,6 +49,10 @@ interface SocketContextType {
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
   notices: AppNotice[];
+  readNoticeIds: string[];
+  unreadNoticesCount: number;
+  markNoticeRead: (id: string) => void;
+  markAllNoticesRead: () => void;
   dismissNotice: (id: string) => void;
   clearNotices: () => void;
 }
@@ -70,6 +74,10 @@ const SocketContext = createContext<SocketContextType>({
   emitLeaveApplied: () => { },
   emitLeaveStatusUpdated: () => { },
   notices: [],
+  readNoticeIds: [],
+  unreadNoticesCount: 0,
+  markNoticeRead: () => { },
+  markAllNoticesRead: () => { },
   dismissNotice: () => { },
   clearNotices: () => { },
 });
@@ -80,14 +88,27 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [notices, setNotices] = useState<AppNotice[]>([]);
+  const [readNoticeIds, setReadNoticeIds] = useState<string[]>([]);
+
+  const unreadNoticesCount = notices.filter((n) => !readNoticeIds.includes(n.id)).length;
+
+  const markNoticeRead = (id: string) => {
+    setReadNoticeIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const markAllNoticesRead = () => {
+    setReadNoticeIds(notices.map((n) => n.id));
+  };
 
   const dismissNotice = (id: string) => {
     setNotices((prev) => prev.filter((item) => item.id !== id));
+    setReadNoticeIds((prev) => prev.filter((rid) => rid !== id));
     api.dismissNotice(id).catch(() => {});
   };
 
   const clearNotices = () => {
     setNotices([]);
+    setReadNoticeIds([]);
     api.clearNotices().catch(() => {});
   };
 
@@ -644,6 +665,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitLeaveApplied,
         emitLeaveStatusUpdated,
         notices,
+        readNoticeIds,
+        unreadNoticesCount,
+        markNoticeRead,
+        markAllNoticesRead,
         dismissNotice,
         clearNotices,
       }}

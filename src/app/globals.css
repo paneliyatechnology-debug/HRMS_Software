@@ -4,6 +4,8 @@
 /* ENTERPRISE DUAL PALETTE: NEUTRAL SLATE CANVAS + EVERGREEN BRAND ACCENTS  */
 /* ════════════════════════════════════════════════════════════════════════ */
 @theme {
+  --font-mono: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
   /* Brand Primary Greens -> Enterprise Palette */
   --color-emerald-50: #e8f5ec;
   --color-emerald-100: #d4eedc;
@@ -335,7 +337,7 @@
 .tile {
   background: #ffffff;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 16px;
   box-shadow: 0 1px 3px rgba(24, 35, 29, 0.04);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
@@ -444,34 +446,34 @@
 
 .tag {
   font-size: 11px;
-  border-radius: 20px;
-  padding: 4px 8px;
-  background: var(--bright-snow);
+  border-radius: 0;
+  padding: 0;
+  background: transparent !important;
   color: var(--gunmetal);
   font-weight: 600;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid var(--alabaster-grey);
+  border: 0 !important;
 }
 
 .tag.green {
-  background: var(--frosted-mint);
-  color: var(--pine-teal);
-  border-color: var(--celadon-2);
+  background: transparent !important;
+  color: #2d6a4f;
+  border: 0 !important;
 }
 
 .tag.orange {
-  background: var(--platinum);
-  color: var(--carbon-black);
-  border-color: var(--pale-slate);
+  background: transparent !important;
+  color: #b45309;
+  border: 0 !important;
 }
 
 .tag.red {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-color: #fecaca;
+  background: transparent !important;
+  color: #be123c;
+  border: 0 !important;
 }
 
 .bar {
@@ -493,7 +495,7 @@
   overflow: auto;
   background: #fff;
   border: 1px solid var(--alabaster-grey);
-  border-radius: 6px;
+  border-radius: 14px;
 }
 
 .data {
@@ -508,6 +510,34 @@
   padding: 13px 14px;
   border-bottom: 1px solid var(--bright-snow);
   font-size: 13px;
+}
+
+.data th.text-right,
+.data td.text-right {
+  text-align: right;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Plain colored text instead of pill/box badges inside table list rows */
+.hrms-app-shell table tbody td span[class*="bg-"][class*="rounded"]:not(:empty):not([class*="w-7"]):not([class*="w-8"]):not([class*="w-9"]):not([class*="w-10"]),
+.hrms-app-shell table tbody td span[class*="border"][class*="rounded"]:not(:empty):not([class*="w-7"]):not([class*="w-8"]):not([class*="w-9"]):not([class*="w-10"]),
+.hrms-app-shell table tbody td div[class*="bg-"][class*="border"][class*="rounded"]:not([class*="w-7"]):not([class*="w-8"]):not([class*="w-9"]):not([class*="w-10"]) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.hrms-app-shell table tbody td button span[class*="bg-"] {
+  background-color: revert !important;
 }
 
 .data th {
@@ -527,7 +557,7 @@
 .face-card {
   background: #fff;
   border: 1px solid var(--alabaster-grey);
-  border-radius: 6px;
+  border-radius: 14px;
   padding: 20px;
   min-width: 0;
 }
@@ -537,7 +567,7 @@
   padding: 24px 18px;
   background: var(--bright-snow);
   border: 1px dashed var(--pale-slate);
-  border-radius: 6px;
+  border-radius: 14px;
   text-align: center;
 }
 
@@ -569,7 +599,7 @@
 
 .face-kpi {
   padding: 13px;
-  border-radius: 6px;
+  border-radius: 14px;
   background: var(--bright-snow);
   border: 1px solid var(--alabaster-grey);
 }
@@ -1262,13 +1292,16 @@ textarea {
 .hrms-app-shell article.rounded-3xl,
 .hrms-app-shell div.rounded-2xl,
 .hrms-app-shell section.rounded-2xl,
-.hrms-app-shell article.rounded-2xl,
+.hrms-app-shell article.rounded-2xl {
+  border-radius: 16px !important;
+}
+
 .hrms-app-shell main div.rounded-xl[class*="border"],
 .hrms-app-shell main div.rounded-xl[class*="bg-white"],
 .hrms-app-shell main div.rounded-xl[class*="shadow"],
 .hrms-app-shell main section.rounded-xl,
 .hrms-app-shell main article.rounded-xl {
-  border-radius: 6px !important;
+  border-radius: 14px !important;
 }
 
 /* Refined neutral #ced4da border on all cards across the app */

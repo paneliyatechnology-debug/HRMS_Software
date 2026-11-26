@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   CheckSquare,
@@ -514,7 +515,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       {/* ── Tasks Table / Cards ───────────────────────────── */}
       {loading ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-2xs">
-          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
+          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">Loading tasks from backend database...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
@@ -1019,7 +1020,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
             <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingDetail ? (
                 <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                   <p className="text-slate-500 font-medium">Fetching real-time task data...</p>
                 </div>
               ) : (

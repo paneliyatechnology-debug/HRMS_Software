@@ -1352,9 +1352,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
                           My Recent Attendance
                       </h3>
-                        <p className="text-[10px] text-slate-400 leading-tight truncate">
-                          Daily clock in/out timestamps &amp; worked duration
-                      </p>
+                      
                     </div>
                   </div>
                   <button

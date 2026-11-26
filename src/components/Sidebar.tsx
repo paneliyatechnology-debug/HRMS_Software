@@ -30,8 +30,10 @@ import {
   PanelLeftOpen,
   Receipt,
   CheckSquare,
+  Bell,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { api } from '../lib/api';
 import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
@@ -70,6 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenProfile,
 }) => {
   const { user } = useAuth();
+  const { unreadNoticesCount } = useSocket();
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -105,7 +108,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (isMounted && backendComp && backendComp.name) {
           setCompanyInfo({
             name: backendComp.name.replace(/\s+Inc\.?$/i, '').trim(),
-            logoUrl: backendComp.logoUrl,
+            logoUrl:
+              backendComp.logoUrl ||
+              backendComp.adminAvatarUrl ||
+              backendComp.avatarUrl ||
+              (backendComp as any).logo,
           });
           return;
         }
@@ -319,13 +326,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         key={itemKey}
         id={`nav-item-${itemKey}`}
         onClick={() => handleNav(id, subTab)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-all duration-200 cursor-pointer group active:scale-[0.98] ${isActive
-          ? 'bg-[#1b4332] text-white font-bold shadow-xs translate-x-0.5'
-          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:translate-x-1 font-medium'
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-colors duration-150 cursor-pointer group active:scale-[0.99] ${isActive
+          ? 'bg-[#1b4332] text-white font-bold shadow-xs'
+          : 'text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] font-medium'
           }`}
       >
         <div className="flex items-center gap-2.5">
-          <span className={`w-5 flex justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
+          <span className={`w-5 flex justify-center transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
             {icon}
           </span>
           <span className="truncate">{label}</span>
@@ -367,7 +374,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title={`Expand sidebar — ${displayCompanyName}`}
               >
                 {companyLogo ? (
-                  <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+                  <img
+                    src={companyLogo}
+                    alt={displayCompanyName}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-sm font-bold text-slate-700">{companyInitial}</span>
                 )}
@@ -378,7 +389,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-2.5 min-w-0 pr-1">
                 <div className={`w-[38px] h-[38px] rounded-[12px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xl shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-1'}`}>
                   {companyLogo ? (
-                    <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+                    <img
+                      src={companyLogo}
+                      alt={displayCompanyName}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <span className="text-sm font-bold text-slate-700">{companyInitial}</span>
                   )}
@@ -460,9 +475,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={() => { window.location.href = '/face-clock'; }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 font-medium cursor-pointer group active:scale-[0.99]"
                 >
-                  <span className="w-5 flex justify-center text-[#6c757d]"><ScanFace className="w-4 h-4" /></span>
+                  <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150"><ScanFace className="w-4 h-4" /></span>
                   <span className="truncate">Face clock</span>
                 </button>
               )
@@ -493,6 +508,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : undefined
             )}
             {navItem('calendar', 'Calendar & Holidays', <Calendar className="w-4 h-4" />)}
+            {navItem(
+              'notifications',
+              'Notifications',
+              <Bell className="w-4 h-4" />,
+              unreadNoticesCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
+                  {unreadNoticesCount > 99 ? '99+' : unreadNoticesCount}
+                </span>
+              ) : undefined
+            )}
             </>
             )}
           </div>
@@ -576,10 +601,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div>
                       <button
                         onClick={() => toggleSection('people')}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-[#f8f9fa] hover:text-[#343a40] transition-colors cursor-pointer group"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 cursor-pointer group"
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#343a40]">
+                          <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150">
                             <Users className="w-4 h-4" />
                           </span>
                           <span>Employees</span>
@@ -594,27 +619,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
                           <button
                             onClick={() => handleNav('employees')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'employees'
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'employees'
                               ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
                               }`}
                           >
                             Directory
                           </button>
                           <button
                             onClick={() => handleNav('organization', 'departments')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
                               ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
                               }`}
                           >
                             Departments
                           </button>
                           <button
                             onClick={() => handleNav('organization', 'teams')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
+                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
                               ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]'
+                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
                               }`}
                           >
                             Teams

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import {
   UserCheck,
   Briefcase,
@@ -1569,7 +1570,7 @@ export const RecruitmentModule: React.FC<RecruitmentModuleProps> = ({
             <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingPublicJob ? (
                 <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
+                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                   <p className="text-slate-500 font-medium">Fetching public posting data...</p>
                 </div>
               ) : (

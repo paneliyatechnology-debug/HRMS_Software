@@ -37,6 +37,7 @@ export const VALID_MODULE_MAP: Record<string, { module: string; subTab?: string 
   'settings': { module: 'settings' },
   'profile': { module: 'profile' },
   'calendar': { module: 'calendar' },
+  'notifications': { module: 'notifications' },
 };
 
 /**

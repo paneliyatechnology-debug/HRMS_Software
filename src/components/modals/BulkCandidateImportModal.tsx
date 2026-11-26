@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import {
   X,
   Upload,
@@ -627,7 +628,7 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
               {/* Parsing Loader */}
               {isParsing && (
                 <div className="p-6 rounded-2xl bg-[#f8f9fa] border border-[#dee2e6] text-center space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#2d6a4f] mx-auto" />
+                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
                   <p className="text-xs font-bold text-[#212529]">Parsing spreadsheet data in browser...</p>
                 </div>
               )}

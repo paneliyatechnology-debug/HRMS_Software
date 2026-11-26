@@ -4,6 +4,7 @@ import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { LandingPage } from '../components/landing/LandingPage';
+import { BouncingDotsLoader } from '../components/common/BouncingDotsLoader';
 import { HrmsAppShell } from '../components/layout/HrmsAppShell';
 import { getRouteForModule } from '../lib/routes';
 
@@ -33,7 +34,7 @@ function HomePageContent() {
   if (isLoading && !isAuthenticated) {
     return (
       <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <BouncingDotsLoader size="lg" />
         <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
       </div>
     );
@@ -51,7 +52,7 @@ export default function Home() {
     <Suspense
       fallback={
         <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
-          <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+          <BouncingDotsLoader size="lg" />
           <span className="text-xs font-semibold text-slate-700"></span>
         </div>
       }

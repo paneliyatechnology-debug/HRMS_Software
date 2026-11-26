@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Megaphone,
@@ -396,7 +397,7 @@ export const AnnouncementsModule: React.FC<AnnouncementsModuleProps> = ({
       <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-4 [scrollbar-width:thin]">
       {isLoading ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-          <Loader2 className="w-7 h-7 text-emerald-600 animate-spin mx-auto" />
+          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-700">Loading company notices...</p>
           <p className="text-[11px] text-slate-400">Fetching latest bulletins from organization server</p>
         </div>

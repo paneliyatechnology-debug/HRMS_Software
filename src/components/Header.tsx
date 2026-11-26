@@ -96,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
   const router = useRouter();
   const { user, logout } = useAuth();
   const resigned = Boolean(user?.resigned);
-  const { notices, dismissNotice, clearNotices, showToast } = useSocket();
+  const { notices, unreadNoticesCount, dismissNotice, clearNotices, showToast } = useSocket();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -161,7 +161,11 @@ export const Header: React.FC<HeaderProps> = ({
         if (isMounted && backendComp && backendComp.name) {
           setCompanyInfo({
             name: backendComp.name.replace(/\s+Inc\.?$/i, '').trim(),
-            logoUrl: backendComp.logoUrl,
+            logoUrl:
+              backendComp.logoUrl ||
+              backendComp.adminAvatarUrl ||
+              backendComp.avatarUrl ||
+              (backendComp as any).logo,
           });
           return;
         }
@@ -260,6 +264,9 @@ export const Header: React.FC<HeaderProps> = ({
       case 'calendar':
         icon = <Calendar className="w-3.5 h-3.5" />;
         break;
+      case 'notifications':
+        icon = <Bell className="w-3.5 h-3.5" />;
+        break;
       case 'payroll':
         icon = <CircleDollarSign className="w-3.5 h-3.5" />;
         break;
@@ -332,6 +339,8 @@ export const Header: React.FC<HeaderProps> = ({
         };
       case 'calendar':
         return { title: 'Calendar & Holidays', icon };
+      case 'notifications':
+        return { title: 'Notifications', icon };
       case 'payroll':
         return { title: 'Payroll', icon };
       case 'payslips':
@@ -407,7 +416,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
           <div className={`w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-0.5'}`}>
             {companyLogo ? (
-              <img src={companyLogo} alt={displayCompanyName} className="w-full h-full object-cover" />
+              <img
+                src={companyLogo}
+                alt={displayCompanyName}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <span className="text-[11px] font-bold text-slate-700">{companyInitial}</span>
             )}
@@ -439,7 +452,7 @@ export const Header: React.FC<HeaderProps> = ({
                 title="Click to scroll to top"
                 className="flex items-center gap-2 px-1.5 sm:px-2 py-1.5 rounded-[10px] hover:bg-[#f8f9fa] transition-all active:scale-95 cursor-pointer text-left group"
               >
-                <span className="w-6 h-6 rounded-[7px] bg-[#d8f3dc] group-hover:bg-[#b7e4c7] text-[#1b4332] flex items-center justify-center shrink-0 transition-colors">
+                <span className="w-6 h-6 text-[#1b4332] flex items-center justify-center shrink-0 transition-colors">
                   {resolvedPageIcon}
                 </span>
                 <span className="hrms-header-page-title text-xs sm:text-sm font-semibold tracking-tight text-[#0f172a] truncate max-w-[140px] min-[400px]:max-w-[190px] sm:max-w-[280px] md:max-w-[360px]">
@@ -569,14 +582,6 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
         {canUserPunch(user) && (
           <div className="flex items-center gap-2 min-w-0">
-            {clockClosed && (
-              <span
-                className="hidden sm:inline max-w-[240px] truncate text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1"
-                title={punchBlockMessage || ''}
-              >
-                {punchBlockMessage}
-              </span>
-            )}
             <button
               id="btn-header-punch-toggle"
               type="button"
@@ -603,8 +608,7 @@ export const Header: React.FC<HeaderProps> = ({
               {clockClosed ? (
                 <>
                   <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                  <span className="sm:hidden max-w-[120px] truncate">{punchBlockMessage}</span>
-                  <span className="hidden sm:inline">Clock closed</span>
+                  <span>Clock closed</span>
                 </>
               ) : punchStatus === 'on_break' ? (
                 <>
@@ -639,9 +643,9 @@ export const Header: React.FC<HeaderProps> = ({
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            {notices.length > 0 && (
+            {unreadNoticesCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold flex items-center justify-center">
-                {notices.length > 9 ? '9+' : notices.length}
+                {unreadNoticesCount > 9 ? '9+' : unreadNoticesCount}
               </span>
             )}
           </button>
