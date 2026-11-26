@@ -1043,9 +1043,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <h3 className="text-sm font-bold text-[#343a40] m-0">
                   Staff Directory &amp; Live Time Tracking
                 </h3>
-                  <p className="text-xs text-[#6c757d] mt-0.5">
-                    Live status, recorded punches, and direct messaging
-                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">

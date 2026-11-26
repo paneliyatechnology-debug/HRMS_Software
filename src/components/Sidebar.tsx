@@ -665,7 +665,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
               {renderProfileNavItem()}
-              {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
+              {portalMode === 'admin' && navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
           )}
         </div>

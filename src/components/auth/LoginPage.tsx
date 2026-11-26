@@ -485,220 +485,88 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           /* ========================================================== */
           /* 2-COLUMN SPLIT SCREEN LOGIN LAYOUT                         */
           /* ========================================================== */
-          <div className={`w-full max-w-5xl bg-white rounded-3xl border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(5,150,105,0.08),0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[580px] transition-all duration-300 ease-out will-change-transform ${loginAnimationClass}`}>
+          <div className={`w-full max-w-[980px] bg-white rounded-3xl border border-slate-200/90 shadow-[0_24px_64px_-16px_rgba(15,23,42,0.12),0_2px_8px_rgba(15,23,42,0.04)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[560px] transition-all duration-300 ease-out will-change-transform ${loginAnimationClass}`}>
             {/* ========================================================== */}
-            {/* LEFT COLUMN: VISUAL ARTWORK & ANIMATED SHOWCASE (lg:col-5) */}
+            {/* LEFT COLUMN: REFINED ARCHITECTURAL BRAND PANEL (lg:col-5)  */}
             {/* ========================================================== */}
-            <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-8 sm:p-10 bg-gradient-to-br from-[#1b4332] via-[#2d6a4f] to-[#143728] text-white relative overflow-hidden select-none">
-              {/* Background ambient mesh and animated glowing orbs */}
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-              <div className="absolute -top-14 -left-14 w-64 h-64 bg-emerald-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '4s' }} />
-              <div className="absolute -bottom-14 -right-14 w-64 h-64 bg-teal-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s', animationDelay: '1.5s' }} />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-emerald-300/10 rounded-full blur-2xl animate-ping pointer-events-none" style={{ animationDuration: '7s' }} />
+            <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-9 bg-gradient-to-br from-[#1b4332] via-[#173a2b] to-[#0f291e] text-white relative overflow-hidden select-none">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(149,213,178,0.14),transparent_55%),radial-gradient(circle_at_bottom_left,rgba(45,106,79,0.28),transparent_55%)] pointer-events-none" />
 
-              {/* Top Badge with Live Radar Pulse */}
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-[#d8f3dc] border border-white/20 backdrop-blur-xs">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                  </span>
-                  <span>Unified Workforce Platform</span>
+              <div className="relative z-10 space-y-6">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold bg-white/10 text-[#d8f3dc] border border-white/15">
+                  Enterprise Workforce Platform
                 </span>
-                <span className="text-[10px] font-mono text-emerald-200/80 bg-black/20 px-2 py-0.5 rounded-md border border-white/10">
-                  SYS_ONLINE
-                </span>
-            </div>
 
-              {/* Middle Showcase Graphic: Animated Enterprise Workspace Illustration */}
-              <div className="relative z-10 my-auto py-2 flex flex-col justify-center space-y-4">
-                <div>
-                  <h2 className="text-2xl font-black tracking-tight text-white leading-tight">
+                <div className="space-y-2.5">
+                  <h2 className="text-[26px] font-bold tracking-tight text-white leading-[1.2]">
                     Workforce &amp; Operations in Sync.
                   </h2>
-                  <p className="text-xs text-emerald-100/80 leading-relaxed font-medium mt-1">
+                  <p className="text-xs text-emerald-100/75 leading-relaxed font-normal">
                     Smart shift tracking, leave approvals, automated statutory payroll, and team self-service.
-            </p>
-          </div>
-
-                {/* Animated Workspace & Dashboard Vector Illustration */}
-                <div className="relative my-2 py-3 flex items-center justify-center">
-                  <div className="relative w-full max-w-[320px] aspect-[4/3] flex items-center justify-center">
-                    {/* Floating Ambient Glowing Halo */}
-                    <div
-                      className="absolute inset-0 bg-gradient-to-tr from-emerald-400/20 via-teal-300/10 to-transparent rounded-full blur-2xl animate-pulse pointer-events-none"
-                      style={{ animationDuration: '4s' }}
-                    />
-
-                    {/* SVG Workspace & Team Illustration */}
-                    <svg
-                      viewBox="0 0 400 300"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-full h-full drop-shadow-2xl animate-float-subtle"
-                    >
-                      {/* Base Platform / Desk Glow */}
-                      <ellipse cx="200" cy="265" rx="150" ry="18" fill="rgba(0,0,0,0.22)" />
-
-                      {/* Central Modern Monitor / Tablet Device */}
-                      <rect
-                        x="70"
-                        y="45"
-                        width="260"
-                        height="175"
-                        rx="16"
-                        fill="#0d2818"
-                        stroke="#52b788"
-                        strokeWidth="2"
-                        strokeOpacity="0.4"
-                      />
-
-                      {/* Device Top Bar */}
-                      <rect x="70" y="45" width="260" height="24" rx="16" fill="#1b4332" />
-                      <circle cx="92" cy="57" r="4" fill="#ef4444" opacity="0.8" />
-                      <circle cx="106" cy="57" r="4" fill="#f59e0b" opacity="0.8" />
-                      <circle cx="120" cy="57" r="4" fill="#10b981" opacity="0.8" />
-                      <rect x="145" y="52" width="110" height="10" rx="5" fill="rgba(255,255,255,0.15)" />
-
-                      {/* Dashboard Screen Content - Stat Card 1: Attendance Growth */}
-                      <rect
-                        x="88"
-                        y="82"
-                        width="105"
-                        height="58"
-                        rx="8"
-                        fill="#163e2d"
-                        stroke="rgba(255,255,255,0.1)"
-                        strokeWidth="1"
-                      />
-                      <rect x="98" y="92" width="40" height="6" rx="3" fill="#95d5b2" />
-                      {/* Mini Bar Chart with varied heights */}
-                      <rect x="98" y="112" width="8" height="18" rx="2" fill="#52b788" opacity="0.6" />
-                      <rect x="112" y="106" width="8" height="24" rx="2" fill="#52b788" opacity="0.8" />
-                      <rect x="126" y="116" width="8" height="14" rx="2" fill="#52b788" opacity="0.5" />
-                      <rect x="140" y="102" width="8" height="28" rx="2" fill="#74c69d" />
-                      <rect x="154" y="98" width="8" height="32" rx="2" fill="#b7e4c7" />
-                      <rect x="168" y="108" width="8" height="22" rx="2" fill="#52b788" opacity="0.7" />
-
-                      {/* Dashboard Screen Content - Stat Card 2: Team Members Donut / Circle */}
-                      <rect
-                        x="207"
-                        y="82"
-                        width="105"
-                        height="58"
-                        rx="8"
-                        fill="#163e2d"
-                        stroke="rgba(255,255,255,0.1)"
-                        strokeWidth="1"
-                      />
-                      <rect x="217" y="92" width="45" height="6" rx="3" fill="#95d5b2" />
-                      <circle cx="275" cy="118" r="16" stroke="#2d6a4f" strokeWidth="5" fill="none" />
-                      <circle
-                        cx="275"
-                        cy="118"
-                        r="16"
-                        stroke="#74c69d"
-                        strokeWidth="5"
-                        strokeDasharray="60 100"
-                        fill="none"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="275" cy="118" r="5" fill="#d8f3dc" />
-
-                      {/* Live Activity Row on Dashboard */}
-                      <rect x="88" y="152" width="224" height="22" rx="6" fill="#123824" />
-                      <circle cx="102" cy="163" r="5" fill="#52b788" />
-                      <rect x="114" y="160" width="75" height="6" rx="3" fill="rgba(255,255,255,0.5)" />
-                      <rect x="245" y="158" width="55" height="10" rx="5" fill="#2d6a4f" />
-                      <rect x="252" y="161" width="40" height="4" rx="2" fill="#b7e4c7" />
-
-                      <rect x="88" y="180" width="224" height="22" rx="6" fill="#123824" />
-                      <circle cx="102" cy="191" r="5" fill="#74c69d" />
-                      <rect x="114" y="188" width="90" height="6" rx="3" fill="rgba(255,255,255,0.4)" />
-                      <rect x="255" y="186" width="45" height="10" rx="5" fill="#1b4332" />
-                      <rect x="260" y="189" width="35" height="4" rx="2" fill="#95d5b2" />
-
-                      {/* Device Stand */}
-                      <path d="M175 220 L165 255 L235 255 L225 220 Z" fill="#1b4332" opacity="0.9" />
-                      <rect x="150" y="254" width="100" height="6" rx="3" fill="#2d6a4f" />
-                    </svg>
-
-                    {/* Floating Card 1 (Top Right) */}
-                    <div
-                      className="absolute -top-2 -right-3 sm:-right-4 bg-white/15 border border-white/25 backdrop-blur-md rounded-2xl p-2.5 shadow-lg flex items-center gap-2 text-white animate-float-subtle pointer-events-none"
-                      style={{ animationDuration: '3.5s' }}
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-emerald-500/30 border border-emerald-400/40 flex items-center justify-center text-emerald-200">
-                        <CheckCircle2 className="w-4 h-4 text-[#d8f3dc]" />
-                  </div>
-                  <div>
-                        <p className="text-[10px] font-bold leading-tight">Payroll &amp; Leaves</p>
-                        <p className="text-[9px] text-emerald-200/70">Synced in real-time</p>
-                  </div>
+                  </p>
                 </div>
 
-                    {/* Floating Card 2 (Bottom Left) */}
-                    <div
-                      className="absolute -bottom-1 -left-3 sm:-left-4 bg-white/15 border border-white/25 backdrop-blur-md rounded-2xl p-2.5 shadow-lg flex items-center gap-2 text-white pointer-events-none"
-                      style={{ animation: 'floatSubtle 4.5s ease-in-out infinite 1s' }}
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-teal-500/30 border border-teal-400/40 flex items-center justify-center text-teal-200">
-                        <Users className="w-4 h-4 text-[#d8f3dc]" />
-              </div>
-                      <div>
-                        <p className="text-[10px] font-bold leading-tight">Team Operations</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                          <span className="text-[9px] font-semibold text-emerald-200">Active Workspace</span>
-                        </div>
-                      </div>
+                <div className="space-y-3 pt-4 border-t border-white/10">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#95d5b2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white">Live Attendance &amp; Shift Tracking</p>
+                      <p className="text-[11px] text-emerald-100/70 mt-0.5">Real-time punches, break logs &amp; geofencing</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Building2 className="w-4 h-4 text-[#95d5b2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white">Automated Statutory Payroll</p>
+                      <p className="text-[11px] text-emerald-100/70 mt-0.5">PF, ESIC, PT &amp; instant PDF payslips</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Users className="w-4 h-4 text-[#95d5b2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white">Role-Based Team Portals</p>
+                      <p className="text-[11px] text-emerald-100/70 mt-0.5">Dedicated workspaces for Admin, HR &amp; Staff</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Bottom Highlight Badges */}
-                <div className="grid grid-cols-2 gap-2 pt-1 text-center">
-                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs">
-                    <p className="text-[11px] font-bold text-white">Statutory Ready</p>
-                    <p className="text-[9px] text-emerald-200/70">PF, ESIC, PT &amp; TDS</p>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs">
-                    <p className="text-[11px] font-bold text-white">Cloud Multi-Tenant</p>
-                    <p className="text-[9px] text-emerald-200/70">Strict Data Privacy</p>
-                  </div>
-                </div>
               </div>
 
-              {/* Bottom Security Footer */}
-              <div className="relative z-10 pt-3.5 border-t border-white/15 flex items-center gap-2 text-[11px] text-emerald-200/80">
-                <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+              <div className="relative z-10 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-emerald-100/75">
+                <ShieldCheck className="w-4 h-4 text-[#95d5b2] shrink-0" />
                 <span>Multi-Tenant Data Isolation &amp; Role-Based Security</span>
               </div>
             </div>
 
             {/* ========================================================== */}
-            {/* RIGHT COLUMN: LOGIN FORM (lg:col-span-7)                   */}
+            {/* RIGHT COLUMN: CLEAN LOGIN FORM (lg:col-span-7)             */}
             {/* ========================================================== */}
-            <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between">
+            <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white">
               <div>
-                {/* Brand Header Inside Card */}
                 <div className="mb-7">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-xs p-1">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs p-1">
                       <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <div>
-                      <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-1" />
-                      <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
+                      <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain mb-0.5" />
+                      <span className="text-[10px] font-semibold text-[#2d6a4f] uppercase tracking-wider block">
                         Workforce Portal
                       </span>
                     </div>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    Sign In to Workspace
+                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                    Sign in to your workspace
                   </h1>
-                  <p className="text-xs font-medium text-slate-500 mt-1">
-                    Enter your work email, mobile number or employee code.
+                  <p className="text-xs font-normal text-slate-500 mt-1">
+                    Enter your work email, mobile number, or employee code.
                   </p>
                 </div>
 
@@ -851,16 +719,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   id="btn-submit-login"
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group whitespace-nowrap shrink-0"
+                  className="w-full h-11 mt-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-semibold text-sm shadow-sm hover:shadow-md active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group whitespace-nowrap shrink-0"
                 >
                   {loading ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Signing In to Workspace...</span>
+                      <span>Signing in...</span>
                     </>
                   ) : (
                     <>
-                      <span>Sign In to Workspace</span>
+                      <span>Sign in to workspace</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
