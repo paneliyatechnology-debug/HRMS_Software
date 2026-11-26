@@ -264,15 +264,29 @@ export default function FaceClockPage() {
     };
   }, [isAuthenticated, user?.role]);
 
-  // Speak valid attendance events in selected language/gender (skip errors like "Not matched") & auto-clear after 5 seconds
+  const lastNotMatchedSpokenRef = useRef(0);
+
+  // Speak attendance events (including 'not-matched') in selected language/gender & auto-clear after 5 seconds
   useEffect(() => {
     if (!result) return;
-    if (result.speech && result.tone !== 'error') {
-      speakKioskText(buildKioskPhrase(result.speech, voiceLangRef.current), {
-        enabled: soundOnRef.current,
-        lang: voiceLangRef.current,
-        gender: voiceGenderRef.current,
-      });
+    if (result.speech) {
+      if (result.speech.kind === 'not-matched') {
+        const now = Date.now();
+        if (now - lastNotMatchedSpokenRef.current >= 2500) {
+          lastNotMatchedSpokenRef.current = now;
+          speakKioskText(result.speech, {
+            enabled: soundOnRef.current,
+            lang: voiceLangRef.current,
+            gender: voiceGenderRef.current,
+          });
+        }
+      } else {
+        speakKioskText(result.speech, {
+          enabled: soundOnRef.current,
+          lang: voiceLangRef.current,
+          gender: voiceGenderRef.current,
+        });
+      }
     }
     const t = window.setTimeout(() => setResult(null), 5000);
     return () => window.clearTimeout(t);
@@ -508,9 +522,20 @@ export default function FaceClockPage() {
         scanToneRef.current = 'ok';
       }
 
-      // Passive real-face quality & stability check (no blink required)
+      // Passive real-face quality & stability check (fast scan, rejects flat/glare photos)
       const minFaceW = Math.max(60, video.videoWidth * 0.16);
-      if (live.score < 0.5 || !live.textureOk || live.box.width < minFaceW) {
+      if (!live.textureOk) {
+        liveTrackRef.current = { count: 0, descriptor: null, box: null };
+        setStatus('Live face required. Please try again.');
+        setResult({
+          tone: 'error',
+          title: 'Face is not match',
+          detail: 'Photo or screen glare detected. Please try again.',
+          speech: { kind: 'not-matched' },
+        });
+        return;
+      }
+      if (live.score < 0.54 || live.box.width < minFaceW) {
         liveTrackRef.current = { count: 0, descriptor: null, box: null };
         setStatus(live.box.width < minFaceW ? 'Move closer to the camera.' : 'Look clearly at the camera.');
         return;
@@ -522,7 +547,7 @@ export default function FaceClockPage() {
           live.box.x + live.box.width / 2 - (prevBox.x + prevBox.width / 2),
           live.box.y + live.box.height / 2 - (prevBox.y + prevBox.height / 2),
         );
-        if (shift > Math.max(live.box.width, 1) * 0.15) {
+        if (shift > Math.max(live.box.width, 1) * 0.25) {
           liveTrackRef.current = { count: 1, descriptor: descriptor ?? liveTrackRef.current.descriptor, box: live.box };
           setStatus('Hold still for a moment…');
           return;
@@ -625,7 +650,12 @@ export default function FaceClockPage() {
         checkingRef.current = false;
         if (stopped) return;
         const message = error instanceof Error ? error.message : 'Face clock failed.';
-        setResult({ tone: 'error', title: 'Not matched', detail: message });
+        setResult({
+          tone: 'error',
+          title: 'Not matched',
+          detail: message,
+          speech: { kind: 'not-matched' },
+        });
         lastFaceRef.current = null;
         holdRef.current = false;
         holdUntilRef.current = 0;
@@ -929,7 +959,7 @@ export default function FaceClockPage() {
                 setSoundOn(next);
                 if (next) {
                   unlockKioskSpeech();
-                  speakKioskText(buildKioskPhrase({ kind: 'test' }, voiceLang), {
+                  speakKioskText({ kind: 'test' }, {
                     enabled: true,
                     lang: voiceLang,
                     gender: voiceGender,
@@ -1185,7 +1215,7 @@ export default function FaceClockPage() {
                 type="button"
                 onClick={() => {
                   unlockKioskSpeech();
-                  speakKioskText(buildKioskPhrase({ kind: 'test' }, voiceLang), {
+                  speakKioskText({ kind: 'test' }, {
                     enabled: true,
                     lang: voiceLang,
                     gender: voiceGender,

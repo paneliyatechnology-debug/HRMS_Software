@@ -330,8 +330,12 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
   const inv = 1 / scale;
   const rawDescriptor = 'descriptor' in closest ? (closest as { descriptor: Float32Array }).descriptor : null;
 
-  // Fast face-crop texture/contrast check (<0.3ms) to reject flat/washed-out/glare photos
+  // Fast passive anti-photo check (<0.5ms):
+  // 1) Face crop texture/glare (stdDev & mean luma) + cool screen-backlight check
+  // 2) High-frequency screen moire check on cheek/forehead region
+  // 3) Phone/card rectangular bezel/edge check just outside the face box
   let textureOk = true;
+  let bezelDetected = false;
   try {
     const sx = Math.max(0, Math.floor(box.x));
     const sy = Math.max(0, Math.floor(box.y));
@@ -340,26 +344,84 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
     const pixels = ctx.getImageData(sx, sy, sw, sh).data;
     let sum = 0;
     let sumSq = 0;
+    let sumR = 0;
+    let sumB = 0;
     let count = 0;
     for (let i = 0; i < pixels.length; i += 16) {
-      const luma = pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114;
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const luma = r * 0.299 + g * 0.587 + b * 0.114;
       sum += luma;
       sumSq += luma * luma;
+      sumR += r;
+      sumB += b;
       count += 1;
     }
     if (count > 0) {
       const mean = sum / count;
       const stdDev = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
-      textureOk = stdDev >= 18 && mean >= 30 && mean <= 235;
+      const coolScreenCast = sumB > sumR * 1.03;
+      textureOk = stdDev >= 22 && mean >= 35 && mean <= 225 && !coolScreenCast;
     }
+
+    // Check high-frequency pixel grid / moire on central face strip
+    if (textureOk && sw >= 24 && sh >= 24) {
+      const mx = sx + Math.floor(sw * 0.25);
+      const my = sy + Math.floor(sh * 0.22);
+      const mw = Math.max(12, Math.floor(sw * 0.5));
+      const strip = ctx.getImageData(mx, my, mw, 1).data;
+      let hfDiff = 0;
+      let lfDiff = 0;
+      let steps = 0;
+      for (let x = 0; x + 4 < mw; x += 2) {
+        const i0 = x * 4;
+        const i1 = (x + 1) * 4;
+        const i4 = (x + 4) * 4;
+        const l0 = strip[i0] * 0.3 + strip[i0 + 1] * 0.59 + strip[i0 + 2] * 0.11;
+        const l1 = strip[i1] * 0.3 + strip[i1 + 1] * 0.59 + strip[i1 + 2] * 0.11;
+        const l4 = strip[i4] * 0.3 + strip[i4 + 1] * 0.59 + strip[i4 + 2] * 0.11;
+        hfDiff += Math.abs(l0 - l1);
+        lfDiff += Math.abs(l0 - l4);
+        steps += 1;
+      }
+      if (steps > 0 && hfDiff / steps > 11 && hfDiff > lfDiff * 1.15) {
+        textureOk = false;
+      }
+    }
+
+    // Check for sharp straight phone-bezel / photo-card edges just left/right of the face
+    const padX = Math.max(6, Math.floor(sw * 0.35));
+    const lx = Math.max(0, sx - padX);
+    const rx = Math.min(canvas.width - 2, sx + sw + Math.floor(padX * 0.6));
+    const midY = Math.max(0, sy + Math.floor(sh * 0.2));
+    const midH = Math.min(canvas.height - midY, Math.max(8, Math.floor(sh * 0.6)));
+    const checkVerticalEdge = (colX: number) => {
+      if (colX <= 1 || colX >= canvas.width - 2) return false;
+      const strip = ctx.getImageData(colX - 1, midY, 3, midH).data;
+      let sharpRows = 0;
+      let darkBezelRows = 0;
+      for (let r = 0; r < midH; r += 2) {
+        const idx = r * 12;
+        const l0 = strip[idx] * 0.299 + strip[idx + 1] * 0.587 + strip[idx + 2] * 0.114;
+        const l1 = strip[idx + 4] * 0.299 + strip[idx + 5] * 0.587 + strip[idx + 6] * 0.114;
+        const l2 = strip[idx + 8] * 0.299 + strip[idx + 9] * 0.587 + strip[idx + 10] * 0.114;
+        if (Math.abs(l0 - l2) > 42) sharpRows += 1;
+        if (l1 < 35) darkBezelRows += 1;
+      }
+      const sampled = Math.max(1, Math.ceil(midH / 2));
+      return sharpRows / sampled > 0.55 || darkBezelRows / sampled > 0.75;
+    };
+    bezelDetected = checkVerticalEdge(lx) && checkVerticalEdge(rx);
   } catch {
     textureOk = true;
+    bezelDetected = false;
   }
 
   return {
     descriptor: rawDescriptor ? Array.from(rawDescriptor) : null,
     score: closest.detection.score,
-    textureOk,
+    textureOk: textureOk && !bezelDetected,
     eye: eyeOpen(closest.landmarks.positions),
     eyes: eyePair(closest.landmarks.positions),
     yaw: headYaw(closest.landmarks.positions),

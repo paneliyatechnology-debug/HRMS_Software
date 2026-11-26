@@ -15,6 +15,7 @@ export type KioskSpeechEvent =
   | { kind: 'clock-out'; name: string }
   | { kind: 'break-in'; name: string }
   | { kind: 'break-out'; name: string }
+  | { kind: 'not-matched' }
   | { kind: 'test' };
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
@@ -32,6 +33,13 @@ const MALE_HINTS = [
   'jorge', 'pablo', 'alvaro', 'diego', 'guy', 'ryan',
 ];
 
+export function hasNativeVoice(voices: SpeechSynthesisVoice[], lang: KioskVoiceLang): boolean {
+  const prefix = lang.split('-')[0].toLowerCase();
+  return voices.some(
+    (v) => v.lang.toLowerCase() === lang.toLowerCase() || v.lang.toLowerCase().startsWith(`${prefix}-`) || v.lang.toLowerCase() === prefix,
+  );
+}
+
 export function pickKioskVoice(
   voices: SpeechSynthesisVoice[],
   lang: KioskVoiceLang,
@@ -40,7 +48,8 @@ export function pickKioskVoice(
   const prefix = lang.split('-')[0].toLowerCase();
   const exact = voices.filter((v) => v.lang.toLowerCase() === lang.toLowerCase());
   const byLang = exact.length ? exact : voices.filter((v) => v.lang.toLowerCase().startsWith(prefix));
-  const pool = byLang.length ? byLang : voices;
+  const fallbackEn = voices.filter((v) => v.lang.toLowerCase().startsWith('en-in') || v.lang.toLowerCase().startsWith('en'));
+  const pool = byLang.length ? byLang : (fallbackEn.length ? fallbackEn : voices);
   const hints = gender === 'male' ? MALE_HINTS : FEMALE_HINTS;
   const opposite = gender === 'male' ? FEMALE_HINTS : MALE_HINTS;
   return (
@@ -51,7 +60,47 @@ export function pickKioskVoice(
   );
 }
 
-export function buildKioskPhrase(event: KioskSpeechEvent, lang: KioskVoiceLang): string {
+export function buildKioskPhrase(
+  event: KioskSpeechEvent,
+  lang: KioskVoiceLang,
+  usePhoneticFallback = false,
+): string {
+  if (usePhoneticFallback && lang === 'gu-IN') {
+    if (event.kind === 'test') return 'Face clock voice taiyaar chhe. Aabhaar.';
+    if (event.kind === 'not-matched') return 'Face match thato nathi, please fari try karo.';
+    if (event.kind === 'clock-in') {
+      return event.lateText ? 'Shu tame aaje moda chho?' : 'Samaysar clock in thai gayu chhe. Aabhaar.';
+    }
+    if (event.kind === 'clock-out') return 'Clock out thai gayu chhe. Aabhaar.';
+    if (event.kind === 'break-in') return 'Break shuru thai gayo chhe. Aabhaar.';
+    return 'Break puro thai gayo chhe. Aabhaar.';
+  }
+
+  if (usePhoneticFallback && lang === 'hi-IN') {
+    if (event.kind === 'test') return 'Face clock voice taiyaar hai. Dhanyavaad.';
+    if (event.kind === 'not-matched') return 'Face match nahi ho raha hai, kripya phir se try karein.';
+    if (event.kind === 'clock-in') {
+      return event.lateText ? 'Kya aap aaj late hain?' : 'Samay par clock in ho gaya. Dhanyavaad.';
+    }
+    if (event.kind === 'clock-out') return 'Clock out ho gaya. Dhanyavaad.';
+    if (event.kind === 'break-in') return 'Break shuru ho gaya. Dhanyavaad.';
+    return 'Break samapt ho gaya. Dhanyavaad.';
+  }
+
+  if (usePhoneticFallback && lang !== 'en-IN') {
+    return buildKioskPhrase(event, 'en-IN', false);
+  }
+  if (event.kind === 'not-matched') {
+    const map: Record<KioskVoiceLang, string> = {
+      'en-IN': 'Face is not match, please try again.',
+      'hi-IN': 'चेहरा मेल नहीं खा रहा है, कृपया फिर से प्रयास करें।',
+      'gu-IN': 'ચહેરો મેચ થતો નથી, કૃપા કરીને ફરી પ્રયાસ કરો.',
+      'fr-FR': 'Le visage ne correspond pas, veuillez réessayer.',
+      'zh-CN': '人脸不匹配，请重试。',
+      'es-ES': 'El rostro no coincide, por favor inténtalo de nuevo.',
+    };
+    return map[lang];
+  }
   if (event.kind === 'test') {
     const samples: Record<KioskVoiceLang, string> = {
       'en-IN': 'Face clock voice is ready. Thank you.',
@@ -139,18 +188,24 @@ export function unlockKioskSpeech() {
 }
 
 export function speakKioskText(
-  text: string,
+  textOrEvent: string | KioskSpeechEvent,
   options: { enabled?: boolean; lang?: KioskVoiceLang; gender?: KioskVoiceGender } = {},
 ) {
   const { enabled = true, lang = 'en-IN', gender = 'female' } = options;
-  if (!enabled || !text.trim() || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (!enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   try {
     const synth = window.speechSynthesis;
     const run = () => {
+      const voices = synth.getVoices();
+      const native = hasNativeVoice(voices, lang);
+      const text = typeof textOrEvent === 'string'
+        ? textOrEvent
+        : buildKioskPhrase(textOrEvent, lang, !native);
+      if (!text.trim()) return;
       const utter = new SpeechSynthesisUtterance(text);
-      const picked = pickKioskVoice(synth.getVoices(), lang, gender);
+      const picked = pickKioskVoice(voices, lang, gender);
       if (picked) utter.voice = picked;
-      utter.lang = picked?.lang || lang;
+      utter.lang = native ? (picked?.lang || lang) : (picked?.lang || 'en-IN');
       utter.pitch = gender === 'male' ? 0.86 : 1.12;
       utter.rate = 0.98;
       utter.volume = 1;

@@ -2566,7 +2566,7 @@ function KioskVoiceCard({
           type="button"
           onClick={() => {
             unlockKioskSpeech();
-            speakKioskText(buildKioskPhrase({ kind: 'test' }, lang), {
+            speakKioskText({ kind: 'test' }, {
               enabled: true,
               lang,
               gender,
