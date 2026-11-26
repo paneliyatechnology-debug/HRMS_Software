@@ -886,7 +886,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     </div>
                   </div>
 
-                  {leave.reason && (
+                  {portalMode === 'admin' && leave.reason && (
                     <div className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason</span>
                       <p className="italic text-slate-800">&ldquo;{leave.reason}&rdquo;</p>
@@ -1151,28 +1151,29 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs">
-                        <div className="space-y-1">
+                        {portalMode === 'admin' ? (
                           <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
                             <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
                           </div>
-                          {portalMode === 'employee' && (leave.response || leave.comments) && (
-                            <div
-                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
-                                leave.status === 'Rejected'
-                                  ? 'text-rose-700'
-                                  : leave.status === 'Cancelled'
-                                    ? 'text-slate-600'
-                                    : 'text-emerald-700'
-                              }`}
-                              title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
-                            >
-                              <span className="font-bold shrink-0">
-                                {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
-                              </span>
-                              <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
-                            </div>
-                          )}
-                        </div>
+                        ) : (leave.response || leave.comments) ? (
+                          <div
+                            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                              leave.status === 'Rejected'
+                                ? 'text-rose-700'
+                                : leave.status === 'Cancelled'
+                                  ? 'text-slate-600'
+                                  : 'text-emerald-700'
+                            }`}
+                            title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                          >
+                            <span className="font-bold shrink-0">
+                              {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
+                            </span>
+                            <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-medium text-xs">--</span>
+                        )}
                       </td>
 
                       {/* Action Column */}
