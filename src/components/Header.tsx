@@ -42,6 +42,14 @@ import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 
+function readableInitials(firstName?: string | null, lastName?: string | null, email?: string | null) {
+  const f = String(firstName || '').trim();
+  const l = String(lastName || '').trim();
+  if (f || l) return `${f[0] || ''}${l[0] || ''}`.toUpperCase() || 'U';
+  const e = String(email || '').trim();
+  return e ? e[0].toUpperCase() : 'U';
+}
+
 interface HeaderProps {
   onOpenSidebar: () => void;
   onOpenClockModal: () => void;

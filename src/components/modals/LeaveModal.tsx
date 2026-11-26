@@ -201,13 +201,11 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   // Sync default employee whenever modal opens
   useEffect(() => {
     if (isOpen) {
-      const myId = user.employeeId || user.id || '';
-      setSelectedEmpId(myId);
       setStartDate(new Date().toISOString().split('T')[0]);
       setEndDate(new Date().toISOString().split('T')[0]);
       setError('');
     }
-  }, [isOpen, user.employeeId, user.id]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

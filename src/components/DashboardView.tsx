@@ -757,7 +757,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     await handleCheckOutAction();
   };
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [leaveDaysLeft, setLeaveDaysLeft] = useState<number | null>(null);
 
   useEffect(() => {

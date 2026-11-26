@@ -1,4 +1,7 @@
-import { axiosClient } from './api';
+import axios from 'axios';
+import { getApiBaseUrl } from './config';
+
+const axiosClient = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
 import { getAllCompanies, saveCompanies, CompanyTenant } from './companyService';
 
 const CHAT_CONVERSATIONS_KEY = 'hrms_chat_conversations_records';
@@ -46,7 +49,7 @@ export async function hydrateServerState(): Promise<void> {
         email: company.email || '',
         phone: company.phone || '',
         designation: 'Administrator',
-        role: 'HR_ADMIN',
+        role: 'ADMIN',
       },
       departments: [],
     };
