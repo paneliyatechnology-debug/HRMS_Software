@@ -273,7 +273,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
       >
         <div
           onClick={(e) => e.stopPropagation()}
@@ -405,7 +405,7 @@ export const PunchVerificationModal: React.FC<PunchVerificationModalProps> = ({
       {expandedPhoto && (
         <div
           onClick={() => setExpandedPhoto(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in cursor-zoom-out"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md animate-in fade-in cursor-zoom-out"
         >
           <div className="relative max-w-2xl max-h-[90vh] bg-slate-950 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <button

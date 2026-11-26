@@ -45,8 +45,8 @@ export const BankDetailForm: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-center justify-center p-4">
-      <form onSubmit={save} className="w-full max-w-md bg-white rounded-2xl p-5 space-y-3 shadow-xl">
+    <div className="fixed inset-0 z-[80] bg-white/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+      <form onSubmit={save} className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-5 sm:p-6 space-y-3 shadow-2xl max-h-[90vh] overflow-y-auto my-auto animate-in zoom-in-95 duration-200">
         <h2 className="text-base font-bold text-slate-900">Add bank details</h2>
         <p className="text-xs text-slate-500">One bank only. After you save, this form will not open again.</p>
         <input required value={form.bankName} onChange={(event) => setForm({ ...form, bankName: event.target.value })} placeholder="Bank name" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />

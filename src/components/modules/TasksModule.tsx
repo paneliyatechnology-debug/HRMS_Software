@@ -237,7 +237,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       showToast?.({
         type: 'warning',
         title: 'Team Leader Required',
-        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+        message: 'આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
       });
       return;
     }
@@ -283,7 +283,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       showToast?.({
         type: 'warning',
         title: 'Team Leader Required',
-        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+        message: 'આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
       });
       return;
     }
@@ -430,27 +430,27 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       {/* ── Metric Cards ─────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Tasks</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{stats.total}</div>
-          <span className="text-[10px] text-slate-500 font-medium">All logged work items</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Tasks</span>
+          <div className="text-2xl font-semibold text-slate-900 mt-1">{stats.total}</div>
+          <span className="text-[10px] text-slate-500 font-normal">All logged work items</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600">In Progress</span>
-          <div className="text-2xl font-black text-sky-700 mt-1">{stats.inProgress}</div>
-          <span className="text-[10px] text-slate-500 font-medium">Currently active sprints</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-600">In Progress</span>
+          <div className="text-2xl font-semibold text-sky-700 mt-1">{stats.inProgress}</div>
+          <span className="text-[10px] text-slate-500 font-normal">Currently active sprints</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Pending Review</span>
-          <div className="text-2xl font-black text-amber-700 mt-1">{stats.inReview + stats.todo}</div>
-          <span className="text-[10px] text-slate-500 font-medium">To-do &amp; Review queue</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">Pending Review</span>
+          <div className="text-2xl font-semibold text-amber-700 mt-1">{stats.inReview + stats.todo}</div>
+          <span className="text-[10px] text-slate-500 font-normal">To-do &amp; Review queue</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Completed</span>
-          <div className="text-2xl font-black text-emerald-700 mt-1">{stats.completed}</div>
-          <span className="text-[10px] text-slate-500 font-medium">Verified deliverables</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Completed</span>
+          <div className="text-2xl font-semibold text-emerald-700 mt-1">{stats.completed}</div>
+          <span className="text-[10px] text-slate-500 font-normal">Verified deliverables</span>
         </div>
       </div>
 
@@ -688,14 +688,14 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           CREATE / EDIT TASK MODAL
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {(createModalOpen || Boolean(editTaskData)) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => {
             setCreateModalOpen(false);
             setEditTaskData(null);
@@ -842,9 +842,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div className="space-y-0.5 min-w-0">
-                      <p className="font-bold text-amber-900">આ ટીમમાં હજુ Team Leader સેટ નથી</p>
+                      <p className="font-bold text-amber-900">આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી</p>
                       <p className="text-[11px] text-amber-800 leading-relaxed">
-                        ⚠️ કૃપા કરીને પહેલા <span className="font-semibold underline">Organization &gt; Teams</span> માં જઈને લીડર અસાઇન કરો, અન્યથા ટાસ્ક સબમિટ કરવા પર 400 Bad Request આવશે.
+                        âš ï¸ કૃપા કરીને પહેલા <span className="font-semibold underline">Organization &gt; Teams</span> માં જઈને લીડર અસાઇન કરો, àª…àª¨à«àª¯àª¥àª¾ àªŸàª¾àª¸à«àª• સબમિટ કરવા પર 400 Bad Request આવશે.
                       </p>
                     </div>
                   </div>
@@ -905,21 +905,21 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           VIEW TASK DETAILS MODAL (calls GET /tasks/:id)
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {Boolean(viewTaskData) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setViewTaskData(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <CheckSquare className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Task Information</h3>
@@ -933,7 +933,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingDetail ? (
                 <div className="py-8 text-center">
                   <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
@@ -995,18 +995,18 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           DELETE CONFIRMATION MODAL (calls DELETE /tasks/:id)
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {Boolean(deletingTaskId) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingTaskId(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto my-auto p-6 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">

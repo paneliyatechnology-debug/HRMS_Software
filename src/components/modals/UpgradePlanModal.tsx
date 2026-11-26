@@ -292,11 +292,11 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto select-none animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[100] bg-white/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 select-none animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200/80 my-auto space-y-6 relative cursor-default"
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-slate-200/80 my-auto space-y-6 relative cursor-default animate-in zoom-in-95 duration-200"
       >
         {/* Close Button */}
         <button

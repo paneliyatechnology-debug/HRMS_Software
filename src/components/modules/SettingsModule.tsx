@@ -743,7 +743,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               >
                 <option value="English">English</option>
                 <option value="Hindi">Hindi (हिंदी)</option>
-                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                <option value="Gujarati">Gujarati (àª—à«àªœàª°àª¾àª¤à«€)</option>
               </select>
             </div>
           </div>
@@ -791,9 +791,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     );
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EMPLOYEE VIEW
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (isEmployee) {
     const employeeNavItems = [
       { id: 'profile', label: 'Personal Profile', desc: 'Avatar, phone & emergency contact', icon: User },
@@ -1103,9 +1103,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ADMIN VIEW: Clean Modern Two-Column Layout
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const adminNavItems = [
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
     { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
@@ -2073,17 +2073,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => {
             setIsCreatePlanOpen(false);
             setEditingPlan(null);
           }}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Crown className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2101,7 +2101,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Plan Name <span className="text-rose-500">*</span>
@@ -2175,11 +2175,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingPlan(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4 animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto flex flex-col p-6 space-y-4 my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
@@ -2216,14 +2216,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setSellingPlan(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Sell Plan to Company</h3>
               <button
                 type="button"
@@ -2233,7 +2233,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <p className="text-slate-500">
                 Assigning <span className="font-bold text-slate-800">{sellingPlan.name}</span> directly to a target company.
               </p>
@@ -2275,14 +2275,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingOrder(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Update Order Status</h3>
               <button
                 type="button"
@@ -2292,7 +2292,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Status</label>
                 <select
@@ -2331,14 +2331,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setViewingSupport(null)}
         >
           <div
-            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Headphones className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2353,7 +2353,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
               <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Name</span>

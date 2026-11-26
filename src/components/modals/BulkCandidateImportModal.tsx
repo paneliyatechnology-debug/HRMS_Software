@@ -497,7 +497,7 @@ export const BulkCandidateImportModal: React.FC<BulkCandidateImportModalProps> =
       onClick={(e) => {
         if (e.target === e.currentTarget && !isImporting) onClose();
       }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}

@@ -271,10 +271,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       className={
         isPageMode
           ? 'bg-white rounded-2xl w-full shadow-sm flex flex-col border border-slate-200 overflow-hidden cursor-default'
-          : 'bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] sm:h-[85vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden cursor-default animate-modal-zoom'
+          : 'bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default my-auto animate-modal-zoom'
       }
     >
-      {/* ═══ CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW ═══ */}
+      {/* â•â•â• CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW â•â•â• */}
       <div className="p-4 sm:p-6 bg-white border-b border-slate-100 shrink-0">
         {/* Status Message Banners */}
         {photoSuccess && (
@@ -461,7 +461,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </div>
       </div>
 
-      {/* ═══ CLEAN HORIZONTAL NAVIGATION TABS ═══ */}
+      {/* â•â•â• CLEAN HORIZONTAL NAVIGATION TABS â•â•â• */}
       <div className="relative border-b border-slate-100 bg-[#f8fafc] shrink-0 flex items-center px-2 sm:px-3">
         <button
           type="button"
@@ -510,7 +510,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         </button>
       </div>
 
-      {/* ═══ TAB CONTENT BODY ═══ */}
+      {/* â•â•â• TAB CONTENT BODY â•â•â• */}
       <div className={`${isPageMode ? 'p-4 sm:p-6' : 'flex-1 overflow-y-auto p-4 sm:p-6'} text-xs text-slate-700 space-y-5 bg-white`}>
         {/* ── 1. Overview (Only real, non-empty employee data) ── */}
         {effectiveTab === 'overview' && (() => {
@@ -914,7 +914,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
+      className="fixed inset-0 z-[100] overflow-hidden bg-white/45 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
     >
       {profileCardContent}
     </div>

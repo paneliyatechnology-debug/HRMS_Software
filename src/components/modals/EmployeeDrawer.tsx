@@ -331,7 +331,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
 
   const drawer = (
     <div
-      className="fixed inset-0 z-[200] overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in flex justify-end"
+      className="fixed inset-0 z-[200] overflow-hidden bg-white/45 backdrop-blur-md animate-in fade-in flex justify-end"
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >

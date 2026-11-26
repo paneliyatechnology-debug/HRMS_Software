@@ -737,7 +737,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigateModule('announcements')}
               className="btn-primary"
             >
-              ＋ View announcements
+              View Announcements
             </button>
           </div>
         </div>
@@ -1223,7 +1223,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* EMPLOYEE SELF-SERVICE VIEW (HIGH-CLARITY & SIMPLE)             */
         /* ============================================================== */
         <div className="space-y-5">
-          {/* ═══ EMPLOYEE STAT CARDS ═══ */}
+          {/* â•â•â• EMPLOYEE STAT CARDS â•â•â• */}
           {(() => {
             const myLeaves = leaves.filter((l) => {
               const eId = currentEmp?.id || user?.employeeId || user?.id || '';
@@ -1334,7 +1334,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             );
           })()}
 
-          {/* ═══ EMPLOYEE PANELS GRID ═══ */}
+          {/* â•â•â• EMPLOYEE PANELS GRID â•â•â• */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
             <div className="lg:col-span-6 flex flex-col">
               <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
@@ -1596,7 +1596,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCheckOutModalOpen(false);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1655,7 +1655,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setApproveModalData(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1754,7 +1754,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRejectModalData(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1825,7 +1825,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmpDashboard(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1884,7 +1884,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmpDashboard(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}

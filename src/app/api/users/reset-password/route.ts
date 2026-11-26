@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const backendBase = getApiBaseUrl(); // http://192.168.1.107:4000/api
+    const backendBase = getApiBaseUrl(); // http://192.168.1.104:4000/api
     const formData = await request.formData();
 
     // Proxy the POST request directly to the backend endpoint

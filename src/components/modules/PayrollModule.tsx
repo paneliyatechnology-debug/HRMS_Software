@@ -562,7 +562,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                     <p className="mb-1 font-semibold text-slate-500">No payroll records generated for this cycle.</p>
                     {salaries.length === 0 ? (
                       <p className="text-amber-700 font-medium text-[11px] mt-1">
-                        ⚠️ Please configure employee salaries in the{' '}
+                        âš ï¸ Please configure employee salaries in the{' '}
                         <button
                           type="button"
                           onClick={() => setActiveTab('salaries')}
@@ -641,9 +641,9 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     </div>
   )}
 
-  {/* ═══════════════════════════════════════════════════════
+  {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       TAB: EMPLOYEE SALARY STRUCTURES
-  ═══════════════════════════════════════════════════════ */}
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
   {activeTab === 'salaries' && (
     <div className="space-y-4 animate-in fade-in duration-200">
       {salaryError && (
@@ -749,7 +749,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -830,14 +830,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingSalaryEmp(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Configure Monthly Salary</h3>
@@ -850,7 +850,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               {!editingSalaryEmp?.id && (
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Employee</label>
@@ -987,14 +987,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setHistoryEmp(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Salary Revision History</h3>
