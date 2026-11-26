@@ -300,12 +300,8 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     { id: 'personal', label: 'Personal & Photo', icon: UserCheck },
     { id: 'employment', label: 'Employment', icon: Briefcase },
     { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-<<<<<<< HEAD
     ...(showLeave ? [{ id: 'leave', label: 'Leave', icon: CalendarOff }] : []),
-=======
-    { id: 'leave', label: 'Leave', icon: CalendarOff },
     ...(canManageOwnBank ? [{ id: 'bank', label: 'Bank Details', icon: CreditCard }] : []),
->>>>>>> f4197bb6cf77f091bfee9bbeedffac717f19098d
     ...(hasSalaryData ? [{ id: 'payroll', label: 'Salary', icon: CreditCard }] : []),
   ];
 
