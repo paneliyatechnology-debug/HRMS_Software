@@ -348,7 +348,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (!isEmployee) {
+    if (!isEmployee && user?.id) {
       let active = true;
       const loadSettings = async () => {
         setSettingsLoading(true);
@@ -374,8 +374,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           } else {
             setScheduleData(getWorkScheduleConfig(adminCompanyId));
           }
-        } catch (err) {
-          console.error('Failed to load settings:', err);
+        } catch (err: any) {
+          const msg = String(err?.message || '').toLowerCase();
+          if (!msg.includes('login required') && !msg.includes('unauthorized') && !msg.includes('401')) {
+            console.warn('Failed to load settings:', err?.message || err);
+          }
           if (active) setScheduleData(getWorkScheduleConfig(adminCompanyId));
         } finally {
           if (active) setSettingsLoading(false);
@@ -386,7 +389,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         active = false;
       };
     }
-  }, [isEmployee, user]);
+  }, [isEmployee, user, adminCompanyId]);
 
   const handleAdminSave = async () => {
     setLoading(true);
