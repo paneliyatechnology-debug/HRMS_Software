@@ -55,6 +55,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
 
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [sitePlans, setSitePlans] = useState<Array<{ id: string; name: string; price: number; durationMonths: number; description?: string | null }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/hrms-api/plans/public')
+      .then((response) => response.json())
+      .then((body) => {
+        if (!active) return;
+        const list = Array.isArray(body?.data) ? body.data : [];
+        setSitePlans(list);
+      })
+      .catch(() => {
+        if (active) setSitePlans([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const choosePlan = (planId: string) => {
+    window.sessionStorage.setItem('hrms_pending_plan', planId);
+    window.location.assign('/login');
+  };
 
   const faqs = [
     {
@@ -645,6 +668,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="plans" className="py-16 sm:py-24 bg-[#f8f9fa]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Choose a plan</h2>
+            <p className="text-sm text-slate-500">Login first. Payment opens only after your company admin account is signed in.</p>
+          </div>
+          {sitePlans.length === 0 ? (
+            <p className="text-center text-sm text-slate-500">Plans will show here after a super admin adds them.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {sitePlans.map((plan) => {
+                const months = Number(plan.durationMonths) || 1;
+                const price = Number(plan.price) || 0;
+                return (
+                  <div key={plan.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6">
+                    <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
+                    <p className="mt-3 text-3xl font-bold text-slate-900">₹{price.toLocaleString('en-IN')}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">{months} month{months === 1 ? '' : 's'}</p>
+                    <p className="mt-3 flex-1 text-sm text-slate-600">{plan.description || 'Company plan'}</p>
+                    <button
+                      type="button"
+                      onClick={() => choosePlan(plan.id)}
+                      className="mt-6 w-full rounded-xl bg-[#1b4332] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2d6a4f]"
+                    >
+                      Login to purchase
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 

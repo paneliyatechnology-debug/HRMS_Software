@@ -324,7 +324,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           res.message || 'Invalid credentials. Please verify your email, mobile number or employee code and password.'
         );
       } else {
-        router.push('/dashboard');
+        const pendingPlan = window.sessionStorage.getItem('hrms_pending_plan');
+        const role = String(res.role || '').toUpperCase();
+        const canBuy = role === 'ADMIN' || role === 'COMPANY_ADMIN' || role === 'ORG_ADMIN';
+        if (!pendingPlan || !canBuy) window.sessionStorage.removeItem('hrms_pending_plan');
+        router.push(pendingPlan && canBuy ? '/settings' : '/dashboard');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication error. Please try again.');

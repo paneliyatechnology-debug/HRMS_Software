@@ -371,8 +371,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
         <div className="fixed top-5 right-5 z-50 p-4 rounded-2xl bg-emerald-900 text-white shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in slide-in-from-top-4">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="text-xs font-semibold">{successToast}</span>
-                </div>
-              )}
+        </div>
+      )}
 
       {/* Top Header Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
@@ -382,17 +382,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               <LogOut className="w-6 h-6" />
                 </div>
                 <div>
-              <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">Resignations &amp; Clearance</h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                   {resignations.length} {resignations.length === 1 ? 'Record' : 'Records'}
-                </span>
-              </div>
+                    </span>
+                  </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 Staff separation workflows, notice period management, clearance checklist, and relieving letters
                   </p>
                 </div>
-              </div>
+                </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
             <button
@@ -414,7 +414,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               <span>File Resignation</span>
             </button>
                 </div>
-            </div>
+              </div>
 
         {/* Quick KPI Stat Bar for Admin/HR */}
         {isAdminOrHr && (
@@ -428,15 +428,15 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               <span className="text-[10px] uppercase font-bold text-amber-700">Serving Notice</span>
               <p className="text-lg font-bold text-amber-800 mt-0.5">
                 {resignations.filter((r) => (r.status || '').toUpperCase().includes('NOTICE')).length}
-              </p>
-            </div>
+                </p>
+              </div>
 
             <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
               <span className="text-[10px] uppercase font-bold text-blue-700">Under Clearance</span>
               <p className="text-lg font-bold text-blue-800 mt-0.5">
                 {resignations.filter((r) => (r.status || '').toUpperCase().includes('CLEARANCE')).length}
               </p>
-            </div>
+                </div>
 
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
               <span className="text-[10px] uppercase font-bold text-emerald-700">Approved / Relieved</span>
@@ -446,10 +446,10 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   return s.includes('APPROV') || s.includes('RELIEV') || s.includes('COMPLET') || Boolean(r.approvedAt);
                 }).length}
               </p>
-            </div>
-          </div>
+                        </div>
+                      </div>
         )}
-          </div>
+              </div>
 
       {/* Main View Area */}
       {isLoading ? (
@@ -457,19 +457,19 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
           <Loader2 className="w-7 h-7 text-rose-600 animate-spin mx-auto" />
           <p className="text-xs font-bold text-slate-700">Loading separation records...</p>
           <p className="text-[11px] text-slate-400">Querying organization resignation and clearance status</p>
-        </div>
+                  </div>
       ) : error ? (
         <div className="p-8 text-center bg-white rounded-2xl border border-rose-200 text-rose-800 space-y-3">
           <AlertCircle className="w-7 h-7 text-rose-600 mx-auto" />
           <p className="text-xs font-bold">{error}</p>
-              <button
+                  <button
             type="button"
             onClick={loadResignations}
             className="px-4 py-2 rounded-xl bg-rose-100 text-rose-800 text-xs font-bold hover:bg-rose-200 transition cursor-pointer"
-          >
+                  >
             Retry Loading
-              </button>
-            </div>
+                  </button>
+                </div>
       ) : isAdminOrHr ? (
         /* ADMIN & HR VIEW: Full Workforce Table */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -484,10 +484,10 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:border-rose-600"
               />
-            </div>
+              </div>
 
             <div className="flex items-center gap-2">
-              <select
+                  <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 cursor-pointer"
@@ -497,9 +497,9 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 <option value="NOTICE PERIOD">Serving Notice</option>
                 <option value="CLEARANCE">Clearance In Progress</option>
                 <option value="APPROVED">Approved / Relieved</option>
-              </select>
-            </div>
-          </div>
+                  </select>
+                  </div>
+                </div>
 
           {filteredResignations.length === 0 ? (
             <div className="p-12 text-center space-y-3">
@@ -511,8 +511,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 {searchQuery || statusFilter !== 'ALL'
                   ? 'No separation requests match your selected filters.'
                   : 'There are currently no resignation or clearance requests on file.'}
-              </p>
-            </div>
+                  </p>
+                </div>
           ) : (
             <>
               {/* Mobile Card View (< md) */}
@@ -615,13 +615,13 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                         <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
                             {rec.employeeName?.[0] || 'E'}
-                        </div>
+                </div>
                           <div>
                             <p className="font-bold text-slate-900">{rec.employeeName}</p>
                             <p className="text-[10px] text-slate-400 font-mono">
                               {rec.employeeCode} • {rec.departmentName}
                         </p>
-                      </div>
+            </div>
                         </td>
 
                         <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={rec.reason}>
@@ -634,14 +634,14 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                             {rec.submittedAt && (
                               <p className="text-[10px] text-slate-400">Filed {formatDate(rec.submittedAt)}</p>
                             )}
-                        </div>
+            </div>
                         </td>
 
                         <td className="py-3 px-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
                               <span>{doneChecks} / {totalChecks} Cleared</span>
-                            </div>
+            </div>
                             <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${
@@ -649,7 +649,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                                 }`}
                                 style={{ width: `${(doneChecks / totalChecks) * 100}%` }}
                               />
-                            </div>
+          </div>
                           </div>
                         </td>
 
@@ -657,23 +657,23 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
 
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                          <button
+              <button
                             type="button"
                               onClick={() => openNoticeModal(rec)}
                               className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                               title="Assign Notice Days"
                             >
                               Notice
-                            </button>
+              </button>
 
-                            <button
+              <button
                               type="button"
                               onClick={() => openClearanceModal(rec)}
                               className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
                               title="Departmental Clearance Checklist"
                             >
                               Clearance
-                            </button>
+              </button>
 
                             {isApproved ? (
                               <span
@@ -684,16 +684,16 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                                 Approved
                               </span>
                             ) : (
-                              <button
+              <button
                                 type="button"
                                 onClick={() => handleApproveResignation(rec)}
                                 className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs active:scale-95"
                                 title="Approve Relieving"
                               >
                                 Approve
-                              </button>
+              </button>
                             )}
-                      </div>
+            </div>
                         </td>
                       </tr>
                     );
@@ -715,7 +715,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   <h3 className="text-base font-bold text-slate-900 mt-0.5">Separation Status &amp; Relieving</h3>
                 </div>
                 {getStatusBadge(myResignation.status)}
-                    </div>
+          </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -724,7 +724,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     {myResignation.noticeAssigned ? `${myResignation.noticePeriodDays} Days` : 'HR or Admin will assign it'}
                   </p>
                   <p className="text-[11px] text-slate-500">Submitted on {formatDate(myResignation.submittedAt)}</p>
-                    </div>
+              </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Reason on Record</span>
@@ -735,8 +735,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Approval / Relieving</span>
                   <p className="text-xs font-semibold text-slate-800">
                     {myResignation.approvedAt ? `Relieved on ${formatDate(myResignation.approvedAt)}` : 'In review by HR'}
-                  </p>
-                </div>
+              </p>
+            </div>
               </div>
 
               {/* Clearance Checklist Status */}
@@ -757,7 +757,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     ) : (
                       <span className="text-xs font-bold text-amber-600">Pending Return</span>
                     )}
-                      </div>
+                        </div>
 
                   <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -781,11 +781,11 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     {myResignation.clearance?.hrExit ? (
                       <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Completed
-                      </span>
+                          </span>
                     ) : (
                       <span className="text-xs font-bold text-amber-600">Scheduled</span>
                     )}
-                    </div>
+                        </div>
 
                   <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -814,17 +814,17 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   You are currently active in your role. If you plan to tender a formal resignation, you can submit your notice and separation request directly through this portal.
                           </p>
                         </div>
-                        <button
-                type="button"
+                          <button
+                            type="button"
                 onClick={() => setIsFileModalOpen(true)}
                 className="px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 shadow-2xs transition-all inline-flex items-center gap-2 cursor-pointer active:scale-95"
-                        >
+                          >
                 <Plus className="w-4 h-4" />
                 <span>Submit Separation Request</span>
-                        </button>
+                          </button>
             </div>
-          )}
-        </div>
+                        )}
+                      </div>
       )}
 
       {/* MODAL 1: File Resignation Modal */}
@@ -851,21 +851,21 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               >
                 <X className="w-4 h-4" />
               </button>
-            </div>
+                    </div>
 
             <form onSubmit={handleFileResignation} className="p-6 space-y-4 overflow-y-auto">
               {actionError && (
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{actionError}</span>
-              </div>
+                    </div>
               )}
 
               <p className="text-xs text-slate-600 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 Notice period is not chosen here. HR or Admin will assign it after this request is filed.
               </p>
 
-              <div>
+                    <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Reason for Resignation *</label>
                 <textarea
                   rows={4}
@@ -875,11 +875,11 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   onChange={(e) => setFileReason(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
                 />
-              </div>
+                      </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
+                            <button
+                              type="button"
                   onClick={() => setIsFileModalOpen(false)}
                   disabled={isSubmitting}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
@@ -902,11 +902,11 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                       <Send className="w-3.5 h-3.5" />
                       <span>Submit Resignation</span>
                     </>
-                  )}
-                </button>
-              </div>
+                              )}
+                            </button>
+                      </div>
             </form>
-          </div>
+                    </div>
         </div>
       )}
 
@@ -922,19 +922,19 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
                   <Clock className="w-4 h-4" />
               </div>
-                <div>
+                        <div>
                   <h3 className="text-sm font-bold text-slate-900">Assign Notice Period</h3>
                   <p className="text-[11px] text-slate-400">For {selectedRecord.employeeName}</p>
                 </div>
-              </div>
-                <button
+                        </div>
+                        <button
                 type="button"
                 onClick={() => setIsNoticeModalOpen(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                >
+                        >
                 <X className="w-4 h-4" />
-                </button>
-            </div>
+                        </button>
+                      </div>
 
             <form onSubmit={handleAssignNotice} className="p-6 space-y-4 overflow-y-auto">
               <div>
@@ -947,7 +947,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   onChange={(e) => setAssignNoticeDays(Number(e.target.value))}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-800"
                 />
-              </div>
+                  </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
@@ -966,7 +966,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 >
                   {isSubmitting ? 'Saving...' : 'Update Notice'}
                 </button>
-              </div>
+            </div>
             </form>
             </div>
         </div>
@@ -996,7 +996,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               >
                 <X className="w-4 h-4" />
               </button>
-              </div>
+            </div>
 
             <form onSubmit={handleUpdateClearance} className="p-6 space-y-4 overflow-y-auto">
               <div className="space-y-3">
@@ -1007,7 +1007,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     onChange={(e) => setClearanceState((p) => ({ ...p, itAssets: e.target.checked }))}
                     className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
-                  <div>
+              <div>
                     <span className="text-xs font-bold text-slate-800 block">IT Hardware &amp; Assets Returned</span>
                     <span className="text-[10px] text-slate-400">Laptop, security keys, monitors and accessories</span>
               </div>
@@ -1020,10 +1020,10 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     onChange={(e) => setClearanceState((p) => ({ ...p, finance: e.target.checked }))}
                     className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
-                  <div>
+              <div>
                     <span className="text-xs font-bold text-slate-800 block">Finance Dues &amp; Claims Cleared</span>
                     <span className="text-[10px] text-slate-400">Salary advances, expense reimbursements verified</span>
-                  </div>
+              </div>
                 </label>
 
                 <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
@@ -1033,7 +1033,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                     onChange={(e) => setClearanceState((p) => ({ ...p, hrExit: e.target.checked }))}
                     className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
                   />
-                  <div>
+              <div>
                     <span className="text-xs font-bold text-slate-800 block">HR Exit Interview Completed</span>
                     <span className="text-[10px] text-slate-400">Formal feedback received and documentation archived</span>
                   </div>
@@ -1070,7 +1070,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 >
                   {isSubmitting ? 'Saving...' : 'Save Clearance'}
                 </button>
-                </div>
+              </div>
             </form>
           </div>
         </div>
@@ -1090,20 +1090,20 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                   <CheckCircle2 className="w-4 h-4" />
-                </div>
+              </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Approve Resignation</h3>
                   <p className="text-[11px] text-slate-400">Confirm employee separation &amp; relieving</p>
                 </div>
               </div>
-              <button
+                <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setApproveConfirmRecord(null)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
               >
                 <X className="w-4 h-4" />
-              </button>
+                </button>
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto">
@@ -1135,7 +1135,7 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{actionError}</span>
-                </div>
+              </div>
               )}
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">

@@ -158,6 +158,38 @@ function visibleFrame(video: HTMLVideoElement) {
   return { x: 0, y: (height - visibleH) / 2, width, height: visibleH };
 }
 
+function eyeOpen(positions: Array<{ x: number; y: number }> | undefined) {
+  if (!positions || positions.length < 48) return null;
+  const gap = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  const side = (start: number) => {
+    const vertical = gap(positions[start + 1], positions[start + 5]) + gap(positions[start + 2], positions[start + 4]);
+    const horizontal = gap(positions[start], positions[start + 3]) || 1;
+    return vertical / (2 * horizontal);
+  };
+  const score = (side(36) + side(42)) / 2;
+  return Number.isFinite(score) ? score : null;
+}
+
+export type BlinkTrack = { step: 0 | 1 | 2; base: number; low: number };
+
+export function nextBlink(track: BlinkTrack, eye: number | null): { track: BlinkTrack; done: boolean } {
+  if (eye == null) return { track, done: false };
+  if (track.step === 0) {
+    if (eye < 0.15) return { track, done: false };
+    return { track: { step: 1, base: eye, low: eye }, done: false };
+  }
+  if (track.step === 1) {
+    const base = Math.max(track.base, eye);
+    const low = Math.min(track.low, eye);
+    const closed = eye < base * 0.86 || base - eye > 0.028;
+    if (closed) return { track: { step: 2, base, low }, done: false };
+    return { track: { step: 1, base, low }, done: false };
+  }
+  const opened = eye > track.low + 0.02;
+  if (opened) return { track: { step: 0, base: 0, low: 0 }, done: true };
+  return { track: { ...track, low: Math.min(track.low, eye) }, done: false };
+}
+
 export function prepareFaceModels() {
   return faceApi().then(() => undefined);
 }
@@ -178,33 +210,40 @@ export async function scanKioskFace(video: HTMLVideoElement) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
   const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
-  const clear = faces.filter((face) => face.detection.score >= 0.45);
+  const clear = faces.filter((face) => face.detection.score >= 0.3);
   if (!clear.length) return null;
   const closest = clear.reduce((best, face) => {
     const area = face.detection.box.width * face.detection.box.height;
     const bestArea = best.detection.box.width * best.detection.box.height;
     return area > bestArea ? face : best;
   });
-  return Array.from(closest.descriptor);
+  const box = closest.detection.box;
+  const inv = 1 / scale;
+  return {
+    descriptor: Array.from(closest.descriptor),
+    eye: eyeOpen(closest.landmarks.positions),
+    points: closest.landmarks.positions.map((point) => ({ x: point.x * inv, y: point.y * inv })),
+    box: { x: box.x * inv, y: box.y * inv, width: box.width * inv, height: box.height * inv },
+  };
 }
 
 export async function matchLiveFace(video: HTMLVideoElement) {
   const width = video.videoWidth;
   const height = video.videoHeight;
-  if (!width || !height) return { aligned: false, descriptor: null as number[] | null };
+  if (!width || !height) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
   const faceapi = await faceApi();
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return { aligned: false, descriptor: null as number[] | null };
+  if (!ctx) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.62 });
   ctx.drawImage(video, 0, 0, width, height);
   const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
   const clear = faces.filter((face) => face.detection.score >= 0.62);
-  if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null };
+  if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
   const found = clear[0];
   const view = visibleFrame(video);
   const box = found.detection.box;
@@ -214,7 +253,7 @@ export async function matchLiveFace(video: HTMLVideoElement) {
     && Math.abs(centerY - (view.y + view.height / 2)) < view.height * 0.36
     && box.width > view.width * 0.12
     && box.width < view.width * 0.9;
-  return { aligned, descriptor: Array.from(found.descriptor) };
+  return { aligned, descriptor: Array.from(found.descriptor), eye: eyeOpen(found.landmarks.positions) };
 }
 
 export async function facesMatch(profileUrl: string, selfieUrl: string) {

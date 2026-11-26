@@ -119,6 +119,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
   // Role permissions check (Admin & HR only)
   const isAdminOrHr = canManageLeaveTypes(user);
+  const adminHasNoLeave = ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase());
 
   // Leave Types Modal State (Admin, HR, Employee, Manager)
   const [isLeaveTypesModalOpen, setIsLeaveTypesModalOpen] = useState(false);
@@ -560,6 +561,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               <List className="w-3.5 h-3.5 text-emerald-600" />
               <span>Leave Types</span>
             </button>
+            {!adminHasNoLeave && (
             <button
               onClick={onOpenApplyModal}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
@@ -567,6 +569,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Apply Leave</span>
             </button>
+            )}
           </div>
         </div>
       )}
@@ -836,6 +839,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     Apply for personal, sick, or casual leave using the button below.
                   </p>
                 </div>
+                {!adminHasNoLeave && (
                 <button
                   type="button"
                   onClick={onOpenApplyModal}
@@ -844,6 +848,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   <Plus className="w-3.5 h-3.5" />
                   <span>Apply Leave</span>
                 </button>
+                )}
               </div>
             ) : (
               <div className="py-10 px-4 text-center space-y-3">
@@ -1050,6 +1055,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                             Apply for personal, sick, or casual leave using the button below.
                           </p>
                         </div>
+                        {!adminHasNoLeave && (
                         <button
                           type="button"
                           onClick={onOpenApplyModal}
@@ -1058,6 +1064,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           <Plus className="w-3.5 h-3.5" />
                           <span>Apply Leave</span>
                         </button>
+                        )}
                       </div>
                     ) : (
                       <div className="max-w-sm mx-auto space-y-3">

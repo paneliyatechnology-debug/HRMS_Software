@@ -2720,18 +2720,33 @@ async function getNextEmployeeCode() {
   return `EMP-${Math.floor(100000 + Math.random() * 900000)}`;
 }
 
-async function uploadProfilePhoto(file: File, faceDescriptor?: number[]) {
+async function uploadProfilePhoto(file: File, faceDescriptor?: number[] | null) {
   try {
-    const descriptor = faceDescriptor || await (await import('./faceMatch')).assertFaceInPhoto(file);
+    const descriptor = faceDescriptor === null
+      ? null
+      : (faceDescriptor || await (await import('./faceMatch')).assertFaceInPhoto(file));
     const form = new FormData();
     form.append('photo', file);
-    form.append('faceDescriptor', JSON.stringify(descriptor));
+    if (descriptor?.length) form.append('faceDescriptor', JSON.stringify(descriptor));
     const response = await http.post('/users/profile/photo', form);
     clearApiCache('/users');
     return response.data as { message?: string; avatarUrl?: string; photoChangeAllowed?: boolean };
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Profile photo could not be uploaded.');
+  }
+}
+
+async function uploadEmployeePhoto(userId: string, file: File) {
+  try {
+    const form = new FormData();
+    form.append('photo', file);
+    const response = await http.post(`/users/${userId}/photo`, form);
+    clearApiCache('/users');
+    return response.data as { message?: string; avatarUrl?: string };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Employee photo could not be updated.');
   }
 }
 
@@ -2916,6 +2931,7 @@ export const api = new Proxy({
   activateEmployee,
   getNextEmployeeCode,
   uploadProfilePhoto,
+  uploadEmployeePhoto,
   getPhotoAccess,
   requestPhotoChange,
   listPhotoRequests,
