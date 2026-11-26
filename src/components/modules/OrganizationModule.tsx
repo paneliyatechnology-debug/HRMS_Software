@@ -942,7 +942,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       </div>
 
                       {/* Contact Grid */}
-                      <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
                             <Mail className="w-3 h-3" /> Direct Email
@@ -1451,7 +1451,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
                       }`} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-700">Code (Optional)</label>
@@ -1713,7 +1713,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">Industry Sector</label>
                   <input
@@ -1747,7 +1747,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">Official Email</label>
                   <input
@@ -1781,7 +1781,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">City</label>
                   <input

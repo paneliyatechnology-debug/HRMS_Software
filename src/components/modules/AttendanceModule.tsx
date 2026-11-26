@@ -2120,7 +2120,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </div>
                               <div className="w-16 h-5 bg-slate-100 rounded-full" />
                             </div>
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                               <div className="space-y-1">
                                 <div className="w-10 h-2 bg-slate-200 rounded" />
                                 <div className="w-20 h-3 bg-slate-200 rounded" />
@@ -2219,7 +2219,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
                               <div>
                                 <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
                                 <span className="font-semibold text-slate-800 text-[11px]">
@@ -3561,7 +3561,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Date</label>
                   <input
@@ -3585,7 +3585,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Clock-in Time</label>
                   <input

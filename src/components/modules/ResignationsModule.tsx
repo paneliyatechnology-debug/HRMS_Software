@@ -514,7 +514,78 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   </p>
                 </div>
           ) : (
-            <div className="overflow-x-auto [scrollbar-width:thin]">
+            <>
+              {/* Mobile Card View (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filteredResignations.map((rec) => {
+                  const cl = rec.clearance || {};
+                  const totalChecks = 4;
+                  const doneChecks = [cl.itAssets, cl.finance, cl.hrExit, cl.handover].filter(Boolean).length;
+                  const recStatusUpper = (rec.status || '').toUpperCase();
+                  const isApproved =
+                    recStatusUpper.includes('APPROV') ||
+                    recStatusUpper.includes('RELIEV') ||
+                    recStatusUpper.includes('COMPLET') ||
+                    Boolean(rec.approvedAt) ||
+                    Boolean(rec.approvedBy);
+                  return (
+                    <div key={`mob-${rec.id}`} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
+                            {rec.employeeName?.[0] || 'E'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 text-sm truncate">{rec.employeeName}</p>
+                            <p className="text-[11px] text-slate-400 font-mono truncate">
+                              {rec.employeeCode} • {rec.departmentName}
+                            </p>
+                          </div>
+                        </div>
+                        {getStatusBadge(rec.status)}
+                      </div>
+                      <p className="text-xs text-slate-600 line-clamp-2">{rec.reason}</p>
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Notice Period</span>
+                          <span className="font-semibold text-slate-800">{rec.noticeAssigned ? `${rec.noticePeriodDays} Days` : 'Not assigned'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Clearance</span>
+                          <span className="font-semibold text-slate-800">{doneChecks} / {totalChecks} Cleared</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openNoticeModal(rec)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer active:scale-95"
+                        >
+                          Notice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openClearanceModal(rec)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer active:scale-95"
+                        >
+                          Clearance
+                        </button>
+                        {!isApproved && (
+                          <button
+                            type="button"
+                            onClick={() => handleApproveResignation(rec)}
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95 ml-auto"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
               <table className="w-full text-left text-xs min-w-[760px]">
                 <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
                   <tr>
@@ -629,7 +700,8 @@ export const ResignationsModule: React.FC<ResignationsModuleProps> = ({
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
       ) : (

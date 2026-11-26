@@ -1011,18 +1011,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <button
                             type="button"
                             onClick={() => toggleDashboardLeaveRowView(leave.id)}
-                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                            aria-label={isDetailed ? 'Compact View' : 'Detailed View'}
+                            className={`group relative p-1.5 rounded-lg border transition-all cursor-pointer ${
                               isDetailed
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                 : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
                             }`}
-                            title={isDetailed ? 'Switch to Compact View (Eye Off)' : 'Switch to Detailed View (Eye On)'}
                           >
                             {isDetailed ? (
                               <Eye className="w-3.5 h-3.5 stroke-[2.2]" />
                             ) : (
                               <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
                             )}
+                            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-30">
+                              {isDetailed ? 'Compact View' : 'Detailed View'}
+                            </span>
                           </button>
                         </div>
                       </div>
