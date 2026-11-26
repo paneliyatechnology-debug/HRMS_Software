@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, AlertCircle, CalendarDays } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { X, AlertCircle, CalendarDays, ChevronDown, Check, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -56,6 +56,191 @@ const formatDateChip = (dateStr: string): string => {
   });
 };
 
+const formatDisplayDate = (dateStr: string): string => {
+  const match = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return dateStr || 'Select date';
+  return `${match[3]}-${match[2]}-${match[1]}`;
+};
+
+interface ThemedDatePickerProps {
+  id: string;
+  value: string;
+  minDate?: string;
+  onChange: (val: string) => void;
+  hasError?: boolean;
+  align?: 'left' | 'right';
+}
+
+const ThemedDatePicker: React.FC<ThemedDatePickerProps> = ({
+  id,
+  value,
+  minDate,
+  onChange,
+  hasError = false,
+  align = 'left',
+}) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const todayStr = getTodayDate();
+
+  const initialDate = useMemo(() => {
+    const [y, m] = (value || todayStr).split('-').map(Number);
+    return new Date(y || new Date().getFullYear(), (m || new Date().getMonth() + 1) - 1, 1);
+  }, [value, todayStr]);
+
+  const [viewDate, setViewDate] = useState<Date>(initialDate);
+
+  useEffect(() => {
+    if (open) {
+      setViewDate(initialDate);
+    }
+  }, [open, initialDate]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [open]);
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = viewDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  const cells: Array<{ day: number; dateStr: string } | null> = [];
+  for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(month + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    cells.push({ day: d, dateStr: `${year}-${mm}-${dd}` });
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        id={id}
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border bg-white text-slate-800 flex items-center justify-between gap-2 transition-all cursor-pointer ${
+          hasError
+            ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+            : open
+              ? 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/20 shadow-xs'
+              : 'border-slate-300 hover:border-[#2d6a4f]/60'
+        }`}
+      >
+        <span className="font-medium truncate">{formatDisplayDate(value)}</span>
+        <Calendar className={`w-4 h-4 shrink-0 ${open ? 'text-[#2d6a4f]' : 'text-slate-500'}`} />
+      </button>
+
+      {open && (
+        <div
+          className={`absolute top-full mt-1.5 z-[60] w-[260px] rounded-2xl border border-[#dee2e6] bg-white shadow-[0_18px_40px_-12px_rgba(15,23,42,0.22)] p-3 animate-in fade-in zoom-in-95 duration-150 ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
+          {/* Calendar Header */}
+          <div className="flex items-center justify-between mb-2.5">
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(year, month - 1, 1))}
+              className="p-1.5 rounded-lg text-slate-600 hover:bg-[#d8f3dc]/60 hover:text-[#1b4332] transition cursor-pointer"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-bold text-slate-900">{monthLabel}</span>
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(year, month + 1, 1))}
+              className="p-1.5 rounded-lg text-slate-600 hover:bg-[#d8f3dc]/60 hover:text-[#1b4332] transition cursor-pointer"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Weekday Labels */}
+          <div className="grid grid-cols-7 gap-1 mb-1 text-center">
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((wd) => (
+              <span key={wd} className="text-[10px] font-bold text-slate-400 py-0.5">
+                {wd}
+              </span>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((cell, idx) => {
+              if (!cell) return <div key={`empty-${idx}`} />;
+              const isDisabled = Boolean(minDate && cell.dateStr < minDate);
+              const isSelected = cell.dateStr === value;
+              const isToday = cell.dateStr === todayStr;
+              return (
+                <button
+                  key={cell.dateStr}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => {
+                    onChange(cell.dateStr);
+                    setOpen(false);
+                  }}
+                  className={`h-7 w-full rounded-lg text-[11px] font-semibold flex items-center justify-center transition ${
+                    isDisabled
+                      ? 'text-slate-300 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-[#2d6a4f] text-white font-bold shadow-2xs cursor-pointer'
+                        : isToday
+                          ? 'bg-[#d8f3dc]/70 text-[#1b4332] ring-1 ring-[#95d5b2] font-bold hover:bg-[#2d6a4f] hover:text-white cursor-pointer'
+                          : 'text-slate-700 hover:bg-[#d8f3dc]/70 hover:text-[#1b4332] cursor-pointer'
+                  }`}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Footer Quick Today */}
+          <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <button
+              type="button"
+              disabled={Boolean(minDate && todayStr < minDate)}
+              onClick={() => {
+                onChange(todayStr);
+                setOpen(false);
+              }}
+              className="font-semibold text-[#2d6a4f] hover:text-[#1b4332] disabled:opacity-40 cursor-pointer"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh, availableLeaveTypes }) => {
   const { user } = useAuth();
   const { emitLeaveApplied, showToast } = useSocket();
@@ -72,6 +257,26 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
   const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>(availableLeaveTypes || []);
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!typeDropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setTypeDropdownOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTypeDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [typeDropdownOpen]);
 
   const selectedDates = useMemo(() => getDatesInRange(startDate, endDate), [startDate, endDate]);
   const isMultiDay = selectedDates.length > 1;
@@ -117,6 +322,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
     setReason('');
     setFieldErrors({});
     setError('');
+    setTypeDropdownOpen(false);
 
     let active = true;
     const fetchLeaveTypesOnly = async () => {
@@ -320,9 +526,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
 
         <div className="pr-8">
           <h3 className="text-lg font-bold text-slate-900 leading-tight">New Leave Request</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Submit time off for approval.
-          </p>
+          
         </div>
 
         {error && (
@@ -333,32 +537,83 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-5">
-          <div>
+          <div
+            ref={typeDropdownRef}
+            onMouseEnter={() => setTypeDropdownOpen(true)}
+            onMouseLeave={() => setTypeDropdownOpen(false)}
+            className="relative"
+          >
             <label htmlFor="leave-type-select" className="block text-xs font-bold text-slate-800 mb-1.5">
               Type
             </label>
-            <select
+            <button
               id="leave-type-select"
-              value={leaveType}
-              onChange={(e) => {
-                setLeaveType(e.target.value as LeaveType);
-                clearFieldError('leaveType');
-              }}
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition"
-              required
+              type="button"
+              onClick={() => setTypeDropdownOpen((prev) => !prev)}
+              aria-haspopup="listbox"
+              aria-expanded={typeDropdownOpen}
+              className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-left flex items-center justify-between gap-2 transition-all duration-150 cursor-pointer ${
+                typeDropdownOpen
+                  ? 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/15 text-slate-900 shadow-xs'
+                  : 'border-slate-300 text-slate-800 hover:border-[#2d6a4f]/60'
+              }`}
             >
-              {leaveTypesLoading && backendLeaveTypes.length === 0 ? (
-                <option value="" disabled>Loading company leave types...</option>
-              ) : backendLeaveTypes.length > 0 ? (
-                backendLeaveTypes.map((lt) => (
-                  <option key={lt.id} value={lt.name}>
-                    {lt.name}
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>No leave types configured by company</option>
-              )}
-            </select>
+              <span className={`truncate font-medium ${!leaveType ? 'text-slate-400' : 'text-slate-800'}`}>
+                {leaveTypesLoading && backendLeaveTypes.length === 0
+                  ? 'Loading company leave types...'
+                  : leaveType || 'Select leave type'}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${
+                  typeDropdownOpen ? 'rotate-180 text-[#2d6a4f]' : ''
+                }`}
+              />
+            </button>
+
+            {typeDropdownOpen && (
+              <div className="absolute left-0 right-0 pt-1.5 z-50">
+                <div
+                  role="listbox"
+                  className="rounded-2xl border border-[#dee2e6] bg-white shadow-[0_18px_40px_-12px_rgba(15,23,42,0.18)] p-1.5 max-h-56 overflow-y-auto [scrollbar-width:thin] divide-y divide-slate-100/80 animate-in fade-in slide-in-from-top-1 duration-150"
+                >
+                  {leaveTypesLoading && backendLeaveTypes.length === 0 ? (
+                    <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
+                      Loading company leave types...
+                    </div>
+                  ) : backendLeaveTypes.length === 0 ? (
+                    <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
+                      No leave types configured by company
+                    </div>
+                  ) : (
+                    backendLeaveTypes.map((lt) => {
+                      const selected = leaveType === lt.name;
+                      return (
+                        <button
+                          key={lt.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          onClick={() => {
+                            setLeaveType(lt.name as LeaveType);
+                            clearFieldError('leaveType');
+                            setTypeDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2.5 rounded-xl text-left text-xs sm:text-[13px] flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                            selected
+                              ? 'bg-[#2d6a4f] text-white font-semibold shadow-2xs'
+                              : 'text-slate-700 hover:bg-[#f8f9fa] hover:text-[#1b4332] hover:pl-4 font-medium'
+                          }`}
+                        >
+                          <span className="truncate">{lt.name}</span>
+                          {selected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
             {fieldErrors.leaveType && (
               <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 mt-1 animate-in fade-in">
                 <AlertCircle className="w-3 h-3 shrink-0" />
@@ -372,14 +627,13 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               <label htmlFor="leave-start-date" className="block text-xs font-bold text-slate-800 mb-1.5">
                 From
               </label>
-              <input
+              <ThemedDatePicker
                 id="leave-start-date"
-                type="date"
-                min={getTodayDate()}
                 value={startDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition"
-                required
+                minDate={getTodayDate()}
+                onChange={handleStartDateChange}
+                hasError={Boolean(fieldErrors.startDate)}
+                align="left"
               />
             </div>
             <div>
@@ -394,17 +648,13 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                   </span>
                 )}
               </div>
-              <input
+              <ThemedDatePicker
                 id="leave-end-date"
-                type="date"
-                min={startDate}
                 value={endDate}
-                onChange={(e) => handleEndDateChange(e.target.value)}
-                className={`w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border bg-white text-slate-800 transition-all ${fieldErrors.endDate
-                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                  : 'border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f]'
-                  }`}
-                required
+                minDate={startDate}
+                onChange={handleEndDateChange}
+                hasError={Boolean(fieldErrors.endDate)}
+                align="right"
               />
             </div>
           </div>
@@ -435,7 +685,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                   Customize Day-Wise (Full / Half Day)
                 </label>
               </div>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] shrink-0">
+              <span className="text-xs font-bold text-[#1b4332] shrink-0">
                 {totalDaysCount} {totalDaysCount === 1 ? 'Day' : 'Days'}
               </span>
             </div>
@@ -462,7 +712,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                         <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">
                           {formatDateChip(item.date)}
                         </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        <span className="text-[11px] font-semibold text-slate-500">
                           {item.duration === 1 ? '1d' : '0.5d'}
                         </span>
                       </div>
