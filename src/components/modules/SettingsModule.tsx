@@ -3,6 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { OfficeGeofenceCard } from './OfficeGeofenceCard';
 import {
+  KIOSK_VOICE_LANGUAGES,
+  buildKioskPhrase,
+  speakKioskText,
+  unlockKioskSpeech,
+  type KioskVoiceGender,
+  type KioskVoiceLang,
+} from '../../lib/kioskVoice';
+import {
   Settings,
   Shield,
   ShieldCheck,
@@ -36,8 +44,6 @@ import {
   ExternalLink,
   Users,
   ChevronRight,
-  Camera,
-  Upload,
   Trash2,
   Phone,
   MapPin,
@@ -52,7 +58,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
-import { compressImage, validateImageFile } from '../../lib/imageUtils';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { UpgradePlanModal } from '../modals/UpgradePlanModal';
 import {
   getCompanySubscription,
@@ -74,14 +80,27 @@ interface SettingsModuleProps {
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: propPortalMode }) => {
-  const { user, portalMode: authPortalMode, updateUserProfile } = useAuth();
+  const { user, portalMode: authPortalMode } = useAuth();
   const { showToast } = useSocket();
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  useEffect(() => {
+    const pendingPlan = window.sessionStorage.getItem('hrms_pending_plan');
+    if (!pendingPlan) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (!role) return;
+    const canBuy = role === 'ADMIN' || role === 'COMPANY_ADMIN' || role === 'ORG_ADMIN';
+    window.sessionStorage.removeItem('hrms_pending_plan');
+    if (!canBuy) return;
+    setAdminActiveTab('plans');
+    setIsUpgradeModalOpen(true);
+  }, [user?.role]);
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
+  const canManagePlans = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>(
+    canManagePlans ? 'support' : 'company'
+  );
 
   // Employee tabs state
   const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -125,7 +144,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     try {
       const [premRes, plansRes, ordersRes] = await Promise.allSettled([
         api.getCompanyPremium(),
-        api.listPlans(),
+        canManagePlans ? api.listPlans() : api.getPremiumPlans(),
         api.listPremiumOrders(),
       ]);
       if (premRes.status === 'fulfilled' && premRes.value) {
@@ -302,6 +321,22 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       isMounted = false;
     };
   }, [user]);
+  useCompanyLive(['settings'], () => {
+    api.getMyCompany().then((comp) => {
+      if (!comp) return;
+      setCompanyData({
+        name: comp.name || user.companyName || '',
+        tagline: typeof comp.industry === 'object' && comp.industry !== null
+          ? comp.industry.name || comp.industry.code || ''
+          : comp.industry || '',
+        taxId: comp.gstin || comp.taxId || '',
+        supportEmail: comp.email || '',
+        phone: comp.phone || '',
+        currency: comp.currency || 'INR (₹)',
+        address: comp.address || '',
+      });
+    }).catch(() => undefined);
+  });
 
   const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
   const [settingsLoading, setSettingsLoading] = useState(!isEmployee);
@@ -349,6 +384,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
   useEffect(() => {
     if (!isEmployee && user?.id) {
+      const role = String(user?.role || '').toUpperCase();
+      if (role === 'SUPER_ADMIN' && !adminCompanyId) {
+        setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        setSettingsLoading(false);
+        return;
+      }
       let active = true;
       const loadSettings = async () => {
         setSettingsLoading(true);
@@ -436,51 +477,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validation = validateImageFile(file);
-    if (!validation.valid) {
-      showToast({ type: 'error', title: 'Invalid Image', message: validation.error || 'Please select a valid image.' });
-      return;
-    }
-
-    setUploadingAvatar(true);
-    try {
-      const { assertFaceInPhoto } = await import('../../lib/faceMatch');
-      const faceDescriptor = await assertFaceInPhoto(file);
-      const res = await api.uploadProfilePhoto(file, faceDescriptor);
-      const newAvatarUrl = res.avatarUrl || '';
-      if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
-
-      updateUserProfile({ avatarUrl: newAvatarUrl });
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Profile Picture Updated', message: 'Your profile picture has been saved successfully.' });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Upload Failed', message: err.message || 'Could not update profile picture.' });
-    } finally {
-      setUploadingAvatar(false);
-      if (e.target) e.target.value = '';
-    }
-  };
-
-  const handleAvatarRemove = async () => {
-    if (String(user?.role || '').toUpperCase() === 'EMPLOYEE') {
-      showToast({ type: 'error', title: 'Photo required', message: 'Employees cannot remove the profile photo.' });
-      return;
-    }
-    setUploadingAvatar(true);
-    try {
-      updateUserProfile({ avatarUrl: '' });
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Photo Removed', message: 'Your profile picture has been cleared.' });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Action Failed', message: err.message || 'Could not remove profile picture.' });
-    } finally {
-      setUploadingAvatar(false);
     }
   };
 
@@ -778,7 +774,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               >
                 <option value="English">English</option>
                 <option value="Hindi">Hindi (हिंदी)</option>
-                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                <option value="Gujarati">Gujarati (àª—à«àªœàª°àª¾àª¤à«€)</option>
               </select>
             </div>
           </div>
@@ -826,9 +822,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     );
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EMPLOYEE VIEW
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (isEmployee) {
     const employeeNavItems = [
       { id: 'profile', label: 'Personal Profile', desc: 'Avatar, phone & emergency contact', icon: User },
@@ -896,41 +892,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <p className="text-xs text-slate-500 mt-0.5">
                     Profile photo is required for employees. Attendance matches this face.
                   </p>
-                </div>
-
-                {/* Avatar Section */}
-                <div className="flex items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="relative shrink-0">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-black text-2xl flex items-center justify-center shadow-md overflow-hidden">
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.firstName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span>{user.firstName?.[0] || 'E'}{user.lastName?.[0] || ''}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-800">Profile Photo {String(user?.role || '').toUpperCase() === 'EMPLOYEE' ? '(required)' : ''}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <label className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition inline-flex items-center gap-1.5 cursor-pointer">
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>{uploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
-                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
-                      </label>
-                      {user.avatarUrl && String(user?.role || '').toUpperCase() !== 'EMPLOYEE' && (
-                        <button
-                          type="button"
-                          onClick={handleAvatarRemove}
-                          disabled={uploadingAvatar}
-                          className="px-3 py-1.5 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 font-bold text-xs transition inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400">JPG or PNG, max 5MB. Automatically optimized.</p>
-                  </div>
                 </div>
 
                 {/* Profile Form */}
@@ -1173,10 +1134,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ADMIN VIEW: Clean Modern Two-Column Layout
-  // ═══════════════════════════════════════════════════════════════════════════
-  const adminNavItems = [
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const allAdminNavItems = [
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
     { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
     { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
@@ -1184,6 +1145,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
     { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
   ];
+  const adminNavItems = canManagePlans
+    ? allAdminNavItems.filter((item) => item.id === 'support')
+    : allAdminNavItems;
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
@@ -1191,31 +1155,34 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-              {companyData.name || 'Admin Workspace'}
+              {canManagePlans ? 'Super Admin Workspace' : (companyData.name || 'Admin Workspace')}
             </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {savedMessage && (
-            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
-              <Check className="w-3.5 h-3.5" /> All Changes Saved
-            </span>
-          )}
+        {!canManagePlans && adminActiveTab !== 'plans' && adminActiveTab !== 'support' && (
+          <div className="flex items-center gap-3">
+            {savedMessage && (
+              <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
+                <Check className="w-3.5 h-3.5" /> All Changes Saved
+              </span>
+            )}
 
-          <button
-            onClick={handleAdminSave}
-            disabled={loading}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <Check className="w-4 h-4" />
-            <span>{loading ? 'Saving Settings...' : 'Save Settings'}</span>
-          </button>
-        </div>
+            <button
+              onClick={handleAdminSave}
+              disabled={loading}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+              <span>{loading ? 'Saving Settings...' : 'Save Settings'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Navigation Sidebar */}
+        {!canManagePlans && (
         <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
           <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
             Configuration Sections
@@ -1248,6 +1215,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             );
           })}
         </div>
+        )}
 
         {/* Right Main Content Area */}
         <div className="flex-1 min-w-0 w-full">
@@ -1615,6 +1583,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 </div>
               </div>
 
+              <KioskVoiceCard
+                onSaved={(msg) => showToast({ type: 'success', title: 'Voice Saved', message: msg })}
+                onError={(msg) => showToast({ type: 'error', title: 'Voice Save Failed', message: msg })}
+              />
+
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={handleAdminSave}
@@ -1745,189 +1718,162 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           {/* ── Tab 4: Plans & Premium (GET /premium, GET /plans, POST /plans, PATCH /plans/:id, DELETE /plans/:id, POST /plans/:id/sell, GET /premium/orders, POST /premium/orders, PATCH /premium/orders/:id) ── */}
           {adminActiveTab === 'plans' && (
             <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Active Plan Overview Card */}
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/80 shadow-xs">
-                      <Crown className="w-6 h-6" />
+              {!canManagePlans && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600">
+                      <Crown className="h-6 w-6" />
                     </div>
-              <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-black text-slate-900">
-                          {premiumStatus?.planName || subData?.plan?.name || 'Standard Enterprise'}
-                </h3>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                          {premiumStatus?.status || 'Active'}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">{premiumStatus?.planName || 'No active plan'}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${premiumStatus?.premium ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {premiumStatus?.premium ? 'Active' : premiumStatus?.expired ? 'Expired' : 'Not purchased'}
                         </span>
                       </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                        Company Premium Tier &bull; Billed {subData?.billingCycle || 'Annual'}
-                </p>
-              </div>
-              </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsUpgradeModalOpen(true)}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-2 cursor-pointer self-start sm:self-auto"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Upgrade / Renew Plan</span>
-                  </button>
-            </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Max Employees</span>
-                    <span className="text-base font-black text-slate-800 mt-1 block">
-                      {premiumStatus?.maxEmployees || subData?.plan?.maxEmployees || 'Unlimited'}
-                      </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Billing Cycle</span>
-                    <span className="text-base font-black text-slate-800 mt-1 block">
-                      {subData?.billingCycle || 'Annual'}
-                      </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Gateway</span>
-                    <span className="text-base font-black text-slate-800 mt-1 block">
-                      Razorpay UPI/Cards
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Status</span>
-                    <span className="text-base font-black text-emerald-600 mt-1 block">
-                      Verified &amp; Paid
-                    </span>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {premiumStatus?.order
+                          ? `₹${Number(premiumStatus.order.price || 0).toLocaleString('en-IN')} for ${premiumStatus.order.durationMonths || 1} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'} · ends ${premiumStatus.endsOn || '—'}`
+                          : 'Pick a plan below and pay with Razorpay.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    ['Price', premiumStatus?.order?.price != null ? `₹${Number(premiumStatus.order.price).toLocaleString('en-IN')}` : '—'],
+                    ['Duration', premiumStatus?.order?.durationMonths ? `${premiumStatus.order.durationMonths} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'}` : '—'],
+                    ['Payment', 'Razorpay'],
+                    ['Status', premiumStatus?.premium ? 'Paid' : premiumStatus?.order?.status || 'None'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+                      <span className="mt-1 block text-sm font-bold text-slate-800">{value}</span>
                     </div>
+                  ))}
+                </div>
+              </div>
+              )}
 
-              {/* Plans Catalog Section */}
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                      <Package className="w-4 h-4 text-emerald-600" />
-                      System Subscription Plans
+                    <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+                      <Package className="h-4 w-4 text-emerald-600" />
+                      Plans
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Backend configured plans available for companies (POST /plans, GET /plans)
+                    <p className="mt-1 text-xs text-slate-500">
+                      {canManagePlans ? 'Add a plan, change its price, or remove it.' : 'These are the plans you can buy for this company.'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingPlan(null);
-                      setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
-                      setIsCreatePlanOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Create New Plan</span>
-                  </button>
-                </div>
-
-                {plansLoading ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
-                    <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
-                    <span className="text-xs font-semibold">Loading plans from backend...</span>
-                      </div>
-                ) : plansList.length === 0 ? (
-                  <div className="py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
-                      <Package className="w-6 h-6" />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800">No Custom Plans Found</h4>
-                    <p className="text-xs text-slate-400 max-w-sm mt-1">
-                      No plans have been created in the backend database yet. You can create one now.
-                    </p>
+                  {canManagePlans && (
                     <button
                       type="button"
                       onClick={() => {
                         setEditingPlan(null);
-                        setPlanForm({ name: 'Premium Pro', price: 1499, durationMonths: 1, description: 'All-inclusive enterprise HRMS access', status: 'Active' });
+                        setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
                         setIsCreatePlanOpen(true);
                       }}
-                      className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                      className="inline-flex items-center gap-1.5 self-start rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                     >
-                      + Create First Plan
+                      <Plus className="h-4 w-4" />
+                      Create plan
                     </button>
+                  )}
+                </div>
+
+                {plansLoading ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+                    <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
+                    <span className="text-xs font-semibold">Loading plans...</span>
+                  </div>
+                ) : plansList.length === 0 ? (
+                  <div className="mt-5 flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center">
+                    <Package className="mb-3 h-6 w-6 text-slate-400" />
+                    <h4 className="text-sm font-bold text-slate-800">No plans yet</h4>
+                    <p className="mt-1 max-w-sm text-xs text-slate-400">
+                      {canManagePlans ? 'Create a plan for companies to purchase.' : 'A super admin has not added a plan yet.'}
+                    </p>
+                    {canManagePlans && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPlan(null);
+                          setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+                          setIsCreatePlanOpen(true);
+                        }}
+                        className="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                      >
+                        Create plan
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {plansList.map((plan: any) => (
-                      <div
-                        key={plan.id}
-                        className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition-all shadow-xs flex flex-col justify-between space-y-4"
-                      >
-                      <div>
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-sm font-black text-slate-900 truncate">{plan.name}</h4>
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {plan.status || 'Active'}
-                        </span>
-                      </div>
-                          <div className="mt-2 flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-slate-900">₹{plan.price}</span>
-                            <span className="text-xs text-slate-400 font-bold">/ {plan.durationMonths || 1} mo</span>
-                      </div>
-                          {plan.description && (
-                            <p className="text-xs text-slate-500 mt-2 line-clamp-2">{plan.description}</p>
-                          )}
-                  </div>
-
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
-                    <button
-                            type="button"
-                            onClick={() => handlePlaceOrderDirect(plan.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold transition cursor-pointer"
-                            title="Place Order (POST /premium/orders)"
-                          >
-                            Order
-                    </button>
-                    <button
-                            type="button"
-                      onClick={() => {
-                              setSellingPlan(plan);
-                              setSellCompanyId('');
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold transition cursor-pointer"
-                            title="Sell Plan (POST /plans/:id/sell)"
-                          >
-                            Sell
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingPlan(plan);
-                              setPlanForm({
-                                name: plan.name || '',
-                                price: Number(plan.price) || 0,
-                                durationMonths: Number(plan.durationMonths) || 1,
-                                description: plan.description || '',
-                                status: plan.status || 'Active',
-                              });
-                              setIsCreatePlanOpen(true);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
-                            title="Edit Plan (PATCH /plans/:id)"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingPlan(plan)}
-                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-                            title="Delete Plan (DELETE /plans/:id)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-                    ))}
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {plansList.map((plan: any) => {
+                      const months = Number(plan.durationMonths) || 1;
+                      const price = Number(plan.price) || 0;
+                      const isCurrent = !canManagePlans && premiumStatus?.premium && premiumStatus?.order?.planId === plan.id;
+                      const inactive = String(plan.status || 'Active') !== 'Active';
+                      return (
+                        <div
+                          key={plan.id}
+                          className={`flex flex-col rounded-2xl border p-5 ${isCurrent ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-white'}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <h4 className="text-base font-bold text-slate-900">{plan.name}</h4>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isCurrent ? 'bg-emerald-600 text-white' : inactive ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {isCurrent ? 'Current' : plan.status || 'Active'}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">₹{price.toLocaleString('en-IN')}</p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">{months} month{months === 1 ? '' : 's'}</p>
+                          <p className="mt-3 min-h-10 text-sm leading-5 text-slate-600">{plan.description || 'Company plan'}</p>
+                          <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-4">
+                            {canManagePlans ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPlan(plan);
+                                    setPlanForm({
+                                      name: plan.name || '',
+                                      price,
+                                      durationMonths: months,
+                                      description: plan.description || '',
+                                      status: plan.status || 'Active',
+                                    });
+                                    setIsCreatePlanOpen(true);
+                                  }}
+                                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingPlan(plan)}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isCurrent}
+                                onClick={() => setIsUpgradeModalOpen(true)}
+                                className={`w-full rounded-xl px-3 py-2.5 text-xs font-bold ${isCurrent ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                              >
+                                {isCurrent ? 'Current plan' : 'Purchase'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1940,9 +1886,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                       <Receipt className="w-4 h-4 text-emerald-600" />
                       Premium Orders
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Company order ledger (GET /premium/orders, PATCH /premium/orders/:id)
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Payments for this company.</p>
                   </div>
                   <button
                     type="button"
@@ -1963,8 +1907,39 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     No premium orders recorded yet.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left text-xs">
+                  <>
+                    {/* Mobile Card View (< md) */}
+                    <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                      {premiumOrders.map((ord: any) => (
+                        <div key={`mob-ord-${ord.id}`} className="p-3.5 space-y-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-800 truncate">{ord.planName || ord.planId || 'Plan Tier'}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
+                              {ord.status || 'Completed'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-500">
+                            <span className="font-mono">{ord.id?.slice(0, 12)}...</span>
+                            <span>{ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}</span>
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingOrder(ord);
+                                setOrderStatusVal(ord.status || 'Active');
+                              }}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                            >
+                              Update Status
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                         <tr>
                           <th className="px-4 py-3">Order ID</th>
@@ -1992,6 +1967,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                               {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
                             </td>
                             <td className="px-4 py-3 text-right">
+                            {canManagePlans && (
                             <button
                                 type="button"
                               onClick={() => {
@@ -2002,12 +1978,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                               >
                                 Update Status
                             </button>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2052,8 +2030,56 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left text-xs">
+                <>
+                  {/* Mobile Card View (< md) */}
+                  <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                    {supportList.map((item: any) => (
+                      <div key={`mob-sup-${item.id}`} className="p-3.5 space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700">
+                            {item.kind || 'Demo'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              item.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.status === 'Read'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {item.status || 'New'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{item.name} {item.companyName ? `(${item.companyName})` : ''}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{item.email} • {item.phone || 'No phone'}</p>
+                        </div>
+                        {item.message && <p className="text-slate-600 line-clamp-2">{item.message}</p>}
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewSupportReq(item)}
+                            className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            View
+                          </button>
+                          {item.status !== 'Resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                       <tr>
                         <th className="px-4 py-3">Type</th>
@@ -2120,6 +2146,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}
@@ -2143,17 +2170,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => {
             setIsCreatePlanOpen(false);
             setEditingPlan(null);
           }}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Crown className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2171,7 +2198,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Plan Name <span className="text-rose-500">*</span>
@@ -2185,7 +2212,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Price (₹)</label>
                   <input
@@ -2245,11 +2272,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingPlan(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4 animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto flex flex-col p-6 space-y-4 my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
@@ -2286,14 +2313,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setSellingPlan(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Sell Plan to Company</h3>
               <button
                 type="button"
@@ -2303,7 +2330,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <p className="text-slate-500">
                 Assigning <span className="font-bold text-slate-800">{sellingPlan.name}</span> directly to a target company.
               </p>
@@ -2345,14 +2372,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingOrder(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <h3 className="text-sm font-bold text-slate-900">Update Order Status</h3>
               <button
                 type="button"
@@ -2362,7 +2389,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Status</label>
                 <select
@@ -2401,14 +2428,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setViewingSupport(null)}
         >
           <div
-            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Headphones className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2423,8 +2450,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Name</span>
                   <span className="font-bold text-slate-900">{viewingSupport.name}</span>
@@ -2487,3 +2514,119 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     </div>
   );
 };
+
+function KioskVoiceCard({
+  onSaved,
+  onError,
+}: {
+  onSaved: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [lang, setLang] = useState<KioskVoiceLang>('en-IN');
+  const [gender, setGender] = useState<KioskVoiceGender>('female');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.getKioskVoice()
+      .then((res: any) => {
+        if (!active) return;
+        const nextLang = String(res?.kioskVoiceLang || 'en-IN') as KioskVoiceLang;
+        if (KIOSK_VOICE_LANGUAGES.some((item) => item.code === nextLang)) {
+          setLang(nextLang);
+        }
+        setGender(res?.kioskVoiceGender === 'male' ? 'male' : 'female');
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.saveKioskVoice({ kioskVoiceLang: lang, kioskVoiceGender: gender });
+      onSaved('Face Clock Kiosk voice language and type updated.');
+    } catch (err: any) {
+      onError(err?.message || 'Could not save voice settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+            <Volume2 className="w-4 h-4 text-emerald-600" />
+            <span>Face Clock Kiosk Voice &amp; Language</span>
+          </div>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+            Choose the spoken language and voice type (Female / Male) for Face Clock announcements.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            unlockKioskSpeech();
+            speakKioskText(buildKioskPhrase({ kind: 'test' }, lang), {
+              enabled: true,
+              lang,
+              gender,
+            });
+          }}
+          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer"
+        >
+          Test Voice
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {KIOSK_VOICE_LANGUAGES.map((item) => (
+          <button
+            key={item.code}
+            type="button"
+            onClick={() => setLang(item.code)}
+            className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${
+              lang === item.code
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <div>{item.label}</div>
+            <div className="text-[10px] text-slate-500">{item.native}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="inline-flex rounded-xl bg-white border border-slate-200 p-1">
+          {(['female', 'male'] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setGender(g)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
+                gender === g ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void handleSave()}
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <Check className="w-3.5 h-3.5" />
+          <span>{saving ? 'Saving...' : 'Save Voice'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

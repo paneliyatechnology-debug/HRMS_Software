@@ -21,6 +21,7 @@ import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { canDeleteUser } from '../../lib/rolePermissions';
 
@@ -54,12 +55,29 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const canReviewPhotos = ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase());
+  const loadPhotoRequests = async () => {
+    if (!canReviewPhotos) return;
+    try {
+      setPhotoRequests(await api.listPhotoRequests());
+    } catch {
+      setPhotoRequests([]);
+    }
+  };
+  useEffect(() => {
+    void loadPhotoRequests();
+  }, [canReviewPhotos]);
+  useCompanyLive(['employees'], () => {
+    void loadPhotoRequests();
+  });
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedRole, setSelectedRole] = useState('All');
   const [selectedJoining, setSelectedJoining] = useState('Any');
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
+  const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
+  const [photoRequestBusy, setPhotoRequestBusy] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -171,20 +189,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
 
     return matchesSearch && matchesStatus && matchesRole;
   });
-
-  const toggleSelectAll = () => {
-    if (selectedRows.length === filtered.length) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(filtered.map((e) => e.id));
-    }
-  };
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-    );
-  };
 
   const handleOpenRemoveModal = (emp: Employee) => {
     setRemovingEmp(emp);
@@ -349,6 +353,64 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
         </div>
       </div>
 
+      {canReviewPhotos && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <p className="text-xs font-black text-amber-950">Profile photo change requests</p>
+          <p className="text-[11px] text-amber-900">Employee, HR, and Manager can upload a photo once. Admin or HR can approve one new upload.</p>
+          {photoRequests.length === 0 && (
+            <p className="text-xs font-semibold text-slate-500">No pending requests.</p>
+          )}
+          {photoRequests.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white border border-amber-100 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{item.userName || item.email}</p>
+                <p className="text-[11px] text-slate-500">{item.role} · {item.email}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={photoRequestBusy === item.id}
+                  onClick={async () => {
+                    setPhotoRequestBusy(item.id);
+                    try {
+                      const result = await api.reviewPhotoRequest(item.id, true);
+                      showToast({ type: 'success', title: 'Approved', message: result.message });
+                      await loadPhotoRequests();
+                    } catch (err: any) {
+                      showToast({ type: 'error', title: 'Could not approve', message: err.message || 'Try again.' });
+                    } finally {
+                      setPhotoRequestBusy(null);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold disabled:opacity-60"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={photoRequestBusy === item.id}
+                  onClick={async () => {
+                    setPhotoRequestBusy(item.id);
+                    try {
+                      const result = await api.reviewPhotoRequest(item.id, false);
+                      showToast({ type: 'success', title: 'Rejected', message: result.message });
+                      await loadPhotoRequests();
+                    } catch (err: any) {
+                      showToast({ type: 'error', title: 'Could not reject', message: err.message || 'Try again.' });
+                    } finally {
+                      setPhotoRequestBusy(null);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 text-xs font-bold disabled:opacity-60"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Search Input matching Clan.biz */}
@@ -482,15 +544,12 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 emp.email === user.email ||
                 emp.id === user.employeeId ||
                 emp.id === user.id;
-              const isSelected = selectedRows.includes(emp.id);
               const roleDef = getRoleDefinition(emp.role || 'EMPLOYEE');
 
               return (
                 <div
                   key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
-                  className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
-                    isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'
-                  }`}
+                  className="p-3.5 space-y-2.5 transition-colors cursor-pointer hover:bg-slate-50/70"
                   onClick={() => onSelectEmployee(emp)}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -639,14 +698,6 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           <table className="w-full min-w-[850px] text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.length === filtered.length && filtered.length > 0}
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                  />
-                </th>
                 <th className="py-3 px-4 font-bold">EMPLOYEE ID</th>
                 <th className="py-3 px-4 font-bold">NAME</th>
                 <th className="py-3 px-4 font-bold">EMAIL</th>
@@ -712,32 +763,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                   emp.email === user.email ||
                   emp.id === user.employeeId ||
                   emp.id === user.id;
-                const isSelected = selectedRows.includes(emp.id);
 
                 return (
                   <tr
                     key={emp.id ? `${emp.id}-${empIdx}` : empIdx}
-                    className={`transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-indigo-50/30 hover:bg-slate-50/70'
-                        : 'hover:bg-slate-50/70'
-                    }`}
+                    className="transition-colors cursor-pointer hover:bg-slate-50/70"
                     onClick={() => onSelectEmployee(emp)}
                   >
-                    <td
-                      className="py-3 px-4"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelectRow(emp.id);
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      />
-                    </td>
                     <td className="py-3 px-4">
                       <span className="font-bold text-slate-900">{emp.employeeCode || 'EMP-1'}</span>
                     </td>
@@ -939,7 +971,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRemovingEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1001,7 +1033,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setNoticeTargetEmp(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}

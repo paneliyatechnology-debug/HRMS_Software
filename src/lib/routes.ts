@@ -13,6 +13,10 @@ export interface RouteResolution {
 
 export const VALID_MODULE_MAP: Record<string, { module: string; subTab?: string }> = {
   'dashboard': { module: 'dashboard' },
+  'companies': { module: 'companies' },
+  'plans': { module: 'plans' },
+  'orders': { module: 'orders' },
+  'support': { module: 'support' },
   'attendance': { module: 'attendance' },
   'employees': { module: 'employees' },
   'leaves': { module: 'leaves' },

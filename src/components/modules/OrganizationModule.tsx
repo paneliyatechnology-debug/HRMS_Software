@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Building2,
   Users,
@@ -245,7 +246,13 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDeptId, setTeamDeptId] = useState('');
+  const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([]);
   const [submittingTeam, setSubmittingTeam] = useState(false);
+
+  const [managingMembersTeam, setManagingMembersTeam] = useState<any | null>(null);
+  const [loadingMembersTeam, setLoadingMembersTeam] = useState(false);
+  const [selectedAddMemberUserId, setSelectedAddMemberUserId] = useState('');
+  const [submittingMemberAction, setSubmittingMemberAction] = useState(false);
 
   const [editingTeam, setEditingTeam] = useState<any | null>(null);
   const [editTeamName, setEditTeamName] = useState('');
@@ -279,7 +286,8 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       !!editingTeam ||
       !!deletingTeam ||
       !!settingLeaderTeam ||
-      !!viewingTeam;
+      !!viewingTeam ||
+      !!managingMembersTeam;
 
     if (!isAnyOpen) return;
     const originalOverflow = document.body.style.overflow;
@@ -296,6 +304,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         if (deletingTeam) setDeletingTeam(null);
         if (settingLeaderTeam) setSettingLeaderTeam(null);
         if (viewingTeam) setViewingTeam(null);
+        if (managingMembersTeam) setManagingMembersTeam(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -314,6 +323,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     deletingTeam,
     settingLeaderTeam,
     viewingTeam,
+    managingMembersTeam,
   ]);
 
   // Department form state
@@ -509,6 +519,10 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
   useEffect(() => {
     loadTeams();
   }, [loadTeams]);
+  useCompanyLive(['organization', 'employees', 'settings'], () => {
+    void loadDepartments();
+    void loadTeams();
+  });
 
   // Department Edit & Delete Handlers
   const handleOpenEditDept = (dept: Department) => {
@@ -571,10 +585,24 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
     if (!teamName.trim()) return;
     setSubmittingTeam(true);
     try {
-      await api.createTeam({
+      const created = await api.createTeam({
         name: teamName.trim(),
         departmentId: teamDeptId || departments[0]?.id || undefined,
       });
+      const createdTeamId = created?.id || created?.team?.id || created?.data?.id;
+      if (createdTeamId && selectedTeamMemberIds.length > 0) {
+        const results = await Promise.allSettled(
+          selectedTeamMemberIds.map((userId) => api.addTeamMember(createdTeamId, { userId }))
+        );
+        const failedCount = results.filter((r) => r.status === 'rejected').length;
+        if (failedCount > 0) {
+          showToast?.({
+            type: 'warning',
+            title: 'Partial Member Assignment',
+            message: `${teamName} created, but ${failedCount} member(s) could not be added.`,
+          });
+        }
+      }
       showToast?.({
         type: 'success',
         title: 'Team Created',
@@ -582,6 +610,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       });
       setIsAddTeamOpen(false);
       setTeamName('');
+      setSelectedTeamMemberIds([]);
       loadTeams();
     } catch (err: any) {
       showToast?.({
@@ -591,6 +620,70 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
       });
     } finally {
       setSubmittingTeam(false);
+    }
+  };
+
+  const handleOpenManageMembers = async (team: any) => {
+    setManagingMembersTeam(team);
+    setSelectedAddMemberUserId('');
+    setLoadingMembersTeam(true);
+    try {
+      const detailed = await api.getTeam(team.id);
+      if (detailed) setManagingMembersTeam(detailed);
+    } catch (err) {
+      console.warn('Could not load team members:', err);
+    } finally {
+      setLoadingMembersTeam(false);
+    }
+  };
+
+  const handleAddMemberToTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!managingMembersTeam || !selectedAddMemberUserId) return;
+    setSubmittingMemberAction(true);
+    try {
+      await api.addTeamMember(managingMembersTeam.id, { userId: selectedAddMemberUserId });
+      showToast?.({
+        type: 'success',
+        title: 'Member Added',
+        message: 'Employee added to the team.',
+      });
+      setSelectedAddMemberUserId('');
+      const updated = await api.getTeam(managingMembersTeam.id).catch(() => null);
+      if (updated) setManagingMembersTeam(updated);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Add Member Failed',
+        message: err.message || 'Could not add employee to team.',
+      });
+    } finally {
+      setSubmittingMemberAction(false);
+    }
+  };
+
+  const handleRemoveMemberFromTeam = async (employeeId: string) => {
+    if (!managingMembersTeam || !employeeId) return;
+    setSubmittingMemberAction(true);
+    try {
+      await api.removeTeamMember(managingMembersTeam.id, employeeId);
+      showToast?.({
+        type: 'success',
+        title: 'Member Removed',
+        message: 'Employee removed from the team.',
+      });
+      const updated = await api.getTeam(managingMembersTeam.id).catch(() => null);
+      if (updated) setManagingMembersTeam(updated);
+      loadTeams();
+    } catch (err: any) {
+      showToast?.({
+        type: 'error',
+        title: 'Remove Failed',
+        message: err.message || 'Could not remove employee from team.',
+      });
+    } finally {
+      setSubmittingMemberAction(false);
     }
   };
 
@@ -694,9 +787,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
 
   return (
     <div className="space-y-5 w-full select-none">
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           TAB: ABOUT / OVERVIEW
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === 'about' && (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
@@ -849,7 +942,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       </div>
 
                       {/* Contact Grid */}
-                      <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1.5 mb-1">
                             <Mail className="w-3 h-3" /> Direct Email
@@ -1019,9 +1112,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           TAB: DEPARTMENTS
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === 'departments' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1125,9 +1218,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           TAB: TEAMS (CROSS-FUNCTIONAL WORKGROUPS)
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === 'teams' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1196,9 +1289,13 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 return (
                   <div key={team.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between">
                     <div className="p-5 flex flex-col flex-1">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between gap-2 mb-3">
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full ${c.badge} border ${c.border}`}>
                           {team.departmentName || team.department?.name || departments.find((d) => d.id === team.departmentId)?.name || 'General Team'}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          {Array.isArray(team.members) ? team.members.length : (team._count?.members ?? team.memberCount ?? 0)} members
                         </span>
                       </div>
 
@@ -1207,6 +1304,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       {/* Team Card Actions */}
                       {portalMode === 'admin' && (
                         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenManageMembers(team)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                            title="Add / manage team members"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleViewTeam(team)}
@@ -1242,9 +1347,9 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           TAB: HIERARCHY
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === 'hierarchy' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-8">
@@ -1297,14 +1402,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MODAL: Add Department
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {addDeptModalOpen && (
         <div
           id="add-department-modal"
           onClick={(e) => { if (e.target === e.currentTarget) setAddDeptModalOpen(false); }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
@@ -1346,7 +1451,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800'
                       }`} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-700">Code (Optional)</label>
@@ -1384,16 +1489,16 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MODAL: Assign Employee to Department & Auto-Update Role
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {isAssignEmpModalOpen && (
         <div
           id="assign-employee-dept-modal"
           onClick={(e) => {
             if (e.target === e.currentTarget && !assignSubmitting) setIsAssignEmpModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1569,7 +1674,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsEditCompanyOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1608,7 +1713,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">Industry Sector</label>
                   <input
@@ -1642,7 +1747,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">Official Email</label>
                   <input
@@ -1676,7 +1781,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-800 mb-1">City</label>
                   <input
@@ -1738,14 +1843,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingDept(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Edit Department</h3>
@@ -1758,7 +1863,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSaveEditDept} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveEditDept} className="p-6 space-y-4 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Department Name <span className="text-rose-500">*</span>
@@ -1799,11 +1904,11 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingDept(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto my-auto p-6 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
@@ -1840,14 +1945,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setIsAddTeamOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Create New Team</h3>
@@ -1860,7 +1965,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleCreateTeam} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleCreateTeam} className="p-6 space-y-4 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Team Name <span className="text-rose-500">*</span>
@@ -1893,6 +1998,54 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 </select>
               </div>
 
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Add Employees (Optional)
+                  </label>
+                  {selectedTeamMemberIds.length > 0 && (
+                    <span className="text-[11px] font-semibold text-emerald-700">
+                      {selectedTeamMemberIds.length} selected
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/60 divide-y divide-slate-100">
+                  {employees.length === 0 ? (
+                    <p className="p-3 text-[11px] text-slate-400 text-center">No employees available</p>
+                  ) : (
+                    employees.map((emp) => {
+                      const empUserId = (emp as any).userId || emp.id;
+                      const checked = selectedTeamMemberIds.includes(empUserId);
+                      return (
+                        <label
+                          key={emp.id}
+                          className="flex items-center gap-2.5 px-3 py-2 hover:bg-white cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedTeamMemberIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, empUserId]
+                                  : prev.filter((id) => id !== empUserId)
+                              );
+                            }}
+                            className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 focus:ring-emerald-600"
+                          />
+                          <span className="font-semibold text-slate-800 truncate flex-1">
+                            {emp.firstName} {emp.lastName}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">
+                            {emp.departmentName || emp.designation || 'Staff'}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -1921,14 +2074,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingTeam(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Edit Team Details</h3>
@@ -1941,7 +2094,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSaveEditTeam} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveEditTeam} className="p-6 space-y-4 text-xs overflow-y-auto">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Team Name <span className="text-rose-500">*</span>
@@ -2001,11 +2154,11 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingTeam(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto my-auto p-6 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
@@ -2042,14 +2195,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setSettingLeaderTeam(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Crown className="w-4 h-4 text-amber-500" />
                 <h3 className="text-sm font-bold text-slate-900">Assign Team Leader</h3>
@@ -2062,7 +2215,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSetLeader} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSetLeader} className="p-6 space-y-4 text-xs overflow-y-auto">
               <p className="text-slate-500 leading-relaxed">
                 Select an employee to lead <span className="font-bold text-slate-800">{settingLeaderTeam?.name}</span>.
               </p>
@@ -2113,14 +2266,14 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setViewingTeam(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Team Details</h3>
@@ -2134,7 +2287,7 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingViewTeam ? (
                 <div className="py-8 text-center">
                   <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
@@ -2153,6 +2306,53 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                       {viewingTeam?.departmentName || viewingTeam?.department?.name || 'General Operations'}
                     </p>
                   </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Team Members ({Array.isArray(viewingTeam?.members) ? viewingTeam.members.length : 0})
+                      </span>
+                      {portalMode === 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const t = viewingTeam;
+                            setViewingTeam(null);
+                            handleOpenManageMembers(t);
+                          }}
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span>Manage Members</span>
+                        </button>
+                      )}
+                    </div>
+                    {Array.isArray(viewingTeam?.members) && viewingTeam.members.length > 0 ? (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {viewingTeam.members.map((m: any, mIdx: number) => {
+                          const memberName =
+                            m.name ||
+                            `${m.firstName || m.user?.firstName || m.employee?.firstName || ''} ${m.lastName || m.user?.lastName || m.employee?.lastName || ''}`.trim() ||
+                            m.email ||
+                            m.user?.email ||
+                            'Team Member';
+                          return (
+                            <div
+                              key={m.id || m.userId || m.employeeId || mIdx}
+                              className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100"
+                            >
+                              <span className="font-semibold text-slate-800 truncate">{memberName}</span>
+                              {m.role && (
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase">{m.role}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">No employees assigned to this team yet.</p>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -2164,6 +2364,150 @@ export const OrganizationModule: React.FC<OrganizationModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Team Members Modal ─────────────────────── */}
+      {Boolean(managingMembersTeam) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setManagingMembersTeam(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-slate-900 truncate">Manage Team Members</h3>
+                  <p className="text-[11px] text-slate-400 truncate">{managingMembersTeam?.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManagingMembersTeam(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
+              <form onSubmit={handleAddMemberToTeam} className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Add Employee to Team
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    required
+                    value={selectedAddMemberUserId}
+                    onChange={(e) => setSelectedAddMemberUserId(e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-hidden focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="">Select an employee...</option>
+                    {employees
+                      .filter((emp) => {
+                        const empUid = (emp as any).userId || emp.id;
+                        const existing = Array.isArray(managingMembersTeam?.members)
+                          ? managingMembersTeam.members
+                          : [];
+                        return !existing.some(
+                          (m: any) =>
+                            m.userId === empUid ||
+                            m.employeeId === emp.id ||
+                            m.id === emp.id ||
+                            m.id === empUid ||
+                            m.user?.id === empUid ||
+                            m.employee?.id === emp.id
+                        );
+                      })
+                      .map((emp) => (
+                        <option key={emp.id} value={(emp as any).userId || emp.id}>
+                          {emp.firstName} {emp.lastName} ({emp.departmentName || emp.designation || 'Staff'})
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={submittingMemberAction || !selectedAddMemberUserId}
+                    className="px-3.5 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer shrink-0 flex items-center gap-1.5"
+                    style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
+                  >
+                    {submittingMemberAction ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    <span>Add</span>
+                  </button>
+                </div>
+              </form>
+
+              <div className="border-t border-slate-100 pt-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                  Current Members ({Array.isArray(managingMembersTeam?.members) ? managingMembersTeam.members.length : 0})
+                </span>
+                {loadingMembersTeam ? (
+                  <div className="py-6 text-center">
+                    <Loader2 className="w-5 h-5 text-emerald-600 animate-spin mx-auto mb-1.5" />
+                    <p className="text-slate-500 text-[11px]">Loading members...</p>
+                  </div>
+                ) : !Array.isArray(managingMembersTeam?.members) || managingMembersTeam.members.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-slate-400 text-[11px]">
+                    No employees added to this team yet.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                    {managingMembersTeam.members.map((m: any, mIdx: number) => {
+                      const memberName =
+                        m.name ||
+                        `${m.firstName || m.user?.firstName || m.employee?.firstName || ''} ${m.lastName || m.user?.lastName || m.employee?.lastName || ''}`.trim() ||
+                        m.email ||
+                        m.user?.email ||
+                        'Team Member';
+                      const removeId = m.employeeId || m.employee?.id || m.id || m.userId;
+                      return (
+                        <div
+                          key={m.id || m.userId || m.employeeId || mIdx}
+                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 truncate">{memberName}</p>
+                            {(m.designation || m.email || m.user?.email) && (
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {m.designation || m.email || m.user?.email}
+                              </p>
+                            )}
+                          </div>
+                          {removeId && (
+                            <button
+                              type="button"
+                              disabled={submittingMemberAction}
+                              onClick={() => handleRemoveMemberFromTeam(removeId)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer disabled:opacity-50 shrink-0"
+                              title="Remove from team"
+                            >
+                              <UserMinus className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50 shrink-0">
+              <button
+                type="button"
+                onClick={() => setManagingMembersTeam(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Done
               </button>
             </div>
           </div>

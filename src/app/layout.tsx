@@ -71,18 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full light`}>
       <head>
-        <script
-          id="hrms-live-env"
-          dangerouslySetInnerHTML={{
-            __html: `window.__HRMS_ENV__ = ${JSON.stringify(liveEnv)};`,
-          }}
-        />
-        <script
-          id="hrms-phone-camera"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{if(window.isSecureContext)return;var phone=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);if(!phone)return;var host=location.hostname;if(!/^(192\\.168\\.|10\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.)/.test(host))return;var port=location.port||'3000';location.replace('https://'+host+':'+port+location.pathname+location.search+location.hash);}catch(e){}})();`,
-          }}
-        />
+        <meta name="hrms-live-env" content={JSON.stringify(liveEnv)} />
       </head>
       <body className="h-full bg-slate-50 text-slate-900 selection:bg-indigo-600 selection:text-white m-0 p-0 antialiased font-sans">
         <OfflineScreen />

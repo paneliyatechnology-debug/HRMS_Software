@@ -643,12 +643,10 @@ export function checkEmployeePunchEligibility(employeeId: string): {
     };
   }
 
-  // Multiple Punches: Employee has previously checked out today!
-  // They are allowed to Check In again anytime for their next work session.
   return {
-    canCheckIn: true,
+    canCheckIn: false,
     status: 'completed',
-    message: 'Previous session checked out. Click Check In to start your next session.',
+    message: 'Clock in and clock out are already saved for today.',
     record,
   };
 }

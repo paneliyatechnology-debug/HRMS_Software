@@ -568,6 +568,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (role === 'SUPER_ADMIN' && !(user as any)?.companyId) {
+      setInitialLoading(false);
+      return;
+    }
     isFetchingRef.current = true;
     try {
       const data: any = await api.getAttendanceLogic();
@@ -583,7 +588,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isFetchingRef.current = false;
       setInitialLoading(false);
     }
-  }, [applyAttendanceLogic]);
+  }, [applyAttendanceLogic, user]);
 
   // Initial fetch on mount & listen to cross-component punch events
   useEffect(() => {
@@ -633,6 +638,14 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkIn = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
+      if (statusRef.current === 'completed') {
+        showToast({
+          title: 'Clock in closed',
+          message: 'Clock in is allowed only once today.',
+          type: 'warning',
+        });
+        return false;
+      }
       if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;

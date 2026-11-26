@@ -1055,14 +1055,13 @@ button,
 
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
+    transform: none;
+    filter: none;
   }
 }
 
 .animate-module-fade-in {
-  animation: moduleFadeIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
-  backface-visibility: hidden;
+  animation: moduleFadeIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   transform-origin: top center;
 }
 
@@ -1966,4 +1965,45 @@ select option:checked {
   background-color: #ffffff !important;
   box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.04) !important;
   overflow: hidden;
+}
+
+/* 4. Native Mobile App-Like Experience (< 640px) — Desktop unchanged */
+@media (max-width: 639px) {
+  .hrms-app-shell button,
+  .hrms-app-shell a,
+  .hrms-app-shell [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Prevent iOS Safari auto-zoom on form input focus */
+  .hrms-app-shell input:not([type="checkbox"]):not([type="radio"]),
+  .hrms-app-shell select,
+  .hrms-app-shell textarea {
+    font-size: 16px;
+  }
+
+  /* Transform centered modals into native mobile bottom-sheets */
+  div.fixed.inset-0.z-\[100\],
+  div.fixed.inset-0.z-\[9999\],
+  div.fixed.inset-0.z-\[80\] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  div.fixed.inset-0.z-\[100\] > div,
+  div.fixed.inset-0.z-\[100\] > form,
+  div.fixed.inset-0.z-\[9999\] > div,
+  div.fixed.inset-0.z-\[9999\] > form,
+  div.fixed.inset-0.z-\[80\] > div,
+  div.fixed.inset-0.z-\[80\] > form {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 1.5rem !important;
+    border-top-right-radius: 1.5rem !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
 }

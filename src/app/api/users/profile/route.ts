@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const backendBase = getApiBaseUrl(); // http://192.168.1.107:4000/api
+    const backendBase = getApiBaseUrl(); // http://192.168.1.104:4000/api
 
     // Extract access token from cookies or authorization header
     const cookieAccessToken = request.cookies.get('accessToken')?.value;

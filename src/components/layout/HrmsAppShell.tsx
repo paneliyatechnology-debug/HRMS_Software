@@ -99,11 +99,14 @@ const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) 
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
+const CompaniesModule = dynamic(() => import('../modules/CompaniesModule').then((m) => m.CompaniesModule), { loading: () => <ModuleLoadingSkeleton /> });
+const PlansModule = dynamic(() => import('../modules/PlansModule').then((m) => m.PlansModule), { loading: () => <ModuleLoadingSkeleton /> });
+const OrdersModule = dynamic(() => import('../modules/OrdersModule').then((m) => m.OrdersModule), { loading: () => <ModuleLoadingSkeleton /> });
+const SupportModule = dynamic(() => import('../modules/SupportModule').then((m) => m.SupportModule), { loading: () => <ModuleLoadingSkeleton /> });
 import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } from '../../lib/chatService';
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
 const AttendanceModal = dynamic(() => import('../modals/AttendanceModal').then((m) => m.AttendanceModal), { ssr: false });
-const BankDetailForm = dynamic(() => import('../modals/BankDetailForm').then((m) => m.BankDetailForm), { ssr: false });
 const LeaveModal = dynamic(() => import('../modals/LeaveModal').then((m) => m.LeaveModal), { ssr: false });
 import { EmployeeDrawer } from '../modals/EmployeeDrawer';
 const EmployeeProfileModal = dynamic(() => import('../modals/EmployeeProfileModal').then((m) => m.EmployeeProfileModal), { ssr: false });
@@ -749,7 +752,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       // Note: training, performance, documents, assets, resignations, audit-logs, settings
       // self-fetch their own module data on mount, so no redundant shell fetch is required.
     } catch (err) {
-      console.warn(`Could not load data for module ${targetModule}:`, err);
+      const message = err instanceof Error ? err.message : '';
+      if (!/login again|login required|refresh token/i.test(message)) {
+        console.warn(`Could not load data for module ${targetModule}:`, err);
+      }
     } finally {
       isFetchingDataRef.current[targetModule] = false;
       setModuleLoading((prev) => ({ ...prev, [targetModule]: false }));
@@ -787,7 +793,35 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       }
     };
     window.addEventListener('hrms_attendance_live', reloadLiveAttendance);
-    return () => window.removeEventListener('hrms_attendance_live', reloadLiveAttendance);
+    const watched: Record<string, string[]> = {
+      dashboard: ['employees', 'attendance', 'leaves', 'announcements', 'payroll', 'organization', 'all'],
+      employees: ['employees', 'all'],
+      attendance: ['attendance', 'employees', 'all'],
+      leaves: ['leaves', 'employees', 'all'],
+      payroll: ['payroll', 'employees', 'all'],
+      payslips: ['payroll', 'all'],
+      recruitment: ['recruitment', 'all'],
+      organization: ['organization', 'employees', 'settings', 'all'],
+      calendar: ['attendance', 'leaves', 'all'],
+      chat: ['employees', 'all'],
+    };
+    let timer = 0;
+    const onCompanyData = (event: Event) => {
+      const scope = String((event as CustomEvent).detail?.scope || 'all');
+      const active = activeModuleRef.current;
+      const scopes = watched[active];
+      if (!scopes || (scope !== 'all' && !scopes.includes(scope))) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void loadDataForModuleRef.current(active);
+      }, 300);
+    };
+    window.addEventListener('hrms_company_data', onCompanyData);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('hrms_attendance_live', reloadLiveAttendance);
+      window.removeEventListener('hrms_company_data', onCompanyData);
+    };
   }, []);
 
   useEffect(() => {
@@ -816,6 +850,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     if (!isAuthenticated) return;
 
     const handleRefreshEvent = async (event?: any) => {
+      if (String(user?.role || '').toUpperCase() === 'SUPER_ADMIN') return;
       try {
         const payload = event?.detail;
         if (payload && payload.id) {
@@ -857,6 +892,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     };
 
     const handleLeaveTypesUpdate = () => {
+      if (String(user?.role || '').toUpperCase() === 'SUPER_ADMIN') return;
       api.listLeaveTypes().then((types) => {
         if (Array.isArray(types)) setLeaveTypes(types);
       }).catch(() => {});
@@ -1063,6 +1099,22 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
               />
             )}
 
+            {activeModule === 'companies' && isModuleAllowedForUser('companies', user) && (
+              <CompaniesModule />
+            )}
+
+            {activeModule === 'plans' && isModuleAllowedForUser('plans', user) && (
+              <PlansModule />
+            )}
+
+            {activeModule === 'orders' && isModuleAllowedForUser('orders', user) && (
+              <OrdersModule />
+            )}
+
+            {activeModule === 'support' && isModuleAllowedForUser('support', user) && (
+              <SupportModule />
+            )}
+
             {activeModule === 'employees' && (
               <EmployeesModule
                 employees={employees}
@@ -1233,7 +1285,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onRefresh={loadData}
         />
       )}
-      <BankDetailForm />
 
       {leaveModalOpen && (
         <LeaveModal

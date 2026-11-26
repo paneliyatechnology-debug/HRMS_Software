@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   CheckSquare,
   Plus,
@@ -147,6 +148,9 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     fetchTeams();
     fetchTasks();
   }, [fetchTasks]);
+  useCompanyLive(['tasks', 'organization'], () => {
+    fetchTasks();
+  });
 
   // Open Create Modal
   const handleOpenCreateModal = () => {
@@ -233,7 +237,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       showToast?.({
         type: 'warning',
         title: 'Team Leader Required',
-        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+        message: 'આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
       });
       return;
     }
@@ -279,7 +283,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       showToast?.({
         type: 'warning',
         title: 'Team Leader Required',
-        message: 'આ ટીમમાં હજુ Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
+        message: 'આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી. કૃપા કરીને પહેલા Organization > Teams માં જઈને લીડર અસાઇન કરો.',
       });
       return;
     }
@@ -426,27 +430,27 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
       {/* ── Metric Cards ─────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Tasks</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{stats.total}</div>
-          <span className="text-[10px] text-slate-500 font-medium">All logged work items</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Tasks</span>
+          <div className="text-2xl font-semibold text-slate-900 mt-1">{stats.total}</div>
+          <span className="text-[10px] text-slate-500 font-normal">All logged work items</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600">In Progress</span>
-          <div className="text-2xl font-black text-sky-700 mt-1">{stats.inProgress}</div>
-          <span className="text-[10px] text-slate-500 font-medium">Currently active sprints</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-600">In Progress</span>
+          <div className="text-2xl font-semibold text-sky-700 mt-1">{stats.inProgress}</div>
+          <span className="text-[10px] text-slate-500 font-normal">Currently active sprints</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Pending Review</span>
-          <div className="text-2xl font-black text-amber-700 mt-1">{stats.inReview + stats.todo}</div>
-          <span className="text-[10px] text-slate-500 font-medium">To-do &amp; Review queue</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">Pending Review</span>
+          <div className="text-2xl font-semibold text-amber-700 mt-1">{stats.inReview + stats.todo}</div>
+          <span className="text-[10px] text-slate-500 font-normal">To-do &amp; Review queue</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Completed</span>
-          <div className="text-2xl font-black text-emerald-700 mt-1">{stats.completed}</div>
-          <span className="text-[10px] text-slate-500 font-medium">Verified deliverables</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Completed</span>
+          <div className="text-2xl font-semibold text-emerald-700 mt-1">{stats.completed}</div>
+          <span className="text-[10px] text-slate-500 font-normal">Verified deliverables</span>
         </div>
       </div>
 
@@ -556,7 +560,90 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto [scrollbar-width:thin]">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredTasks.map((task) => {
+              const pBadge = PRIORITY_BADGES[task.priority] || PRIORITY_BADGES.MEDIUM;
+              const sBadge = STATUS_CONFIG[task.status] || STATUS_CONFIG.TODO;
+              const matchedEmp = employees.find((e) => e.id === task.assigneeId);
+              const assigneeName =
+                task.assignee?.fullName ||
+                (task.assignee?.firstName ? `${task.assignee.firstName} ${task.assignee.lastName || ''}`.trim() : null) ||
+                (matchedEmp ? `${matchedEmp.firstName} ${matchedEmp.lastName}`.trim() : null) ||
+                'Unassigned';
+              return (
+                <div key={`mob-${task.id}`} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-slate-900 break-words">{task.title}</h4>
+                      {task.description && (
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{task.description}</p>
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${pBadge.bg} ${pBadge.text} ${pBadge.border}`}>
+                      {pBadge.label}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-black shrink-0">
+                        {assigneeName[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <span className="truncate max-w-[140px]">{assigneeName}</span>
+                    </div>
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleQuickStatusChange(task, e.target.value)}
+                      className={`text-xs font-bold px-2.5 py-1.5 rounded-full border border-slate-200 cursor-pointer ${sBadge.bg} ${sBadge.text} focus:outline-hidden`}
+                    >
+                      <option value="TODO">To Do</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="IN_REVIEW">In Review</option>
+                      <option value="COMPLETED">Completed</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-[11px] text-slate-500">
+                      {task.endDate || task.dueDate
+                        ? `Due: ${new Date(task.endDate || task.dueDate!).toLocaleDateString()}`
+                        : task.startDate
+                          ? `Start: ${new Date(task.startDate).toLocaleDateString()}`
+                          : 'No timeline'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenViewModal(task)}
+                        className="min-h-[38px] px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(task)}
+                        className="min-h-[38px] px-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      {canManageTasks(user) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeletingTaskId(task.id)}
+                          className="min-h-[38px] px-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
@@ -684,14 +771,14 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           CREATE / EDIT TASK MODAL
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {(createModalOpen || Boolean(editTaskData)) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => {
             setCreateModalOpen(false);
             setEditTaskData(null);
@@ -761,7 +848,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Priority Level
@@ -795,7 +882,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Assignee
@@ -838,15 +925,15 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div className="space-y-0.5 min-w-0">
-                      <p className="font-bold text-amber-900">આ ટીમમાં હજુ Team Leader સેટ નથી</p>
+                      <p className="font-bold text-amber-900">આ ટીમમાં àª¹àªœà« Team Leader સેટ નથી</p>
                       <p className="text-[11px] text-amber-800 leading-relaxed">
-                        ⚠️ કૃપા કરીને પહેલા <span className="font-semibold underline">Organization &gt; Teams</span> માં જઈને લીડર અસાઇન કરો, અન્યથા ટાસ્ક સબમિટ કરવા પર 400 Bad Request આવશે.
+                        âš ï¸ કૃપા કરીને પહેલા <span className="font-semibold underline">Organization &gt; Teams</span> માં જઈને લીડર અસાઇન કરો, àª…àª¨à«àª¯àª¥àª¾ àªŸàª¾àª¸à«àª• સબમિટ કરવા પર 400 Bad Request આવશે.
                       </p>
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Starting Date
@@ -901,21 +988,21 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           VIEW TASK DETAILS MODAL (calls GET /tasks/:id)
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {Boolean(viewTaskData) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setViewTaskData(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <CheckSquare className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Task Information</h3>
@@ -929,7 +1016,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
               {loadingDetail ? (
                 <div className="py-8 text-center">
                   <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
@@ -949,7 +1036,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
                       <p className="font-bold text-slate-800 mt-0.5">{viewTaskData?.status}</p>
@@ -960,7 +1047,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starting Date</span>
                       <p className="font-medium text-slate-700 mt-0.5">
@@ -991,18 +1078,18 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           DELETE CONFIRMATION MODAL (calls DELETE /tasks/:id)
-      ═══════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {Boolean(deletingTaskId) && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setDeletingTaskId(null)}
         >
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 text-center animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto my-auto p-6 text-center animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">

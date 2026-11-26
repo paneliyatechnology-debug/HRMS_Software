@@ -35,6 +35,7 @@ import {
   RotateCcw,
   Loader2,
   ArrowRight,
+  ScanFace,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -1604,6 +1605,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Quick Attendance Employee Search */}
             {!isEmployeeView && (
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/face-clock'; }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
+              >
+                <ScanFace className="w-3.5 h-3.5" />
+                Face clock
+              </button>
+            )}
+            {!isEmployeeView && (
               <div className="relative min-w-[210px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -2109,7 +2120,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </div>
                               <div className="w-16 h-5 bg-slate-100 rounded-full" />
                             </div>
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                               <div className="space-y-1">
                                 <div className="w-10 h-2 bg-slate-200 rounded" />
                                 <div className="w-20 h-3 bg-slate-200 rounded" />
@@ -2208,7 +2219,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
                               <div>
                                 <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
                                 <span className="font-semibold text-slate-800 text-[11px]">
@@ -3123,7 +3134,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
             return (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+                className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
                 onClick={() => setDetailEmp(null)}
               >
                 <div
@@ -3506,7 +3517,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsRegModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -3550,7 +3561,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Date</label>
                   <input
@@ -3574,7 +3585,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Clock-in Time</label>
                   <input

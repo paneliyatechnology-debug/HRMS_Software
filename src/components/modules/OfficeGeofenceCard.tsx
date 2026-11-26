@@ -47,16 +47,17 @@ function OfficeAreaMap({
       const leaflet = (window as unknown as { L?: any }).L;
       if (!leaflet || !holder.current || mapRef.current || cancelled) return;
       const here = pointRef.current;
-      leaflet.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      });
       const map = leaflet.map(holder.current).setView([here.latitude, here.longitude], 16);
       leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
-      markerRef.current = leaflet.marker([here.latitude, here.longitude]).addTo(map);
+      const pin = leaflet.divIcon({
+        className: '',
+        html: '<div style="width:22px;height:22px;border-radius:999px;background:#059669;border:3px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.45)"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+      markerRef.current = leaflet.marker([here.latitude, here.longitude], { icon: pin }).addTo(map);
       circleRef.current = leaflet.circle([here.latitude, here.longitude], {
         radius: here.radiusMeters,
         color: '#059669',
@@ -142,7 +143,8 @@ export function OfficeGeofenceCard() {
       setMessage('Finding your current location...');
       getCurrentGPSLocation().then(async (coords) => {
         if (cancelled) return;
-        const radiusMeters = [50, 100, 150].includes(Number(data.radiusMeters)) ? Number(data.radiusMeters) : 100;
+        const entered = Number(data.radiusMeters);
+        const radiusMeters = Number.isFinite(entered) && entered >= 10 && entered <= 5000 ? entered : 100;
         const saved = await api.saveGeofence({
           latitude: coords.latitude,
           longitude: coords.longitude,
@@ -189,13 +191,18 @@ export function OfficeGeofenceCard() {
       setMessage('Please enter valid latitude and longitude coordinates.');
       return;
     }
+    const radiusMeters = Math.round(Number(fence.radiusMeters));
+    if (!Number.isFinite(radiusMeters) || radiusMeters < 10 || radiusMeters > 5000) {
+      setMessage('Radius must be between 10 and 5000 meters.');
+      return;
+    }
     setSaving(true);
     setMessage('');
     try {
       const saved = await api.saveGeofence({
         latitude: lat,
         longitude: lng,
-        radiusMeters: Number(fence.radiusMeters) || 100,
+        radiusMeters,
         enabled: fence.enabled !== false,
       });
       setFence(saved);
@@ -286,25 +293,21 @@ export function OfficeGeofenceCard() {
             className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
           />
         </label>
-        <div className="text-xs font-bold text-slate-700">
-          Radius
-          <div className="mt-1 flex gap-2">
-            {[50, 100, 150].map((meters) => (
-              <button
-                key={meters}
-                type="button"
-                onClick={() => setFence({ ...fence, radiusMeters: meters })}
-                className={`h-10 flex-1 rounded-xl border font-bold cursor-pointer ${
-                  Number(fence.radiusMeters) === meters
-                    ? 'border-emerald-600 bg-emerald-600 text-white'
-                    : 'border-slate-200 bg-slate-50 text-slate-700'
-                }`}
-              >
-                {meters} m
-              </button>
-            ))}
-          </div>
-        </div>
+        <label className="text-xs font-bold text-slate-700">
+          Radius (meters)
+          <input
+            type="number"
+            min={10}
+            max={5000}
+            step={1}
+            value={fence.radiusMeters}
+            onChange={(event) => {
+              const next = event.target.value === '' ? 0 : Number(event.target.value);
+              setFence({ ...fence, radiusMeters: next });
+            }}
+            className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
+          />
+        </label>
       </div>
       <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
         <input

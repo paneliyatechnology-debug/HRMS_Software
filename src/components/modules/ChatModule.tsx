@@ -1880,7 +1880,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeletingMessageId(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1937,7 +1937,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCustomConfirmAction(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1986,7 +1986,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       )}
       {/* Attachment Lightbox / Document & PDF Preview Modal */}
       {groupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" onClick={() => setGroupOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/45 backdrop-blur-md" onClick={() => setGroupOpen(false)}>
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200" onClick={(event) => event.stopPropagation()}>
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900">{groupAdding ? 'Add member' : 'New group'}</h3>

@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Home,
   Calendar,
   Users,
   Clock,
+  ScanFace,
   CircleDollarSign,
   Settings,
   ChevronDown,
@@ -29,7 +31,7 @@ import {
   Receipt,
   CheckSquare,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isUserAdminRole } from '../context/AuthContext';
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
 import { api } from '../lib/api';
 import { isModuleAllowedForUser, canManageResignations } from '../lib/rolePermissions';
@@ -70,9 +72,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user } = useAuth();
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [hasPremium, setHasPremium] = useState(true);
+  const [planFeatures, setPlanFeatures] = useState<string[] | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
   });
+
+  useEffect(() => {
+    const role = String(user?.role || '').toUpperCase();
+    if (!role || role === 'SUPER_ADMIN') return;
+    let active = true;
+    api.getCompanyFeatures()
+      .then((res: any) => {
+        if (!active) return;
+        const isPrem = Boolean(res?.premium);
+        const feats = Array.isArray(res?.features) ? (res.features as string[]) : [];
+        setHasPremium(isPrem && feats.includes('face_clock'));
+        setPlanFeatures(isPrem ? feats : null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.role]);
 
   // Dynamic White-label Company Branding
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logoUrl?: string }>({
@@ -193,6 +215,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const effectiveCollapsed = isCollapsed && isDesktop;
 
+  const [hoverFlyout, setHoverFlyout] = useState<{
+    key: string;
+    label: string;
+    top: number;
+    left: number;
+    subItems?: { id: string; label: string; subTab?: string }[];
+  } | null>(null);
+  const flyoutCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelFlyoutClose = () => {
+    if (flyoutCloseTimer.current) {
+      clearTimeout(flyoutCloseTimer.current);
+      flyoutCloseTimer.current = null;
+    }
+  };
+
+  const openFlyout = (
+    e: React.MouseEvent<HTMLElement>,
+    data: { key: string; label: string; subItems?: { id: string; label: string; subTab?: string }[] }
+  ) => {
+    cancelFlyoutClose();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoverFlyout({
+      ...data,
+      top: rect.top,
+      left: rect.right + 10,
+    });
+  };
+
+  const scheduleFlyoutClose = () => {
+    cancelFlyoutClose();
+    flyoutCloseTimer.current = setTimeout(() => {
+      setHoverFlyout(null);
+    }, 120);
+  };
+
+  useEffect(() => {
+    if (!effectiveCollapsed) setHoverFlyout(null);
+  }, [effectiveCollapsed]);
+
   const toggleCollapse = () => {
     const next = !isCollapsed;
     if (onToggleCollapse) {
@@ -233,6 +295,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isModuleAllowedForUser(id, user)) {
       return null;
     }
+    const moduleFeatureMap: Record<string, string> = {
+      attendance: 'attendance',
+      leaves: 'leaves',
+      payroll: 'payroll',
+      recruitment: 'recruitment',
+      chat: 'team_chat',
+      tasks: 'tasks',
+    };
+    const requiredFeature = moduleFeatureMap[id];
+    if (requiredFeature && planFeatures && !planFeatures.includes(requiredFeature)) {
+      return null;
+    }
 
     let isActive = activeModule === id;
     if (id === 'organization') {
@@ -250,8 +324,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           key={itemKey}
           id={`nav-item-${itemKey}`}
-          onClick={() => handleNav(id, subTab)}
-          title={label}
+          onClick={() => {
+            setHoverFlyout(null);
+            handleNav(id, subTab);
+          }}
+          onMouseEnter={(e) => openFlyout(e, { key: itemKey, label })}
+          onMouseLeave={scheduleFlyoutClose}
           aria-label={label}
           className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${isActive
             ? 'bg-[#1b4332] text-white shadow-xs'
@@ -294,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 lg:hidden"
+          className="fixed inset-0 bg-white/45 backdrop-blur-md z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -392,7 +470,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
             <>
             {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
+            {navItem('companies', 'All Companies', <Building2 className="w-4 h-4" />)}
+            {navItem('plans', 'Plans', <Award className="w-4 h-4" />)}
+            {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
+            {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
             {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
+            {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
+              effectiveCollapsed ? (
+                <button
+                  type="button"
+                  aria-label="Face clock"
+                  onMouseEnter={(e) => openFlyout(e, { key: 'face-clock', label: 'Face clock' })}
+                  onMouseLeave={scheduleFlyoutClose}
+                  onClick={() => {
+                    setHoverFlyout(null);
+                    if (!hasPremium) {
+                      setActiveModule('plans');
+                      setIsOpen(false);
+                      return;
+                    }
+                    window.location.href = '/face-clock';
+                  }}
+                  className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105 transition-all duration-200 cursor-pointer group active:scale-95"
+                >
+                  <span className="w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 text-[#6c757d] group-hover:text-[#2d6a4f]">
+                    <ScanFace className="w-4 h-4" />
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasPremium) {
+                      setActiveModule('plans');
+                      setIsOpen(false);
+                      return;
+                    }
+                    window.location.href = '/face-clock';
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium cursor-pointer"
+                >
+                  <span className="w-5 flex justify-center text-[#6c757d]"><ScanFace className="w-4 h-4" /></span>
+                  <span className="truncate">Face clock</span>
+                  <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${hasPremium ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    PRO
+                  </span>
+                </button>
+              )
+            )}
             {navItem(
               'leaves',
               portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
@@ -443,8 +568,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {effectiveCollapsed ? (
                 <>
-                  {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
-                  {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                  {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHoverFlyout(null);
+                        handleNav('employees');
+                      }}
+                      onMouseEnter={(e) =>
+                        openFlyout(e, {
+                          key: 'people',
+                          label: 'Employees',
+                          subItems: [
+                            { id: 'employees', label: 'Directory' },
+                            { id: 'organization', label: 'Departments', subTab: 'departments' },
+                            { id: 'organization', label: 'Teams', subTab: 'teams' },
+                          ],
+                        })
+                      }
+                      onMouseLeave={scheduleFlyoutClose}
+                      aria-label="Employees"
+                      className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${
+                        activeModule === 'employees' ||
+                        (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                          ? 'bg-[#1b4332] text-white shadow-xs'
+                          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${
+                          activeModule === 'employees' ||
+                          (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                            ? 'text-white'
+                            : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
+                        }`}
+                      >
+                        <Users className="w-4 h-4" />
+                      </span>
+                    </button>
+                  ) : (
+                    <>
+                      {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
+                      {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                      {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
+                    </>
+                  )}
                   {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
                   {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
                   {canManageResignations(user) &&
@@ -548,7 +716,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {navItem('documents', 'Documents', <FolderLock className="w-4 h-4" />)}
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
               {renderProfileNavItem()}
-              {navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
+              {portalMode === 'admin' && navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
             </div>
           )}
         </div>
@@ -580,6 +748,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </aside>
+
+      {/* Collapsed Sidebar Animated Hover Popup */}
+      {effectiveCollapsed &&
+        hoverFlyout &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onMouseEnter={cancelFlyoutClose}
+            onMouseLeave={scheduleFlyoutClose}
+            style={{ top: hoverFlyout.top, left: hoverFlyout.left }}
+            className="fixed z-[90] min-w-[168px] max-w-[220px] rounded-xl bg-white border border-slate-200/90 shadow-[0_14px_32px_-8px_rgba(15,23,42,0.22)] p-1.5 animate-in fade-in slide-in-from-left-2 duration-150"
+          >
+            <div className="px-2.5 py-1.5 text-xs font-bold text-[#1b4332] flex items-center justify-between gap-2">
+              <span>{hoverFlyout.label}</span>
+            </div>
+            {hoverFlyout.subItems && hoverFlyout.subItems.length > 0 && (
+              <div className="mt-1 pt-1 border-t border-slate-100 space-y-0.5">
+                {hoverFlyout.subItems.map((sub) => {
+                  const subActive =
+                    sub.subTab
+                      ? activeModule === sub.id && activeSubTab === sub.subTab
+                      : activeModule === sub.id;
+                  return (
+                    <button
+                      key={`${sub.id}-${sub.subTab || ''}`}
+                      type="button"
+                      onClick={() => {
+                        setHoverFlyout(null);
+                        handleNav(sub.id, sub.subTab);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between ${
+                        subActive
+                          ? 'bg-[#2d6a4f] text-white font-bold'
+                          : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
+                      }`}
+                    >
+                      <span>{sub.label}</span>
+                      <ChevronRight className={`w-3 h-3 ${subActive ? 'text-white' : 'text-slate-400'}`} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
     </>
   );
 };

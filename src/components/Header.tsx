@@ -382,17 +382,28 @@ export const Header: React.FC<HeaderProps> = ({
   }, [activeModule, activeSubTab, portalMode, user?.firstName, pageTitle]);
 
   return (
-    <header className="h-[58px] sm:h-[66px] bg-white border-b border-[#e9ecef] px-2.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
-      {/* Left: Mobile Toggle, Brand Logo & Live Clock Widget <-> Scrolled Heading Morph */}
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
+    <header className="min-h-[56px] sm:min-h-[66px] pt-[env(safe-area-inset-top)] bg-white border-b border-[#e9ecef] px-2 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-2xs">
+      {/* Left: Mobile Toggle, Back Button (nested pages), Brand Logo & Page Heading */}
+      <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 min-w-0">
         <button
           onClick={onOpenSidebar}
-          className="p-1.5 sm:p-2 rounded-[9px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0"
+          className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-[10px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
           title="Toggle navigation drawer"
           aria-label="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
+        {!isDashboard && (
+          <button
+            type="button"
+            onClick={() => onNavigateModule?.('dashboard')}
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-[10px] text-[#1b4332] bg-[#d8f3dc]/60 hover:bg-[#d8f3dc] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
+            title="Back to Dashboard"
+            aria-label="Back to Dashboard"
+          >
+            <ChevronDown className="w-4 h-4 rotate-90" />
+          </button>
+        )}
         <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
           <div className={`w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-0.5'}`}>
             {companyLogo ? (
@@ -454,6 +465,42 @@ export const Header: React.FC<HeaderProps> = ({
             }`;
           return (
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {isModuleAllowedForUser('companies', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('companies')}
+                  className={getBtnCls(activeModule === 'companies')}
+                  title="All Companies"
+                >
+                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'companies' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Companies</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('plans', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('plans')}
+                  className={getBtnCls(activeModule === 'plans')}
+                  title="Plans"
+                >
+                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'plans' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Plans</span>
+                </button>
+              )}
+
+              {isModuleAllowedForUser('orders', user) && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule?.('orders')}
+                  className={getBtnCls(activeModule === 'orders')}
+                  title="Orders"
+                >
+                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'orders' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className="hidden md:inline">Orders</span>
+                </button>
+              )}
+
               {isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-admin-leaves"
@@ -493,7 +540,7 @@ export const Header: React.FC<HeaderProps> = ({
                   id="btn-header-admin-holidays"
                   type="button"
                   onClick={() => onNavigateModule?.('calendar')}
-                  className={getBtnCls(isHolidaysActive)}
+                  className={`hidden sm:inline-flex ${getBtnCls(isHolidaysActive).replace('inline-flex ', '')}`}
                   title="Holidays"
                 >
                   <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
@@ -731,7 +778,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {onNavigateSettings && (
+              {portalMode === 'admin' && isModuleAllowedForUser('settings', user) && onNavigateSettings && (
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);

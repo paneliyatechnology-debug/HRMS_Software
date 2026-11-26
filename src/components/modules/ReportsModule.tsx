@@ -418,7 +418,22 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                     <p className="text-xs font-semibold text-slate-600">No data available for the selected period.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs min-w-[700px]">
+                  <>
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {departmentRows.map((row, i) => (
+                        <div key={`mob-dept-${i}`} className="py-3.5 space-y-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900">{row.dept} <span className="text-[10px] text-slate-400 font-mono">({row.code})</span></span>
+                            <span className="font-semibold text-blue-600">{row.count} Staff</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <div><span className="text-[10px] text-slate-400 block">Present Ratio</span><span className="font-semibold text-emerald-600">{row.ratio}</span></div>
+                            <div><span className="text-[10px] text-slate-400 block">Monthly Cost</span><span className="font-bold text-slate-800">{row.cost}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <table className="hidden md:table w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                       <tr>
                         <th className="py-3 px-4">Department</th>
@@ -444,6 +459,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                       ))}
                     </tbody>
                   </table>
+                  </>
                 )}
               </>
             )}
@@ -457,7 +473,26 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                     <p className="text-[11px] text-slate-400 mt-1">No punch records have been recorded for this company yet.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs min-w-[700px]">
+                  <>
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {localAttendance.map((a) => (
+                        <div key={`mob-att-${a.id || `${a.date}-${a.employeeId}`}`} className="py-3.5 space-y-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-slate-900">{a.employeeName || a.employeeId}</p>
+                              <span className="text-[11px] text-slate-400">{a.date}</span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">{a.status || 'Present'}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                            <div><span className="text-[10px] text-slate-400 block">In</span><span className="font-mono font-semibold">{a.checkIn || '—'}</span></div>
+                            <div><span className="text-[10px] text-slate-400 block">Out</span><span className="font-mono font-semibold">{a.checkOut || '—'}</span></div>
+                            <div><span className="text-[10px] text-slate-400 block">Worked</span><span className="font-mono font-bold text-emerald-700">{a.workingHours ? `${a.workingHours}h` : '0h'}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <table className="hidden md:table w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                       <tr>
                         <th className="py-3 px-4">Date</th>
@@ -491,6 +526,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                       ))}
                     </tbody>
                   </table>
+                  </>
                 )}
               </>
             )}
@@ -504,7 +540,37 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                     <p className="text-[11px] text-slate-400 mt-1">No leave requests have been submitted for this company yet.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs min-w-[700px]">
+                  <>
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {localLeaves.map((l) => {
+                        const days = l.daysCount ?? (l as any).days ?? 1;
+                        const lType = l.leaveType ?? (l as any).type ?? 'Leave';
+                        return (
+                          <div key={`mob-lv-${l.id}`} className="py-3.5 space-y-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-slate-900">{l.employeeName || l.employeeId}</p>
+                                <span className="text-[11px] text-slate-500">{lType} • {days} {days === 1 ? 'day' : 'days'}</span>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  l.status === 'Approved'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : l.status === 'Rejected'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}
+                              >
+                                {l.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">{l.startDate} → {l.endDate}</p>
+                            {l.reason && <p className="text-slate-600 line-clamp-2">{l.reason}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <table className="hidden md:table w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                       <tr>
                         <th className="py-3 px-4">Employee</th>
@@ -546,6 +612,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                       })}
                     </tbody>
                   </table>
+                  </>
                 )}
               </>
             )}
@@ -559,7 +626,32 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                     <p className="text-[11px] text-slate-400 mt-1">No payroll entries have been generated for this company yet.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs min-w-[700px]">
+                  <>
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {localPayroll.map((p) => {
+                        const period = p.payrollMonth || `${(p as any).month || ''} ${(p as any).year || ''}`.trim();
+                        const deductions = (p as any).deductions ?? ((p.pfDeduction || 0) + (p.taxDeduction || 0));
+                        return (
+                          <div key={`mob-pr-${p.id}`} className="py-3.5 space-y-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-slate-900">{p.employeeName || p.employeeId}</p>
+                                <span className="text-[11px] text-slate-400">{period || 'Current'}</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {(p as any).status || 'Paid'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                              <div><span className="text-[10px] text-slate-400 block">Basic</span><span className="font-mono font-semibold">₹{(p.basicSalary || 0).toLocaleString()}</span></div>
+                              <div><span className="text-[10px] text-slate-400 block">Deductions</span><span className="font-mono text-rose-600">₹{deductions.toLocaleString()}</span></div>
+                              <div><span className="text-[10px] text-slate-400 block">Net</span><span className="font-mono font-bold text-slate-900">₹{(p.netSalary || 0).toLocaleString()}</span></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <table className="hidden md:table w-full text-left text-xs min-w-[700px]">
                     <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                       <tr>
                         <th className="py-3 px-4">Employee</th>
@@ -593,6 +685,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                       })}
                     </tbody>
                   </table>
+                  </>
                 )}
               </>
             )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { createPortal } from 'react-dom';
 import {
   CreditCard,
@@ -147,6 +148,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
   useEffect(() => {
     fetchSalaries();
   }, []);
+  useCompanyLive(['payroll', 'employees'], () => {
+    void loadPayslips();
+    void fetchSalaries();
+    onRefresh();
+  });
 
   useEffect(() => {
     if (activeTab === 'salaries') {
@@ -534,7 +540,73 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           </button>
         </div>
 
-        <div className="overflow-x-auto [scrollbar-width:thin]">
+        {/* Mobile Card View (< md) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {payslipRows.length === 0 ? (
+            <div className="py-10 px-4 text-center text-slate-400 text-xs">
+              <p className="font-semibold text-slate-500">No payroll records generated for this cycle.</p>
+            </div>
+          ) : (
+            payslipRows.map((rec) => (
+              <div key={`mob-${rec.id}`} className="py-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {rec.avatar ? (
+                      <img src={rec.avatar} alt={rec.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">
+                        {rec.name.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{rec.name}</p>
+                      <span className="text-[11px] text-slate-400">{rec.code} • {rec.role}</span>
+                    </div>
+                  </div>
+                  <select
+                    value={rec.status}
+                    onChange={(e) => handleStatusChange(rec.id, e.target.value)}
+                    className={`px-2.5 py-1 rounded-full font-semibold text-xs border-0 cursor-pointer shrink-0 ${
+                      rec.status === 'Paid'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : rec.status === 'Processed'
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'bg-amber-50 text-amber-600'
+                    }`}
+                  >
+                    <option value="Generated">Generated</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Gross</span>
+                    <span className="font-semibold text-slate-900">₹{rec.gross.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Deductions</span>
+                    <span className="font-medium text-amber-600">-₹{rec.deductions.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Net Pay</span>
+                    <span className="font-bold text-blue-600">₹{rec.net.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleViewSlip(rec)}
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition cursor-pointer"
+                  >
+                    View Slip
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
           <table className="w-full min-w-[760px] text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-semibold">
@@ -556,7 +628,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                     <p className="mb-1 font-semibold text-slate-500">No payroll records generated for this cycle.</p>
                     {salaries.length === 0 ? (
                       <p className="text-amber-700 font-medium text-[11px] mt-1">
-                        ⚠️ Please configure employee salaries in the{' '}
+                        âš ï¸ Please configure employee salaries in the{' '}
                         <button
                           type="button"
                           onClick={() => setActiveTab('salaries')}
@@ -635,9 +707,9 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
     </div>
   )}
 
-  {/* ═══════════════════════════════════════════════════════
+  {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       TAB: EMPLOYEE SALARY STRUCTURES
-  ═══════════════════════════════════════════════════════ */}
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
   {activeTab === 'salaries' && (
     <div className="space-y-4 animate-in fade-in duration-200">
       {salaryError && (
@@ -668,7 +740,61 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto [scrollbar-width:thin]">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {salaries.map((sal: any) => {
+              const empName = salaryName(sal);
+              const empId = salaryUserId(sal);
+              return (
+                <div key={`mob-sal-${sal.id || empId}`} className="p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 text-sm truncate">{empName}</p>
+                      <p className="text-[11px] text-slate-400">{sal.role || 'Staff'} • {showDate(sal.effectiveFrom)}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleViewSalaryHistory(sal)}
+                        className="min-h-[38px] px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 cursor-pointer"
+                        title="Salary History"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSalaryModal(sal)}
+                        className="min-h-[38px] px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Configure</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Basic</span>
+                      <span className="font-mono font-semibold text-slate-800">₹{money(sal.basicSalary).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">HRA</span>
+                      <span className="font-mono text-slate-700">₹{money(sal.hra).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Allowances</span>
+                      <span className="font-mono text-slate-700">₹{money(sal.allowances).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Deductions</span>
+                      <span className="font-mono text-rose-600">-₹{money(sal.deductions).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
@@ -743,7 +869,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPayslip(null);
           }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -789,7 +915,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 text-xs">
                 <div>
                   <p className="font-bold text-slate-700 mb-1">Earnings</p>
                   <div className="flex justify-between text-slate-600 py-0.5"><span>Basic</span><span>₹{money(selectedPayslip.basicSalary).toLocaleString('en-IN')}</span></div>
@@ -824,14 +950,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setEditingSalaryEmp(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Configure Monthly Salary</h3>
@@ -844,7 +970,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs">
+            <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs overflow-y-auto">
               {!editingSalaryEmp?.id && (
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Employee</label>
@@ -866,7 +992,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
               {editingSalaryEmp?.id && (
                 <p className="text-xs font-semibold text-slate-700">{salaryName(editingSalaryEmp)}</p>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Basic Salary (₹) <span className="text-rose-500">*</span>
@@ -892,7 +1018,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Allowances (₹)
@@ -917,7 +1043,7 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Bonus (₹)</label>
                   <input
@@ -981,14 +1107,14 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setHistoryEmp(null)}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-bold text-slate-900">Salary Revision History</h3>
