@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { LandingNav } from '../../components/landing/LandingNav';
 import { LandingFooter } from '../../components/landing/LandingFooter';
-import { Tilt3D, Reveal3D, Ambient3DScene, BottomCta3D } from '../../components/landing/Motion3D';
+import { Tilt3D, Reveal3D, Ambient3DScene, BottomCta3D, LaunchWorkspaceButton } from '../../components/landing/Motion3D';
 
 export default function PortalsPage() {
   const [activePortalTab, setActivePortalTab] = useState<'employee' | 'admin'>('employee');
@@ -63,13 +63,12 @@ export default function PortalsPage() {
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                href="/register"
-                className="h-11 px-5 rounded-2xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-              >
-                <span>Launch Company Workspace</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              <LaunchWorkspaceButton
+                label="Launch Company Workspace"
+                className="h-11 px-5 rounded-2xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                iconClassName="w-4 h-4 text-[#d8f3dc]"
+                trailClassName="bg-gradient-to-r from-transparent to-[#d8f3dc]"
+              />
               <Link
                 href="/login"
                 className="h-11 px-5 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm border border-slate-200 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -86,29 +85,29 @@ export default function PortalsPage() {
       <section className="py-12 sm:py-16 bg-white border-y border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center mb-10">
-            <div className="inline-flex p-1.5 rounded-2xl bg-slate-100 border border-slate-200 shadow-inner">
+            <div className="inline-flex p-1.5 rounded-2xl bg-[#eaf5ee] border border-[#95d5b2]/80 shadow-inner gap-1">
               <button
                 type="button"
                 onClick={() => setActivePortalTab('employee')}
-                className={`px-5 sm:px-7 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-5 sm:px-7 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   activePortalTab === 'employee'
-                    ? 'bg-white text-[#1b4332] shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white shadow-md shadow-emerald-900/20'
+                    : 'text-[#1b4332]/80 hover:text-[#1b4332] hover:bg-white/70'
                 }`}
               >
-                <UserCheck className="w-4 h-4 text-[#2d6a4f]" />
+                <UserCheck className={`w-4 h-4 ${activePortalTab === 'employee' ? 'text-[#d8f3dc]' : 'text-[#2d6a4f]'}`} />
                 <span>Employee Self-Service Portal</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActivePortalTab('admin')}
-                className={`px-5 sm:px-7 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-5 sm:px-7 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   activePortalTab === 'admin'
-                    ? 'bg-white text-[#1b4332] shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white shadow-md shadow-emerald-900/20'
+                    : 'text-[#1b4332]/80 hover:text-[#1b4332] hover:bg-white/70'
                 }`}
               >
-                <Building2 className="w-4 h-4 text-[#2d6a4f]" />
+                <Building2 className={`w-4 h-4 ${activePortalTab === 'admin' ? 'text-[#d8f3dc]' : 'text-[#2d6a4f]'}`} />
                 <span>Company Owner &amp; HR Admin Console</span>
               </button>
             </div>
@@ -172,11 +171,11 @@ export default function PortalsPage() {
 
                 <Reveal3D key="emp-right" className="lg:col-span-6" delayMs={80}>
                   <Tilt3D intensity={8} glare>
-                    <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-[0_28px_56px_-14px_rgba(27,67,50,0.2)] space-y-6">
-                      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div className="bg-gradient-to-br from-white via-[#f7fbf8] to-[#eef7f1] rounded-3xl border border-[#95d5b2]/70 p-6 sm:p-8 shadow-[0_28px_56px_-14px_rgba(27,67,50,0.22)] space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-emerald-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center font-bold">
-                            <Clock className="w-5 h-5 text-[#2d6a4f]" />
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center font-bold shadow-sm">
+                            <Clock className="w-5 h-5 text-[#d8f3dc]" />
                           </div>
                           <div>
                             <span className="text-sm font-bold text-slate-900 block">Live Shift Console</span>
@@ -184,24 +183,46 @@ export default function PortalsPage() {
                           </div>
                         </div>
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
                             !simulatedClockedIn
-                              ? 'bg-slate-100 text-slate-600'
+                              ? 'bg-slate-100 text-slate-600 border border-slate-200'
                               : simulatedOnBreak
                               ? 'bg-amber-100 text-amber-800 border border-amber-200'
                               : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           }`}
                         >
+                          {simulatedClockedIn && (
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                                simulatedOnBreak ? 'bg-amber-500' : 'bg-emerald-600'
+                              }`}
+                            />
+                          )}
                           {!simulatedClockedIn ? 'CLOCKED OUT' : simulatedOnBreak ? 'ON BREAK' : 'CLOCKED IN'}
                         </span>
                       </div>
 
                       <div
                         style={{ transform: 'translateZ(24px)' }}
-                        className="text-center py-4 bg-slate-50 rounded-2xl border border-slate-200/80 shadow-xs"
+                        className={`text-center py-5 rounded-2xl transition-all duration-300 ${
+                          !simulatedClockedIn
+                            ? 'bg-slate-100 border border-slate-200 text-slate-700 shadow-xs'
+                            : simulatedOnBreak
+                            ? 'bg-gradient-to-br from-amber-600 via-amber-500 to-amber-600 text-white border border-amber-400/50 shadow-[0_14px_30px_-10px_rgba(217,119,6,0.45)]'
+                            : 'bg-gradient-to-br from-[#1b4332] via-[#2d6a4f] to-[#1b4332] text-white border border-[#40916c]/40 shadow-[0_14px_30px_-10px_rgba(27,67,50,0.45)]'
+                        }`}
                       >
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Elapsed Work Time</p>
-                        <p className="font-mono text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                        <p
+                          className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 flex items-center justify-center gap-1.5 ${
+                            !simulatedClockedIn ? 'text-slate-500' : 'text-[#d8f3dc]'
+                          }`}
+                        >
+                          {simulatedClockedIn && !simulatedOnBreak && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                          )}
+                          <span>Elapsed Work Time</span>
+                        </p>
+                        <p className="font-mono text-3xl sm:text-4xl font-black tracking-wider">
                           {formatTimer(timerSeconds)}
                         </p>
                       </div>
@@ -210,10 +231,10 @@ export default function PortalsPage() {
                         <button
                           type="button"
                           onClick={() => setSimulatedClockedIn(!simulatedClockedIn)}
-                          className={`py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          className={`py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                             simulatedClockedIn
-                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                              : 'bg-[#1b4332] hover:bg-[#2d6a4f] text-white shadow-xs'
+                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs'
+                              : 'bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] hover:from-[#2d6a4f] hover:to-[#1b4332] text-white shadow-sm'
                           }`}
                         >
                           <Clock className="w-4 h-4" />
@@ -224,12 +245,12 @@ export default function PortalsPage() {
                           type="button"
                           disabled={!simulatedClockedIn}
                           onClick={() => setSimulatedOnBreak(!simulatedOnBreak)}
-                          className={`py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          className={`py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer ${
                             !simulatedClockedIn
-                              ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
+                              ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
                               : simulatedOnBreak
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:-translate-y-0.5 active:scale-95'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs hover:-translate-y-0.5 active:scale-95'
                           }`}
                         >
                           {simulatedOnBreak ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -237,22 +258,22 @@ export default function PortalsPage() {
                         </button>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-100" style={{ transform: 'translateZ(12px)' }}>
-                        <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                      <div className="pt-3 border-t border-emerald-100" style={{ transform: 'translateZ(12px)' }}>
+                        <p className="text-[11px] font-bold text-[#1b4332] uppercase tracking-wider mb-2.5">
                           Your Leave Quotas
                         </p>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                            <span className="text-[10px] text-slate-500 block">Annual</span>
-                            <span className="text-sm font-black text-slate-900">14/18</span>
+                        <div className="grid grid-cols-3 gap-2.5 text-center">
+                          <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
+                            <span className="text-[10px] font-semibold text-emerald-700 block">Annual</span>
+                            <span className="text-sm font-black text-emerald-950">14/18</span>
                           </div>
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                            <span className="text-[10px] text-slate-500 block">Casual</span>
-                            <span className="text-sm font-black text-slate-900">06/08</span>
+                          <div className="p-2.5 rounded-xl bg-teal-50/80 border border-teal-200/80">
+                            <span className="text-[10px] font-semibold text-teal-700 block">Casual</span>
+                            <span className="text-sm font-black text-teal-950">06/08</span>
                           </div>
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                            <span className="text-[10px] text-slate-500 block">Sick</span>
-                            <span className="text-sm font-black text-slate-900">07/07</span>
+                          <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                            <span className="text-[10px] font-semibold text-amber-700 block">Sick</span>
+                            <span className="text-sm font-black text-amber-950">07/07</span>
                           </div>
                         </div>
                       </div>
