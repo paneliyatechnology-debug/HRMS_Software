@@ -130,10 +130,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const { user } = useAuth();
   const { showToast, emitLeaveStatusUpdated } = useSocket();
   const officeRole = String(user?.role || '').toUpperCase();
+  const isSuperAdmin = officeRole === 'SUPER_ADMIN';
   const officeDashboard = portalMode === 'admin' || officeRole === 'MANAGER' || officeRole === 'SUPERVISOR';
-  const canReviewPhotos = ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(officeRole);
+  const canReviewPhotos = ['ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(officeRole);
   const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
   const [photoBusy, setPhotoBusy] = useState<string | null>(null);
+
+  const [saStats, setSaStats] = useState<{
+    stats: Record<string, any>;
+    charts: {
+      monthlyOrders?: Array<{ key: string; label: string; orders: number; revenue: number }>;
+      companyStatuses?: Array<{ status: string; count: number }>;
+      orderStatuses?: Array<{ status: string; count: number }>;
+    } | null;
+    companies: any[];
+    plans: any[];
+    orders: any[];
+    support: any[];
+    loading: boolean;
+  }>({ stats: {}, charts: null, companies: [], plans: [], orders: [], support: [], loading: isSuperAdmin });
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    let active = true;
+    setSaStats((prev) => ({ ...prev, loading: true }));
+    api.getDashboard()
+      .then((res: any) => {
+        if (!active) return;
+        setSaStats({
+          stats: res?.stats || {},
+          charts: res?.charts || null,
+          companies: Array.isArray(res?.companies) ? res.companies : [],
+          plans: Array.isArray(res?.plans) ? res.plans : [],
+          orders: Array.isArray(res?.orders) ? res.orders : [],
+          support: Array.isArray(res?.support) ? res.support : [],
+          loading: false,
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setSaStats((prev) => ({ ...prev, loading: false }));
+      });
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin]);
 
   const loadPhotoRequests = async () => {
     if (!canReviewPhotos) return;
@@ -261,6 +302,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [leaveTypes]);
 
   useEffect(() => {
+    if (isSuperAdmin) {
+      setLeaveQuotaLoading(false);
+      return;
+    }
     let isMounted = true;
     const fetchExtraData = async () => {
       try {
@@ -317,7 +362,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       window.removeEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
       window.removeEventListener('hrms_leave_types_updated', handleLeaveQuotaSync);
     };
-  }, [portalMode, activeEmpId, user?.companyId]);
+  }, [portalMode, activeEmpId, user?.companyId, isSuperAdmin]);
 
   // Set of all identifier keys for this employee to match attendance records accurately
   const myCandidateIds = useMemo(() => {
@@ -733,12 +778,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => onNavigateModule('announcements')}
-              className="btn-primary"
-            >
-              View Announcements
-            </button>
+            {isSuperAdmin ? (
+              <button
+                onClick={() => onNavigateModule('companies')}
+                className="btn-primary"
+              >
+                All Companies
+              </button>
+            ) : (
+              isModuleAllowedForUser('announcements', user) && (
+                <button
+                  onClick={() => onNavigateModule('announcements')}
+                  className="btn-primary"
+                >
+                  View Announcements
+                </button>
+              )
+            )}
           </div>
         </div>
       )}
@@ -755,7 +811,377 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {officeDashboard ? (
+      {isSuperAdmin ? (
+        /* ============================================================== */
+        /* SUPER ADMIN VIEW (Scoped strictly to Super Admin permissions)  */
+        /* ============================================================== */
+        <div className="space-y-5">
+          {saStats.loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 animate-pulse">
+              {[0, 1, 2, 3].map((idx) => (
+                <div key={idx} className="stat h-24 bg-white/70 border border-slate-200/70 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200/80 shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-3 w-20 bg-slate-200/70 rounded" />
+                    <div className="h-6 w-14 bg-slate-200/80 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div
+                onClick={() => onNavigateModule('companies')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>All Companies</small>
+                  <strong>{saStats.stats.totalCompanies ?? saStats.companies.length}</strong>
+                  <small>{saStats.stats.activeCompanies ?? 0} active · {saStats.stats.pendingCompanies ?? 0} pending</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => onNavigateModule('plans')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Subscription Plans</small>
+                  <strong>{saStats.stats.totalPlans ?? saStats.plans.length}</strong>
+                  <small>{saStats.stats.activePlans ?? 0} active plans</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => onNavigateModule('orders')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Revenue &amp; Orders</small>
+                  <strong>₹{Number(saStats.stats.totalRevenue || 0).toLocaleString('en-IN')}</strong>
+                  <small>{saStats.stats.activeOrders ?? 0} active · {saStats.stats.pendingOrders ?? 0} pending</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => onNavigateModule('support')}
+                className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
+              >
+                <div className="stat-icon">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <small>Support Inquiries</small>
+                  <strong>{saStats.stats.totalSupport ?? saStats.support.length}</strong>
+                  <small>Demo &amp; contact requests</small>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Super Admin Analytics Graphs */}
+          {(() => {
+            const monthly = saStats.charts?.monthlyOrders || [];
+            const maxRev = Math.max(1, ...monthly.map((m) => Number(m.revenue || 0)));
+            const maxOrd = Math.max(1, ...monthly.map((m) => Number(m.orders || 0)));
+            const compStatuses = saStats.charts?.companyStatuses || [];
+            const totalCompForChart = Math.max(1, compStatuses.reduce((s, c) => s + c.count, 0));
+            const activeC = compStatuses.find((c) => c.status === 'Active')?.count || 0;
+            const pendingC = compStatuses.find((c) => c.status === 'Pending')?.count || 0;
+            const otherC = totalCompForChart === 1 && compStatuses.reduce((s, c) => s + c.count, 0) === 0
+              ? 0
+              : Math.max(0, compStatuses.reduce((s, c) => s + c.count, 0) - activeC - pendingC);
+            const activePct = Math.round((activeC / totalCompForChart) * 100);
+            const pendingPct = Math.round((pendingC / totalCompForChart) * 100);
+            const orderStatuses = saStats.charts?.orderStatuses || [];
+            const totalOrdForChart = Math.max(1, orderStatuses.reduce((s, o) => s + o.count, 0));
+
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Graph 1: 6-Month Revenue & Orders Bar Chart */}
+                <section className="panel lg:col-span-7 flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div>
+                      <h3 className="m-0 border-0 pb-0 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-[#2d6a4f]" />
+                        <span>6-Month Revenue &amp; Orders Trend</span>
+                      </h3>
+                      <p className="text-[11px] text-[#6c757d] mt-0.5">
+                        Monthly subscription revenue (INR) and order volume
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                      Last 6 Months
+                    </span>
+                  </div>
+
+                  {monthly.length === 0 ? (
+                    <div className="h-44 flex items-center justify-center text-xs text-slate-400">
+                      No monthly order data available yet.
+                    </div>
+                  ) : (
+                    <div className="h-48 flex items-end justify-between gap-2 sm:gap-4 pt-6 pb-2 px-1 border-b border-slate-100">
+                      {monthly.map((m) => {
+                        const heightPct = m.revenue > 0
+                          ? Math.max(12, Math.round((m.revenue / maxRev) * 100))
+                          : m.orders > 0
+                            ? Math.max(10, Math.round((m.orders / maxOrd) * 45))
+                            : 6;
+                        return (
+                          <div key={m.key} className="flex-1 flex flex-col items-center gap-1.5 group h-full justify-end">
+                            <div className="text-[10px] font-bold text-slate-600 opacity-80 group-hover:opacity-100 transition-opacity text-center whitespace-nowrap">
+                              {m.revenue > 0 ? `₹${m.revenue.toLocaleString('en-IN')}` : `${m.orders} ord`}
+                            </div>
+                            <div className="w-full max-w-[44px] flex-1 flex items-end justify-center">
+                              <div
+                                title={`${m.label}: ₹${m.revenue.toLocaleString('en-IN')} (${m.orders} orders)`}
+                                style={{ height: `${heightPct}%` }}
+                                className={`w-full rounded-t-xl transition-all duration-500 ${
+                                  m.revenue > 0 || m.orders > 0
+                                    ? 'bg-gradient-to-t from-[#1b4332] to-[#40916c] group-hover:from-[#2d6a4f] group-hover:to-[#52b788] shadow-xs'
+                                    : 'bg-slate-100'
+                                }`}
+                              />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-500">{m.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                {/* Graph 2: Platform Status Breakdown (Donut + Bars) */}
+                <section className="panel lg:col-span-5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="m-0 border-0 pb-0 flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-[#2d6a4f]" />
+                        <span>Platform Distribution</span>
+                      </h3>
+                      <p className="text-[11px] text-[#6c757d] mt-0.5">
+                        Companies &amp; subscription status breakdown
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-5 py-2">
+                    {/* SVG Ring Donut for Company Statuses */}
+                    <div className="relative w-28 h-28 shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="15.915"
+                          fill="transparent"
+                          stroke="#e2e8f0"
+                          strokeWidth="3.6"
+                        />
+                        {activePct > 0 && (
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="transparent"
+                            stroke="#1b4332"
+                            strokeWidth="3.6"
+                            strokeDasharray={`${activePct} ${100 - activePct}`}
+                            strokeDashoffset="0"
+                          />
+                        )}
+                        {pendingPct > 0 && (
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="transparent"
+                            stroke="#f59e0b"
+                            strokeWidth="3.6"
+                            strokeDasharray={`${pendingPct} ${100 - pendingPct}`}
+                            strokeDashoffset={`${-activePct}`}
+                          />
+                        )}
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-lg font-black text-slate-900 leading-none">
+                          {saStats.stats.totalCompanies ?? saStats.companies.length}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">Companies</span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#1b4332]" /> Active
+                        </span>
+                        <span className="font-bold text-slate-900">{activeC}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Pending
+                        </span>
+                        <span className="font-bold text-slate-900">{pendingC}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                          <span className="w-2.5 h-2.5 rounded-full bg-slate-300" /> Inactive / Rejected
+                        </span>
+                        <span className="font-bold text-slate-900">{otherC}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Order Status Progress Bars */}
+                  <div className="pt-3 mt-2 border-t border-slate-100 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      Orders by Status
+                    </p>
+                    {orderStatuses.map((o) => {
+                      const pct = Math.round((o.count / totalOrdForChart) * 100);
+                      const barColor =
+                        o.status === 'Active'
+                          ? 'bg-emerald-600'
+                          : o.status === 'Pending'
+                            ? 'bg-amber-500'
+                            : 'bg-slate-400';
+                      return (
+                        <div key={o.status} className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-semibold text-slate-700">{o.status}</span>
+                            <span className="font-bold text-slate-900">{o.count}</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            );
+          })()}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <section className="panel flex flex-col">
+              <h3>
+                <span className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Recent Companies
+                </span>
+                <button
+                  onClick={() => onNavigateModule('companies')}
+                  className="btn-ghost text-xs"
+                >
+                  View All
+                </button>
+              </h3>
+              {saStats.companies.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No companies registered yet.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {saStats.companies.slice(0, 5).map((comp: any) => (
+                    <div key={comp.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#343a40] truncate">{comp.name}</strong>
+                        <span className={`tag ${comp.status === 'Active' ? 'green' : comp.status === 'Pending' ? 'orange' : ''}`}>
+                          {comp.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#6c757d] mt-1 truncate">
+                        {comp.email} {comp.industrySector ? `· ${comp.industrySector}` : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="panel flex flex-col">
+              <h3>
+                <span className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Recent Premium Orders
+                </span>
+                <button
+                  onClick={() => onNavigateModule('orders')}
+                  className="btn-ghost text-xs"
+                >
+                  Manage Orders
+                </button>
+              </h3>
+              {saStats.orders.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No premium orders recorded yet.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {saStats.orders.slice(0, 5).map((ord: any) => (
+                    <div key={ord.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#343a40] truncate">
+                          {ord.companyName || ord.companyId} — {ord.planName}
+                        </strong>
+                        <span className={`tag ${ord.status === 'Active' ? 'green' : ord.status === 'Pending' ? 'orange' : ''}`}>
+                          {ord.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#6c757d] mt-1">
+                        ₹{Number(ord.price || 0).toLocaleString('en-IN')} · {ord.durationMonths} month(s)
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="panel flex flex-col">
+              <h3>
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Recent Support Inquiries
+                </span>
+                <button
+                  onClick={() => onNavigateModule('support')}
+                  className="btn-ghost text-xs"
+                >
+                  View Inquiries
+                </button>
+              </h3>
+              {saStats.support.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  No support or demo inquiries received yet.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {saStats.support.slice(0, 5).map((req: any) => (
+                    <div key={req.id} className="item">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-xs text-[#343a40] truncate">
+                          {req.name} {req.companyName ? `(${req.companyName})` : ''}
+                        </strong>
+                        <span className="tag green">{req.kind || 'Inquiry'}</span>
+                      </div>
+                      <p className="text-[11px] text-[#6c757d] mt-1 line-clamp-1">
+                        {req.email} · {req.message}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      ) : officeDashboard ? (
         /* ============================================================== */
         /* HR / ADMIN VIEW                                                */
         /* ============================================================== */
@@ -867,7 +1293,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
 
-              {isModuleAllowedForUser('leaves', user) && (
+              {canApproveRejectLeave(user) && isModuleAllowedForUser('leaves', user) && (
                 <div
                   onClick={() => onNavigateModule('leaves')}
                   className="stat cursor-pointer hover:border-[#95d5b2] transition-colors h-full"
@@ -939,6 +1365,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               )}
               </section>
 
+              {canApproveRejectLeave(user) && (
               <section className="panel flex flex-col">
               <h3>
                 <span className="flex items-center gap-2">
@@ -1034,6 +1461,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
               </section>
+              )}
             </div>
 
             {isModuleAllowedForUser('employees', user) && (

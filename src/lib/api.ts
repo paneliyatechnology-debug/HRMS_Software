@@ -394,6 +394,30 @@ export type CompanyRegisterInput = {
     lastName: string;
 };
 
+async function listCompanies(params?: { page?: number; limit?: number; search?: string; status?: string }) {
+  try {
+    return await deduplicatedGet('/companies', { params }, 0);
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Companies could not be loaded.');
+  }
+}
+
+async function updateCompanyStatus(companyId: string, status: 'Active' | 'Inactive' | 'Pending' | 'Rejected') {
+  try {
+    const response = await http.patch(
+      `/companies/${companyId}/status`,
+      { status },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    clearApiCache('/companies');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Company status could not be updated.');
+  }
+}
+
 async function getGeofence() {
   const response = await http.get('/companies/geofence');
   return response.data as { officeName: string; latitude: number; longitude: number; radiusMeters: number; enabled: boolean };
@@ -556,25 +580,61 @@ async function deleteDocument(id: string) {
    MODULE 4: ATTENDANCE (14 ENDPOINTS)
    ========================================================================== */
 
-async function faceKioskClock(data: { faceDescriptor: number[]; photo?: string }) {
+async function faceKioskClock(data: {
+  faceDescriptor: number[];
+  photo?: string;
+  action?: 'clock-in' | 'clock-out' | 'break-in' | 'break-out';
+}) {
   try {
     clearApiCache('/attendance');
     const response = await http.post('/attendance/face-kiosk', {
       faceDescriptor: data.faceDescriptor,
       photo: data.photo || undefined,
+      action: data.action || undefined,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
     clearApiCache('/attendance');
     return response.data as {
       matched: boolean;
-      action: 'clock-in' | 'clock-out' | 'none';
+      action: 'clock-in' | 'clock-out' | 'break-in' | 'break-out' | 'choose' | 'none';
+      state?: 'working' | 'on_break';
+      options?: Array<'break-in' | 'break-out' | 'clock-out'>;
       message?: string;
-      employee?: { id: string; firstName: string; lastName: string; avatarUrl?: string | null; role?: string };
+      employee?: { id: string; firstName?: string; lastName?: string; avatarUrl?: string | null; role?: string };
+      logic?: {
+        shiftStart?: string;
+        shiftEnd?: string;
+        graceMinutes?: number;
+        lateMinutes?: number;
+        earlyMinutes?: number;
+      };
     };
   } catch (error) {
     const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Face clock failed.');
+  }
+}
+
+async function getKioskVoice() {
+  try {
+    return await deduplicatedGet('/attendance/kiosk-voice');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to load voice settings.');
+  }
+}
+
+async function saveKioskVoice(data: { kioskVoiceLang: string; kioskVoiceGender: 'female' | 'male' }) {
+  try {
+    const res = await http.put('/attendance/kiosk-voice', data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to save voice settings.');
   }
 }
 
@@ -2354,10 +2414,11 @@ async function getPayslip(payslipId: string) {
 
 // 81. POST /plans (Create plan)
 async function createPlan(payload: {
-    name: string;
+  name: string;
   price: number;
   durationMonths: number;
   description?: string;
+  features?: string[];
 }) {
   try {
     const res = await http.post('/plans', payload, {
@@ -2432,6 +2493,15 @@ async function getCompanyPremium() {
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get company premium status.');
+  }
+}
+
+async function getCompanyFeatures() {
+  try {
+    return await deduplicatedGet('/premium/features');
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to get company plan features.');
   }
 }
 
@@ -2540,9 +2610,9 @@ async function sendSupportRequest(payload: {
 }
 
 // 94. GET /support (List support requests)
-async function listSupportRequests() {
+async function listSupportRequests(params?: { kind?: string; status?: string; search?: string; page?: number; limit?: number }) {
   try {
-    return await deduplicatedGet('/support');
+    return await deduplicatedGet('/support', { params }, 0);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list support requests.');
@@ -2624,6 +2694,11 @@ async function getDashboard() {
       leaves,
       attendance,
       notices: Array.isArray(data?.notices) ? data.notices : [],
+      companies: Array.isArray(data?.companies) ? data.companies : [],
+      plans: Array.isArray(data?.plans) ? data.plans : [],
+      orders: Array.isArray(data?.orders) ? data.orders : [],
+      support: Array.isArray(data?.support) ? data.support : [],
+      charts: data?.charts || null,
     };
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
@@ -2939,6 +3014,8 @@ export const api = new Proxy({
 
   // Companies (1)
   registerCompany,
+  listCompanies,
+  updateCompanyStatus,
   getGeofence,
   saveGeofence,
 
@@ -2988,6 +3065,8 @@ export const api = new Proxy({
   correctAttendance,
   regularizeAttendance,
   getWorkHistory,
+  getKioskVoice,
+  saveKioskVoice,
 
   // Leave Types (4)
   createLeaveType,
@@ -3125,6 +3204,7 @@ export const api = new Proxy({
 
   // Premium (7)
   getCompanyPremium,
+  getCompanyFeatures,
   getPremium: getCompanyPremium,
   getPremiumPlans,
   startPlanCheckout,

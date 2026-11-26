@@ -62,6 +62,7 @@ async function faceApi(): Promise<FaceApi> {
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
       ]);
       return faceapi;
@@ -158,7 +159,7 @@ function visibleFrame(video: HTMLVideoElement) {
   return { x: 0, y: (height - visibleH) / 2, width, height: visibleH };
 }
 
-function eyeOpen(positions: Array<{ x: number; y: number }> | undefined) {
+function eyePair(positions: Array<{ x: number; y: number }> | undefined): { left: number; right: number; avg: number } | null {
   if (!positions || positions.length < 48) return null;
   const gap = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
   const side = (start: number) => {
@@ -166,28 +167,132 @@ function eyeOpen(positions: Array<{ x: number; y: number }> | undefined) {
     const horizontal = gap(positions[start], positions[start + 3]) || 1;
     return vertical / (2 * horizontal);
   };
-  const score = (side(36) + side(42)) / 2;
-  return Number.isFinite(score) ? score : null;
+  const left = side(36);
+  const right = side(42);
+  const avg = (left + right) / 2;
+  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(avg)) return null;
+  return { left, right, avg };
 }
 
-export type BlinkTrack = { step: 0 | 1 | 2; base: number; low: number };
+function eyeOpen(positions: Array<{ x: number; y: number }> | undefined) {
+  return eyePair(positions)?.avg ?? null;
+}
 
-export function nextBlink(track: BlinkTrack, eye: number | null): { track: BlinkTrack; done: boolean } {
+function headYaw(positions: Array<{ x: number; y: number }> | undefined) {
+  if (!positions || positions.length < 46) return null;
+  const leftEye = positions[36];
+  const rightEye = positions[45];
+  const nose = positions[30];
+  const span = Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y);
+  if (!span || span < 10) return null;
+  const eyeMidX = (leftEye.x + rightEye.x) / 2;
+  const ratio = (nose.x - eyeMidX) / span;
+  return Number.isFinite(ratio) ? ratio : null;
+}
+
+export type BlinkTrack = {
+  step: 0 | 1 | 2;
+  base: number;
+  low: number;
+  samples?: number[];
+  closedFrames?: number;
+  lastBox?: { x: number; y: number; width: number; height: number };
+};
+
+export function nextBlink(
+  track: BlinkTrack,
+  eye: number | null,
+  eyes?: { left: number; right: number; avg: number } | null,
+  box?: { x: number; y: number; width: number; height: number } | null,
+): { track: BlinkTrack; done: boolean } {
   if (eye == null) return { track, done: false };
+
+  // Anti-photo-shake guard: reset only on large sudden shifts (>22% of face width)
+  // so hand-held phone movement works, while shaking/swapping a photo resets.
+  if (box && track.lastBox) {
+    const prevCx = track.lastBox.x + track.lastBox.width / 2;
+    const prevCy = track.lastBox.y + track.lastBox.height / 2;
+    const currCx = box.x + box.width / 2;
+    const currCy = box.y + box.height / 2;
+    const shift = Math.hypot(currCx - prevCx, currCy - prevCy);
+    if (shift > Math.max(box.width, 1) * 0.22) {
+      return {
+        track: { step: 0, base: 0, low: 0, samples: [], closedFrames: 0, lastBox: box },
+        done: false,
+      };
+    }
+  }
+
+  const nextBox = box ?? track.lastBox;
+
   if (track.step === 0) {
-    if (eye < 0.15) return { track, done: false };
-    return { track: { step: 1, base: eye, low: eye }, done: false };
+    if (eye < 0.12) return { track: { ...track, lastBox: nextBox }, done: false };
+    const samples = [...(track.samples ?? []), eye].slice(-2);
+    if (samples.length < 2) {
+      return { track: { step: 0, base: 0, low: 0, samples, closedFrames: 0, lastBox: nextBox }, done: false };
+    }
+    const base = (samples[0] + samples[1]) / 2;
+    return { track: { step: 1, base, low: eye, samples, closedFrames: 0, lastBox: nextBox }, done: false };
+  }
+
+  if (track.step === 1) {
+    // Slowly track open-eye baseline without letting a single spike inflate it.
+    const base = eye > track.base * 0.93 ? track.base * 0.8 + eye * 0.2 : track.base;
+    const low = Math.min(track.low, eye);
+    const drop = base - eye;
+    const bothClosed = eyes
+      ? eyes.left < base * 0.9 && eyes.right < base * 0.9 && eye < base * 0.88 && drop >= 0.018
+      : eye < base * 0.88 && drop >= 0.018;
+    if (bothClosed) {
+      return { track: { step: 2, base, low: eye, closedFrames: 1, lastBox: nextBox }, done: false };
+    }
+    return { track: { step: 1, base, low, closedFrames: 0, lastBox: nextBox }, done: false };
+  }
+
+  const opened = eye > track.low + 0.014 && eye >= track.base * 0.84;
+  if (opened) {
+    return { track: { step: 0, base: 0, low: 0, samples: [], closedFrames: 0, lastBox: nextBox }, done: true };
+  }
+  const closedFrames = (track.closedFrames ?? 0) + 1;
+  if (closedFrames > 12) {
+    return { track: { step: 0, base: 0, low: 0, samples: [], closedFrames: 0, lastBox: nextBox }, done: false };
+  }
+  return { track: { ...track, low: Math.min(track.low, eye), closedFrames, lastBox: nextBox }, done: false };
+}
+
+export type LivenessTrack = { step: 0 | 1 | 2 | 3; base: number; low: number; baseYaw: number };
+
+export function nextLiveness(
+  track: LivenessTrack,
+  eye: number | null,
+  yaw: number | null,
+): { track: LivenessTrack; done: boolean } {
+  if (eye == null || yaw == null) return { track, done: false };
+  if (track.step === 0) {
+    if (eye < 0.14) return { track, done: false };
+    return { track: { step: 1, base: eye, low: eye, baseYaw: yaw }, done: false };
   }
   if (track.step === 1) {
     const base = Math.max(track.base, eye);
     const low = Math.min(track.low, eye);
-    const closed = eye < base * 0.86 || base - eye > 0.028;
-    if (closed) return { track: { step: 2, base, low }, done: false };
-    return { track: { step: 1, base, low }, done: false };
+    const closed = eye < base * 0.88 && base - eye >= 0.02;
+    if (closed) return { track: { step: 2, base, low, baseYaw: track.baseYaw }, done: false };
+    // Also allow advancing if user already performed a clear 3D head turn on mobile
+    if (Math.abs(yaw - track.baseYaw) >= 0.11) {
+      return { track: { step: 0, base: 0, low: 0, baseYaw: 0 }, done: true };
+    }
+    return { track: { step: 1, base, low, baseYaw: track.baseYaw }, done: false };
   }
-  const opened = eye > track.low + 0.02;
-  if (opened) return { track: { step: 0, base: 0, low: 0 }, done: true };
-  return { track: { ...track, low: Math.min(track.low, eye) }, done: false };
+  if (track.step === 2) {
+    const opened = eye > track.low + 0.015;
+    if (opened) return { track: { step: 3, base: track.base, low: track.low, baseYaw: yaw }, done: false };
+    return { track: { ...track, low: Math.min(track.low, eye) }, done: false };
+  }
+  // Step 3: Gentle 3D head turn (~8 deg left or right)
+  if (Math.abs(yaw - track.baseYaw) >= 0.08) {
+    return { track: { step: 0, base: 0, low: 0, baseYaw: 0 }, done: true };
+  }
+  return { track, done: false };
 }
 
 export function prepareFaceModels() {
@@ -196,12 +301,12 @@ export function prepareFaceModels() {
 
 let scanCanvas: HTMLCanvasElement | null = null;
 
-export async function scanKioskFace(video: HTMLVideoElement) {
+export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = true) {
   const width = video.videoWidth;
   const height = video.videoHeight;
   if (!width || !height) return null;
   const faceapi = await faceApi();
-  const max = 320;
+  const max = 224;
   const scale = Math.min(1, max / Math.max(width, height));
   const canvas = scanCanvas || document.createElement('canvas');
   scanCanvas = canvas;
@@ -210,9 +315,11 @@ export async function scanKioskFace(video: HTMLVideoElement) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
-  const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
-  const clear = faces.filter((face) => face.detection.score >= 0.3);
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 });
+  const faces = withDescriptor
+    ? await faceapi.detectAllFaces(canvas, options).withFaceLandmarks(true).withFaceDescriptors()
+    : await faceapi.detectAllFaces(canvas, options).withFaceLandmarks(true);
+  const clear = faces.filter((face) => face.detection.score >= 0.35);
   if (!clear.length) return null;
   const closest = clear.reduce((best, face) => {
     const area = face.detection.box.width * face.detection.box.height;
@@ -221,9 +328,41 @@ export async function scanKioskFace(video: HTMLVideoElement) {
   });
   const box = closest.detection.box;
   const inv = 1 / scale;
+  const rawDescriptor = 'descriptor' in closest ? (closest as { descriptor: Float32Array }).descriptor : null;
+
+  // Fast face-crop texture/contrast check (<0.3ms) to reject flat/washed-out/glare photos
+  let textureOk = true;
+  try {
+    const sx = Math.max(0, Math.floor(box.x));
+    const sy = Math.max(0, Math.floor(box.y));
+    const sw = Math.min(canvas.width - sx, Math.max(8, Math.floor(box.width)));
+    const sh = Math.min(canvas.height - sy, Math.max(8, Math.floor(box.height)));
+    const pixels = ctx.getImageData(sx, sy, sw, sh).data;
+    let sum = 0;
+    let sumSq = 0;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 16) {
+      const luma = pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114;
+      sum += luma;
+      sumSq += luma * luma;
+      count += 1;
+    }
+    if (count > 0) {
+      const mean = sum / count;
+      const stdDev = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
+      textureOk = stdDev >= 18 && mean >= 30 && mean <= 235;
+    }
+  } catch {
+    textureOk = true;
+  }
+
   return {
-    descriptor: Array.from(closest.descriptor),
+    descriptor: rawDescriptor ? Array.from(rawDescriptor) : null,
+    score: closest.detection.score,
+    textureOk,
     eye: eyeOpen(closest.landmarks.positions),
+    eyes: eyePair(closest.landmarks.positions),
+    yaw: headYaw(closest.landmarks.positions),
     points: closest.landmarks.positions.map((point) => ({ x: point.x * inv, y: point.y * inv })),
     box: { x: box.x * inv, y: box.y * inv, width: box.width * inv, height: box.height * inv },
   };

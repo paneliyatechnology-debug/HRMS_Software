@@ -99,6 +99,10 @@ const ReportsModule = dynamic(() => import('../modules/ReportsModule').then((m) 
 const AuditLogsModule = dynamic(() => import('../modules/AuditLogsModule').then((m) => m.AuditLogsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const SettingsModule = dynamic(() => import('../modules/SettingsModule').then((m) => m.SettingsModule), { loading: () => <ModuleLoadingSkeleton /> });
 const ProfileModule = dynamic(() => import('../modules/ProfileModule').then((m) => m.ProfileModule), { loading: () => <ModuleLoadingSkeleton /> });
+const CompaniesModule = dynamic(() => import('../modules/CompaniesModule').then((m) => m.CompaniesModule), { loading: () => <ModuleLoadingSkeleton /> });
+const PlansModule = dynamic(() => import('../modules/PlansModule').then((m) => m.PlansModule), { loading: () => <ModuleLoadingSkeleton /> });
+const OrdersModule = dynamic(() => import('../modules/OrdersModule').then((m) => m.OrdersModule), { loading: () => <ModuleLoadingSkeleton /> });
+const SupportModule = dynamic(() => import('../modules/SupportModule').then((m) => m.SupportModule), { loading: () => <ModuleLoadingSkeleton /> });
 import { getTotalUnreadChatCount, ADMIN_USER_ID, getActiveChatConversation } from '../../lib/chatService';
 import { addChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 
@@ -846,6 +850,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     if (!isAuthenticated) return;
 
     const handleRefreshEvent = async (event?: any) => {
+      if (String(user?.role || '').toUpperCase() === 'SUPER_ADMIN') return;
       try {
         const payload = event?.detail;
         if (payload && payload.id) {
@@ -887,6 +892,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     };
 
     const handleLeaveTypesUpdate = () => {
+      if (String(user?.role || '').toUpperCase() === 'SUPER_ADMIN') return;
       api.listLeaveTypes().then((types) => {
         if (Array.isArray(types)) setLeaveTypes(types);
       }).catch(() => {});
@@ -1091,6 +1097,22 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenClockModal={() => setClockModalOpen(true)}
                 portalMode={portalMode}
               />
+            )}
+
+            {activeModule === 'companies' && isModuleAllowedForUser('companies', user) && (
+              <CompaniesModule />
+            )}
+
+            {activeModule === 'plans' && isModuleAllowedForUser('plans', user) && (
+              <PlansModule />
+            )}
+
+            {activeModule === 'orders' && isModuleAllowedForUser('orders', user) && (
+              <OrdersModule />
+            )}
+
+            {activeModule === 'support' && isModuleAllowedForUser('support', user) && (
+              <SupportModule />
             )}
 
             {activeModule === 'employees' && (
