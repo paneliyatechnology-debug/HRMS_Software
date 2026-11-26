@@ -364,7 +364,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   useEffect(() => {
     if (!cameraReady || selfieMode === 'idle' || capturedPhoto || !user.avatarUrl) return;
     let stopped = false;
-    let blink: { step: 0 | 1 | 2; base: number; low: number } = { step: 0, base: 0, low: 0 };
     setFaceState('checking');
     let busy = false;
     const timer = window.setInterval(async () => {
@@ -376,14 +375,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         const result = await matchLiveFace(video);
         if (stopped || captureLock.current) return;
         if (!result.descriptor) {
-          if (blink.step === 0) setFaceState('none');
+          setFaceState('none');
           return;
         }
         if (!result.aligned) {
-          if (blink.step === 0) {
-            setFaceState('none');
-            setFaceError(null);
-          }
+          setFaceState('none');
+          setFaceError(null);
           return;
         }
         try {
@@ -393,7 +390,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
             setFaceState('mismatch');
             setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
-            blink = { step: 0, base: 0, low: 0 };
             return;
           }
         } catch (error) {
@@ -401,18 +397,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           if (/does not match|profile photo/i.test(message)) {
             setFaceState('mismatch');
             setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
-            blink = { step: 0, base: 0, low: 0 };
-          } else if (blink.step === 0) {
+          } else {
             setFaceState('none');
             setFaceError(message);
           }
-          return;
-        }
-        const moved = (await import('../../lib/faceMatch')).nextBlink(blink, result.eye);
-        blink = moved.track;
-        if (!moved.done) {
-          setFaceState('match');
-          setFaceError(blink.step === 2 ? 'Open your eyes.' : 'Close your eyes once, then open them.');
           return;
         }
         if (stopped || captureLock.current) return;
@@ -642,16 +630,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         return;
       }
       const result = await matchLiveFace(videoRef.current);
-      if (!blinkReadyRef.current) {
-        const message = 'Blink once. A photo cannot be used for clock in or clock out.';
-        setFaceError(message);
-        notifyPunchError('Blink required', message);
-        captureLock.current = false;
-        return;
-      }
       if (!result.aligned || !result.descriptor) {
         setFaceState('none');
-        const message = 'Keep your face inside the circle and blink once.';
+        const message = 'Keep your face inside the circle.';
         setFaceError(message);
         notifyPunchError('Face check failed', message);
         captureLock.current = false;
