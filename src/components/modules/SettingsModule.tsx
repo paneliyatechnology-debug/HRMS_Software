@@ -658,9 +658,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                     key={opt.id}
                     onClick={() => setEmpPreferences({ ...empPreferences, workStatus: opt.id })}
                     className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${isSelected
-                        ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/20`
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
-                    }`}
+                      ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/20`
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
@@ -678,9 +678,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                       </div>
                       <div
                         className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${isSelected
-                            ? 'border-emerald-600 bg-emerald-600 text-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
+                          : 'border-slate-300 bg-white'
+                          }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
                       </div>
@@ -703,9 +703,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <div
                 onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '12h' })}
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '12h'
-                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">12-Hour Format (AM / PM)</h4>
@@ -713,9 +713,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 </div>
                 <div
                   className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '12h'
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-slate-300 bg-white'
-                  }`}
+                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    : 'border-slate-300 bg-white'
+                    }`}
                 >
                   {empPreferences.timeFormat === '12h' && <Check className="w-3 h-3" />}
                 </div>
@@ -724,9 +724,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
               <div
                 onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '24h' })}
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '24h'
-                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
               >
                 <div>
                   <h4 className="font-bold text-xs text-slate-900">24-Hour Military Format</h4>
@@ -734,9 +734,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 </div>
                 <div
                   className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '24h'
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-slate-300 bg-white'
-                  }`}
+                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    : 'border-slate-300 bg-white'
+                    }`}
                 >
                   {empPreferences.timeFormat === '24h' && <Check className="w-3 h-3" />}
                 </div>
@@ -835,12 +835,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     return (
       <div className="space-y-5 w-full animate-in fade-in select-none">
         {/* Header */}
-          {savedMessage && (
+        {savedMessage && (
           <div className="flex justify-end pb-2">
             <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
               <Check className="w-3.5 h-3.5" /> Saved Successfully
             </span>
-        </div>
+          </div>
         )}
 
         {/* 2-Column Responsive Layout */}
@@ -858,13 +858,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   key={item.id}
                   onClick={() => setEmpActiveTab(item.id as any)}
                   className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
-                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
                 >
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
@@ -1151,42 +1151,70 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
+      {/* Top Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+        <div>
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+            {canManagePlans ? 'Super Admin Workspace' : (companyData.name || 'Admin Workspace')}
+          </span>
+        </div>
+
+        {!canManagePlans && adminActiveTab !== 'plans' && adminActiveTab !== 'support' && (
+          <div className="flex items-center gap-3">
+            {savedMessage && (
+              <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
+                <Check className="w-3.5 h-3.5" /> All Changes Saved
+              </span>
+            )}
+
+            <button
+              onClick={handleAdminSave}
+              disabled={loading}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+              <span>{loading ? 'Saving Settings...' : 'Save Settings'}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* 2-Column Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Navigation Sidebar */}
         {!canManagePlans && (
-        <div className="w-full lg:w-72 lg:sticky lg:top-4 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
-          <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
-            Configuration Sections
-          </div>
-          {adminNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = adminActiveTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setAdminActiveTab(item.id as any)}
-                className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
+          <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+            <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
+              Configuration Sections
+            </div>
+            {adminNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = adminActiveTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setAdminActiveTab(item.id as any)}
+                  className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
                     ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
-                  }`}
+                    }`}
                 >
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className={`text-xs font-bold truncate ${isActive ? 'text-emerald-950' : 'text-slate-800'}`}>
-                    {item.label}
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                      }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold truncate ${isActive ? 'text-emerald-950' : 'text-slate-800'}`}>
+                      {item.label}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* Right Main Content Area */}
@@ -1485,18 +1513,16 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                           }
                           setScheduleData({ ...scheduleData, weekendDays: next, saturdayRule: nextSatRule });
                         }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                          isSelected
-                            ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
-                        }`}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
+                          ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
+                          }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                         <span>{d.label}</span>
                         <span
-                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${
-                            isSelected ? 'bg-white/20 text-emerald-100' : 'bg-slate-100 text-slate-500'
-                          }`}
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-emerald-100' : 'bg-slate-100 text-slate-500'
+                            }`}
                         >
                           {isSelected ? 'Off' : 'Work'}
                         </span>
@@ -1522,11 +1548,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                           <div
                             key={opt.id}
                             onClick={() => setScheduleData({ ...scheduleData, saturdayRule: opt.id as any })}
-                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                              isAct
-                                ? 'border-[#1b4332] bg-[#d8f3dc]/30 ring-1 ring-[#1b4332]'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${isAct
+                              ? 'border-[#1b4332] bg-[#d8f3dc]/30 ring-1 ring-[#1b4332]'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-slate-900">{opt.title}</span>
@@ -1534,7 +1559,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                                 type="radio"
                                 name="satRuleSettings"
                                 checked={isAct}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 className="text-emerald-600 focus:ring-emerald-500"
                               />
                             </div>
@@ -1577,12 +1602,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           {adminActiveTab === 'leaves' && (
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <CalendarOff className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <CalendarOff className="w-4 h-4 text-emerald-600" />
                     Annual Leave Quotas &amp; Carry-Forward
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
                   </p>
                 </div>
@@ -1607,71 +1632,71 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   ))}
                 </div>
               ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.casualLeaveAnnual}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.casualLeaveAnnual}
                       onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.sickLeaveAnnual}
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.sickLeaveAnnual}
                       onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={leavePolicyData.paidLeaveAnnual}
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={leavePolicyData.paidLeaveAnnual}
                       onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    value={leavePolicyData.carryForwardLimit}
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="30"
+                      value={leavePolicyData.carryForwardLimit}
                       onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                    <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                  </div>
                 </div>
-              </div>
               )}
 
               <div className="pt-2 flex justify-end">
@@ -1691,41 +1716,41 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
           {adminActiveTab === 'plans' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               {!canManagePlans && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600">
-                      <Crown className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">{premiumStatus?.planName || 'No active plan'}</h3>
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${premiumStatus?.premium ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                          {premiumStatus?.premium ? 'Active' : premiumStatus?.expired ? 'Expired' : 'Not purchased'}
-                        </span>
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600">
+                        <Crown className="h-6 w-6" />
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {premiumStatus?.order
-                          ? `₹${Number(premiumStatus.order.price || 0).toLocaleString('en-IN')} for ${premiumStatus.order.durationMonths || 1} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'} · ends ${premiumStatus.endsOn || '—'}`
-                          : 'Pick a plan below and pay with Razorpay.'}
-                      </p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-bold text-slate-900">{premiumStatus?.planName || 'No active plan'}</h3>
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${premiumStatus?.premium ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                            {premiumStatus?.premium ? 'Active' : premiumStatus?.expired ? 'Expired' : 'Not purchased'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {premiumStatus?.order
+                            ? `₹${Number(premiumStatus.order.price || 0).toLocaleString('en-IN')} for ${premiumStatus.order.durationMonths || 1} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'} · ends ${premiumStatus.endsOn || '—'}`
+                            : 'Pick a plan below and pay with Razorpay.'}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ['Price', premiumStatus?.order?.price != null ? `₹${Number(premiumStatus.order.price).toLocaleString('en-IN')}` : '—'],
+                      ['Duration', premiumStatus?.order?.durationMonths ? `${premiumStatus.order.durationMonths} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'}` : '—'],
+                      ['Payment', 'Razorpay'],
+                      ['Status', premiumStatus?.premium ? 'Paid' : premiumStatus?.order?.status || 'None'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+                        <span className="mt-1 block text-sm font-bold text-slate-800">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {[
-                    ['Price', premiumStatus?.order?.price != null ? `₹${Number(premiumStatus.order.price).toLocaleString('en-IN')}` : '—'],
-                    ['Duration', premiumStatus?.order?.durationMonths ? `${premiumStatus.order.durationMonths} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'}` : '—'],
-                    ['Payment', 'Razorpay'],
-                    ['Status', premiumStatus?.premium ? 'Paid' : premiumStatus?.order?.status || 'None'],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
-                      <span className="mt-1 block text-sm font-bold text-slate-800">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
               )}
 
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
@@ -1912,51 +1937,51 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
                     <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
                       <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                        <tr>
-                          <th className="px-4 py-3">Order ID</th>
-                          <th className="px-4 py-3">Plan</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {premiumOrders.map((ord: any) => (
-                          <tr key={ord.id} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
-                              {ord.id?.slice(0, 12)}...
-                            </td>
-                            <td className="px-4 py-3 font-bold text-slate-800">
-                              {ord.planName || ord.planId || 'Plan Tier'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                {ord.status || 'Completed'}
-                            </span>
-                          </td>
-                            <td className="px-4 py-3 text-slate-500">
-                              {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                            {canManagePlans && (
-                            <button
-                                type="button"
-                              onClick={() => {
-                                  setEditingOrder(ord);
-                                  setOrderStatusVal(ord.status || 'Active');
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
-                              >
-                                Update Status
-                            </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                          <tr>
+                            <th className="px-4 py-3">Order ID</th>
+                            <th className="px-4 py-3">Plan</th>
+                            <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Date</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {premiumOrders.map((ord: any) => (
+                            <tr key={ord.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
+                                {ord.id?.slice(0, 12)}...
+                              </td>
+                              <td className="px-4 py-3 font-bold text-slate-800">
+                                {ord.planName || ord.planId || 'Plan Tier'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                  {ord.status || 'Completed'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-500">
+                                {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {canManagePlans && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingOrder(ord);
+                                      setOrderStatusVal(ord.status || 'Active');
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                                  >
+                                    Update Status
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </>
                 )}
               </div>
@@ -2012,13 +2037,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                             {item.kind || 'Demo'}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.status === 'Resolved'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : item.status === 'Read'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Resolved'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : item.status === 'Read'
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-amber-100 text-amber-800'
-                            }`}
+                              }`}
                           >
                             {item.status || 'New'}
                           </span>
@@ -2052,72 +2076,71 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
                   <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
                     <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                      <tr>
-                        <th className="px-4 py-3">Type</th>
-                        <th className="px-4 py-3">Contact</th>
-                        <th className="px-4 py-3">Company</th>
-                        <th className="px-4 py-3">Message</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {supportList.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700">
-                              {item.kind || 'Demo'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="font-bold text-slate-900">{item.name}</p>
-                            <p className="text-[10px] text-slate-400">{item.email} &bull; {item.phone || 'No phone'}</p>
-                          </td>
-                          <td className="px-4 py-3 text-slate-700 font-medium">
-                            {item.companyName || '—'}
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
-                            {item.message || '—'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                item.status === 'Resolved'
+                      <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                        <tr>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3">Contact</th>
+                          <th className="px-4 py-3">Company</th>
+                          <th className="px-4 py-3">Message</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {supportList.map((item: any) => (
+                          <tr key={item.id} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700">
+                                {item.kind || 'Demo'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="font-bold text-slate-900">{item.name}</p>
+                              <p className="text-[10px] text-slate-400">{item.email} &bull; {item.phone || 'No phone'}</p>
+                            </td>
+                            <td className="px-4 py-3 text-slate-700 font-medium">
+                              {item.companyName || '—'}
+                            </td>
+                            <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
+                              {item.message || '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Resolved'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : item.status === 'Read'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
-                              {item.status || 'New'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleViewSupportReq(item)}
-                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                  }`}
                               >
-                                View
-                              </button>
-                              {item.status !== 'Resolved' && (
+                                {item.status || 'New'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold transition cursor-pointer"
+                                  onClick={() => handleViewSupportReq(item)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
                                 >
-                                  Resolve
+                                  View
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                                {item.status !== 'Resolved' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold transition cursor-pointer"
+                                  >
+                                    Resolve
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </>
               )}
             </div>
@@ -2127,9 +2150,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
       {/* Upgrade Plan Modal */}
       {isUpgradeModalOpen && (
-      <UpgradePlanModal
-        isOpen={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
+        <UpgradePlanModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
           onPlanUpdated={() => {
             refreshSubscriptionData();
             loadPlansAndPremium();
@@ -2561,11 +2584,10 @@ function KioskVoiceCard({
             key={item.code}
             type="button"
             onClick={() => setLang(item.code)}
-            className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${
-              lang === item.code
-                ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
-                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-            }`}
+            className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${lang === item.code
+              ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+              }`}
           >
             <div>{item.label}</div>
             <div className="text-[10px] text-slate-500">{item.native}</div>
@@ -2580,9 +2602,8 @@ function KioskVoiceCard({
               key={g}
               type="button"
               onClick={() => setGender(g)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
-                gender === g ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${gender === g ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               {g}
             </button>
