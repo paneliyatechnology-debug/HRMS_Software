@@ -17,22 +17,38 @@ function getLocalIps(): string[] {
         }
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   return Array.from(new Set(ips));
 }
 
 const localIps = getLocalIps();
 
+const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.104:4000').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+const backendApiUrl = backendBase.endsWith('/api') ? backendBase : `${backendBase}/api`;
+
 const nextConfig: NextConfig = {
+  transpilePackages: ['@vladmandic/face-api'],
+  async rewrites() {
+    return [
+      {
+        source: '/hrms-api/:path*',
+        destination: `${backendApiUrl}/:path*`,
+      },
+    ];
+  },
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",
-    "192.168.1.106",
+    "192.168.1.108",
     "192.168.1.*",
     "192.168.*.*",
     "10.*.*.*",
     "172.16.*.*",
     "*.local",
+    "*.loca.lt",
+    "loca.lt",
+    "*.trycloudflare.com",
+    "trycloudflare.com",
     ...localIps,
   ],
   turbopack: {

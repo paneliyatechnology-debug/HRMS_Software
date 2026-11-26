@@ -67,64 +67,51 @@ export const initialBiometricDevices: BiometricDevice[] = [
   },
 ];
 
+let liveBiometricDevices: BiometricDevice[] = [...initialBiometricDevices];
+
 /**
  * Get all registered biometric devices, optionally filtered by companyId
  */
 export function getBiometricDevices(companyId?: string): BiometricDevice[] {
-  if (typeof window === 'undefined') {
-    return companyId
-      ? initialBiometricDevices.filter((d) => d.companyId === companyId)
-      : initialBiometricDevices;
+  if (companyId) {
+    return liveBiometricDevices.filter(
+      (d) =>
+        d.companyId === companyId ||
+        d.companyId.toLowerCase() === companyId.toLowerCase()
+    );
   }
-
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    let list: BiometricDevice[] = [];
-    if (saved) {
-      list = JSON.parse(saved);
-    } else {
-      list = initialBiometricDevices;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
-
-    if (companyId) {
-      return list.filter(
-        (d) =>
-          d.companyId === companyId ||
-          d.companyId.toLowerCase() === companyId.toLowerCase()
-      );
-    }
-    return list;
-  } catch (e) {
-    console.error('Failed to parse biometric devices:', e);
-    return initialBiometricDevices;
-  }
+  return liveBiometricDevices;
 }
 
 /**
- * Save or update a biometric device
+ * Save or update a biometric device (in-memory)
  */
 export function saveBiometricDevice(device: BiometricDevice): void {
-  if (typeof window === 'undefined') return;
-  const list = getBiometricDevices();
-  const idx = list.findIndex((d) => d.id === device.id);
+  const idx = liveBiometricDevices.findIndex((d) => d.id === device.id);
   if (idx !== -1) {
-    list[idx] = device;
+    liveBiometricDevices[idx] = device;
   } else {
-    list.unshift(device);
+    liveBiometricDevices.unshift(device);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  window.dispatchEvent(new CustomEvent('hrms_biometric_devices_updated'));
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    window.dispatchEvent(new CustomEvent('hrms_biometric_devices_updated'));
+  }
 }
 
 /**
- * Delete a biometric device
+ * Delete a biometric device (in-memory)
  */
 export function deleteBiometricDevice(deviceId: string): void {
-  if (typeof window === 'undefined') return;
-  const list = getBiometricDevices().filter((d) => d.id !== deviceId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  window.dispatchEvent(new CustomEvent('hrms_biometric_devices_updated'));
+  liveBiometricDevices = liveBiometricDevices.filter((d) => d.id !== deviceId);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    window.dispatchEvent(new CustomEvent('hrms_biometric_devices_updated'));
+  }
 }
 
 /**
@@ -155,7 +142,7 @@ export function processBiometricPunch(payload: {
   deviceApiKey?: string;
   employeeCode: string;
   punchTime?: string;
-  verificationMode?: 'FINGERPRINT' | 'FACE' | 'RFID_CARD' | 'PASSWORD';
+  verificationMode?: 'FACE' | 'RFID_CARD' | 'PASSWORD';
 }): {
   success: boolean;
   message: string;
@@ -197,10 +184,13 @@ export function processBiometricPunch(payload: {
   });
 
   const allRecords = getAllAttendanceRecords();
+  const empTarget = employee?.id ? String(employee.id).trim().toLowerCase() : '';
   const existingIdx = allRecords.findIndex(
     (r) =>
+      Boolean(r) &&
       r.date === todayStr &&
-      (r.employeeId === employee.id || r.employeeId.toLowerCase() === employee.id.toLowerCase())
+      (r.employeeId === employee.id ||
+        (r.employeeId && empTarget && String(r.employeeId).trim().toLowerCase() === empTarget))
   );
 
   const biometricDeviceDesc: DevicePunchInfo = {
@@ -272,7 +262,7 @@ export function processBiometricPunch(payload: {
       createdAt: now.toISOString(),
       isGeofenceVerified: true,
       checkInDevice: biometricDeviceDesc,
-      remarks: `🛡️ Verified Biometric Check-In via ${device?.deviceName || 'Hardware Device'} [${payload.verificationMode || 'Fingerprint'}]`,
+      remarks: `🛡️ Verified Biometric Check-In via ${device?.deviceName || 'Hardware Device'} [${payload.verificationMode || 'FACE'}]`,
     };
     allRecords.unshift(updatedRecord);
   }
@@ -355,7 +345,7 @@ async function startAgent() {
           deviceId: DEVICE_ID,
           employeeCode: String(data.userId),
           punchTime: data.attTime || new Date().toISOString(),
-          verificationMode: data.verifyType === 1 ? 'FINGERPRINT' : 'FACE'
+          verificationMode: 'FACE'
         }, {
           headers: { 'Content-Type': 'application/json', 'x-device-key': API_KEY }
         });
@@ -418,7 +408,7 @@ def sync_punches():
                 "deviceId": DEVICE_ID,
                 "employeeCode": str(att.user_id),
                 "punchTime": att.timestamp.isoformat(),
-                "verificationMode": "FINGERPRINT" if att.punch == 0 else "FACE"
+                "verificationMode": "FACE"
             }
             res = requests.post(CLOUD_URL, json=payload, headers={"x-device-key": API_KEY})
             print(f"[Synced] Code {att.user_id}: {res.status_code}")

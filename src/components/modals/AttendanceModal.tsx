@@ -11,37 +11,28 @@ import {
   MapPin,
   AlertTriangle,
   RefreshCw,
-  Sliders,
-  LocateFixed,
-  ShieldCheck,
-  ShieldAlert,
   Camera,
   RotateCcw,
   Sparkles,
   Check,
+  Lock,
+  Home,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { useWorkSession } from '../../context/WorkSessionContext';
 import { api } from '../../lib/api';
 import {
-  checkEmployeePunchEligibility,
+  performCheckIn,
+  performCheckOut,
   performTakeBreak,
   performResumeWork,
-  formatSecondsToHMS,
-  formatSecondsToWords,
-  getLiveActiveSeconds,
-  getLiveBreakSeconds,
+  updateLocalRecordFromBackend,
 } from '../../lib/attendanceService';
-import {
-  verifyCurrentGeofence,
-  getOfficeGeofenceConfig,
-  saveOfficeGeofenceConfig,
-  getCurrentGPSLocation,
-  GeofenceVerificationResult,
-  OfficeGeofenceConfig,
-  isEmployeeWFHEnabled,
-} from '../../lib/geoService';
+import { getCurrentGPSLocation, isEmployeeWFHEnabled, saveOfficeGeofenceConfig, verifyCurrentGeofence } from '../../lib/geoService';
 import { detectUserDevice, formatDeviceSummary } from '../../lib/deviceDetector';
 import { ModernDigitClock } from '../common/ModernDigitClock';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import {
   verifyShiftTimeWindow,
   ShiftVerificationResult,
@@ -54,10 +45,23 @@ interface AttendanceModalProps {
 }
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClose, onRefresh }) => {
-  const { user, role, portalMode } = useAuth();
+  const { user, role, portalMode, updateUserProfile } = useAuth();
+  const { showToast } = useSocket();
+  const notifyPunchError = (title: string, message: string) => {
+    showToast({ type: 'error', title, message });
+  };
+  const {
+    punchBlockMessage,
+    status: sessionStatus,
+    liveWorkedHMS: sessionWorked,
+    liveBreakWords: sessionBreak,
+    totalWorkedHMS,
+    punches: sessionPunches,
+  } = useWorkSession();
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
+  const needsFace = rawRole === 'EMPLOYEE' || rawRole === 'HR' || rawRole === 'MANAGER';
   const isAdminUser =
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
@@ -65,20 +69,26 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     portalMode === 'admin';
 
   const [time, setTime] = useState<Date | null>(null);
-  const [punchState, setPunchState] = useState(() => checkEmployeePunchEligibility(currentEmpId));
+  const [punchState, setPunchState] = useState<{
+    canCheckIn: boolean;
+    status: 'not_started' | 'working' | 'on_break' | 'completed';
+    message: string;
+    record: any | null;
+  }>({ canCheckIn: true, status: 'not_started', message: '', record: null });
   const [liveWorkedHMS, setLiveWorkedHMS] = useState('00:00:00');
   const [liveBreakWords, setLiveBreakWords] = useState('0s');
+  const pushClockLive = (payload: any) => {
+    if (payload?.logic) {
+      window.dispatchEvent(new CustomEvent('hrms_attendance_live', { detail: payload }));
+      return;
+    }
+    window.dispatchEvent(new Event('hrms_work_status_updated'));
+  };
+
   const [remarks, setRemarks] = useState('Morning shift clock-in');
-  const [lateReason, setLateReason] = useState('');
-  const [lateReasonError, setLateReasonError] = useState('');
+  const [punchNotice, setPunchNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Geofence states
-  const [geoChecking, setGeoChecking] = useState(true);
-  const [geoResult, setGeoResult] = useState<GeofenceVerificationResult | null>(null);
-  const [showConfig, setShowConfig] = useState(false);
-  const [geofenceConfig, setGeofenceConfig] = useState<OfficeGeofenceConfig>(() => getOfficeGeofenceConfig());
-  const [configSuccessMsg, setConfigSuccessMsg] = useState('');
   const [isWFH, setIsWFH] = useState(() => isEmployeeWFHEnabled(currentEmpId));
 
   useEffect(() => {
@@ -101,7 +111,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [shiftStatus, setShiftStatus] = useState<ShiftVerificationResult>(() =>
     verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId)
   );
-  const isLateArrival = Boolean(shiftStatus.enforceActive && shiftStatus.isLate && punchState.status === 'not_started');
 
   useEffect(() => {
     const handleScheduleUpdate = (e?: any) => {
@@ -126,28 +135,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [faceState, setFaceState] = useState<'none' | 'checking' | 'match' | 'mismatch'>('none');
+  const [faceError, setFaceError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Check geofence
-  const runGeofenceCheck = useCallback(async () => {
-    setGeoChecking(true);
-    try {
-      const res = await verifyCurrentGeofence();
-      setGeoResult(res);
-      setGeofenceConfig(res.config);
-    } catch (err: any) {
-      setGeoResult({
-        isAllowed: false,
-        distanceMeters: null,
-        userCoords: null,
-        config: getOfficeGeofenceConfig(),
-        errorMessage: err.message || 'Location error occurred.',
-      });
-    } finally {
-      setGeoChecking(false);
-    }
-  }, []);
+  const captureRef = useRef<() => void>(() => {});
+  const blinkReadyRef = useRef(false);
+  const captureLock = useRef(false);
+  const profileFaceRef = useRef<number[] | null>(null);
+  const matchedFaceRef = useRef<number[] | null>(null);
+  const punchRef = useRef<(photo: string, face: number[]) => void>(() => {});
+  const pendingCameraRef = useRef<Promise<MediaStream> | null>(null);
 
   // Stop camera helper
   const stopCameraStream = useCallback(() => {
@@ -191,27 +189,60 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
   }, [cameraStream, selfieMode]);
 
+  const requestCameraNow = () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.isSecureContext) return;
+    pendingCameraRef.current = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+  };
+
   // Start front camera
   const startCamera = async () => {
     setCameraStarting(true);
     setCameraError(null);
     setCameraReady(false);
     try {
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Camera is not supported on this browser or device.');
+      if (!window.isSecureContext || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        const message = 'Camera needs a secure page. The site still opens on the phone, but the camera stays off on this address.';
+        setCameraError(message);
+        notifyPunchError('Camera blocked', message);
+        return;
       }
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'user' },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-        },
-        audio: false,
-      });
+      const pending = pendingCameraRef.current;
+      pendingCameraRef.current = null;
+      let stream: MediaStream | null = null;
+      if (pending) {
+        try {
+          stream = await pending;
+        } catch (error) {
+          const name = error instanceof Error ? error.name : '';
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') throw error;
+        }
+      }
+      if (!stream) {
+        const attempts: MediaStreamConstraints[] = [
+          { video: { facingMode: 'user' }, audio: false },
+          { video: true, audio: false },
+        ];
+        let lastError: unknown;
+        for (const constraints of attempts) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            break;
+          } catch (error) {
+            lastError = error;
+            const name = error instanceof Error ? error.name : '';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') throw error;
+          }
+        }
+        if (!stream) throw lastError instanceof Error ? lastError : new Error('Failed to start camera.');
+      }
       setCameraStream(stream);
+      setCameraReady(true);
       if (videoRef.current) {
         const vid = videoRef.current;
         vid.muted = true;
@@ -222,12 +253,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         }).catch((err) => console.warn('Video play err:', err));
       }
     } catch (err: any) {
-      console.error('Camera access error:', err);
-      setCameraError(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'Camera permission was denied. Please allow camera access in your browser or upload a photo below.'
-          : err.message || 'Failed to start camera.'
-      );
+      const message = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+        ? 'Allow camera when the phone asks. If it was blocked, open the browser lock icon and set Camera to Allow.'
+        : err.message || 'Failed to start camera.';
+      setCameraError(message);
+      notifyPunchError('Camera failed', message);
     } finally {
       setCameraStarting(false);
     }
@@ -242,42 +272,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     onClose();
   };
 
-  // Set current device position as Office Location (Admin only)
-  const handleSetCurrentAsOffice = async () => {
-    try {
-      setGeoChecking(true);
-      const coords = await getCurrentGPSLocation();
-      const updatedConfig: OfficeGeofenceConfig = {
-        ...geofenceConfig,
-        latitude: Number(coords.latitude.toFixed(6)),
-        longitude: Number(coords.longitude.toFixed(6)),
-      };
-      saveOfficeGeofenceConfig(updatedConfig);
-      setGeofenceConfig(updatedConfig);
-      setConfigSuccessMsg('Office coordinates updated to your current location!');
-      setTimeout(() => setConfigSuccessMsg(''), 4000);
-      await runGeofenceCheck();
-    } catch (err: any) {
-      alert(err.message || 'Failed to get current GPS location.');
-    } finally {
-      setGeoChecking(false);
-    }
-  };
-
-  const handleUpdateRadius = (radius: number) => {
-    const updated: OfficeGeofenceConfig = { ...geofenceConfig, radiusMeters: radius };
-    saveOfficeGeofenceConfig(updated);
-    setGeofenceConfig(updated);
-    runGeofenceCheck();
-  };
-
-  const handleToggleGeofence = (enabled: boolean) => {
-    const updated: OfficeGeofenceConfig = { ...geofenceConfig, enabled };
-    saveOfficeGeofenceConfig(updated);
-    setGeofenceConfig(updated);
-    runGeofenceCheck();
-  };
-
   // Live ticking clock and punch state
   useEffect(() => {
     if (!isOpen) {
@@ -285,23 +279,18 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       return;
     }
 
-    runGeofenceCheck();
+    const tick = () => setTime(new Date());
 
-    const tick = () => {
-      setTime(new Date());
-      const eligibility = checkEmployeePunchEligibility(currentEmpId);
-      setPunchState(eligibility);
-
-      if (eligibility.record) {
-        const active = getLiveActiveSeconds(eligibility.record);
-        const brk = getLiveBreakSeconds(eligibility.record);
-        setLiveWorkedHMS(formatSecondsToHMS(active));
-        setLiveBreakWords(formatSecondsToWords(brk));
-      } else {
-        setLiveWorkedHMS('00:00:00');
-        setLiveBreakWords('0s');
-      }
-    };
+    api.getGeofence().then((fence) => {
+      if (!fence?.latitude || !fence?.longitude) return;
+      saveOfficeGeofenceConfig({
+        officeName: fence.officeName || 'Office',
+        latitude: Number(fence.latitude),
+        longitude: Number(fence.longitude),
+        radiusMeters: Number(fence.radiusMeters) || 500,
+        enabled: fence.enabled !== false,
+      });
+    }).catch(() => {});
 
     tick();
     const interval = setInterval(tick, 1000);
@@ -309,7 +298,39 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       clearInterval(interval);
       stopCameraStream();
     };
-  }, [isOpen, currentEmpId, runGeofenceCheck, stopCameraStream]);
+  }, [isOpen, stopCameraStream]);
+
+  useEffect(() => {
+    const rows = (sessionPunches || []).map((punch: any) => {
+      const rawType = String(punch?.type || '').toUpperCase();
+      const type = rawType === 'CLOCK-IN' || rawType === 'CHECK-IN' ? 'IN' : rawType === 'CLOCK-OUT' || rawType === 'CHECK-OUT' ? 'OUT' : rawType;
+      const at = punch?.punchedAt || punch?.time;
+      const parsed = at ? new Date(at) : null;
+      return {
+        type,
+        time: parsed && !Number.isNaN(parsed.getTime())
+          ? parsed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+          : String(punch?.time || '—'),
+        remarks: punch?.note || punch?.remarks || '',
+      };
+    });
+    const firstIn = rows.find((punch) => punch.type === 'IN');
+    const lastOut = [...rows].reverse().find((punch) => punch.type === 'OUT');
+    setPunchState({
+      canCheckIn: sessionStatus === 'not_started',
+      status: sessionStatus,
+      message: '',
+      record: rows.length
+        ? ({
+            checkIn: firstIn?.time,
+            checkOut: lastOut?.time,
+            punches: rows,
+          } as any)
+        : null,
+    });
+    setLiveWorkedHMS(sessionStatus === 'completed' ? totalWorkedHMS : sessionWorked);
+    setLiveBreakWords(sessionBreak);
+  }, [sessionStatus, sessionWorked, sessionBreak, totalWorkedHMS, sessionPunches]);
 
   // When selfieMode opens, start camera automatically
   useEffect(() => {
@@ -323,51 +344,211 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     };
   }, [selfieMode, capturedPhoto]);
 
+  useEffect(() => {
+    if (selfieMode === 'idle') {
+      captureLock.current = false;
+      matchedFaceRef.current = null;
+      profileFaceRef.current = null;
+      blinkReadyRef.current = false;
+      setFaceState('none');
+      setFaceError(null);
+      return;
+    }
+    if (!capturedPhoto) {
+      captureLock.current = false;
+      matchedFaceRef.current = null;
+      setFaceState('none');
+    }
+  }, [selfieMode, capturedPhoto]);
+
+  useEffect(() => {
+    if (!cameraReady || selfieMode === 'idle' || capturedPhoto || !user.avatarUrl) return;
+    let stopped = false;
+    setFaceState('checking');
+    let busy = false;
+    const timer = window.setInterval(async () => {
+      const video = videoRef.current;
+      if (!video || stopped || captureLock.current || busy) return;
+      busy = true;
+      try {
+        const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
+        const result = await matchLiveFace(video);
+        if (stopped || captureLock.current) return;
+        if (!result.descriptor) {
+          setFaceState('none');
+          return;
+        }
+        if (!result.aligned) {
+          setFaceState('none');
+          setFaceError(null);
+          return;
+        }
+        try {
+          if (!profileFaceRef.current && user.avatarUrl) {
+            profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+          }
+          if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
+            setFaceState('mismatch');
+            setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+            return;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Face check failed.';
+          if (/does not match|profile photo/i.test(message)) {
+            setFaceState('mismatch');
+            setFaceError('This face does not match your profile photo. Clock in and clock out are blocked.');
+          } else {
+            setFaceState('none');
+            setFaceError(message);
+          }
+          return;
+        }
+        if (stopped || captureLock.current) return;
+        blinkReadyRef.current = true;
+        stopped = true;
+        window.clearInterval(timer);
+        setFaceState('match');
+        setFaceError(null);
+        matchedFaceRef.current = result.descriptor;
+        captureRef.current();
+      } catch (error) {
+        if (!stopped) {
+          setFaceState('none');
+          setFaceError(error instanceof Error ? error.message : 'Face check failed.');
+        }
+      } finally {
+        busy = false;
+      }
+    }, 700);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [cameraReady, selfieMode, capturedPhoto, user.avatarUrl]);
+
+  useModalOverlay({ isOpen, onClose: handleModalClose });
+
   if (!isOpen) return null;
 
-  const isGeofencePass = isWFH ? true : (geoResult?.isAllowed ?? false);
-
-  // Step 1: Open selfie camera for Check In (Strictly validated by Admin Shift Time & Buffer)
-  const handleInitiateCheckIn = () => {
+  // Step 1: Direct Check In (Selfie/Photo feature temporarily disabled per user request)
+  const handleInitiateCheckIn = async () => {
+    requestCameraNow();
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (punchBlockMessage) {
+      notifyPunchError('Clock in blocked', punchBlockMessage);
+      return;
+    }
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
-      alert(currentShift.reason || `Check-in is locked before ${currentShift.allowedStart}.`);
+      notifyPunchError('Clock in blocked', currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
       return;
     }
 
-    // 2. Enforce Compulsory Late Reason if arriving late
-    if (isLateArrival && !lateReason.trim()) {
-      setLateReasonError('Late reason is compulsory! Please enter why you arrived late.');
+    if (needsFace) {
+      if (!user.avatarUrl) {
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        notifyPunchError('Clock in blocked', message);
+        return;
+      }
+      if (locationRequest) {
+        try {
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock in blocked', message);
+            return;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
+      setPunchNotice(null);
+      setCapturedPhoto(null);
+      setSelfieMode('check_in');
       return;
     }
-    setLateReasonError('');
 
-    // 3. Enforce Geofence Verification
-    if (!isWFH && geofenceConfig.enabled && !isGeofencePass) {
-      alert(
-        geoResult?.errorMessage ||
-          'Check-in denied: You are outside the designated office geofence. Please enter the office premises to punch attendance.'
-      );
-      return;
+    setLoading(true);
+    try {
+      const fullRemarks = remarks || 'Morning shift clock-in';
+      const res = await api.startWork({ workMode: 'Office', note: fullRemarks });
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckIn({
+          id: currentEmpId,
+          firstName: user.firstName || 'Employee',
+          lastName: user.lastName || '',
+          employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
+          companyId: userCompanyId,
+          remarks: fullRemarks,
+        });
+      }
+      pushClockLive(res);
+      onRefresh();
+      handleModalClose();
+    } catch (err: any) {
+      notifyPunchError('Clock in failed', err.message || 'Clock-in failed');
+    } finally {
+      setLoading(false);
     }
-    setCapturedPhoto(null);
-    setCameraError(null);
-    setSelfieMode('check_in');
   };
 
-  // Step 1: Open selfie camera for Check Out
-  const handleInitiateCheckOut = () => {
-    if (!isWFH && geofenceConfig.enabled && !isGeofencePass) {
-      alert(
-        geoResult?.errorMessage ||
-          'Check-out denied: You are outside the designated office geofence. Please move inside the office perimeter to check out.'
-      );
+  // Step 1: Direct Clock Out (Selfie/Photo feature temporarily disabled per user request)
+  const handleInitiateCheckOut = async () => {
+    requestCameraNow();
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (punchState.status === 'on_break') {
+      notifyPunchError('Clock out blocked', 'Cannot clock out while on break. Please click Resume Work first.');
       return;
     }
-    setCapturedPhoto(null);
-    setCameraError(null);
-    setSelfieMode('check_out');
+    if (needsFace) {
+      if (!user.avatarUrl) {
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        notifyPunchError('Clock out blocked', message);
+        return;
+      }
+      if (locationRequest) {
+        try {
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock out blocked', message);
+            return;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
+      setPunchNotice(null);
+      setCapturedPhoto(null);
+      setSelfieMode('check_out');
+      return;
+    }
+    setLoading(true);
+    try {
+      const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
+      const res = await api.stopWork({ workMode: 'Office', note: fullRemarks });
+      if (res && res.record) {
+        updateLocalRecordFromBackend(res.record);
+      } else {
+        performCheckOut(currentEmpId, {
+          remarks: fullRemarks,
+        });
+      }
+      pushClockLive(res);
+      onRefresh();
+      handleModalClose();
+    } catch (err: any) {
+      notifyPunchError('Clock out failed', err.message || 'Clock-out failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Standard Geotag & Timestamp watermark banner drawer
@@ -377,7 +558,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
 
     // Accent emerald / purple line
-    ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
+    ctx.fillStyle = isWFH ? '#adb5bd' : '#adb5bd';
     ctx.fillRect(0, height - bannerHeight, width, 4);
 
     // Texts
@@ -386,164 +567,119 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       timeStyle: 'medium',
     });
     const officeName = isWFH
-      ? '🏡 Work From Home (Remote Punch)'
-      : geofenceConfig.officeName || 'Paneliya Technology HQ';
-    const coordsStr = isWFH
-      ? geoResult?.userCoords
-        ? `GPS Lat: ${geoResult.userCoords.latitude.toFixed(5)}  Lng: ${geoResult.userCoords.longitude.toFixed(5)} • Geofence Bypassed (WFH Approved)`
-        : 'Work From Home • Geofencing Waived by Admin'
-      : geoResult?.userCoords
-      ? `GPS Lat: ${geoResult.userCoords.latitude.toFixed(5)}  Lng: ${geoResult.userCoords.longitude.toFixed(5)}  (±${geoResult.userCoords.accuracy}m)`
-      : `Geofence Verified • ${officeName}`;
+      ? 'Work From Home (Remote Punch)'
+      : 'Paneliya Technology Office';
+    const coordsStr = `Identity & Presence Verified • ${officeName}`;
 
     const devInfo = detectUserDevice();
     const devStr = `Device: ${devInfo.deviceModel} • ${devInfo.browser} [${devInfo.deviceType}]`;
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(`📍 ${officeName}`, 14, height - 78);
+    ctx.fillText(officeName, 14, height - 78);
 
-    ctx.fillStyle = isWFH ? '#c084fc' : '#6ee7b7';
+    ctx.fillStyle = isWFH ? '#dee2e6' : '#dee2e6';
     ctx.font = '11px monospace';
     ctx.fillText(coordsStr, 14, height - 58);
 
-    ctx.fillStyle = '#fde047';
+    ctx.fillStyle = '#f8f9fa';
     ctx.font = 'bold 11px monospace';
-    ctx.fillText(`💻 ${devStr}`, 14, height - 38);
+    ctx.fillText(devStr, 14, height - 38);
 
-    ctx.fillStyle = '#cbd5e1';
+    ctx.fillStyle = '#dee2e6';
     ctx.font = '10px sans-serif';
-    ctx.fillText(`🕒 ${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
+    ctx.fillText(`${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
   };
 
-  // Capture video frame to canvas with burned-in geotag, black-frame prevention, & timestamp watermark
-  const handleCaptureSelfie = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
-
+  const drawMatchedSelfie = (video: HTMLVideoElement) => {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh || video.readyState < 2) return null;
     const canvas = document.createElement('canvas');
     canvas.width = vw;
     canvas.height = vh;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Fill dark background to prevent transparent JPEG conversion artifacts
-    ctx.fillStyle = '#0f172a';
+    if (!ctx) return null;
+    ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let hasDrawnVideo = false;
-    try {
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        ctx.save();
-        // Mirror selfie horizontally
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
-        hasDrawnVideo = true;
-      }
-    } catch (e) {
-      console.warn('Could not render video frame onto canvas:', e);
-    }
-
-    const bannerHeight = 105;
-    let isPitchBlack = true;
-
-    if (hasDrawnVideo) {
-      try {
-        const checkW = Math.min(canvas.width, 160);
-        const checkH = Math.min(canvas.height - bannerHeight, 160);
-        const imgData = ctx.getImageData(10, 10, checkW, checkH);
-        let sampleSum = 0;
-        let samples = 0;
-        for (let i = 0; i < imgData.data.length; i += 24) {
-          sampleSum += imgData.data[i] + imgData.data[i + 1] + imgData.data[i + 2];
-          samples++;
-        }
-        const avg = samples > 0 ? sampleSum / (samples * 3) : 0;
-        if (avg >= 8) {
-          isPitchBlack = false;
-        }
-      } catch (e) {
-        // Fallback if canvas is tainted
-        isPitchBlack = false;
-      }
-    }
-
-    // If camera feed was completely black (webcam shutter closed or uninitialized frame):
-    // Render a high-aesthetic Biometric Verified Employee ID Card portrait!
-    if (isPitchBlack) {
-      const photoAreaHeight = canvas.height - bannerHeight;
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-      grad.addColorStop(0, '#1e1b4b');
-      grad.addColorStop(0.6, '#0f172a');
-      grad.addColorStop(1, '#1e293b');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
-
-      // Decorative ambient glow
-      ctx.beginPath();
-      ctx.arc(canvas.width * 0.8, photoAreaHeight * 0.3, 140, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(99, 102, 241, 0.12)';
-      ctx.fill();
-
-      // Avatar circle
-      const avatarX = canvas.width / 2;
-      const avatarY = photoAreaHeight / 2 - 24;
-      const avatarRadius = Math.min(canvas.width, canvas.height) * 0.16;
-
-      ctx.beginPath();
-      ctx.arc(avatarX, avatarY, avatarRadius + 4, 0, Math.PI * 2);
-      ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
-      ctx.fillStyle = '#312e81';
-      ctx.fill();
-
-      // Employee initials
-      const fInitial = (user.firstName || 'E')[0].toUpperCase();
-      const lInitial = (user.lastName || '')[0]?.toUpperCase() || '';
-      const initials = `${fInitial}${lInitial}`;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.round(avatarRadius * 0.9)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(initials, avatarX, avatarY + 2);
-
-      // Employee name
-      const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(empName, avatarX, avatarY + avatarRadius + 32);
-
-      // Employee Code & Role
-      const empCode = (user as any).employeeCode || user.employeeId || currentEmpId;
-      ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = isWFH ? '#d8b4fe' : '#6ee7b7';
-      ctx.fillText(`EMP ID: ${empCode} • ${rawRole}`, avatarX, avatarY + avatarRadius + 54);
-
-      // Status caption
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('🛡️ HRMS DIGITAL IDENTITY VERIFIED', avatarX, avatarY + avatarRadius + 75);
-
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-    }
-
-    // Burn-in bottom watermark banner
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
     drawWatermarkBanner(ctx, canvas.width, canvas.height);
-
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.9);
-    setCapturedPhoto(photoBase64);
-    stopCameraStream();
+    return canvas.toDataURL('image/jpeg', 0.9);
   };
+
+  const handleMatchAndPunch = async () => {
+    if (captureLock.current || !videoRef.current) return;
+    if (needsFace && !user.avatarUrl) {
+      const message = 'Upload your profile photo first. It must clearly show your face.';
+      setFaceError(message);
+      notifyPunchError('Face check failed', message);
+      return;
+    }
+    captureLock.current = true;
+    try {
+      const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
+      if (!user.avatarUrl) {
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        setFaceError(message);
+        notifyPunchError('Face check failed', message);
+        captureLock.current = false;
+        return;
+      }
+      const result = await matchLiveFace(videoRef.current);
+      if (!result.aligned || !result.descriptor) {
+        setFaceState('none');
+        const message = 'Keep your face inside the circle.';
+        setFaceError(message);
+        notifyPunchError('Face check failed', message);
+        captureLock.current = false;
+        return;
+      }
+      if (!profileFaceRef.current) profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+      if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
+        setFaceState('mismatch');
+        const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
+        setFaceError(message);
+        notifyPunchError('Face does not match', message);
+        captureLock.current = false;
+        return;
+      }
+      try {
+        await api.verifyFace(result.descriptor);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'This face does not match your profile photo.';
+        setFaceState(/does not match|profile photo/i.test(message) ? 'mismatch' : 'none');
+        setFaceError(message);
+        notifyPunchError('Face check failed', message);
+        captureLock.current = false;
+        return;
+      }
+      const photo = drawMatchedSelfie(videoRef.current);
+      if (!photo) {
+        const message = 'Camera frame was not ready. Look at the camera and try again.';
+        setFaceError(message);
+        notifyPunchError('Camera failed', message);
+        captureLock.current = false;
+        return;
+      }
+      matchedFaceRef.current = result.descriptor;
+      setFaceState('match');
+      setFaceError(null);
+      setCapturedPhoto(photo);
+      stopCameraStream();
+      punchRef.current(photo, result.descriptor);
+    } catch (error) {
+      captureLock.current = false;
+      setFaceState('none');
+      const message = error instanceof Error ? error.message : 'Face check failed.';
+      setFaceError(message);
+      notifyPunchError('Face check failed', message);
+    }
+  };
+  captureRef.current = () => { void handleMatchAndPunch(); };
 
   // Retake selfie
   const handleRetakeSelfie = () => {
@@ -552,98 +688,184 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   };
 
   // Final Step: Confirm Punch with verified Selfie and GPS coordinates
-  const handleConfirmPunch = async () => {
-    if (!capturedPhoto) {
-      alert('Selfie photo is required before punching attendance.');
+  const handleConfirmPunch = async (photoArg?: string, faceArg?: number[]) => {
+    const photo = typeof photoArg === 'string' ? photoArg : capturedPhoto;
+    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (!photo) {
+      const message = 'Selfie photo is required before punching attendance.';
+      setFaceError(message);
+      notifyPunchError('Punch blocked', message);
       return;
     }
 
     setLoading(true);
     try {
+      if (!user.avatarUrl) {
+        const message = 'Upload your profile photo first. It must clearly show your face.';
+        setFaceError(message);
+        notifyPunchError('Punch blocked', message);
+        captureLock.current = false;
+        return;
+      }
+      const punchFace = faceArg || matchedFaceRef.current || undefined;
+      if (!punchFace) {
+        setFaceState('mismatch');
+        const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
+        setFaceError(message);
+        notifyPunchError('Face does not match', message);
+        captureLock.current = false;
+        return;
+      }
       const detectedDevice = detectUserDevice();
+      let punchLatitude: number | undefined;
+      let punchLongitude: number | undefined;
+      let punchAccuracy: number | undefined;
+      if (rawRole === 'EMPLOYEE') {
+        if (locationRequest) {
+          try {
+            const coords = (await locationRequest) || undefined;
+            const geo = await verifyCurrentGeofence(coords);
+            if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+              const message = geo.errorMessage || 'You are outside the office area.';
+              setPunchNotice(message);
+              notifyPunchError('Punch blocked', message);
+              setCapturedPhoto(null);
+              captureLock.current = false;
+              setSelfieMode('idle');
+              return;
+            }
+            if (geo.userCoords) {
+              punchLatitude = geo.userCoords.latitude;
+              punchLongitude = geo.userCoords.longitude;
+              punchAccuracy = geo.userCoords.accuracy;
+            }
+          } catch {
+            // Browser did not share a location. Punch still continues.
+          }
+        }
+      }
       const geoData = {
-        latitude: geoResult?.userCoords?.latitude ?? geofenceConfig.latitude,
-        longitude: geoResult?.userCoords?.longitude ?? geofenceConfig.longitude,
-        accuracy: geoResult?.userCoords?.accuracy ?? 10,
-        distanceMeters: isWFH ? 0 : (geoResult?.distanceMeters ?? 0),
-        locationAddress: isWFH ? 'Work From Home' : geofenceConfig.officeName,
-        isGeofenceVerified: isWFH ? true : isGeofencePass,
+        locationAddress: isWFH ? 'Work From Home' : 'Office',
+        isGeofenceVerified: !isWFH,
         isWFH: isWFH,
-        photo: capturedPhoto,
+        photo,
         device: detectedDevice,
       };
 
       if (selfieMode === 'check_in') {
-        const fullRemarks = isLateArrival
-          ? `[Late Reason: ${lateReason.trim()}]${remarks && remarks !== 'Morning shift clock-in' ? ` • Note: ${remarks.trim()}` : ''}`
-          : (remarks || 'Morning shift clock-in');
+        if (punchBlockMessage) {
+          notifyPunchError('Clock in blocked', punchBlockMessage);
+          captureLock.current = false;
+          setLoading(false);
+          return;
+        }
+        const fullRemarks = remarks || 'Morning shift clock-in';
 
-        const res = await api.checkIn(
-          currentEmpId,
-          fullRemarks,
-          {
-            firstName: user.firstName || 'Employee',
-            lastName: user.lastName || '',
-            employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
-            email: user.email,
-            companyId: userCompanyId,
-            lateReason: isLateArrival ? lateReason.trim() : undefined,
-          },
-          geoData
-        );
+        const res = await api.checkIn({
+          workMode: isWFH ? 'Work From Home' : 'Office',
+          note: fullRemarks,
+          latitude: punchLatitude,
+          longitude: punchLongitude,
+          accuracy: punchAccuracy,
+          faceDescriptor: punchFace,
+          photo,
+        });
 
-        if (!res.success) {
-          alert(res.message);
+        if (res && res.success === false) {
+          captureLock.current = false;
+          const message = res.message || 'Clock in was blocked.';
+          setFaceError(message);
+          notifyPunchError('Clock in failed', message);
         } else {
-          const eligibility = checkEmployeePunchEligibility(currentEmpId);
-          setPunchState(eligibility);
+          if (res.record) {
+            updateLocalRecordFromBackend(res.record);
+          } else {
+            performCheckIn(
+              {
+                id: currentEmpId,
+                firstName: user.firstName || 'Employee',
+                lastName: user.lastName || '',
+                employeeCode: (user as any).employeeCode || user.employeeId || currentEmpId,
+                companyId: userCompanyId,
+                remarks: fullRemarks,
+              },
+              geoData
+            );
+          }
+          pushClockLive(res);
           onRefresh();
           setSelfieMode('idle');
           setCapturedPhoto(null);
         }
       } else if (selfieMode === 'check_out') {
         const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
-        await api.checkOut(
-          currentEmpId,
-          fullRemarks,
-          {
-            email: user.email,
-            employeeCode: (user as any).employeeCode,
-          },
-          geoData
-        );
+        const res = await api.checkOut({
+          workMode: isWFH ? 'Work From Home' : 'Office',
+          note: fullRemarks,
+          latitude: punchLatitude,
+          longitude: punchLongitude,
+          accuracy: punchAccuracy,
+          faceDescriptor: punchFace,
+          photo,
+        });
 
-        const eligibility = checkEmployeePunchEligibility(currentEmpId);
-        setPunchState(eligibility);
-        onRefresh();
-        setSelfieMode('idle');
-        setCapturedPhoto(null);
+        if (res && res.success === false) {
+          captureLock.current = false;
+          const message = res.message || 'Clock out was blocked.';
+          setFaceError(message);
+          notifyPunchError('Clock out failed', message);
+        } else {
+          if (res.record) {
+            updateLocalRecordFromBackend(res.record);
+          } else {
+            performCheckOut(currentEmpId, {
+              photo,
+              device: detectedDevice,
+              remarks: fullRemarks,
+            });
+          }
+          pushClockLive(res);
+          onRefresh();
+          setSelfieMode('idle');
+          setCapturedPhoto(null);
+        }
       }
     } catch (err: any) {
-      alert(err.message || 'Punch submission failed');
+      captureLock.current = false;
+      const message = err?.message || 'Punch submission failed';
+      setFaceError(message);
+      notifyPunchError(selfieMode === 'check_out' ? 'Clock out failed' : 'Clock in failed', message);
+      if (/does not match|profile photo/i.test(message)) setFaceState('mismatch');
     } finally {
       setLoading(false);
       stopCameraStream();
     }
   };
+  punchRef.current = (photo, face) => { void handleConfirmPunch(photo, face); };
 
-  const handleTakeBreak = () => {
+  const handleTakeBreak = async () => {
     setLoading(true);
     try {
+      await api.startBreak({});
       const res = performTakeBreak(currentEmpId);
-      if (!res.success) alert(res.message);
+      if (!res.success) notifyPunchError('Break failed', res.message || 'Break could not be started.');
       onRefresh();
+    } catch (err: any) {
+      notifyPunchError('Break failed', err.message || 'Failed to start break.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResumeWork = () => {
+  const handleResumeWork = async () => {
     setLoading(true);
     try {
+      await api.resumeBreak({});
       const res = performResumeWork(currentEmpId);
-      if (!res.success) alert(res.message);
+      if (!res.success) notifyPunchError('Resume failed', res.message || 'Work could not be resumed.');
       onRefresh();
+    } catch (err: any) {
+      notifyPunchError('Resume failed', err.message || 'Failed to resume work.');
     } finally {
       setLoading(false);
     }
@@ -654,12 +876,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onClick={(e) => {
         if (e.target === e.currentTarget) handleModalClose();
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-modal-backdrop cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
     >
-      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-modal-zoom">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 my-auto"
+      >
         <button
           onClick={handleModalClose}
-          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-none hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -668,11 +893,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         {selfieMode !== 'idle' ? (
           <div className="space-y-4 pt-1 animate-in fade-in">
             <div className="text-center pb-1">
-              <div className="w-11 h-11 rounded-none bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
                 <Camera className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                {selfieMode === 'check_in' ? 'Check-In Verification Selfie' : 'Check-Out Verification Selfie'}
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                {selfieMode === 'check_in' ? 'Clock-In Verification Selfie' : 'Clock-Out Verification Selfie'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Take a selfie to prove your presence at office premises
@@ -680,7 +905,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             </div>
 
             {/* Camera Viewport or Captured Preview */}
-            <div className="relative w-full aspect-4/3 rounded-none overflow-hidden bg-slate-900 border-2 border-slate-800 shadow-inner flex items-center justify-center">
+            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex items-center justify-center">
               {capturedPhoto ? (
                 <div className="relative w-full h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -689,7 +914,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     alt="Attendance Verification Selfie"
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none bg-emerald-500 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-md">
+                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-md">
                     <Check className="w-3 h-3 stroke-[3]" />
                     <span>PHOTO VERIFIED</span>
                   </div>
@@ -701,9 +926,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     autoPlay
                     playsInline
                     muted
+                    {...{ 'webkit-playsinline': 'true' }}
                     onLoadedMetadata={() => {
                       if (videoRef.current) {
-                        videoRef.current.play().catch(() => {});
+                        videoRef.current.play().catch(() => { });
                       }
                     }}
                     onCanPlay={() => setCameraReady(true)}
@@ -713,7 +939,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Live Status Badge */}
                   {cameraReady && (
-                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-none bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
+                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                       <span>LIVE CAMERA READY</span>
                     </div>
@@ -721,9 +947,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Face outline guide */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed animate-pulse flex items-end justify-center pb-2">
-                      <span className="text-[10px] font-bold text-white/90 bg-black/50 px-2.5 py-0.5 rounded-none">
-                        Align Face Here
+                    <div className={`w-44 h-52 rounded-full border-4 flex items-end justify-center pb-2 transition-colors ${faceState === 'match' ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.85)]' : faceState === 'mismatch' ? 'border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)]' : 'border-white/70 border-dashed animate-pulse'}`}>
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${faceState === 'match' ? 'bg-emerald-500 text-white' : faceState === 'mismatch' ? 'bg-rose-600 text-white' : 'text-white/90 bg-black/50'}`}>
+                        {faceState === 'match' ? 'Face matched' : faceState === 'mismatch' ? 'Face does not match' : faceState === 'checking' ? 'Checking face...' : 'Align Face Here'}
                       </span>
                     </div>
                   </div>
@@ -731,18 +957,21 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Live Watermark Overlay (Visual feedback while taking selfie) */}
                   <div className="absolute bottom-0 inset-x-0 bg-slate-900/85 backdrop-blur-xs p-2.5 border-t border-emerald-500 text-left pointer-events-none">
                     <div className="flex items-center justify-between text-white text-[11px] font-bold">
-                      <span className="truncate">📍 {isWFH ? '🏡 Work From Home' : geofenceConfig.officeName}</span>
-                      <span className="text-emerald-400 font-mono text-[10px]">
-                        {isWFH ? 'WFH Active' : `${geoResult?.distanceMeters ?? 0}m away`}
+                      <span className="truncate inline-flex items-center gap-1">
+                        {isWFH ? <Home className="w-3 h-3 shrink-0" /> : <MapPin className="w-3 h-3 shrink-0" />}
+                        {isWFH ? 'Work From Home' : 'Corporate Office'}
+                      </span>
+                      <span className={`font-mono text-[10px] ${faceState === 'match' ? 'text-emerald-400' : faceState === 'mismatch' ? 'text-rose-400' : 'text-amber-300'}`}>
+                        {faceState === 'match' ? 'Profile matched' : faceState === 'mismatch' ? 'Different face' : 'Match profile to punch'}
                       </span>
                     </div>
-                    <p className="text-[10px] font-mono text-emerald-300 mt-0.5">
-                      GPS: {geoResult?.userCoords ? `${geoResult.userCoords.latitude.toFixed(4)}, ${geoResult.userCoords.longitude.toFixed(4)}` : 'Verified'}
+                    <p className="text-[10px] font-mono text-slate-300 mt-0.5">
+                      Clock in and clock out run only when this face matches your profile photo.
                     </p>
                   </div>
 
                   {/* Camera loading state */}
-                  {(!cameraReady || cameraStarting) && !cameraError && (
+                  {cameraStarting && !cameraReady && !cameraError && (
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-xs gap-2.5 z-10">
                       <RefreshCw className="w-7 h-7 animate-spin text-indigo-400" />
                       <span className="font-bold text-sm">Starting Camera Stream...</span>
@@ -760,33 +989,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={startCamera}
-                          className="px-4 py-2 rounded-none bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
                         >
                           Retry Camera
-                        </button>
-                        <button
-                          onClick={() => {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = 640;
-                            canvas.height = 480;
-                            const ctx = canvas.getContext('2d');
-                            if (ctx) {
-                              const bannerHeight = 105;
-                              const photoAreaHeight = canvas.height - bannerHeight;
-                              const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
-                              grad.addColorStop(0, '#1e1b4b');
-                              grad.addColorStop(0.6, '#0f172a');
-                              grad.addColorStop(1, '#1e293b');
-                              ctx.fillStyle = grad;
-                              ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
-                              drawWatermarkBanner(ctx, canvas.width, canvas.height);
-                              setCapturedPhoto(canvas.toDataURL('image/jpeg', 0.9));
-                              stopCameraStream();
-                            }
-                          }}
-                          className="px-4 py-2 rounded-none bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition cursor-pointer"
-                        >
-                          Use Digital ID Verification
                         </button>
                       </div>
                     </div>
@@ -797,12 +1002,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
             {/* Action Buttons for Live Selfie Only */}
             <div className="space-y-2">
+              {faceError && (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {faceError}
+                </p>
+              )}
               {!capturedPhoto ? (
                 <button
                   type="button"
-                  onClick={handleCaptureSelfie}
-                  disabled={!cameraReady || cameraStarting || Boolean(cameraError)}
-                  className="w-full py-3.5 rounded-none bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => { void handleMatchAndPunch(); }}
+                  disabled={!cameraReady || cameraStarting || Boolean(cameraError) || loading}
+                  className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!cameraReady ? (
                     <>
@@ -812,7 +1022,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Camera className="w-4 h-4" />
-                      <span>Take Live Selfie & Punch Attendance</span>
+                      <span>Match Profile Face &amp; Punch</span>
                     </>
                   )}
                 </button>
@@ -822,16 +1032,16 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={handleRetakeSelfie}
                     disabled={loading}
-                    className="py-2.5 px-3 rounded-none border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Retake Selfie</span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleConfirmPunch}
+                    onClick={() => { void handleConfirmPunch(); }}
                     disabled={loading}
-                    className="py-2.5 px-3 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer disabled:opacity-50"
+                    className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -842,8 +1052,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       {loading
                         ? 'Verifying...'
                         : selfieMode === 'check_in'
-                        ? 'Confirm Check-In'
-                        : 'Confirm Check-Out'}
+                          ? 'Confirm Clock-In'
+                          : 'Confirm Clock-Out'}
                     </span>
                   </button>
                 </div>
@@ -856,7 +1066,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   setSelfieMode('idle');
                   setCapturedPhoto(null);
                 }}
-                className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Back to Punch Clock
               </button>
@@ -866,454 +1076,256 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           /* ---------------- VIEW B: MAIN PUNCH CLOCK SCREEN ---------------- */
           <>
             <div className="text-center pt-1 pb-3">
-              <div className="w-12 h-12 rounded-none bg-slate-100 text-slate-900 mx-auto flex items-center justify-center mb-2.5">
-                <Clock className="w-6 h-6 text-slate-700" />
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2.5">
+                <Clock className="w-5 h-5 text-indigo-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                GPS Geofenced shift tracking & Location Selfie
+                Shift timing &amp; attendance tracking
               </p>
             </div>
 
             {/* Luxury Digital Clock & Timer Display */}
-            <div className="bg-gradient-to-br from-[#062d1f] via-[#083b28] to-[#041d14] rounded-2xl p-4 sm:p-5 text-center border border-[#0d4a34] shadow-md animate-clock-glow my-3 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#059669]" />
-              
+            <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
               <ModernDigitClock
-                time={punchState.status === 'not_started' || punchState.status === 'completed' ? time : undefined}
-                timeString={punchState.status === 'working' || punchState.status === 'on_break' ? liveWorkedHMS : undefined}
-                size="lg"
+                time={punchState.status === 'not_started' ? time : undefined}
+                timeString={punchState.status === 'not_started' ? undefined : liveWorkedHMS}
+                size="sm"
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
-                showSweepRing={true}
+                showSweepRing={punchState.status === 'working'}
                 label={
                   punchState.status === 'working'
                     ? 'Active Shift Chronometer'
                     : punchState.status === 'on_break'
-                    ? 'Timer Paused (On Break)'
-                    : punchState.status === 'completed'
-                    ? 'Today’s Finalized Shift'
-                    : 'Live GPS Shift Chronometer'
+                      ? 'Timer Paused (On Break)'
+                      : punchState.status === 'completed'
+                        ? 'Shift Completed (Timer Reset)'
+                        : 'Live GPS Shift Chronometer'
                 }
                 subText={
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
-                    : time
-                    ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                    : 'October 28, 2026'
+                    : punchState.status === 'completed'
+                      ? `Shift Finalized • Total: ${liveWorkedHMS}`
+                      : time
+                        ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                        : 'October 28, 2026'
                 }
               />
             </div>
 
-            {/* Shift Timing Window & Buffer Card (Shows ONLY when employee arrives late, hidden at all other times!) */}
-            {isLateArrival && (
-              <div className="my-2.5 p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 shadow-xs space-y-1.5 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-rose-900 font-extrabold">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span className="text-xs">Late Attendance: Outside Shift Buffer</span>
-                  </div>
-                  <span className="text-[10px] font-black uppercase text-rose-900 bg-rose-200 px-2.5 py-0.5 rounded-md border border-rose-300 shrink-0">
-                    LATE PUNCH
-                  </span>
-                </div>
-                <p className="text-[11px] text-rose-800 leading-relaxed">
-                  Your company admin has set office shift to <strong>{shiftStatus.shiftStart}</strong> with a <strong>{shiftStatus.config.gracePeriodMinutes}-minute buffer</strong>. Check-in was scheduled for <strong>{shiftStatus.allowedStart} – {shiftStatus.allowedEnd}</strong>.
-                </p>
-                <div className="text-[10px] text-slate-500 pt-1 border-t border-rose-200 flex items-center justify-between">
-                  <span>Current Time: <strong className="font-mono text-slate-800">{shiftStatus.currentTimeStr}</strong></span>
-                  <span className="text-rose-700 font-bold">Late reason is mandatory</span>
-                </div>
-              </div>
-            )}
-
-            {shiftStatus.enforceActive && shiftStatus.isEarly && punchState.status === 'not_started' && (
-              <div className="my-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+            {/* WFH Indicator (if enabled) */}
+            {isWFH && (
+              <div className="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Early Arrival: Office check-in window opens at <strong>{shiftStatus.allowedStart}</strong>.</span>
+                  <Home className="w-4 h-4 text-purple-700 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-purple-950 block">Work From Home (WFH) Active</span>
+                    <span className="text-[11px] text-purple-800">Remote attendance punch mode enabled</span>
+                  </div>
                 </div>
-                <span className="text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
-                  Locked
-                </span>
+                <span className="text-[10px] font-bold uppercase text-purple-900 bg-purple-200 px-2.5 py-0.5 rounded-full">Remote</span>
               </div>
             )}
-
-            {/* Geofence Status Card */}
-            <div className="my-3">
-              {isWFH ? (
-                <div className="p-3.5 rounded-none bg-purple-50 border-2 border-purple-400 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🏡</span>
-                      <div>
-                        <span className="text-xs font-black text-purple-950 uppercase tracking-wide block">
-                          Work From Home (WFH) Approved
-                        </span>
-                        <span className="text-[11px] font-semibold text-purple-800">
-                          Geofence radius restriction is waived. Punch from anywhere!
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black uppercase text-purple-900 bg-purple-200 px-2.5 py-1 rounded-none border border-purple-300">
-                      Geofence OFF
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-purple-900 mt-2 pt-1.5 border-t border-purple-200/80 font-medium">
-                    ✅ Take your <strong>Selfie</strong> to complete attendance punch. No office boundary required.
-                  </p>
-                </div>
-              ) : geoChecking ? (
-                <div className="p-3 rounded-none bg-blue-50/80 border border-blue-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-                    <span className="text-xs font-semibold text-blue-900">
-                      Verifying GPS Location & Geofence...
-                    </span>
-                  </div>
-                </div>
-              ) : !geofenceConfig.enabled ? (
-                <div className="p-3 rounded-none bg-slate-100 border border-slate-200 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-slate-700">
-                    <ShieldCheck className="w-4 h-4 text-slate-500" />
-                    <span className="font-semibold">Geofencing Disabled</span>
-                  </div>
-                  {isAdminUser && (
-                    <button
-                      onClick={() => setShowConfig(true)}
-                      className="text-[11px] font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
-                    >
-                      Configure
-                    </button>
-                  )}
-                </div>
-              ) : isGeofencePass ? (
-                <div className="p-3 rounded-none bg-emerald-50 border border-emerald-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-xs font-bold text-emerald-900">
-                        Inside Office Geofence
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-none border border-emerald-200">
-                      {geoResult?.distanceMeters ?? 0}m from HQ
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-emerald-700 mt-1.5">
-                    <span className="truncate">📍 {geofenceConfig.officeName} (Max: {geofenceConfig.radiusMeters}m)</span>
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="hover:text-emerald-900 transition flex items-center gap-1 shrink-0 ml-1 cursor-pointer font-medium"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Refresh
-                    </button>
-                  </div>
-                </div>
-              ) : geoResult?.errorCode === 'OUTSIDE_GEOFENCE' ? (
-                <div className="p-3 rounded-none bg-rose-50 border border-rose-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span className="text-xs font-bold text-rose-900">
-                        Outside Office Geofence
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-none border border-rose-200">
-                      {geoResult?.distanceMeters}m away
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-rose-800 mt-1.5 leading-relaxed">
-                    You are currently <strong>{geoResult?.distanceMeters}m</strong> away. Allowed radius is{' '}
-                    <strong>{geofenceConfig.radiusMeters}m</strong>. Punching is blocked outside the office perimeter.
-                  </p>
-                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-rose-200 text-[11px]">
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="font-bold text-rose-900 flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Re-check Location
-                    </button>
-                    {isAdminUser && (
-                      <button
-                        onClick={() => setShowConfig(!showConfig)}
-                        className="font-semibold text-rose-700 hover:text-rose-900 underline cursor-pointer"
-                      >
-                        Calibrate / Settings
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 rounded-none bg-amber-50 border border-amber-300 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span className="text-xs font-bold text-amber-900">
-                        GPS Permission Required
-                      </span>
-                    </div>
-                    <button
-                      onClick={runGeofenceCheck}
-                      className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-0.5 rounded-none border border-amber-300 cursor-pointer"
-                    >
-                      Allow GPS
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-amber-800 mt-1.5 leading-relaxed">
-                    {geoResult?.errorMessage || 'Location permission is required to verify you are at the workplace.'}
-                  </p>
-                </div>
-              )}
-
-              {/* Quick Geofence Calibration / Testing Drawer (Admin & Super Admin ONLY) */}
-              {isAdminUser && (
-                <>
-                  <div className="mt-2 text-right">
-                    <button
-                      onClick={() => setShowConfig(!showConfig)}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Sliders className="w-3 h-3" />
-                      <span>{showConfig ? 'Hide Geofence Settings' : '⚙️ Geofence Settings & Radius (Admin Only)'}</span>
-                    </button>
-                  </div>
-
-                  {showConfig && (
-                    <div className="mt-2 p-3 rounded-none bg-indigo-50/60 border border-indigo-200 text-xs space-y-2.5 animate-in fade-in">
-                      <div className="flex items-center justify-between font-bold text-slate-900">
-                        <span className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.5 rounded-none bg-indigo-600 text-white text-[10px]">ADMIN ONLY</span>
-                          <span>Office Geofence Controls</span>
-                        </span>
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-medium">
-                          <input
-                            type="checkbox"
-                            checked={geofenceConfig.enabled}
-                            onChange={(e) => handleToggleGeofence(e.target.checked)}
-                            className="rounded-none text-indigo-600 focus:ring-0"
-                          />
-                          <span>Enforce</span>
-                        </label>
-                      </div>
-
-                      {configSuccessMsg && (
-                        <div className="p-2 rounded-none bg-emerald-100 text-emerald-800 text-[11px] font-semibold">
-                          {configSuccessMsg}
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="bg-white p-2 rounded-none border border-slate-200">
-                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Office Latitude</span>
-                          <span className="font-mono font-bold text-slate-800">{geofenceConfig.latitude}</span>
-                        </div>
-                        <div className="bg-white p-2 rounded-none border border-slate-200">
-                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Office Longitude</span>
-                          <span className="font-mono font-bold text-slate-800">{geofenceConfig.longitude}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Set Allowed Radius: <span className="text-indigo-600 font-extrabold">{geofenceConfig.radiusMeters} meters</span>
-                        </label>
-                        <div className="grid grid-cols-4 gap-1.5 text-center">
-                          {[100, 250, 500, 1000].map((r) => (
-                            <button
-                              key={r}
-                              onClick={() => handleUpdateRadius(r)}
-                              className={`py-1 rounded-none text-[11px] font-bold border transition cursor-pointer ${
-                                geofenceConfig.radiusMeters === r
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                              }`}
-                            >
-                              {r}m
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={handleSetCurrentAsOffice}
-                          disabled={geoChecking}
-                          className="w-full py-2 px-3 rounded-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
-                        >
-                          <LocateFixed className="w-3.5 h-3.5" />
-                          <span>📍 Set My Current Location as Office HQ</span>
-                        </button>
-                        <p className="text-[10px] text-slate-500 text-center mt-1">
-                          Admin calibration: Updates office center coordinates to your device's exact GPS location.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
 
             {/* Punch Status info */}
-            <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-              <div className="p-3 rounded-none bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked In</span>
-                <span className="font-semibold text-slate-800 text-sm">
+            <div className="grid grid-cols-2 gap-2.5 mb-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">First In</span>
+                <span className="font-semibold text-slate-800 text-xs">
                   {punchState.record?.checkIn || 'Not punched'}
                 </span>
                 {punchState.record?.checkInPhoto && (
-                  <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-none border border-emerald-200">
-                    <Camera className="w-3 h-3" /> Selfie Verified
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    <Camera className="w-2.5 h-2.5" /> Selfie Verified
                   </span>
                 )}
               </div>
-              <div className="p-3 rounded-none bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-medium">Checked Out</span>
-                <span className="font-semibold text-slate-800 text-sm">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Latest Out</span>
+                <span className="font-semibold text-slate-800 text-xs">
                   {punchState.record?.checkOut || (punchState.status === 'working' ? 'In Progress' : '—')}
                 </span>
                 {punchState.record?.checkOutPhoto && (
-                  <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-none border border-rose-200">
-                    <Camera className="w-3 h-3" /> Selfie Verified
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                    <Camera className="w-2.5 h-2.5" /> Selfie Verified
                   </span>
                 )}
               </div>
             </div>
 
+            {/* Total Worked & Total Break Metrics Bar */}
+            {punchState.record && (
+              <div className="grid grid-cols-2 gap-2.5 mb-3 text-xs">
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                  <span className="text-emerald-700 block text-[10px] uppercase font-bold tracking-wider">Total Worked Today</span>
+                  <span className="font-mono font-bold text-emerald-900 text-sm">
+                    {liveWorkedHMS}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                  <span className="text-amber-700 block text-[10px] uppercase font-bold tracking-wider">Total Break Time</span>
+                  <span className="font-mono font-bold text-amber-900 text-sm">
+                    {liveBreakWords}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Today's Punch History Timeline (Multi-punch sessions) */}
+            {punchState.record?.punches && punchState.record.punches.length > 1 && (
+              <div className="mb-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-1.5">
+                  Today's Punches ({punchState.record.punches.length} recorded)
+                </span>
+                <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  {punchState.record.punches.map((p: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-slate-100">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Clock In' : 'Clock Out'}</span>
+                        {p.remarks && <span className="text-slate-400 text-[10px] truncate max-w-[120px]">({p.remarks})</span>}
+                      </div>
+                      <span className="font-mono text-slate-600 font-semibold text-[11px] shrink-0">{p.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {needsFace && !user.avatarUrl && (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                <p className="text-xs font-bold text-amber-950">Profile photo is required</p>
+                <p className="text-[11px] text-amber-900">Upload a clear front-facing photo. Attendance stays closed until your face is saved.</p>
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{loading ? 'Checking photo...' : 'Upload profile photo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={loading}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      setLoading(true);
+                      try {
+                        const { assertFaceInPhoto } = await import('../../lib/faceMatch');
+                        const faceDescriptor = await assertFaceInPhoto(file);
+                        const saved = await api.uploadProfilePhoto(file, faceDescriptor);
+                        if (!saved.avatarUrl) throw new Error('Profile photo was not saved.');
+                        updateUserProfile({ avatarUrl: saved.avatarUrl, photoChangeAllowed: false });
+                      } catch (err: any) {
+                        alert(err.message || 'Profile photo could not be saved.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-2">
+              {punchNotice && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-950">
+                  {punchNotice}
+                </div>
+              )}
+              {punchBlockMessage && punchState.status !== 'working' && punchState.status !== 'on_break' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-900">
+                  {punchBlockMessage}
+                </div>
+              )}
               {punchState.status === 'not_started' && (
                 <div className="space-y-2.5 mb-3">
-                  {/* Compulsory Late Reason (ONLY shown when employee did not do attendance on time!) */}
-                  {isLateArrival && (
-                    <div className="p-3 rounded-xl bg-rose-50/90 border-2 border-rose-300 shadow-2xs space-y-1.5 animate-in fade-in">
-                      <label className="text-xs font-black text-rose-950 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          <span>Reason for Late Arrival / लेट आने का कारण</span>
-                        </span>
-                        <span className="text-[10px] font-black uppercase text-rose-800 bg-rose-200 px-2 py-0.5 rounded border border-rose-300 shrink-0">
-                          Compulsory *
-                        </span>
-                      </label>
-                      <textarea
-                        value={lateReason}
-                        onChange={(e) => {
-                          setLateReason(e.target.value);
-                          if (lateReasonError) setLateReasonError('');
-                        }}
-                        rows={2}
-                        placeholder="Please write why you arrived late today (traffic jam, vehicle breakdown, emergency, personal reason)..."
-                        className={`w-full px-3 py-2 text-xs rounded-lg border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
-                          lateReasonError
-                            ? 'border-rose-500 focus:ring-rose-400 bg-rose-50/40'
-                            : 'border-rose-300 focus:ring-rose-500'
-                        }`}
-                      />
-                      {lateReasonError && (
-                        <p className="text-[11px] font-bold text-rose-700 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{lateReasonError}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-
                   <div>
                     <label className="text-[11px] font-medium text-slate-500 mb-1 block">
-                      {isLateArrival ? 'Additional Shift Notes (Optional)' : 'Remarks / Shift Note'}
+                      Remarks / Shift Note
                     </label>
                     <input
                       type="text"
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Work from office - morning shift"
-                      className="w-full px-3 py-2 text-xs rounded-none border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
                     />
                   </div>
 
                   <button
                     onClick={handleInitiateCheckIn}
-                    disabled={loading || geoChecking || (geofenceConfig.enabled && !isGeofencePass) || shiftStatus.isEarly}
-                    className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
-                      shiftStatus.isEarly
-                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed opacity-80'
-                        : isLateArrival
-                        ? 'bg-rose-700 hover:bg-rose-800 text-white'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed'
-                    }`}
+                    disabled={loading || Boolean(punchBlockMessage)}
+                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
-                    <Camera className="w-4 h-4" />
+                    <Play className="w-4 h-4 fill-current" />
                     <span>
-                      {shiftStatus.isEarly
-                        ? `Locked (Check-in opens at ${shiftStatus.allowedStart})`
-                        : geofenceConfig.enabled && !isGeofencePass
-                        ? 'Blocked (Outside Office)'
-                        : isLateArrival
-                        ? 'Take Selfie & Submit Late Attendance'
-                        : 'Take Selfie & Check In'}
+                      {loading ? 'Clocking In...' : 'Clock In Now'}
                     </span>
                   </button>
                 </div>
               )}
 
               {punchState.status === 'working' && (
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
                   <button
                     onClick={handleTakeBreak}
                     disabled={loading}
-                    className="py-3 px-2 rounded-none bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                    className="py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                   >
                     <Coffee className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Take Break</span>
+                    <span className="truncate">{loading ? 'Starting Break...' : 'Take Break'}</span>
                   </button>
                   <button
                     onClick={handleInitiateCheckOut}
-                    disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
-                    className="py-3 px-2 rounded-none bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled={loading}
+                    className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
-                    <Camera className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Selfie Check Out</span>
+                    <Square className="w-3.5 h-3.5 fill-current shrink-0" />
+                    <span className="truncate">{loading ? 'Clocking Out...' : 'Clock Out'}</span>
                   </button>
                 </div>
               )}
 
               {punchState.status === 'on_break' && (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    onClick={handleResumeWork}
-                    disabled={loading}
-                    className="py-3 px-2 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm"
-                  >
-                    <Play className="w-4 h-4 fill-current shrink-0" />
-                    <span className="truncate">Resume Work</span>
-                  </button>
-                  <button
-                    onClick={handleInitiateCheckOut}
-                    disabled={loading || (geofenceConfig.enabled && !isGeofencePass)}
-                    className="py-3 px-2 rounded-none bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Camera className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Selfie Check Out</span>
-                  </button>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-2.5">
+                    <button
+                      onClick={handleResumeWork}
+                      disabled={loading}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-xs active:scale-95"
+                    >
+                      <Play className="w-4 h-4 fill-current shrink-0" />
+                      <span className="truncate">{loading ? 'Resuming...' : 'Resume Work'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={true}
+                      title="Clock out is blocked while on break. Please click 'Resume Work' first."
+                      className="py-2.5 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">Clock Out (Blocked)</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-medium bg-amber-50 py-1.5 px-3 rounded-xl border border-amber-200 flex items-center justify-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Clock-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.</span>
+                  </p>
                 </div>
               )}
 
               {punchState.status === 'completed' && (
-                <div className="p-3 rounded-none bg-slate-100 border border-slate-200 text-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-                  <p className="text-xs font-semibold text-slate-800">
-                    Attendance Completed for Today!
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Next check-in available tomorrow
-                  </p>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <p className="text-xs font-semibold text-slate-800">Clock in and clock out are done for today</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Break in and break out can be used many times, only while you are working.</p>
                 </div>
               )}
 
               <button
                 onClick={handleModalClose}
-                className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Close
               </button>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, User, Briefcase, FileText, Calendar, Building } from 'lucide-react';
 import { Employee } from '../../types/hrms';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -23,16 +24,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 }) => {
   const [query, setQuery] = useState('');
 
-  // Handle keyboard shortcuts (Escape to close, Ctrl+K to toggle)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useModalOverlay({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -61,19 +53,19 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   const matchedEmployees = q
     ? employees.filter((e) => {
-        const name = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
-        const dept = (e.departmentName || '').toLowerCase();
-        const desig = (e.designationTitle || '').toLowerCase();
-        const code = (e.employeeCode || '').toLowerCase();
-        const email = (e.email || '').toLowerCase();
-        return (
-          name.includes(q) ||
-          dept.includes(q) ||
-          desig.includes(q) ||
-          code.includes(q) ||
-          email.includes(q)
-        );
-      })
+      const name = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
+      const dept = (e.departmentName || '').toLowerCase();
+      const desig = (e.designationTitle || '').toLowerCase();
+      const code = (e.employeeCode || '').toLowerCase();
+      const email = (e.email || '').toLowerCase();
+      return (
+        name.includes(q) ||
+        dept.includes(q) ||
+        desig.includes(q) ||
+        code.includes(q) ||
+        email.includes(q)
+      );
+    })
     : employees.slice(0, 5);
 
   const hasResults = matchedModules.length > 0 || matchedEmployees.length > 0;
@@ -83,12 +75,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-modal-backdrop flex items-start justify-center pt-20 p-4 cursor-pointer"
+      className="fixed inset-0 z-[100] overflow-hidden bg-white/45 backdrop-blur-md flex items-start justify-center pt-12 sm:pt-20 p-3 sm:p-4 cursor-pointer animate-in fade-in duration-200"
     >
-      <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden cursor-default animate-modal-zoom">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all max-h-[85vh] flex flex-col"
+      >
         {/* Search Input Bar */}
-        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-          <Search className="w-5 h-5 text-[#4f5fe8] shrink-0" />
+        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-white shrink-0">
+          <Search className="w-5 h-5 text-indigo-600 shrink-0" />
           <input
             type="text"
             autoFocus
@@ -137,15 +132,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         onNavigateModule(m.id);
                         onClose();
                       }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#eef2ff] text-left transition-colors text-xs font-semibold text-slate-800 hover:text-[#3446bd] group"
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8f9fa] text-left transition-colors text-xs font-semibold text-slate-800 hover:text-[#343a40] group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-[#4f5fe8] group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-[#343a40] group-hover:text-white text-slate-600 flex items-center justify-center transition-colors">
                           <Icon className="w-4 h-4" />
                         </div>
                         <span>{m.name}</span>
                       </div>
-                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-[#4f5fe8]">Jump to module &rarr;</span>
+                      <span className="text-[10px] font-normal text-slate-400 group-hover:text-[#343a40]">Jump to module &rarr;</span>
                     </button>
                   );
                 })}
@@ -167,7 +162,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       onSelectEmployee(emp);
                       onClose();
                     }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8fafc] text-left transition-colors text-xs group border border-transparent hover:border-slate-100"
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#f8f9fa] text-left transition-colors text-xs group border border-transparent hover:border-slate-100"
                   >
                     <div className="flex items-center gap-3">
                       {emp.avatarUrl ? (
@@ -177,12 +172,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           className="w-8 h-8 rounded-full object-cover border border-slate-200"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-[#e8ecff] text-[#3446bd] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dce4f7]">
+                        <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#e9ecef]">
                           {emp.firstName?.[0] || 'E'}{emp.lastName?.[0] || ''}
                         </div>
                       )}
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-[#4f5fe8] transition-colors">
+                        <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                           {emp.firstName} {emp.lastName}
                         </p>
                         <p className="text-[11px] text-slate-400">
@@ -203,7 +198,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
           <span>Search staff by name, code, department or role</span>
           <span>Paneliya HRMS</span>
         </div>

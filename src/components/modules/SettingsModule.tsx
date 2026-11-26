@@ -1,6 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { OfficeGeofenceCard } from './OfficeGeofenceCard';
+import {
+  KIOSK_VOICE_LANGUAGES,
+  buildKioskPhrase,
+  speakKioskText,
+  unlockKioskSpeech,
+  type KioskVoiceGender,
+  type KioskVoiceLang,
+} from '../../lib/kioskVoice';
 import {
   Settings,
   Shield,
@@ -29,21 +38,27 @@ import {
   TrendingUp,
   ArrowUpRight,
   Crown,
-  Fingerprint,
   FileText,
   RefreshCw,
   Receipt,
   ExternalLink,
   Users,
   ChevronRight,
-  Camera,
-  Upload,
   Trash2,
+  Phone,
+  MapPin,
+  CalendarOff,
+  CalendarDays,
+  Headphones,
+  Plus,
+  Pencil,
+  Package,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
-import { compressImage, validateImageFile } from '../../lib/imageUtils';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { UpgradePlanModal } from '../modals/UpgradePlanModal';
 import {
   getCompanySubscription,
@@ -56,6 +71,7 @@ import {
   saveWorkScheduleConfig,
   formatMinutesToTimeString,
   parseTimeToMinutes,
+  getWeekendPolicyDescription,
   WorkScheduleConfig,
 } from '../../lib/shiftScheduleService';
 
@@ -64,56 +80,272 @@ interface SettingsModuleProps {
 }
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: propPortalMode }) => {
-  const { user, portalMode: authPortalMode, updateUserProfile } = useAuth();
+  const { user, portalMode: authPortalMode } = useAuth();
   const { showToast } = useSocket();
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  useEffect(() => {
+    const pendingPlan = window.sessionStorage.getItem('hrms_pending_plan');
+    if (!pendingPlan) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (!role) return;
+    const canBuy = role === 'ADMIN' || role === 'COMPANY_ADMIN' || role === 'ORG_ADMIN';
+    window.sessionStorage.removeItem('hrms_pending_plan');
+    if (!canBuy) return;
+    setAdminActiveTab('plans');
+    setIsUpgradeModalOpen(true);
+  }, [user?.role]);
   const isEmployee = (propPortalMode || authPortalMode) === 'employee';
+  const canManagePlans = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
 
   // Admin tabs state
-  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'schedule' | 'leaves' | 'rbac' | 'billing' | 'preferences'>('company');
+  const [adminActiveTab, setAdminActiveTab] = useState<'company' | 'geofence' | 'schedule' | 'leaves' | 'plans' | 'support'>(
+    canManagePlans ? 'support' : 'company'
+  );
 
   // Employee tabs state
-  const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'notifications' | 'security' | 'preferences'>('profile');
+  const [empActiveTab, setEmpActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
+
+  const adminCompanyId = user.companyId || (user as any).companyId || '';
 
   // Subscription state
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [subData, setSubData] = useState(() => getCompanySubscription('comp-paneliya'));
-  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices('comp-paneliya'));
+  const [subData, setSubData] = useState(() => getCompanySubscription(adminCompanyId || 'comp-paneliya'));
+  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>(() => getCompanyInvoices(adminCompanyId || 'comp-paneliya'));
+
+  // Plans & Premium State
+  const [plansList, setPlansList] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [premiumStatus, setPremiumStatus] = useState<any>(null);
+  const [premiumOrders, setPremiumOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<any>(null);
+  const [deletingPlan, setDeletingPlan] = useState<any>(null);
+  const [sellingPlan, setSellingPlan] = useState<any>(null);
+  const [sellCompanyId, setSellCompanyId] = useState('');
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    price: 999,
+    durationMonths: 1,
+    description: '',
+    status: 'Active',
+  });
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [orderStatusVal, setOrderStatusVal] = useState('Active');
+
+  // Support State
+  const [supportList, setSupportList] = useState<any[]>([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [viewingSupport, setViewingSupport] = useState<any>(null);
+
+  const loadPlansAndPremium = async () => {
+    setPlansLoading(true);
+    setOrdersLoading(true);
+    try {
+      const [premRes, plansRes, ordersRes] = await Promise.allSettled([
+        api.getCompanyPremium(),
+        canManagePlans ? api.listPlans() : api.getPremiumPlans(),
+        api.listPremiumOrders(),
+      ]);
+      if (premRes.status === 'fulfilled' && premRes.value) {
+        setPremiumStatus(premRes.value?.data || premRes.value);
+      }
+      if (plansRes.status === 'fulfilled' && plansRes.value) {
+        const pList = Array.isArray(plansRes.value) ? plansRes.value : (plansRes.value?.data || []);
+        setPlansList(pList);
+      }
+      if (ordersRes.status === 'fulfilled' && ordersRes.value) {
+        const oList = Array.isArray(ordersRes.value) ? ordersRes.value : (ordersRes.value?.data || []);
+        setPremiumOrders(oList);
+      }
+    } finally {
+      setPlansLoading(false);
+      setOrdersLoading(false);
+    }
+  };
+
+  const loadSupportData = async () => {
+    setSupportLoading(true);
+    try {
+      const res = await api.listSupportRequests();
+      const sList = Array.isArray(res) ? res : (res?.data || []);
+      setSupportList(sList);
+    } catch {
+      setSupportList([]);
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminActiveTab === 'plans') {
+      loadPlansAndPremium();
+    } else if (adminActiveTab === 'support') {
+      loadSupportData();
+    }
+  }, [adminActiveTab]);
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingPlan) {
+        await api.editPlan(editingPlan.id, planForm);
+        showToast({ type: 'success', title: 'Plan Updated', message: `Plan ${planForm.name} updated successfully.` });
+      } else {
+        await api.createPlan(planForm);
+        showToast({ type: 'success', title: 'Plan Created', message: `Plan ${planForm.name} created successfully.` });
+      }
+      setIsCreatePlanOpen(false);
+      setEditingPlan(null);
+      setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed', message: err?.message || 'Error saving plan.' });
+    }
+  };
+
+  const handleDeletePlanConfirm = async () => {
+    if (!deletingPlan) return;
+    try {
+      await api.deletePlan(deletingPlan.id);
+      showToast({ type: 'success', title: 'Plan Deleted', message: 'Plan has been removed.' });
+      setDeletingPlan(null);
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Delete Failed', message: err?.message || 'Error deleting plan.' });
+    }
+  };
+
+  const handleSellPlanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sellingPlan || !sellCompanyId) return;
+    try {
+      await api.sellPlan(sellingPlan.id, { companyId: sellCompanyId });
+      showToast({ type: 'success', title: 'Plan Assigned', message: `Plan assigned to company ${sellCompanyId}.` });
+      setSellingPlan(null);
+      setSellCompanyId('');
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Sell Failed', message: err?.message || 'Could not assign plan.' });
+    }
+  };
+
+  const handlePlaceOrderDirect = async (planId: string) => {
+    try {
+      await api.placePremiumOrder({ planId });
+      showToast({ type: 'success', title: 'Order Placed', message: 'Premium order submitted.' });
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Order Failed', message: err?.message || 'Could not place order.' });
+    }
+  };
+
+  const handleUpdateOrderStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    try {
+      await api.updatePremiumOrder(editingOrder.id, { status: orderStatusVal });
+      showToast({ type: 'success', title: 'Order Updated', message: 'Order status updated.' });
+      setEditingOrder(null);
+      loadPlansAndPremium();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err?.message || 'Could not update order.' });
+    }
+  };
+
+  const handleUpdateSupportReqStatus = async (supportId: string, status: string) => {
+    try {
+      await api.updateSupportRequest(supportId, { status });
+      showToast({ type: 'success', title: 'Status Updated', message: `Support request marked as ${status}.` });
+      if (viewingSupport && viewingSupport.id === supportId) {
+        setViewingSupport({ ...viewingSupport, status });
+      }
+      loadSupportData();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err?.message || 'Could not update status.' });
+    }
+  };
+
+  const handleViewSupportReq = async (item: any) => {
+    try {
+      const details = await api.getSupportRequest(item.id);
+      setViewingSupport(details?.data || details || item);
+    } catch {
+      setViewingSupport(item);
+    }
+  };
 
   const refreshSubscriptionData = () => {
-    setSubData(getCompanySubscription('comp-paneliya'));
-    setInvoices(getCompanyInvoices('comp-paneliya'));
+    setSubData(getCompanySubscription(adminCompanyId || 'comp-paneliya'));
+    setInvoices(getCompanyInvoices(adminCompanyId || 'comp-paneliya'));
   };
 
   useEffect(() => {
     const handleUpdate = () => refreshSubscriptionData();
     window.addEventListener('hrms_companies_updated', handleUpdate);
     return () => window.removeEventListener('hrms_companies_updated', handleUpdate);
-  }, []);
+  }, [adminCompanyId]);
 
   const [loading, setLoading] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
 
   // --- Admin Settings State ---
   const [companyData, setCompanyData] = useState({
-    name: 'Paneliya Technology Inc.',
-    tagline: 'Enterprise Cloud & Next-Gen Software Engineering',
-    taxId: 'US-EIN-984102941',
-    supportEmail: 'support@paneliya.com',
-    phone: '+1 (415) 555-0199',
-    currency: 'USD ($)',
-    address: '100 Silicon Vista Blvd, Suite 800, San Francisco, CA 94105',
+    name: user.companyName || '',
+    tagline: '',
+    taxId: '',
+    supportEmail: '',
+    phone: '',
+    currency: 'INR (₹)',
+    address: '',
   });
 
-  const adminCompanyId = user.companyId || (user as any).companyId || 'comp-paneliya';
+  useEffect(() => {
+    let isMounted = true;
+    api.getMyCompany().then((comp) => {
+      if (isMounted && comp) {
+        setCompanyData({
+          name: comp.name || user.companyName || '',
+          tagline: typeof comp.industry === 'object' && comp.industry !== null
+            ? comp.industry.name || comp.industry.code || ''
+            : comp.industry || '',
+          taxId: comp.gstin || comp.taxId || '',
+          supportEmail: comp.email || '',
+          phone: comp.phone || '',
+          currency: comp.currency || 'INR (₹)',
+          address: comp.address || '',
+        });
+      }
+    }).catch(() => { });
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+  useCompanyLive(['settings'], () => {
+    api.getMyCompany().then((comp) => {
+      if (!comp) return;
+      setCompanyData({
+        name: comp.name || user.companyName || '',
+        tagline: typeof comp.industry === 'object' && comp.industry !== null
+          ? comp.industry.name || comp.industry.code || ''
+          : comp.industry || '',
+        taxId: comp.gstin || comp.taxId || '',
+        supportEmail: comp.email || '',
+        phone: comp.phone || '',
+        currency: comp.currency || 'INR (₹)',
+        address: comp.address || '',
+      });
+    }).catch(() => undefined);
+  });
+
   const [scheduleData, setScheduleData] = useState<WorkScheduleConfig>(() => getWorkScheduleConfig(adminCompanyId));
+  const [settingsLoading, setSettingsLoading] = useState(!isEmployee);
 
   const [leavePolicyData, setLeavePolicyData] = useState({
-    casualLeaveAnnual: 12,
-    sickLeaveAnnual: 10,
-    paidLeaveAnnual: 15,
-    carryForwardLimit: 5,
+    casualLeaveAnnual: 0,
+    sickLeaveAnnual: 0,
+    paidLeaveAnnual: 0,
+    carryForwardLimit: 0,
   });
 
   // --- Employee Settings State ---
@@ -151,26 +383,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Always load preferences, notifications, and profile extras from localStorage for all users (Admin & Employee)
-    if (typeof window !== 'undefined') {
-      try {
-        const savedNotifs = localStorage.getItem('hrms_emp_notifications');
-        if (savedNotifs) setEmpNotifications(JSON.parse(savedNotifs));
-
-        const savedPrefs = localStorage.getItem('hrms_emp_preferences');
-        if (savedPrefs) setEmpPreferences(JSON.parse(savedPrefs));
-
-        const savedProf = localStorage.getItem('hrms_emp_profile_extra');
-        if (savedProf) setEmpProfile((prev) => ({ ...prev, ...JSON.parse(savedProf) }));
-      } catch (e) {
-        console.error('Failed to load user preferences:', e);
+    if (!isEmployee && user?.id) {
+      const role = String(user?.role || '').toUpperCase();
+      if (role === 'SUPER_ADMIN' && !adminCompanyId) {
+        setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        setSettingsLoading(false);
+        return;
       }
-    }
-
-    if (!isEmployee) {
+      let active = true;
       const loadSettings = async () => {
+        setSettingsLoading(true);
         try {
-          const data = await api.getSettings();
+          const raw = await api.getSettings();
+          const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+          if (!active) return;
           if (data) {
             if (data.company) setCompanyData((prev) => ({ ...prev, ...data.company }));
             if (data.workSchedule) {
@@ -178,33 +404,63 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             } else {
               setScheduleData(getWorkScheduleConfig(adminCompanyId));
             }
-            if (data.leavePolicy) setLeavePolicyData((prev) => ({ ...prev, ...data.leavePolicy }));
+            if (data.leavePolicy) {
+              setLeavePolicyData({
+                casualLeaveAnnual: Math.max(0, Number(data.leavePolicy.casualLeaveAnnual) || 0),
+                sickLeaveAnnual: Math.max(0, Number(data.leavePolicy.sickLeaveAnnual) || 0),
+                paidLeaveAnnual: Math.max(0, Number(data.leavePolicy.paidLeaveAnnual) || 0),
+                carryForwardLimit: Math.max(0, Number(data.leavePolicy.carryForwardLimit) || 0),
+              });
+            }
           } else {
             setScheduleData(getWorkScheduleConfig(adminCompanyId));
           }
-        } catch (err) {
-          console.error('Failed to load settings:', err);
-          setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        } catch (err: any) {
+          const msg = String(err?.message || '').toLowerCase();
+          if (!msg.includes('login required') && !msg.includes('unauthorized') && !msg.includes('401')) {
+            console.warn('Failed to load settings:', err?.message || err);
+          }
+          if (active) setScheduleData(getWorkScheduleConfig(adminCompanyId));
+        } finally {
+          if (active) setSettingsLoading(false);
         }
       };
       loadSettings();
+      return () => {
+        active = false;
+      };
     }
-  }, [isEmployee, user]);
+  }, [isEmployee, user, adminCompanyId]);
 
   const handleAdminSave = async () => {
     setLoading(true);
     try {
       saveWorkScheduleConfig(scheduleData, adminCompanyId);
+      const sanitizedLeavePolicy = {
+        casualLeaveAnnual: Math.max(0, Number(leavePolicyData.casualLeaveAnnual) || 0),
+        sickLeaveAnnual: Math.max(0, Number(leavePolicyData.sickLeaveAnnual) || 0),
+        paidLeaveAnnual: Math.max(0, Number(leavePolicyData.paidLeaveAnnual) || 0),
+        carryForwardLimit: Math.max(0, Number(leavePolicyData.carryForwardLimit) || 0),
+      };
+      setLeavePolicyData(sanitizedLeavePolicy);
       await api.updateSettings({
         company: companyData,
         workSchedule: scheduleData,
-        leavePolicy: leavePolicyData,
+        leavePolicy: sanitizedLeavePolicy,
         payrollPolicy: {
           payCycle: 'Monthly',
           disbursementDate: 28,
           pfContributionPercent: 12,
         },
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('hrms_settings_updated', {
+            detail: { leavePolicy: sanitizedLeavePolicy },
+          })
+        );
+      }
 
       setSavedMessage(true);
       showToast({
@@ -224,101 +480,49 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validation = validateImageFile(file);
-    if (!validation.valid) {
-      showToast({ type: 'error', title: 'Invalid Image', message: validation.error || 'Please select a valid image.' });
+  const handleEmpProfileSave = async () => {
+    const empId = user?.employeeId || user?.id;
+    if (!empId) {
+      showToast({ type: 'error', title: 'Error', message: 'Employee ID not found.' });
       return;
     }
-
-    setUploadingAvatar(true);
+    setLoading(true);
     try {
-      let newAvatarUrl = '';
-      try {
-        const res = await api.uploadProfilePhoto(file);
-        if (res.avatarUrl) newAvatarUrl = res.avatarUrl;
-      } catch (err) {
-        console.warn('Backend photo upload failed, using local compression fallback:', err);
-      }
-
-      if (!newAvatarUrl) {
-        newAvatarUrl = await compressImage(file, 400, 400, 0.88);
-      }
-
-      updateUserProfile({ avatarUrl: newAvatarUrl });
-      const empId = user.employeeId || user.id;
-      if (empId) {
-        await api.updateEmployee(empId, { avatarUrl: newAvatarUrl });
-      }
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Profile Picture Updated', message: 'Your profile picture has been saved successfully.' });
+      await api.updateEmployee(empId, {
+        phone: empProfile.phone,
+        emergencyContact: {
+          name: empProfile.emergencyContactName,
+          relationship: 'Emergency Contact',
+          phone: empProfile.emergencyContactPhone,
+        },
+      });
+      setSavedMessage(true);
+      showToast({
+        type: 'success',
+        title: 'Profile Updated',
+        message: 'Your personal employee details have been saved to the database.',
+      });
+      setTimeout(() => setSavedMessage(false), 3000);
     } catch (err: any) {
-      showToast({ type: 'error', title: 'Upload Failed', message: err.message || 'Could not update profile picture.' });
+      showToast({
+        type: 'warning',
+        title: 'Profile Update Blocked',
+        message: err.message || 'Employee self-service profile update API is not supported by the backend. Contact HR to edit details.',
+      });
     } finally {
-      setUploadingAvatar(false);
-      if (e.target) e.target.value = '';
+      setLoading(false);
     }
-  };
-
-  const handleAvatarRemove = async () => {
-    setUploadingAvatar(true);
-    try {
-      updateUserProfile({ avatarUrl: '' });
-      const empId = user.employeeId || user.id;
-      if (empId) {
-        await api.updateEmployee(empId, { avatarUrl: '' });
-      }
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-      showToast({ type: 'success', title: 'Photo Removed', message: 'Your profile picture has been cleared.' });
-    } catch (err: any) {
-      showToast({ type: 'error', title: 'Action Failed', message: err.message || 'Could not remove profile picture.' });
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
-  const handleEmpProfileSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_profile_extra', JSON.stringify(empProfile));
-    }
-    setSavedMessage(true);
-    showToast({
-      type: 'success',
-      title: 'Profile Updated',
-      message: 'Your personal preferences have been saved.',
-    });
-    setTimeout(() => setSavedMessage(false), 3000);
   };
 
   const handleEmpNotifSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_notifications', JSON.stringify(empNotifications));
-    }
-    setSavedMessage(true);
     showToast({
-      type: 'success',
-      title: 'Notifications Updated',
-      message: 'Your alert preferences have been saved.',
+      type: 'warning',
+      title: 'Notification Settings Blocked',
+      message: 'Notification alert preferences persistence API is pending backend implementation.',
     });
-    setTimeout(() => setSavedMessage(false), 3000);
   };
 
   const handleEmpPrefSave = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hrms_emp_preferences', JSON.stringify(empPreferences));
-      localStorage.setItem('hrms_work_status', empPreferences.workStatus);
-      localStorage.setItem('hrms_time_format', empPreferences.timeFormat);
-      localStorage.setItem('hrms_date_format', empPreferences.dateFormat);
-      localStorage.setItem('hrms_language', empPreferences.language);
-
-      // System-wide broadcast to LiveClock, Header, and Sidebar
-      window.dispatchEvent(new Event('hrms_preferences_updated'));
-      window.dispatchEvent(new Event('hrms_employees_updated'));
-    }
-
-    // Sync workStatus to backend database for the user's employee record
     const empId = user?.employeeId || user?.id;
     if (empId) {
       try {
@@ -327,6 +531,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         console.warn('Could not sync work status to employee API:', err);
       }
     }
+
+    window.dispatchEvent(new Event('hrms_preferences_updated'));
+    window.dispatchEvent(new Event('hrms_employees_updated'));
 
     setSavedMessage(true);
     showToast({
@@ -352,14 +559,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
       return;
     }
 
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    setSavedMessage(true);
     showToast({
-      type: 'success',
-      title: 'Password Changed',
-      message: 'Your account security credentials have been updated.',
+      type: 'warning',
+      title: 'Password Update Blocked',
+      message: 'User self-service password change API endpoint is not implemented on the backend. Please request a password reset via Super Admin.',
     });
-    setTimeout(() => setSavedMessage(false), 3000);
   };
 
   const rbacMatrix = [
@@ -373,42 +577,40 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { module: 'System Audit Logs', companyAdmin: true, hrAdmin: true, manager: false, employee: false, recruiter: false, finance: false },
   ];
 
-  // =========================================================================
-  // SHARED: Work Availability & Display Preferences Luxury Green Panel
-  // =========================================================================
+  // ── Work Availability & Display Preferences Panel ──
   const renderWorkAndDisplayPanel = () => {
     const workStatusOptions = [
       {
         id: 'Working in Office',
-        icon: '🏢',
+        icon: 'Office',
         title: 'Working in Office',
-        desc: 'Present at the official workstation. Available for face-to-face team discussions and offline meetings.',
+        desc: 'Present at your workstation. Ready for face-to-face team discussions.',
         badge: 'In Office',
-        accentColor: 'border-emerald-500 bg-emerald-50/60 text-emerald-950',
+        accentColor: 'border-emerald-500 bg-emerald-50/70 text-emerald-950',
       },
       {
         id: 'Working Remotely',
-        icon: '🏠',
+        icon: 'Remote',
         title: 'Working Remotely',
-        desc: 'Operating from home or remote base. Readily reachable via chat, video conference, and enterprise email.',
+        desc: 'Operating from home or remote base. Reachable via chat & video.',
         badge: 'Remote',
-        accentColor: 'border-blue-500 bg-blue-50/60 text-blue-950',
+        accentColor: 'border-teal-500 bg-teal-50/70 text-teal-950',
       },
       {
         id: 'In Client Meeting',
-        icon: '🤝',
+        icon: 'Meeting',
         title: 'In Client Meeting',
-        desc: 'Occupied with external customer consultation, sales demo, or client negotiations. Responses may be delayed.',
-        badge: 'Client Visit',
-        accentColor: 'border-amber-500 bg-amber-50/60 text-amber-950',
+        desc: 'Consulting with customers or attending external visits.',
+        badge: 'Meeting',
+        accentColor: 'border-amber-500 bg-amber-50/70 text-amber-950',
       },
       {
         id: 'Focus / Deep Work',
-        icon: '🎯',
+        icon: 'Focus',
         title: 'Focus / Deep Work',
-        desc: 'Heads-down on high-priority development or architecture. Notifications muted; urgent queries only.',
-        badge: 'Do Not Disturb',
-        accentColor: 'border-purple-500 bg-purple-50/60 text-purple-950',
+        desc: 'Heads-down on high-priority development. Urgent queries only.',
+        badge: 'DND',
+        accentColor: 'border-slate-500 bg-slate-100 text-slate-900',
       },
     ];
 
@@ -431,1486 +633,1972 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     }
 
     return (
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-7 max-w-4xl animate-in fade-in">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100">
+      <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]">
-                <Sliders className="w-5 h-5 text-[#059669]" />
-              </span>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                Work Availability & Display Preferences
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Select your real-time presence status, configure system 12h/24h time formatting, and regional date layouts.
+            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-emerald-600" />
+              Presence & Display Preferences
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Choose your real-time status visible to colleagues, and configure time/date formats.
             </p>
           </div>
 
-          <button
-            onClick={handleEmpPrefSave}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Save & Apply Preferences</span>
-          </button>
-        </div>
-
-        {/* Section 1: Work Presence Status */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-700">
-                1. Today's Presence Status (Live across Header & Directory)
-              </label>
-              <p className="text-[11px] text-slate-400">
-                Displayed in the top navigation bar, employee directory, and profile status tags.
-              </p>
-            </div>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              Current: {empPreferences.workStatus}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {workStatusOptions.map((opt) => {
-              const isSelected = empPreferences.workStatus === opt.id;
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => setEmpPreferences({ ...empPreferences, workStatus: opt.id })}
-                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
-                    isSelected
-                      ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/30`
-                      : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-2xl p-1.5 rounded-xl bg-white shadow-2xs border border-slate-100 shrink-0">
-                        {opt.icon}
-                      </span>
-                      <div>
-                        <h4 className="font-extrabold text-sm text-slate-900 leading-snug">
-                          {opt.title}
-                        </h4>
-                        <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          {opt.badge}
+          {/* Section 1: Work Presence Status */}
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-700">
+              Today's Presence Status
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {workStatusOptions.map((opt) => {
+                const isSelected = empPreferences.workStatus === opt.id;
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() => setEmpPreferences({ ...empPreferences, workStatus: opt.id })}
+                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer relative ${isSelected
+                        ? `${opt.accentColor} shadow-xs ring-2 ring-emerald-500/20`
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl p-1.5 rounded-xl bg-white shadow-2xs border border-slate-100 shrink-0">
+                          {opt.icon}
                         </span>
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900 leading-snug">
+                            {opt.title}
+                          </h4>
+                          <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {opt.badge}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${isSelected
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : 'border-slate-300 bg-white'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3" />}
                       </div>
                     </div>
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
-                        isSelected
-                          ? 'border-emerald-600 bg-emerald-600 text-white'
-                          : 'border-slate-300 bg-white'
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3.5 h-3.5" />}
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
-                    {opt.desc}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Section 2: Clock & Time Format */}
-        <div className="space-y-3 pt-2">
-          <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-slate-700">
-              2. Digital Clock Time Format
-            </label>
-            <p className="text-[11px] text-slate-400">
-              Applies to the live pulse clock in the header, attendance punch records, and timesheets.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* 12-Hour */}
-            <div
-              onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '12h' })}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-                empPreferences.timeFormat === '12h'
-                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/30'
-                  : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-white border border-slate-100 text-emerald-600">
-                    <Clock className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <h4 className="font-extrabold text-xs text-slate-900">
-                      12-Hour Format (AM / PM)
-                    </h4>
-                    <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">
-                      09:30:45 AM
+                    <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                      {opt.desc}
                     </p>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2: Clock Format */}
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <label className="block text-xs font-bold text-slate-700">
+              Clock & Time Format
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '12h' })}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '12h'
+                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900">12-Hour Format (AM / PM)</h4>
+                  <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">02:30:45 PM</p>
                 </div>
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                    empPreferences.timeFormat === '12h'
+                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '12h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
                   }`}
                 >
-                  {empPreferences.timeFormat === '12h' && <Check className="w-3.5 h-3.5" />}
+                  {empPreferences.timeFormat === '12h' && <Check className="w-3 h-3" />}
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Standard commercial time format with morning (AM) and evening (PM) indicators.
-              </p>
-            </div>
 
-            {/* 24-Hour */}
-            <div
-              onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '24h' })}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-                empPreferences.timeFormat === '24h'
-                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-2 ring-emerald-500/30'
-                  : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-white border border-slate-100 text-emerald-600">
-                    <Clock className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <h4 className="font-extrabold text-xs text-slate-900">
-                      24-Hour Format (Military / Railway)
-                    </h4>
-                    <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">
-                      14:30:45
-                    </p>
-                  </div>
+              <div
+                onClick={() => setEmpPreferences({ ...empPreferences, timeFormat: '24h' })}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${empPreferences.timeFormat === '24h'
+                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900">24-Hour Military Format</h4>
+                  <p className="font-mono text-xs font-bold text-emerald-700 mt-0.5">14:30:45</p>
                 </div>
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                    empPreferences.timeFormat === '24h'
+                  className={`w-4 h-4 rounded-full flex items-center justify-center border ${empPreferences.timeFormat === '24h'
                       ? 'border-emerald-600 bg-emerald-600 text-white'
                       : 'border-slate-300 bg-white'
                   }`}
                 >
-                  {empPreferences.timeFormat === '24h' && <Check className="w-3.5 h-3.5" />}
+                  {empPreferences.timeFormat === '24h' && <Check className="w-3 h-3" />}
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Continuous 24-hour military/railway system format (e.g. 18:00 for 06:00 PM).
-              </p>
             </div>
           </div>
-        </div>
 
-        {/* Section 3: Date Format & Language */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Calendar Date Format</span>
-            </label>
-            <select
-              value={empPreferences.dateFormat}
-              onChange={(e) => setEmpPreferences({ ...empPreferences, dateFormat: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium text-xs cursor-pointer"
-            >
-              <option value="DD/MM/YYYY">DD/MM/YYYY — 29/10/2026 (Indian & UK Standard)</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY — 10/29/2026 (US Standard)</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD — 2026-10-29 (ISO Database Standard)</option>
-            </select>
-            <p className="text-[10px] text-slate-400 mt-1">Used across leaves, payroll disbursement & attendance calendars.</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Display Language</span>
-            </label>
-            <select
-              value={empPreferences.language}
-              onChange={(e) => setEmpPreferences({ ...empPreferences, language: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium text-xs cursor-pointer"
-            >
-              <option value="English">English (United States / Global)</option>
-              <option value="Hindi">Hindi (हिंदी - भारत)</option>
-              <option value="Gujarati">Gujarati (ગુજરાતી)</option>
-            </select>
-            <p className="text-[10px] text-slate-400 mt-1">Controls locale date representations, number formats, and labels.</p>
-          </div>
-        </div>
-
-        {/* Section 4: Realtime Preview Banner */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Section 3: Date & Language */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
             <div>
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>REAL-TIME PREVIEW OF YOUR SELECTIONS</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Date Format</span>
+              </label>
+              <select
+                value={empPreferences.dateFormat}
+                onChange={(e) => setEmpPreferences({ ...empPreferences, dateFormat: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600"
+              >
+                <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 29/10/2026)</option>
+                <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 10/29/2026)</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-10-29)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Display Language</span>
+              </label>
+              <select
+                value={empPreferences.language}
+                onChange={(e) => setEmpPreferences({ ...empPreferences, language: e.target.value })}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600"
+              >
+                <option value="English">English</option>
+                <option value="Hindi">Hindi (हिंदी)</option>
+                <option value="Gujarati">Gujarati (àª—à«àªœàª°àª¾àª¤à«€)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Real-time Preview Banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#343a40] to-[#343a40] text-white border border-[#343a40] flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Live Preview Across Header</span>
               </div>
-              <p className="text-xs text-slate-300 mt-1">
-                Here is how your presence pill and clock appear across the application right now:
+              <p className="text-xs text-emerald-100/80 mt-0.5">
+                Your presence tag and clock will appear like this in the app:
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 bg-white/10 backdrop-blur-xs p-2 rounded-xl border border-white/15">
-              {/* Status Pill Preview */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{empPreferences.workStatus}</span>
-              </div>
-
-              {/* Time Preview */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 border border-white/10 text-white text-xs font-mono font-bold">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{sampleTime}</span>
-              </div>
-
-              {/* Date Preview */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 border border-white/10 text-slate-200 text-xs font-medium">
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{sampleDateStr}</span>
-              </div>
+            <div className="flex flex-wrap items-center gap-2 bg-white/10 p-2 rounded-xl border border-white/10">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-200 text-xs font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                {empPreferences.workStatus}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-black/30 text-white text-xs font-mono font-bold flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-emerald-400" />
+                {sampleTime}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-black/30 text-slate-200 text-xs font-medium flex items-center gap-1.5">
+                <Calendar className="w-3 h-3 text-emerald-400" />
+                {sampleDateStr}
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* Action Button */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-xs text-slate-500">
-            Clicking save will instantly synchronize all open browser tabs, Header, and Sidebar.
-          </span>
-          <button
-            onClick={handleEmpPrefSave}
-            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Save & Apply Preferences</span>
-          </button>
+          {/* Action */}
+          <div className="pt-2 flex justify-end">
+            <button
+              onClick={handleEmpPrefSave}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+              <span>Save & Apply Preferences</span>
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
-  // =========================================================================
-  // EMPLOYEE VIEW: Personal Profile, Notifications, Password, Display
-  // =========================================================================
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // EMPLOYEE VIEW
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (isEmployee) {
+    const employeeNavItems = [
+      { id: 'profile', label: 'Personal Profile', desc: 'Avatar, phone & emergency contact', icon: User },
+      { id: 'security', label: 'Security & Password', desc: 'Password reset & active session', icon: Lock },
+      { id: 'notifications', label: 'Notification Alerts', desc: 'Shift & message reminders', icon: Bell },
+    ];
+
     return (
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto animate-in fade-in select-none">
-        {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                My Settings & Preferences
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
-                Employee Account
-              </span>
+      <div className="space-y-5 w-full animate-in fade-in select-none">
+        {/* Header */}
+          {savedMessage && (
+          <div className="flex justify-end pb-2">
+            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
+              <Check className="w-3.5 h-3.5" /> Saved Successfully
+            </span>
+        </div>
+        )}
+
+        {/* 2-Column Responsive Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Left Navigation Sidebar */}
+          <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+            <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
+              Account Menu
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Personalize your account profile, notification alerts, shift reminders, and login security
-            </p>
+            {employeeNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = empActiveTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setEmpActiveTab(item.id as any)}
+                  className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold truncate ${isActive ? 'text-emerald-950' : 'text-slate-800'}`}>
+                      {item.label}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {savedMessage && (
-            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold text-xs flex items-center gap-1.5 border border-emerald-100 shadow-2xs">
-              <Check className="w-3.5 h-3.5" /> Preferences Saved Successfully
-            </span>
-          )}
-        </div>
-
-        {/* Tab Controls */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 text-xs font-bold border border-slate-200/60 shadow-2xs overflow-x-auto [scrollbar-width:none]">
-          <button
-            onClick={() => setEmpActiveTab('profile')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-              empActiveTab === 'profile'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>Profile & Contact</span>
-          </button>
-          <button
-            onClick={() => setEmpActiveTab('notifications')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-              empActiveTab === 'notifications'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Bell className="w-3.5 h-3.5" />
-            <span>Notifications & Reminders</span>
-          </button>
-          <button
-            onClick={() => setEmpActiveTab('security')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-              empActiveTab === 'security'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Security & Password</span>
-          </button>
-          <button
-            onClick={() => setEmpActiveTab('preferences')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-              empActiveTab === 'preferences'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Work & Display</span>
-          </button>
-        </div>
-
-        {/* Tab 1: Profile & Contact */}
-        {empActiveTab === 'profile' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 max-w-3xl">
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="relative group/avatar shrink-0">
-                  <div className="w-18 h-18 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-emerald-800 font-extrabold text-2xl flex items-center justify-center shadow-xs overflow-hidden">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <span>
-                        {user.firstName?.[0] || user.email?.[0]?.toUpperCase() || 'E'}
-                        {user.lastName?.[0] || ''}
-                      </span>
-                    )}
-                  </div>
-                  <label
-                    className="absolute inset-0 rounded-2xl bg-black/55 backdrop-blur-2xs text-white opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity"
-                    title="Change Profile Picture"
-                  >
-                    <Camera className="w-5 h-5" />
-                    <span className="text-[10px] font-bold mt-1">Upload</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingAvatar}
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  <label
-                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all"
-                    title="Upload Photo"
-                  >
-                    <Camera className="w-3 h-3 stroke-[2.5]" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingAvatar}
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+          {/* Right Main Content */}
+          <div className="flex-1 min-w-0 w-full">
+            {/* Tab: Profile */}
+            {empActiveTab === 'profile' && (
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6">
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <User className="w-4 h-4 text-emerald-600" />
+                    Personal Profile Details
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {(user as any).designationTitle || 'Staff Member'} • {(user as any).departmentName || 'General'}
-                  </p>
-                  <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold mt-1">
-                    Active Employee
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>{user.avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingAvatar}
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
-                </label>
-                {user.avatarUrl && (
-                  <button
-                    type="button"
-                    onClick={handleAvatarRemove}
-                    disabled={uploadingAvatar}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 transition active:scale-95 cursor-pointer"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">First Name</label>
-                <input
-                  type="text"
-                  value={empProfile.firstName}
-                  onChange={(e) => setEmpProfile({ ...empProfile, firstName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Last Name</label>
-                <input
-                  type="text"
-                  value={empProfile.lastName}
-                  onChange={(e) => setEmpProfile({ ...empProfile, lastName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Preferred Name / Nickname</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Alex"
-                  value={empProfile.preferredName}
-                  onChange={(e) => setEmpProfile({ ...empProfile, preferredName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Contact Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="+91 98765 43210"
-                  value={empProfile.phone}
-                  onChange={(e) => setEmpProfile({ ...empProfile, phone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-bold mb-1.5 text-slate-700">Official Work Email</label>
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 font-mono font-medium">
-                  <span>{user.email || 'employee@paneliya.com'}</span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Managed by HR</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Emergency Contact Name</label>
-                <input
-                  type="text"
-                  placeholder="Name of contact"
-                  value={empProfile.emergencyContactName}
-                  onChange={(e) => setEmpProfile({ ...empProfile, emergencyContactName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Emergency Contact Phone</label>
-                <input
-                  type="text"
-                  placeholder="Emergency phone"
-                  value={empProfile.emergencyContactPhone}
-                  onChange={(e) => setEmpProfile({ ...empProfile, emergencyContactPhone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-bold mb-1.5 text-slate-700">About Me / Bio</label>
-                <textarea
-                  rows={3}
-                  placeholder="Share a short headline or bio with your team..."
-                  value={empProfile.bio}
-                  onChange={(e) => setEmpProfile({ ...empProfile, bio: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={handleEmpProfileSave}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
-              >
-                Save Profile Details
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Notifications & Reminders */}
-        {empActiveTab === 'notifications' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 max-w-3xl">
-            <div>
-              <h3 className="text-base font-black text-slate-900">
-                Attendance & Alert Preferences
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Choose which notifications you wish to receive on this device
-              </p>
-            </div>
-
-            <div className="divide-y divide-slate-100 text-xs">
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">⏰ Daily Morning Attendance Reminder</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Send a reminder alert at 09:00 AM on scheduled work days to punch in.
+                    Profile photo is required for employees. Attendance matches this face.
                   </p>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.dailyClockInReminder}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, dailyClockInReminder: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
 
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">🚪 Shift End / Clock-Out Reminder</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Notify me at 06:00 PM before shift ends so I never miss a punch-out.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.shiftEndReminder}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, shiftEndReminder: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
-
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">📝 Leave Application Status Alerts</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Notify immediately when a submitted leave request is Approved or Rejected.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.leaveStatusAlerts}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, leaveStatusAlerts: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
-
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">💬 Team Chat & Direct Messages</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Receive notification alerts when a colleague sends you a message.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.chatMessageAlerts}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, chatMessageAlerts: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
-
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">📢 Company Notices & Announcements</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Get alerted whenever management posts critical company notices or holiday updates.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.announcementsAlerts}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, announcementsAlerts: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
-
-              <div className="py-3.5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">🔔 Sound Effects</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
-                    Play gentle chime sounds on attendance clock-in, clock-out, and incoming chat.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={empNotifications.soundEffects}
-                  onChange={(e) =>
-                    setEmpNotifications({ ...empNotifications, soundEffects: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={handleEmpNotifSave}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
-              >
-                Save Notification Preferences
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Security & Password */}
-        {empActiveTab === 'security' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-4xl">
-            {/* Left 7 Cols: Change Password Form */}
-            <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
-              <div>
-                <h3 className="text-base font-black text-slate-900">
-                  Change Account Password
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Update your login credentials securely
-                </p>
-              </div>
-
-              <form onSubmit={handlePasswordChange} className="space-y-3.5 text-xs">
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700">Current Password</label>
-                  <div className="relative">
+                {/* Profile Form */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">First Name</label>
                     <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
+                      type="text"
+                      disabled
+                      value={empProfile.firstName}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-500 font-medium"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={empProfile.lastName}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-500 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Work Email</label>
+                    <input
+                      type="email"
+                      disabled
+                      value={user.email || ''}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-500 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Personal Phone *</label>
+                    <input
+                      type="tel"
+                      value={empProfile.phone}
+                      onChange={(e) => setEmpProfile({ ...empProfile, phone: e.target.value })}
+                      placeholder="+91 98765 43210"
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Emergency Contact Name</label>
+                    <input
+                      type="text"
+                      value={empProfile.emergencyContactName}
+                      onChange={(e) => setEmpProfile({ ...empProfile, emergencyContactName: e.target.value })}
+                      placeholder="e.g. Ramesh Patel (Father)"
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Emergency Contact Phone</label>
+                    <input
+                      type="tel"
+                      value={empProfile.emergencyContactPhone}
+                      onChange={(e) => setEmpProfile({ ...empProfile, emergencyContactPhone: e.target.value })}
+                      placeholder="+91 98765 43210"
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700">New Password</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Minimum 6 characters"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                  />
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={handleEmpProfileSave}
+                    disabled={loading}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{loading ? 'Saving...' : 'Save Profile Changes'}</span>
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700">Confirm New Password</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Repeat new password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-medium"
-                  />
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500 space-y-1">
-                  <p className="font-bold text-slate-700">Password requirements:</p>
-                  <p>• At least 6 characters in length</p>
-                  <p>• Include a mix of letters and numbers</p>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
-                >
-                  Update Password
-                </button>
-              </form>
-            </div>
-
-            {/* Right 5 Cols: Active Session & Security Overview */}
-            <div className="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
-              <div>
-                <h3 className="text-base font-black text-slate-900">
-                  Active Session
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Device & authentication status
-                </p>
               </div>
+            )}
 
-              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-indigo-700 font-bold">
-                  <Laptop className="w-4 h-4 text-indigo-600" />
-                  <span>Current Web Session</span>
+            {/* Tab: Security */}
+            {empActiveTab === 'security' && (
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-emerald-600" />
+                    Security & Password
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update your account login password and view active sessions.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-600">
-                  Signed in via verified local network.
-                </p>
-                <div className="pt-2 border-t border-indigo-100/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Status</span>
-                  <span className="font-bold text-emerald-600 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active Now
+
+                <form onSubmit={handlePasswordChange} className="space-y-4 max-w-lg text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Current Password *</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                        className="w-full h-10 pl-3 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">New Password *</label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Minimum 6 characters"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Confirm New Password *</label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Repeat new password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                  >
+                    Update Password
+                  </button>
+                </form>
+
+                {/* Active Session Card */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Laptop className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Current Web Session</p>
+                      <p className="text-[11px] text-slate-500">Authenticated via secure enterprise JWT token</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Active
                   </span>
                 </div>
               </div>
+            )}
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
-                <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                  <Shield className="w-4 h-4 text-emerald-600" />
-                  <span>Two-Factor Authentication</span>
+            {/* Tab: Notifications */}
+            {empActiveTab === 'notifications' && (
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-emerald-600" />
+                    Notification Preferences
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure which alerts, attendance reminders, and sounds you receive.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Account is protected by standard enterprise session tokens.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Tab 4: Work & Display Preferences */}
-        {empActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
+                <div className="divide-y divide-slate-100 text-xs">
+                  <div className="py-3.5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Daily Punch-In Reminder</h4>
+                      <p className="text-slate-500 text-[11px]">Notify 10 minutes before shift starts if punch is missing.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={empNotifications.dailyClockInReminder}
+                      onChange={(e) => setEmpNotifications({ ...empNotifications, dailyClockInReminder: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="py-3.5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Leave Approval & Status Alerts</h4>
+                      <p className="text-slate-500 text-[11px]">Instant notifications when your leave is approved or reviewed.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={empNotifications.leaveStatusAlerts}
+                      onChange={(e) => setEmpNotifications({ ...empNotifications, leaveStatusAlerts: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="py-3.5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Company Announcements</h4>
+                      <p className="text-slate-500 text-[11px]">Important organization notices, events, and holiday announcements.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={empNotifications.announcementsAlerts}
+                      onChange={(e) => setEmpNotifications({ ...empNotifications, announcementsAlerts: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="py-3.5 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Notification Audio Chimes</h4>
+                      <p className="text-slate-500 text-[11px]">Play gentle sound on clock-in, clock-out, and messages.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={empNotifications.soundEffects}
+                      onChange={(e) => setEmpNotifications({ ...empNotifications, soundEffects: e.target.checked })}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={handleEmpNotifSave}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                  >
+                    Save Notifications
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // =========================================================================
-  // ADMIN VIEW: Company legal parameters, shifts, leaves, RBAC
-  // =========================================================================
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ADMIN VIEW: Clean Modern Two-Column Layout
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const allAdminNavItems = [
+    { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
+    { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
+    { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
+    { id: 'leaves', label: 'Leave Quotas', desc: 'Annual quota allowances & carry forward', icon: CalendarOff },
+    { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
+    { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
+  ];
+  const adminNavItems = canManagePlans
+    ? allAdminNavItems.filter((item) => item.id === 'support')
+    : allAdminNavItems;
+
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-            Settings & Enterprise Policies
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure company legal entity parameters, working hours, leave quotas, and RBAC matrix
-          </p>
-        </div>
-
-        {savedMessage && (
-          <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold text-xs flex items-center gap-1.5 border border-emerald-100">
-            <Check className="w-3.5 h-3.5" /> Changes Saved Successfully
-          </span>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-semibold overflow-x-auto [scrollbar-width:none]">
-        {[
-          { id: 'company', label: 'Company Profile' },
-          { id: 'schedule', label: 'Working Hours & Shifts' },
-          { id: 'leaves', label: 'Leave Policies' },
-          { id: 'rbac', label: 'Role Permissions (RBAC)' },
-          { id: 'billing', label: 'Subscription & Billing 💎' },
-          { id: 'preferences', label: 'Work & Display ⚙️' },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setAdminActiveTab(t.id as any)}
-            className={`px-3.5 py-1.5 rounded-full transition cursor-pointer whitespace-nowrap ${
-              adminActiveTab === t.id
-                ? 'bg-[#ecfdf5] text-[#065f46] font-bold border border-[#a7f3d0]'
-                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab 1: Company Profile */}
-      {adminActiveTab === 'company' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
-          <h3 className="text-sm font-bold text-slate-900">Organization Identity</h3>
-
-          <div className="space-y-3 text-xs">
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Company Name</label>
-              <input
-                type="text"
-                value={companyData.name}
-                onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Corporate Tagline</label>
-              <input
-                type="text"
-                value={companyData.tagline}
-                onChange={(e) => setCompanyData({ ...companyData, tagline: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium mb-1 text-slate-700">Federal Tax EIN</label>
-                <input
-                  type="text"
-                  value={companyData.taxId}
-                  onChange={(e) => setCompanyData({ ...companyData, taxId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-                />
-              </div>
-              <div>
-                <label className="block font-medium mb-1 text-slate-700">Currency</label>
-                <input
-                  type="text"
-                  value={companyData.currency}
-                  onChange={(e) => setCompanyData({ ...companyData, currency: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Headquarters Address</label>
-              <input
-                type="text"
-                value={companyData.address}
-                onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-              />
-            </div>
-
-            <button
-              onClick={handleAdminSave}
-              disabled={loading}
-              className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {loading ? 'Saving...' : 'Save Company Settings'}
-            </button>
+    <div className="space-y-5 w-full animate-in fade-in select-none">
+      {/* 2-Column Responsive Layout */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* Left Navigation Sidebar */}
+        {!canManagePlans && (
+        <div className="w-full lg:w-72 lg:sticky lg:top-4 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+          <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
+            Configuration Sections
           </div>
+          {adminNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = adminActiveTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setAdminActiveTab(item.id as any)}
+                className={`w-full text-left p-3 rounded-2xl transition flex items-center gap-3 cursor-pointer ${isActive
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold truncate ${isActive ? 'text-emerald-950' : 'text-slate-800'}`}>
+                    {item.label}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      )}
+        )}
 
-      {/* Tab 2: Working Hours & Shifts */}
-      {adminActiveTab === 'schedule' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6 max-w-3xl animate-in fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]">
-                  <Clock className="w-5 h-5 text-[#059669]" />
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                    Office Shifts & Attendance Buffer Window
-                  </h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#065f46] border border-emerald-300 text-[10px] font-bold">
-                    {companyData.name || 'Your Company'}
-                  </span>
+        {/* Right Main Content Area */}
+        <div className="flex-1 min-w-0 w-full">
+          {/* ── Tab: Office Geofencing ── */}
+          {adminActiveTab === 'geofence' && (
+            <div className="animate-in fade-in duration-200">
+              <OfficeGeofenceCard />
+            </div>
+          )}
+
+          {/* ── Tab 1: Company Profile ── */}
+          {adminActiveTab === 'company' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-emerald-600" />
+                  Company Identity & Registration
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Official registered organization details used on tax slips, payslips, and correspondence.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Company Legal Name *</label>
+                  <input
+                    type="text"
+                    value={companyData.name}
+                    onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
+                    placeholder="e.g. Paneliya Infotech Pvt Ltd"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Industry / Sector</label>
+                  <input
+                    type="text"
+                    value={companyData.tagline}
+                    onChange={(e) => setCompanyData({ ...companyData, tagline: e.target.value })}
+                    placeholder="e.g. Information Technology"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tax ID / GSTIN</label>
+                  <input
+                    type="text"
+                    value={companyData.taxId}
+                    onChange={(e) => setCompanyData({ ...companyData, taxId: e.target.value })}
+                    placeholder="e.g. 24AAAAA0000A1Z5"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Default Payroll Currency</label>
+                  <input
+                    type="text"
+                    value={companyData.currency}
+                    onChange={(e) => setCompanyData({ ...companyData, currency: e.target.value })}
+                    placeholder="INR (₹)"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Official Support Email</label>
+                  <input
+                    type="email"
+                    value={companyData.supportEmail}
+                    onChange={(e) => setCompanyData({ ...companyData, supportEmail: e.target.value })}
+                    placeholder="support@company.com"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={companyData.phone}
+                    onChange={(e) => setCompanyData({ ...companyData, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Corporate Office Address</label>
+                  <input
+                    type="text"
+                    value={companyData.address}
+                    onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
+                    placeholder="e.g. 402, Ring Road, Surat, Gujarat"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Configure official shift timings and punch buffer minutes. These buffer rules apply exclusively to employees of <strong>{companyData.name || 'your company'}</strong>.
-              </p>
-            </div>
 
-            <button
-              onClick={handleAdminSave}
-              disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-sm hover:shadow transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
-            >
-              <Check className="w-4 h-4" />
-              <span>{loading ? 'Saving...' : 'Save Shift Rules'}</span>
-            </button>
-          </div>
-
-          <div className="space-y-4 text-xs">
-            {/* Shift Timings */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Office Shift Start Time *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 09:00 AM"
-                  value={scheduleData.shiftStartTime || '09:00 AM'}
-                  onChange={(e) => setScheduleData({ ...scheduleData, shiftStartTime: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Official time work begins in the morning.</p>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Office Shift End Time *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 06:00 PM"
-                  value={scheduleData.shiftEndTime || '06:00 PM'}
-                  onChange={(e) => setScheduleData({ ...scheduleData, shiftEndTime: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Official time employees punch out at shift end.</p>
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleAdminSave}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{loading ? 'Saving...' : 'Save Company Details'}</span>
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Buffers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          {/* ── Tab 2: Shifts & Attendance ── */}
+          {adminActiveTab === 'schedule' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
               <div>
-                <label className="block font-bold mb-1.5 text-slate-700">
-                  Early Arrival Buffer (Minutes)
-                </label>
-                <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-600" />
+                  Shift Timings & Punch Buffers
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Define working hours, allowable early/late buffer minutes, and half-day thresholds.
+                </p>
+              </div>
+
+              {/* Shift Hours */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Shift Start Time *</label>
+                  <input
+                    type="text"
+                    value={scheduleData.shiftStartTime || '09:00 AM'}
+                    onChange={(e) => setScheduleData({ ...scheduleData, shiftStartTime: e.target.value })}
+                    placeholder="09:00 AM"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Official time work begins in the morning.</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Shift End Time *</label>
+                  <input
+                    type="text"
+                    value={scheduleData.shiftEndTime || '06:00 PM'}
+                    onChange={(e) => setScheduleData({ ...scheduleData, shiftEndTime: e.target.value })}
+                    placeholder="06:00 PM"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Official shift wrap-up and punch-out time.</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Early Arrival Buffer (Minutes)</label>
                   <input
                     type="number"
                     min="0"
                     max="180"
                     value={scheduleData.earlyBufferMinutes ?? 30}
                     onChange={(e) => setScheduleData({ ...scheduleData, earlyBufferMinutes: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
                   />
-                  <span className="text-slate-500 font-medium text-xs">Mins</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Minutes before shift start when clock-in opens.</p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  How early employees are permitted to check in before shift starts.
-                </p>
-              </div>
 
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">
-                  Late Grace Buffer (Minutes) *
-                </label>
-                <div className="flex items-center gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Late Grace Period (Minutes) *</label>
                   <input
                     type="number"
                     min="0"
                     max="180"
                     value={scheduleData.gracePeriodMinutes ?? 15}
                     onChange={(e) => setScheduleData({ ...scheduleData, gracePeriodMinutes: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
                   />
-                  <span className="text-slate-500 font-medium text-xs">Mins</span>
+                  <p className="text-[10px] text-slate-400 mt-1">Grace buffer before mark is flagged late.</p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Buffer time after shift start up to which check-in is allowed.
-                </p>
-              </div>
-            </div>
 
-            {/* Standard Work Hours & Half Day */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Standard Daily Work Hours</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="16"
-                  value={scheduleData.workingHoursPerDay || 8}
-                  onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5 text-slate-700">Half-Day Threshold Hours</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="8"
-                  value={scheduleData.halfDayHours || 4}
-                  onChange={(e) => setScheduleData({ ...scheduleData, halfDayHours: Number(e.target.value) })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-                />
-              </div>
-            </div>
-
-            {/* Strict Enforcement Toggle Card */}
-            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>Enforce Strict Shift Timing Window</span>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Full Day Work Hours</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="16"
+                    value={scheduleData.workingHoursPerDay || 8}
+                    onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  When enabled, attendance punch is <strong>strictly locked</strong> outside the buffer window. Employees attempting to punch in before the early buffer or after the late grace buffer will be blocked and required to request HR Regularization.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={scheduleData.enforceShiftWindow !== false}
-                onChange={(e) => setScheduleData({ ...scheduleData, enforceShiftWindow: e.target.checked })}
-                className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer mt-0.5 shrink-0"
-              />
-            </div>
 
-            {/* Real-time Calculated Allowed Punch Window Card */}
-            {(() => {
-              const startMins = parseTimeToMinutes(scheduleData.shiftStartTime || '09:00 AM');
-              const allowedStart = formatMinutesToTimeString(startMins - Number(scheduleData.earlyBufferMinutes || 30));
-              const allowedEnd = formatMinutesToTimeString(startMins + Number(scheduleData.gracePeriodMinutes || 15));
-              return (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white border border-[#0d4a34] shadow-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">
-                        Calculated Attendance Check-In Window
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40">
-                      {scheduleData.enforceShiftWindow !== false ? '🔒 Strict Lock Active' : 'Flexible Attendance'}
-                    </span>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Half Day Minimum Hours</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={scheduleData.halfDayHours || 4}
+                    onChange={(e) => setScheduleData({ ...scheduleData, halfDayHours: Number(e.target.value) })}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Strict Lock Toggle */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Strict Shift Window Enforcement</span>
                   </div>
-                  <div className="text-xl font-mono font-black text-white tracking-tight flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-emerald-400" />
-                    <span>{allowedStart} — {allowedEnd}</span>
-                  </div>
-                  <p className="text-[11px] text-[#a7f3d0]/80">
-                    Employees can check in starting at <strong>{allowedStart}</strong> until <strong>{allowedEnd}</strong> ({scheduleData.gracePeriodMinutes || 15} min grace buffer). Outside this timeframe, punch will be {scheduleData.enforceShiftWindow !== false ? 'strictly blocked' : 'allowed with late flag'}.
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    When active, employees cannot punch outside the allowable window without HR regularization.
                   </p>
                 </div>
-              );
-            })()}
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={handleAdminSave}
-                disabled={loading}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                <span>{loading ? 'Saving...' : 'Save Shift Rules & Buffer'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Leave Policies */}
-      {adminActiveTab === 'leaves' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-2xs space-y-4 max-w-2xl">
-          <h3 className="text-sm font-bold text-slate-900">Annual Leave Quota Policy</h3>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Casual Leave (Days / Year)</label>
-              <input
-                type="number"
-                value={leavePolicyData.casualLeaveAnnual}
-                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Sick Leave (Days / Year)</label>
-              <input
-                type="number"
-                value={leavePolicyData.sickLeaveAnnual}
-                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Paid / Annual Leave (Days / Year)</label>
-              <input
-                type="number"
-                value={leavePolicyData.paidLeaveAnnual}
-                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 text-slate-700">Max Carry Forward Limit</label>
-              <input
-                type="number"
-                value={leavePolicyData.carryForwardLimit}
-                onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200/80 bg-slate-50/60 focus:bg-white text-slate-900"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleAdminSave}
-            disabled={loading}
-            className="mt-3 px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? 'Saving...' : 'Save Leave Policy'}
-          </button>
-        </div>
-      )}
-
-      {/* Tab 4: RBAC Permissions Matrix */}
-      {adminActiveTab === 'rbac' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
-          <h3 className="text-sm font-bold text-slate-900 mb-4">
-            Role-Based Access Control (RBAC) Permission Matrix
-          </h3>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                  <th className="py-2.5 px-3">Feature / Permission</th>
-                  <th className="py-2.5 px-3 text-center">Company Admin</th>
-                  <th className="py-2.5 px-3 text-center">HR Admin</th>
-                  <th className="py-2.5 px-3 text-center">Manager</th>
-                  <th className="py-2.5 px-3 text-center">Employee</th>
-                  <th className="py-2.5 px-3 text-center">Recruiter</th>
-                  <th className="py-2.5 px-3 text-center">Finance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {rbacMatrix.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50/70 transition">
-                    <td className="py-2.5 px-3 font-semibold text-slate-800">
-                      {row.module}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <Check className="w-4 h-4 text-emerald-600 mx-auto" />
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {row.hrAdmin ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {row.manager ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {row.employee ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {row.recruiter ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {row.finance ? <Check className="w-4 h-4 text-emerald-600 mx-auto" /> : <span className="text-slate-300">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 5: Subscription & Billing Management */}
-      {adminActiveTab === 'billing' && (
-        <div className="space-y-6 max-w-5xl animate-in fade-in duration-200">
-          {/* Active Plan Overview Hero Card */}
-          <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/30 relative overflow-hidden">
-            {/* Background glowing blobs */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-10 -left-10 w-60 h-60 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-black tracking-wider uppercase flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Subscription Active
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-bold">
-                    {subData.billingCycle} Billing
-                  </span>
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-                  <span>{subData.plan.name}</span>
-                  {subData.plan.id === 'Enterprise' && (
-                    <Crown className="w-6 h-6 text-amber-400" />
-                  )}
-                </h3>
-                <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
-                  {subData.plan.tagline}
-                </p>
-
-                <div className="pt-2 flex flex-wrap items-center gap-6 text-xs text-slate-300">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Next Auto-Renewal</span>
-                    <span className="font-bold text-white text-sm">{subData.nextRenewalDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Billing Rate</span>
-                    <span className="font-bold text-emerald-400 text-sm">
-                      ₹{subData.billingCycle === 'Annual' ? subData.plan.priceAnnualINR.toLocaleString('en-IN') : subData.plan.priceMonthlyINR.toLocaleString('en-IN')} / {subData.billingCycle === 'Annual' ? 'year' : 'month'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Tenant Code</span>
-                    <span className="font-mono font-bold text-white text-sm">{subData.company?.code || 'PANELIYA-HQ'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
-                <button
-                  onClick={() => setIsUpgradeModalOpen(true)}
-                  className="px-6 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-500/30 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>Upgrade or Change Plan</span>
-                </button>
-                <button
-                  onClick={() => {
-                    showToast({
-                      type: 'info',
-                      title: 'Support Desk',
-                      message: 'Priority billing support ticket opened (#PAN-8910).',
-                    });
-                  }}
-                  className="px-6 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Mail className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Billing Support</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quota Usage Bar */}
-            <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
-              <div className="flex items-center justify-between text-xs font-bold mb-2">
-                <span className="text-slate-300 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-indigo-400" />
-                  Employee Quota Capacity
-                </span>
-                <span className="text-white">
-                  {subData.currentEmployeesCount} / {subData.maxEmployees >= 1000 ? 'Unlimited' : `${subData.maxEmployees}`} Employees ({subData.quotaPercent}% utilized)
-                </span>
-              </div>
-              <div className="w-full h-3 rounded-full bg-slate-800/80 overflow-hidden border border-white/5">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    subData.isQuotaFull
-                      ? 'bg-rose-500'
-                      : subData.quotaPercent > 80
-                      ? 'bg-amber-400'
-                      : 'bg-emerald-400'
-                  }`}
-                  style={{ width: `${Math.max(5, subData.quotaPercent)}%` }}
+                <input
+                  type="checkbox"
+                  checked={scheduleData.enforceShiftWindow !== false}
+                  onChange={(e) => setScheduleData({ ...scheduleData, enforceShiftWindow: e.target.checked })}
+                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Key Tier Capabilities 3-Card Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                <Fingerprint className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-slate-900 text-sm">Biometric Machine Gateway</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Physical ZKTeco, eSSL & Realtime terminal cloud push integration enabled via ADMS.
-              </p>
-              <div className="pt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
-                </span>
-              </div>
-            </div>
+              {/* Real-time Punch Window Calculation */}
+              {(() => {
+                const startMins = parseTimeToMinutes(scheduleData.shiftStartTime || '09:00 AM');
+                const allowedStart = formatMinutesToTimeString(startMins - Number(scheduleData.earlyBufferMinutes || 30));
+                const allowedEnd = formatMinutesToTimeString(startMins + Number(scheduleData.gracePeriodMinutes || 15));
+                return (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#343a40] to-[#343a40] text-white border border-[#343a40] flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Calculated Daily Punch Window</span>
+                      </div>
+                      <p className="text-xl font-mono font-semibold tracking-tight text-white mt-1">
+                        {allowedStart} — {allowedEnd}
+                      </p>
+                      <p className="text-[11px] text-emerald-100/70 mt-0.5">
+                        Allowed clock-in starts at {allowedStart} with a {scheduleData.gracePeriodMinutes || 15}-minute grace window.
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold">
+                      {scheduleData.enforceShiftWindow !== false ? (
+                        <><Lock className="w-3 h-3 shrink-0" /> Strict Mode Active</>
+                      ) : (
+                        'Flexible Clock-In'
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
 
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
-                <Globe className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-slate-900 text-sm">GPS Geofence & Live Selfie</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Office coordinate boundary locking, hardware device detection, and live camera verification.
-              </p>
-              <div className="pt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
-                </span>
-              </div>
-            </div>
+              {/* Weekly Weekend / Off Days Configuration */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+                    <CalendarDays className="w-4 h-4 text-emerald-600" />
+                    <span>Company Weekend &amp; Weekly Off Days</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                    Select which days are official company non-working weekends. Only selected days will reflect as weekends in the Calendar and Attendance.
+                  </p>
+                </div>
 
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-2xs space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-slate-900 text-sm">Full Automated Payroll</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Direct salary calculation, EPF / ESIC deductions, and downloadable PDF payslips for all staff.
-              </p>
-              <div className="pt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Unlocked in Current Plan
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature Access Matrix */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-black text-slate-900 text-sm">Feature Comparison Matrix</h4>
-                <p className="text-xs text-slate-500">
-                  Compare plan entitlements across Starter, Growth, and Enterprise tiers
-                </p>
-              </div>
-              <button
-                onClick={() => setIsUpgradeModalOpen(true)}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-              >
-                <span>View Full Comparison</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                    <th className="py-2.5 px-3">HRMS Feature</th>
-                    <th className="py-2.5 px-3">Category</th>
-                    <th className="py-2.5 px-3 text-center">Starter</th>
-                    <th className="py-2.5 px-3 text-center">Growth</th>
-                    <th className="py-2.5 px-3 text-center bg-indigo-50/50 rounded-t-xl font-bold text-indigo-900">
-                      Enterprise (Active)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {SUBSCRIPTION_FEATURES_MATRIX.slice(0, 7).map((feat, i) => (
-                    <tr key={i} className="hover:bg-slate-50/60 transition">
-                      <td className="py-2.5 px-3 font-semibold text-slate-800">
-                        {feat.name}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-500 text-[11px]">
-                        {feat.category}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        {feat.includedInStarter ? (
-                          <Check className="w-4 h-4 text-emerald-600 mx-auto" />
-                        ) : (
-                          <span className="text-slate-300 font-bold">—</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        {feat.includedInGrowth ? (
-                          <Check className="w-4 h-4 text-emerald-600 mx-auto" />
-                        ) : (
-                          <span className="text-slate-300 font-bold">—</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-center bg-indigo-50/30">
-                        {feat.includedInEnterprise ? (
-                          <Check className="w-4 h-4 text-indigo-600 stroke-[2.5] mx-auto" />
-                        ) : (
-                          <span className="text-slate-300 font-bold">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Invoices & Billing History */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-black text-slate-900 text-sm">Invoices & Payment History</h4>
-                <p className="text-xs text-slate-500">
-                  Download official GST-compliant tax invoices and receipts
-                </p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">
-                GSTIN: 24AAACP1234F1Z5
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                    <th className="py-2.5 px-3">Invoice #</th>
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Plan & Tier</th>
-                    <th className="py-2.5 px-3">Billing Cycle</th>
-                    <th className="py-2.5 px-3">Amount</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50/60 transition">
-                      <td className="py-2.5 px-3">
-                        <span className="font-mono font-bold text-slate-900 block">{inv.invoiceNumber}</span>
-                        {inv.razorpayPaymentId && (
-                          <span className="text-[10px] text-blue-600 font-mono block">
-                            RZP: {inv.razorpayPaymentId}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-600">{inv.date}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="font-bold text-slate-800 block">{inv.planName}</span>
-                        <span className="text-[10px] text-slate-400 block">{inv.paymentMethod || 'Razorpay Gateway'}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-500">{inv.billingCycle}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900">
-                        ₹{inv.amountINR.toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={() => {
-                            showToast({
-                              type: 'success',
-                              title: 'Receipt Downloaded',
-                              message: `Invoice ${inv.invoiceNumber} receipt ${inv.razorpayPaymentId ? `(Ref: ${inv.razorpayPaymentId})` : ''} downloaded.`,
-                            });
-                          }}
-                          className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition"
+                {/* Day selector pills (Sun - Sat) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { day: 0, label: 'Sunday', short: 'Sun' },
+                    { day: 1, label: 'Monday', short: 'Mon' },
+                    { day: 2, label: 'Tuesday', short: 'Tue' },
+                    { day: 3, label: 'Wednesday', short: 'Wed' },
+                    { day: 4, label: 'Thursday', short: 'Thu' },
+                    { day: 5, label: 'Friday', short: 'Fri' },
+                    { day: 6, label: 'Saturday', short: 'Sat' },
+                  ].map((d) => {
+                    const isSelected = (scheduleData.weekendDays ?? [0]).includes(d.day);
+                    return (
+                      <button
+                        key={d.day}
+                        type="button"
+                        onClick={() => {
+                          const current = scheduleData.weekendDays ?? [0];
+                          let next: number[];
+                          let nextSatRule = scheduleData.saturdayRule ?? 'none';
+                          if (isSelected) {
+                            next = current.filter((x) => x !== d.day);
+                            if (d.day === 6) nextSatRule = 'none';
+                          } else {
+                            next = [...current, d.day].sort();
+                            if (d.day === 6 && (!nextSatRule || nextSatRule === 'none')) {
+                              nextSatRule = 'all';
+                            }
+                          }
+                          setScheduleData({ ...scheduleData, weekendDays: next, saturdayRule: nextSatRule });
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                        <span>{d.label}</span>
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${
+                            isSelected ? 'bg-white/20 text-emerald-100' : 'bg-slate-100 text-slate-500'
+                          }`}
                         >
-                          <Download className="w-3 h-3" />
-                          <span>Receipt</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+                          {isSelected ? 'Off' : 'Work'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-      {/* Tab 6: Work & Display Preferences */}
-      {adminActiveTab === 'preferences' && renderWorkAndDisplayPanel()}
+                {/* Saturday Specific Rule Sub-Options (if Saturday is selected) */}
+                {(scheduleData.weekendDays ?? [0]).includes(6) && (
+                  <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                    <label className="block font-bold text-slate-700 text-xs">
+                      Saturday Operational Schedule
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {[
+                        { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is an official weekend' },
+                        { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
+                        { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
+                      ].map((opt) => {
+                        const isAct = (scheduleData.saturdayRule || 'all') === opt.id;
+                        return (
+                          <div
+                            key={opt.id}
+                            onClick={() => setScheduleData({ ...scheduleData, saturdayRule: opt.id as any })}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              isAct
+                                ? 'border-[#1b4332] bg-[#d8f3dc]/30 ring-1 ring-[#1b4332]'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-900">{opt.title}</span>
+                              <input
+                                type="radio"
+                                name="satRuleSettings"
+                                checked={isAct}
+                                onChange={() => {}}
+                                className="text-emerald-600 focus:ring-emerald-500"
+                              />
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{opt.desc}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary status tag */}
+                <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>
+                    Current weekend schedule: <strong className="text-slate-900">{getWeekendPolicyDescription(scheduleData)}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <KioskVoiceCard
+                onSaved={(msg) => showToast({ type: 'success', title: 'Voice Saved', message: msg })}
+                onError={(msg) => showToast({ type: 'error', title: 'Voice Save Failed', message: msg })}
+              />
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleAdminSave}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{loading ? 'Saving...' : 'Save Shift Rules'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab 3: Leave Quotas ── */}
+          {adminActiveTab === 'leaves' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <CalendarOff className="w-4 h-4 text-emerald-600" />
+                    Annual Leave Quotas &amp; Carry-Forward
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                    Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
+                  </p>
+                </div>
+                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 shrink-0">
+                  Total Annual Leaves:{' '}
+                  <span className="font-semibold text-emerald-800">
+                    {settingsLoading
+                      ? 'Loading...'
+                      : `${(Number(leavePolicyData.casualLeaveAnnual) || 0) + (Number(leavePolicyData.sickLeaveAnnual) || 0) + (Number(leavePolicyData.paidLeaveAnnual) || 0)} Days`}
+                  </span>
+                </div>
+              </div>
+
+              {settingsLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 animate-pulse">
+                      <div className="h-4 w-32 bg-slate-200 rounded" />
+                      <div className="h-11 w-full bg-slate-200/70 rounded-xl" />
+                      <div className="h-3 w-48 bg-slate-200/60 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.casualLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.sickLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={leavePolicyData.paidLeaveAnnual}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    value={leavePolicyData.carryForwardLimit}
+                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
+                </div>
+              </div>
+              )}
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleAdminSave}
+                  disabled={loading || settingsLoading}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{loading ? 'Saving...' : 'Save Leave Quotas'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab 4: Plans & Premium (GET /premium, GET /plans, POST /plans, PATCH /plans/:id, DELETE /plans/:id, POST /plans/:id/sell, GET /premium/orders, POST /premium/orders, PATCH /premium/orders/:id) ── */}
+          {adminActiveTab === 'plans' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {!canManagePlans && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600">
+                      <Crown className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">{premiumStatus?.planName || 'No active plan'}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${premiumStatus?.premium ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {premiumStatus?.premium ? 'Active' : premiumStatus?.expired ? 'Expired' : 'Not purchased'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {premiumStatus?.order
+                          ? `₹${Number(premiumStatus.order.price || 0).toLocaleString('en-IN')} for ${premiumStatus.order.durationMonths || 1} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'} · ends ${premiumStatus.endsOn || '—'}`
+                          : 'Pick a plan below and pay with Razorpay.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    ['Price', premiumStatus?.order?.price != null ? `₹${Number(premiumStatus.order.price).toLocaleString('en-IN')}` : '—'],
+                    ['Duration', premiumStatus?.order?.durationMonths ? `${premiumStatus.order.durationMonths} month${Number(premiumStatus.order.durationMonths) === 1 ? '' : 's'}` : '—'],
+                    ['Payment', 'Razorpay'],
+                    ['Status', premiumStatus?.premium ? 'Paid' : premiumStatus?.order?.status || 'None'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+                      <span className="mt-1 block text-sm font-bold text-slate-800">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              )}
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+                      <Package className="h-4 w-4 text-emerald-600" />
+                      Plans
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {canManagePlans ? 'Add a plan, change its price, or remove it.' : 'These are the plans you can buy for this company.'}
+                    </p>
+                  </div>
+                  {canManagePlans && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPlan(null);
+                        setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+                        setIsCreatePlanOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 self-start rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create plan
+                    </button>
+                  )}
+                </div>
+
+                {plansLoading ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+                    <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
+                    <span className="text-xs font-semibold">Loading plans...</span>
+                  </div>
+                ) : plansList.length === 0 ? (
+                  <div className="mt-5 flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center">
+                    <Package className="mb-3 h-6 w-6 text-slate-400" />
+                    <h4 className="text-sm font-bold text-slate-800">No plans yet</h4>
+                    <p className="mt-1 max-w-sm text-xs text-slate-400">
+                      {canManagePlans ? 'Create a plan for companies to purchase.' : 'A super admin has not added a plan yet.'}
+                    </p>
+                    {canManagePlans && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPlan(null);
+                          setPlanForm({ name: '', price: 999, durationMonths: 1, description: '', status: 'Active' });
+                          setIsCreatePlanOpen(true);
+                        }}
+                        className="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                      >
+                        Create plan
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {plansList.map((plan: any) => {
+                      const months = Number(plan.durationMonths) || 1;
+                      const price = Number(plan.price) || 0;
+                      const isCurrent = !canManagePlans && premiumStatus?.premium && premiumStatus?.order?.planId === plan.id;
+                      const inactive = String(plan.status || 'Active') !== 'Active';
+                      return (
+                        <div
+                          key={plan.id}
+                          className={`flex flex-col rounded-2xl border p-5 ${isCurrent ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-white'}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <h4 className="text-base font-bold text-slate-900">{plan.name}</h4>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isCurrent ? 'bg-emerald-600 text-white' : inactive ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {isCurrent ? 'Current' : plan.status || 'Active'}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">₹{price.toLocaleString('en-IN')}</p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">{months} month{months === 1 ? '' : 's'}</p>
+                          <p className="mt-3 min-h-10 text-sm leading-5 text-slate-600">{plan.description || 'Company plan'}</p>
+                          <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-4">
+                            {canManagePlans ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPlan(plan);
+                                    setPlanForm({
+                                      name: plan.name || '',
+                                      price,
+                                      durationMonths: months,
+                                      description: plan.description || '',
+                                      status: plan.status || 'Active',
+                                    });
+                                    setIsCreatePlanOpen(true);
+                                  }}
+                                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingPlan(plan)}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isCurrent}
+                                onClick={() => setIsUpgradeModalOpen(true)}
+                                className={`w-full rounded-xl px-3 py-2.5 text-xs font-bold ${isCurrent ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                              >
+                                {isCurrent ? 'Current plan' : 'Purchase'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Premium Orders History (GET /premium/orders) */}
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-emerald-600" />
+                      Premium Orders
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Payments for this company.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadPlansAndPremium}
+                    className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+                    title="Refresh Orders"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {ordersLoading ? (
+                  <div className="py-8 flex justify-center text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
+                  </div>
+                ) : premiumOrders.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    No premium orders recorded yet.
+                  </div>
+                ) : (
+                  <>
+                    {/* Mobile Card View (< md) */}
+                    <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                      {premiumOrders.map((ord: any) => (
+                        <div key={`mob-ord-${ord.id}`} className="p-3.5 space-y-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-800 truncate">{ord.planName || ord.planId || 'Plan Tier'}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
+                              {ord.status || 'Completed'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-500">
+                            <span className="font-mono">{ord.id?.slice(0, 12)}...</span>
+                            <span>{ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}</span>
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingOrder(ord);
+                                setOrderStatusVal(ord.status || 'Active');
+                              }}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                            >
+                              Update Status
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                        <tr>
+                          <th className="px-4 py-3">Order ID</th>
+                          <th className="px-4 py-3">Plan</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {premiumOrders.map((ord: any) => (
+                          <tr key={ord.id} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
+                              {ord.id?.slice(0, 12)}...
+                            </td>
+                            <td className="px-4 py-3 font-bold text-slate-800">
+                              {ord.planName || ord.planId || 'Plan Tier'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                {ord.status || 'Completed'}
+                            </span>
+                          </td>
+                            <td className="px-4 py-3 text-slate-500">
+                              {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : 'Recent'}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                            {canManagePlans && (
+                            <button
+                                type="button"
+                              onClick={() => {
+                                  setEditingOrder(ord);
+                                  setOrderStatusVal(ord.status || 'Active');
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                              >
+                                Update Status
+                            </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab 5: Support Inquiries (GET /support, GET /support/:id, PATCH /support/:id) ── */}
+          {adminActiveTab === 'support' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <Headphones className="w-4 h-4 text-emerald-600" />
+                    Support &amp; Demo Inquiries
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Leads and demo requests submitted through the portal (GET /support, PATCH /support/:id)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadSupportData}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${supportLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {supportLoading ? (
+                <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                  <span className="text-xs font-semibold">Loading inquiries...</span>
+                </div>
+              ) : supportList.length === 0 ? (
+                <div className="py-16 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-400 mb-3">
+                    <Headphones className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">No Inquiries Found</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mt-1">
+                    When visitors submit demo bookings or contact requests on the website, they will appear here.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Card View (< md) */}
+                  <div className="md:hidden divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                    {supportList.map((item: any) => (
+                      <div key={`mob-sup-${item.id}`} className="p-3.5 space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700">
+                            {item.kind || 'Demo'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              item.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : item.status === 'Read'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {item.status || 'New'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{item.name} {item.companyName ? `(${item.companyName})` : ''}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{item.email} • {item.phone || 'No phone'}</p>
+                        </div>
+                        {item.message && <p className="text-slate-600 line-clamp-2">{item.message}</p>}
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewSupportReq(item)}
+                            className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            View
+                          </button>
+                          {item.status !== 'Resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                              className="min-h-[36px] px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs cursor-pointer"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Contact</th>
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3">Message</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {supportList.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700">
+                              {item.kind || 'Demo'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-slate-900">{item.name}</p>
+                            <p className="text-[10px] text-slate-400">{item.email} &bull; {item.phone || 'No phone'}</p>
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium">
+                            {item.companyName || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
+                            {item.message || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.status === 'Resolved'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : item.status === 'Read'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {item.status || 'New'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleViewSupportReq(item)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                              >
+                                View
+                              </button>
+                              {item.status !== 'Resolved' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSupportReqStatus(item.id, 'Resolved')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold transition cursor-pointer"
+                                >
+                                  Resolve
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Upgrade Plan Modal */}
+      {isUpgradeModalOpen && (
       <UpgradePlanModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
-        companyId="comp-paneliya"
-        onPlanUpdated={refreshSubscriptionData}
-      />
+          onPlanUpdated={() => {
+            refreshSubscriptionData();
+            loadPlansAndPremium();
+          }}
+        />
+      )}
+
+      {/* Create / Edit Plan Modal (POST /plans, PATCH /plans/:id) */}
+      {isCreatePlanOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => {
+            setIsCreatePlanOpen(false);
+            setEditingPlan(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingPlan ? 'Edit System Plan' : 'Create System Plan'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatePlanOpen(false);
+                  setEditingPlan(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSavePlan} className="p-6 space-y-3.5 text-xs overflow-y-auto">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Plan Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={planForm.name}
+                  onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                  placeholder="e.g. Enterprise Pro"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    value={planForm.price}
+                    onChange={(e) => setPlanForm({ ...planForm, price: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Duration (Months)</label>
+                  <input
+                    type="number"
+                    required
+                    value={planForm.durationMonths}
+                    onChange={(e) => setPlanForm({ ...planForm, durationMonths: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={planForm.description}
+                  onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                  placeholder="Plan features and coverage description..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 resize-none font-semibold"
+                />
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatePlanOpen(false);
+                    setEditingPlan(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  {editingPlan ? 'Update Plan' : 'Save Plan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Plan Modal (DELETE /plans/:id) */}
+      {Boolean(deletingPlan) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setDeletingPlan(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-y-auto flex flex-col p-6 space-y-4 my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Delete System Plan?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to remove <span className="font-bold text-slate-700">{deletingPlan.name}</span>? This cannot be undone.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setDeletingPlan(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePlanConfirm}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition cursor-pointer shadow-xs"
+              >
+                Delete Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sell Plan Modal (POST /plans/:id/sell) */}
+      {Boolean(sellingPlan) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSellingPlan(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-bold text-slate-900">Sell Plan to Company</h3>
+              <button
+                type="button"
+                onClick={() => setSellingPlan(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSellPlanSubmit} className="p-6 space-y-3.5 text-xs overflow-y-auto">
+              <p className="text-slate-500">
+                Assigning <span className="font-bold text-slate-800">{sellingPlan.name}</span> directly to a target company.
+              </p>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Target Company ID <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={sellCompanyId}
+                  onChange={(e) => setSellCompanyId(e.target.value)}
+                  placeholder="UUID e.g. 92744968-6ab2-4dd7-..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                />
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSellingPlan(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  Assign Plan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Update Order Status Modal (PATCH /premium/orders/:id) */}
+      {Boolean(editingOrder) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setEditingOrder(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-bold text-slate-900">Update Order Status</h3>
+              <button
+                type="button"
+                onClick={() => setEditingOrder(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateOrderStatus} className="p-6 space-y-3.5 text-xs overflow-y-auto">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Status</label>
+                <select
+                  value={orderStatusVal}
+                  onChange={(e) => setOrderStatusVal(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 font-semibold"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold transition cursor-pointer shadow-xs"
+                >
+                  Save Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Support Details Modal (GET /support/:id, PATCH /support/:id) */}
+      {Boolean(viewingSupport) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setViewingSupport(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {viewingSupport.kind || 'Demo'} Inquiry Details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingSupport(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-xs overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Name</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.name}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Company</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.companyName || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Email</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.email}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Phone</span>
+                  <span className="font-bold text-slate-900">{viewingSupport.phone || '—'}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Message</span>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {viewingSupport.message || 'No additional message provided.'}
+                </div>
+              </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">
+                  Status: <span className="font-bold text-slate-800">{viewingSupport.status || 'New'}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  {viewingSupport.status !== 'Read' && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSupportReqStatus(viewingSupport.id, 'Read')}
+                      className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold transition cursor-pointer"
+                    >
+                      Mark as Read
+                    </button>
+                  )}
+                  {viewingSupport.status !== 'Resolved' && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSupportReqStatus(viewingSupport.id, 'Resolved')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition cursor-pointer shadow-xs"
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewingSupport(null)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+function KioskVoiceCard({
+  onSaved,
+  onError,
+}: {
+  onSaved: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [lang, setLang] = useState<KioskVoiceLang>('en-IN');
+  const [gender, setGender] = useState<KioskVoiceGender>('female');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.getKioskVoice()
+      .then((res: any) => {
+        if (!active) return;
+        const nextLang = String(res?.kioskVoiceLang || 'en-IN') as KioskVoiceLang;
+        if (KIOSK_VOICE_LANGUAGES.some((item) => item.code === nextLang)) {
+          setLang(nextLang);
+        }
+        setGender(res?.kioskVoiceGender === 'male' ? 'male' : 'female');
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.saveKioskVoice({ kioskVoiceLang: lang, kioskVoiceGender: gender });
+      onSaved('Face Clock Kiosk voice language and type updated.');
+    } catch (err: any) {
+      onError(err?.message || 'Could not save voice settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+            <Volume2 className="w-4 h-4 text-emerald-600" />
+            <span>Face Clock Kiosk Voice &amp; Language</span>
+          </div>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+            Choose the spoken language and voice type (Female / Male) for Face Clock announcements.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            unlockKioskSpeech();
+            speakKioskText({ kind: 'test' }, {
+              enabled: true,
+              lang,
+              gender,
+            });
+          }}
+          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer"
+        >
+          Test Voice
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {KIOSK_VOICE_LANGUAGES.map((item) => (
+          <button
+            key={item.code}
+            type="button"
+            onClick={() => setLang(item.code)}
+            className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${
+              lang === item.code
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <div>{item.label}</div>
+            <div className="text-[10px] text-slate-500">{item.native}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="inline-flex rounded-xl bg-white border border-slate-200 p-1">
+          {(['female', 'male'] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setGender(g)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
+                gender === g ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void handleSave()}
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          <Check className="w-3.5 h-3.5" />
+          <span>{saving ? 'Saving...' : 'Save Voice'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

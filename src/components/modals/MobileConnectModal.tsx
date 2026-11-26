@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useModalOverlay } from '../../lib/useModalOverlay';
 import {
   Smartphone,
   X,
@@ -29,9 +30,9 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
     mobileUrl: string;
     backendUrl: string;
   }>({
-    ip: '192.168.1.106',
-    mobileUrl: 'http://192.168.1.106:3000',
-    backendUrl: 'http://192.168.1.106:4000',
+    ip: '',
+    mobileUrl: '',
+    backendUrl: 'http://192.168.1.104:4000',
   });
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,6 +72,8 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useModalOverlay({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
@@ -78,29 +81,37 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
   )}&color=064e3b&bgcolor=f0fdf4`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-emerald-900/10 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] cursor-default transition-all my-auto"
+      >
         {/* Header */}
-        <div className="relative px-6 py-5 bg-gradient-to-r from-[#064e3b] via-[#059669] to-[#047857] text-white flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-white border border-white/20">
-              <Smartphone className="w-5 h-5 text-emerald-100" />
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5 text-emerald-600" />
             </div>
-            <div>
-              <h2 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                 Mobile & Multi-Device Access
               </h2>
-              <p className="text-xs text-emerald-100/90 font-medium">
+              <p className="text-xs text-slate-500 truncate mt-0.5">
                 Open Paneliya HRMS on any phone or tablet instantly
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
             title="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -108,22 +119,20 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
         <div className="flex border-b border-slate-100 bg-slate-50/70 p-1.5 gap-1.5">
           <button
             onClick={() => setActiveTab('wifi')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'wifi'
-                ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'wifi'
+              ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
+              : 'text-slate-500 hover:text-slate-900'
+              }`}
           >
             <Wifi className="w-3.5 h-3.5 text-emerald-600" />
             Local Wi-Fi (Super Fast)
           </button>
           <button
             onClick={() => setActiveTab('tunnel')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'tunnel'
-                ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'tunnel'
+              ? 'bg-white text-emerald-900 shadow-sm border border-emerald-900/10'
+              : 'text-slate-500 hover:text-slate-900'
+              }`}
           >
             <Globe className="w-3.5 h-3.5 text-blue-600" />
             Anywhere (4G / 5G / Remote)
@@ -284,14 +293,14 @@ export const MobileConnectModal: React.FC<MobileConnectModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
           <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-emerald-600" />
-            IP dynamically adapts to daily router changes.
+            <AlertCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>IP dynamically adapts to daily router changes.</span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#064e3b] text-white text-xs font-bold hover:bg-[#047857] transition-all shadow-sm"
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
           >
             Done
           </button>

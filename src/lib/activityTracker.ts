@@ -14,32 +14,25 @@ export interface EmployeeActivityStatus {
 const STORAGE_KEY = 'hrms_employee_activity_map';
 const DEFAULT_INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes (300,000 ms)
 
+let liveActivityMap: Record<string, EmployeeActivityStatus> = {};
+
 /**
- * Get all employee activity records from localStorage
+ * Get all employee activity records from live memory
  */
 export function getAllEmployeeActivities(): Record<string, EmployeeActivityStatus> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error('Failed to read employee activity map:', err);
-  }
-  return {};
+  return liveActivityMap;
 }
 
 /**
- * Save all activities and emit real-time event
+ * Save all activities and emit real-time event (strictly in-memory)
  */
 export function saveAllEmployeeActivities(map: Record<string, EmployeeActivityStatus>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  liveActivityMap = map;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
     window.dispatchEvent(new Event('hrms_employee_activity_updated'));
-  } catch (err) {
-    console.error('Failed to save employee activity map:', err);
   }
 }
 
@@ -133,38 +126,6 @@ export function evaluateInactivity(
   return newlyIdle;
 }
 
-/**
- * Helper to simulate an employee being idle (>5 minutes) for instant admin testing
- */
-export function simulateEmployeeIdle(
-  employeeId: string,
-  employeeName: string,
-  employeeCode: string,
-  minutesAgo: number = 6
-): void {
-  const map = getAllEmployeeActivities();
-  const fakePastTime = Date.now() - minutesAgo * 60 * 1000;
-
-  map[employeeId] = {
-    employeeId,
-    employeeName,
-    employeeCode,
-    lastActiveTimestamp: fakePastTime,
-    isIdle: true,
-    idleSeconds: minutesAgo * 60,
-    status: 'Idle',
-    alertTriggered: true,
-  };
-
-  saveAllEmployeeActivities(map);
-
-  // Trigger alert event for admin
-  window.dispatchEvent(
-    new CustomEvent('hrms_employee_idle_alert', {
-      detail: map[employeeId],
-    })
-  );
-}
 
 /**
  * Helper to reset idle status for an employee

@@ -14,6 +14,8 @@ export interface WorkScheduleConfig {
   earlyBufferMinutes: number; // e.g. 30 (Buffer before shift start)
   enforceShiftWindow: boolean; // default true for company that enables it, false for others
   halfDayHours?: number;
+  weekendDays?: number[]; // [0] = Sunday, [6] = Saturday, etc. (0 - 6)
+  saturdayRule?: 'all' | 'none' | 'alternate_2_4' | 'alternate_1_3'; // Saturday policy
 }
 
 const DEFAULT_SCHEDULE_CONFIG: WorkScheduleConfig = {
@@ -26,9 +28,15 @@ const DEFAULT_SCHEDULE_CONFIG: WorkScheduleConfig = {
   earlyBufferMinutes: 30,
   enforceShiftWindow: true,
   halfDayHours: 4,
+  weekendDays: [0], // Default Sunday only (Admin must select Saturday for it to be weekend)
+  saturdayRule: 'none',
 };
 
+import { getAllEmployees } from './employeeService';
+
 const SCHEDULE_STORAGE_KEY = 'hrms_work_schedule';
+
+let liveSchedules: Record<string, WorkScheduleConfig> = {};
 
 /**
  * Helper to determine the company ID from explicit argument, employeeId, or active session
@@ -38,121 +46,35 @@ export function resolveCurrentCompanyId(explicitCompanyId?: string, employeeId?:
     return explicitCompanyId.trim();
   }
 
-  // 1. If employeeId is supplied, lookup company from employee rosters
-  if (employeeId && typeof window !== 'undefined') {
-    try {
-      // Check primary live employees
-      const empsStr = localStorage.getItem('hrms_employees');
-      if (empsStr) {
-        const emps = JSON.parse(empsStr);
-        const match = emps.find(
-          (e: any) =>
-            e.id === employeeId ||
-            e._id === employeeId ||
-            e.employeeCode === employeeId ||
-            e.email?.toLowerCase() === employeeId.toLowerCase()
-        );
-        if (match?.companyId) return match.companyId;
-      }
-
-      // Check tenant-specific company rosters
-      const tenantEmpsStr = localStorage.getItem('hrms_tenant_company_employees');
-      if (tenantEmpsStr) {
-        const tenantMap = JSON.parse(tenantEmpsStr);
-        for (const [compId, empList] of Object.entries(tenantMap)) {
-          if (Array.isArray(empList)) {
-            const found = empList.some(
-              (e: any) =>
-                e.id === employeeId ||
-                e._id === employeeId ||
-                e.employeeCode === employeeId ||
-                e.email?.toLowerCase() === employeeId.toLowerCase()
-            );
-            if (found) return compId;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error resolving employee company:', e);
-    }
-  }
-
-  // 2. Check currently authenticated user session
-  if (typeof window !== 'undefined') {
-    try {
-      const userStr = localStorage.getItem('hrms_auth_user');
-      if (userStr) {
-        const parsed = JSON.parse(userStr);
-        if (parsed?.companyId) return parsed.companyId;
-      }
-    } catch {}
+  // 1. If employeeId is supplied, lookup company from live employee rosters
+  if (employeeId) {
+    const emps = getAllEmployees();
+    const match = emps.find(
+      (e: any) =>
+        e.id === employeeId ||
+        e._id === employeeId ||
+        e.employeeCode === employeeId ||
+        (e.email && typeof employeeId === 'string' && e.email.toLowerCase() === employeeId.toLowerCase())
+    );
+    if (match?.companyId) return match.companyId;
   }
 
   return 'comp-paneliya';
 }
 
 /**
- * Retrieve current schedule configuration for a specific company from storage
+ * Retrieve current schedule configuration for a specific company (in-memory)
  */
 export function getWorkScheduleConfig(companyId?: string): WorkScheduleConfig {
   const compId = resolveCurrentCompanyId(companyId);
-  if (typeof window === 'undefined') {
-    return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId };
+  if (liveSchedules[compId]) {
+    return liveSchedules[compId];
   }
-
-  try {
-    // 1. Check company-specific key
-    const companyKey = `${SCHEDULE_STORAGE_KEY}_${compId}`;
-    const saved = localStorage.getItem(companyKey);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        ...DEFAULT_SCHEDULE_CONFIG,
-        ...parsed,
-        companyId: compId,
-        shiftStartTime: parsed.shiftStartTime || extractStartTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftStartTime,
-        shiftEndTime: parsed.shiftEndTime || extractEndTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftEndTime,
-        earlyBufferMinutes: parsed.earlyBufferMinutes !== undefined ? Number(parsed.earlyBufferMinutes) : 30,
-        gracePeriodMinutes: parsed.gracePeriodMinutes !== undefined ? Number(parsed.gracePeriodMinutes) : 15,
-        enforceShiftWindow: parsed.enforceShiftWindow !== undefined ? Boolean(parsed.enforceShiftWindow) : true,
-      };
-    }
-
-    // 2. Legacy fallback for Paneliya HQ flagship company
-    if (compId === 'comp-paneliya') {
-      const legacySaved = localStorage.getItem(SCHEDULE_STORAGE_KEY);
-      if (legacySaved) {
-        const parsed = JSON.parse(legacySaved);
-        return {
-          ...DEFAULT_SCHEDULE_CONFIG,
-          ...parsed,
-          companyId: compId,
-          shiftStartTime: parsed.shiftStartTime || extractStartTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftStartTime,
-          shiftEndTime: parsed.shiftEndTime || extractEndTime(parsed.defaultShift) || DEFAULT_SCHEDULE_CONFIG.shiftEndTime,
-          earlyBufferMinutes: parsed.earlyBufferMinutes !== undefined ? Number(parsed.earlyBufferMinutes) : 30,
-          gracePeriodMinutes: parsed.gracePeriodMinutes !== undefined ? Number(parsed.gracePeriodMinutes) : 15,
-          enforceShiftWindow: parsed.enforceShiftWindow !== undefined ? Boolean(parsed.enforceShiftWindow) : true,
-        };
-      }
-      return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId, enforceShiftWindow: true };
-    }
-
-    // 3. For any other tenant company that has NOT configured a buffer yet:
-    // Buffer enforcement is strictly FALSE so their employees are not blocked.
-    return {
-      ...DEFAULT_SCHEDULE_CONFIG,
-      companyId: compId,
-      enforceShiftWindow: false,
-    };
-  } catch (err) {
-    console.error('Failed to read schedule config from storage:', err);
-  }
-
-  return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId, enforceShiftWindow: false };
+  return { ...DEFAULT_SCHEDULE_CONFIG, companyId: compId };
 }
 
 /**
- * Persist schedule configuration for a specific company and notify listeners
+ * Save schedule configuration for a specific company (in-memory)
  */
 export function saveWorkScheduleConfig(
   config: Partial<WorkScheduleConfig>,
@@ -168,24 +90,19 @@ export function saveWorkScheduleConfig(
     defaultShift: `${config.shiftStartTime || current.shiftStartTime} - ${config.shiftEndTime || current.shiftEndTime}`,
   };
 
+  liveSchedules[compId] = updated;
+
   if (typeof window !== 'undefined') {
     try {
-      // Save company-scoped config
-      localStorage.setItem(`${SCHEDULE_STORAGE_KEY}_${compId}`, JSON.stringify(updated));
+      localStorage.removeItem(`${SCHEDULE_STORAGE_KEY}_${compId}`);
+      localStorage.removeItem(SCHEDULE_STORAGE_KEY);
+    } catch {}
 
-      // Keep legacy key in sync if Paneliya flagship company
-      if (compId === 'comp-paneliya') {
-        localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(updated));
-      }
-
-      window.dispatchEvent(
-        new CustomEvent('hrms_schedule_updated', {
-          detail: { config: updated, companyId: compId },
-        })
-      );
-    } catch (err) {
-      console.error('Failed to save schedule config to storage:', err);
-    }
+    window.dispatchEvent(
+      new CustomEvent('hrms_schedule_updated', {
+        detail: { config: updated, companyId: compId },
+      })
+    );
   }
 
   return updated;
@@ -292,66 +209,10 @@ export function verifyShiftTimeWindow(
   const allowedStartStr = formatMinutesToTimeString(allowedStartMins);
   const allowedEndStr = formatMinutesToTimeString(allowedEndMins);
 
-  // If this specific company has NOT enabled strict shift buffer enforcement, allow punch anytime!
-  if (!config.enforceShiftWindow) {
-    return {
-      isAllowed: true,
-      enforceActive: false,
-      isLate: false,
-      isEarly: false,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: 0,
-      config,
-    };
-  }
-
-  // Check if current time falls within [allowedStartMins, allowedEndMins]
-  if (currentMinutes < allowedStartMins) {
-    const minsUntilStart = allowedStartMins - currentMinutes;
-    return {
-      isAllowed: false,
-      enforceActive: true,
-      isLate: false,
-      isEarly: true,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: -minsUntilStart,
-      reason: `Attendance Locked: Too early for shift check-in. Your company's shift begins at ${config.shiftStartTime} with an early buffer of ${earlyBuffer} mins (Allowed window starts at ${allowedStartStr}).`,
-      config,
-    };
-  }
-
-  if (currentMinutes > allowedEndMins) {
-    const minsLate = currentMinutes - allowedEndMins;
-    return {
-      isAllowed: true,
-      enforceActive: true,
-      isLate: true,
-      isEarly: false,
-      companyId: resolvedCompanyId,
-      shiftStart: config.shiftStartTime,
-      shiftEnd: config.shiftEndTime,
-      allowedStart: allowedStartStr,
-      allowedEnd: allowedEndStr,
-      currentTimeStr,
-      minutesDifference: minsLate,
-      reason: `Late Attendance: Office check-in window closed at ${allowedEndStr}. A compulsory reason is required to check in.`,
-      config,
-    };
-  }
-
+  // Punch anytime: allow check in and check out at any time without locking
   return {
     isAllowed: true,
-    enforceActive: true,
+    enforceActive: false,
     isLate: false,
     isEarly: false,
     companyId: resolvedCompanyId,
@@ -363,4 +224,87 @@ export function verifyShiftTimeWindow(
     minutesDifference: 0,
     config,
   };
+}
+
+/**
+ * Check if a specific date is a weekend based on company work schedule configuration.
+ * @param date Date object or "YYYY-MM-DD" string
+ * @param config Optional WorkScheduleConfig override
+ */
+export function isDateWeekend(
+  date: Date | string,
+  config?: Partial<WorkScheduleConfig> | null
+): boolean {
+  let d: Date;
+  if (typeof date === 'string') {
+    // If YYYY-MM-DD, parse parts safely to avoid UTC offset shifting
+    const parts = date.split('-').map(Number);
+    if (parts.length === 3) {
+      d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+    } else {
+      d = new Date(date);
+    }
+  } else {
+    d = date;
+  }
+  if (!d || isNaN(d.getTime())) return false;
+
+  const resolvedConfig = (config && config.weekendDays !== undefined)
+    ? config
+    : getWorkScheduleConfig(config?.companyId);
+
+  const weekendDays = resolvedConfig.weekendDays ?? [0];
+  const saturdayRule = resolvedConfig.saturdayRule ?? (weekendDays.includes(6) ? 'all' : 'none');
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  // If Saturday (6)
+  if (dayOfWeek === 6) {
+    if (saturdayRule === 'none' && !weekendDays.includes(6)) return false;
+    if (saturdayRule === 'all') return true;
+    if (saturdayRule === 'alternate_2_4') {
+      const dayOfMonth = d.getDate();
+      const satIndex = Math.ceil(dayOfMonth / 7);
+      return satIndex === 2 || satIndex === 4;
+    }
+    if (saturdayRule === 'alternate_1_3') {
+      const dayOfMonth = d.getDate();
+      const satIndex = Math.ceil(dayOfMonth / 7);
+      return satIndex === 1 || satIndex === 3;
+    }
+    return weekendDays.includes(6);
+  }
+
+  // Other days (Sunday = 0, Mon = 1, etc.)
+  return weekendDays.includes(dayOfWeek);
+}
+
+/**
+ * Returns human-friendly text describing the company's weekend schedule.
+ */
+export function getWeekendPolicyDescription(config?: Partial<WorkScheduleConfig> | null): string {
+  const resolved = (config && config.weekendDays !== undefined)
+    ? config
+    : getWorkScheduleConfig(config?.companyId);
+  const days = resolved.weekendDays ?? [0];
+  const satRule = resolved.saturdayRule ?? (days.includes(6) ? 'all' : 'none');
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  if (days.length === 0 && satRule === 'none') {
+    return 'No official weekends (7-day operations)';
+  }
+
+  const parts: string[] = [];
+  days.filter((d) => d !== 6).forEach((d) => {
+    parts.push(dayNames[d]);
+  });
+
+  if (satRule === 'all' || (days.includes(6) && satRule !== 'alternate_2_4' && satRule !== 'alternate_1_3')) {
+    parts.push('Saturday');
+  } else if (satRule === 'alternate_2_4') {
+    parts.push('2nd & 4th Saturday');
+  } else if (satRule === 'alternate_1_3') {
+    parts.push('1st & 3rd Saturday');
+  }
+
+  return parts.length > 0 ? parts.join(', ') + ' Off' : 'No weekly off';
 }

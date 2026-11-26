@@ -54,6 +54,26 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
   const [progressModalEnrollment, setProgressModalEnrollment] = useState<EmployeeTraining | null>(null);
   const [progressVal, setProgressVal] = useState(50);
 
+  useEffect(() => {
+    const isAnyOpen = isCreateOpen || isEnrollOpen || !!progressModalEnrollment;
+    if (!isAnyOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isCreateOpen) setIsCreateOpen(false);
+        if (isEnrollOpen) setIsEnrollOpen(false);
+        if (progressModalEnrollment) setProgressModalEnrollment(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCreateOpen, isEnrollOpen, progressModalEnrollment]);
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -158,21 +178,13 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+    <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Learning & Professional Upskilling
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
-              {programs.length} Curricula
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Skill development courses, compliance certifications, enrolled cohorts, and progress milestones
-          </p>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold">
+            {programs.length} Curricula
+          </span>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -225,59 +237,71 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
       {/* Tab 1: Programs Grid */}
       {activeTab === 'programs' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {programs.map((prog) => (
-            <div
-              key={prog.id}
-              className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
-                    {prog.status || 'Active'}
-                  </span>
-                  <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {prog.durationHours} Hours
-                  </span>
-                </div>
-
-                <h3 className="font-extrabold text-base text-slate-900 mt-3">
-                  {prog.title}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                  {prog.description}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {(prog.skillsCovered || []).map((s) => (
-                    <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-semibold">
-                      {s}
-                    </span>
-                  ))}
-                </div>
+          {programs.length === 0 ? (
+            <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 border border-blue-200">
+                <Award className="w-6 h-6" />
               </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Instructor</span>
-                  <span className="font-semibold text-slate-800">{prog.trainerName}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-blue-600 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" /> {prog.enrolledCount || 0}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSelectedProgramId(prog.id);
-                      setIsEnrollOpen(true);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold transition"
-                  >
-                    Enroll
-                  </button>
-                </div>
-              </div>
+              <h3 className="font-bold text-slate-900 text-sm">No training courses found</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                No active training curricula registered yet. Click &ldquo;Add Training Course&rdquo; to create a new program.
+              </p>
             </div>
-          ))}
+          ) : (
+            programs.map((prog) => (
+              <div
+                key={prog.id}
+                className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md transition"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                      {prog.status || 'Active'}
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {prog.durationHours} Hours
+                    </span>
+                  </div>
+
+                  <h3 className="font-extrabold text-base text-slate-900 mt-3">
+                    {prog.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                    {prog.description}
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {(prog.skillsCovered || []).map((s) => (
+                      <span key={s} className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-semibold">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Instructor</span>
+                    <span className="font-semibold text-slate-800">{prog.trainerName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-blue-600 flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" /> {prog.enrolledCount || 0}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedProgramId(prog.id);
+                        setIsEnrollOpen(true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold transition"
+                    >
+                      Enroll
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -289,7 +313,62 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
             <span className="text-xs text-slate-400">{enrollments.length} Active Records</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< md) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {enrollments.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs">
+                No employee enrollments found.
+              </div>
+            ) : (
+              enrollments.map((en) => (
+                <div key={`mob-${en.id}`} className="py-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 text-sm truncate">{en.employeeName}</p>
+                      <p className="text-xs font-semibold text-slate-600 truncate">{en.trainingTitle}</p>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        en.status === 'Completed'
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      {en.status}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span>{en.progressPercent}%</span>
+                      <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
+                        {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                        style={{ width: `${Math.min(100, en.progressPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgressModalEnrollment(en);
+                        setProgressVal(en.progressPercent);
+                      }}
+                      className="min-h-[38px] px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                    >
+                      Update Progress
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
@@ -301,55 +380,63 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {enrollments.map((en) => (
-                  <tr key={en.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {en.employeeName}
-                      <span className="block text-[10px] text-slate-400 font-normal font-mono">{en.employeeId}</span>
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-700">{en.trainingTitle}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="w-40 space-y-1">
-                        <div className="flex justify-between text-[11px] font-bold">
-                          <span>{en.progressPercent}%</span>
-                          <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
-                            {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'
-                            }`}
-                            style={{ width: `${Math.min(100, en.progressPercent)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          en.status === 'Completed'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-blue-50 text-blue-600'
-                        }`}
-                      >
-                        {en.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => {
-                          setProgressModalEnrollment(en);
-                          setProgressVal(en.progressPercent);
-                        }}
-                        className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
-                      >
-                        Update Progress
-                      </button>
+                {enrollments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400 text-xs">
+                      No employee enrollments found. Click &ldquo;Enroll Employee&rdquo; to register staff members into courses.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  enrollments.map((en) => (
+                    <tr key={en.id} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {en.employeeName}
+                        <span className="block text-[10px] text-slate-400 font-normal font-mono">{en.employeeId}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-700">{en.trainingTitle}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="w-40 space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span>{en.progressPercent}%</span>
+                            <span className={en.progressPercent >= 100 ? 'text-emerald-600' : 'text-blue-600'}>
+                              {en.progressPercent >= 100 ? 'Certified' : 'In Flight'}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                en.progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-600'
+                              }`}
+                              style={{ width: `${Math.min(100, en.progressPercent)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            en.status === 'Completed'
+                              ? 'bg-emerald-50 text-emerald-600'
+                              : 'bg-blue-50 text-blue-600'
+                          }`}
+                        >
+                          {en.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => {
+                            setProgressModalEnrollment(en);
+                            setProgressVal(en.progressPercent);
+                          }}
+                          className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
+                        >
+                          Update Progress
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -358,112 +445,127 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Add Training Program */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-blue-600" />
-                Publish Training Curriculum
-              </h3>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateOpen(false);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Publish Training Curriculum</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Create a skill enhancement training program</p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateProgram} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Course Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Advanced System Design with NestJS"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Description</label>
-                <textarea
-                  rows={2}
-                  placeholder="Overview of curriculum, learning objectives..."
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateProgram} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Lead Trainer *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Course Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g., Alex Morgan"
-                    value={newTrainer}
-                    onChange={(e) => setNewTrainer(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
+                    placeholder="e.g., Advanced System Design with NestJS"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Duration (Hours)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={newDuration}
-                    onChange={(e) => setNewDuration(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Description</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Overview of curriculum, learning objectives..."
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Lead Trainer *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g., Alex Morgan"
+                      value={newTrainer}
+                      onChange={(e) => setNewTrainer(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Duration (Hours)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={newDuration}
+                      onChange={(e) => setNewDuration(Number(e.target.value))}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Skills Covered (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., NestJS, TypeScript, Clean Architecture"
+                    value={newSkills}
+                    onChange={(e) => setNewSkills(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">Start Date</label>
+                    <input
+                      type="date"
+                      value={newStartDate}
+                      onChange={(e) => setNewStartDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">End Date</label>
+                    <input
+                      type="date"
+                      value={newEndDate}
+                      onChange={(e) => setNewEndDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Skills Covered (comma-separated)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., NestJS, TypeScript, Clean Architecture"
-                  value={newSkills}
-                  onChange={(e) => setNewSkills(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Publish Course
                 </button>
@@ -475,63 +577,78 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Enroll in Training */}
       {isEnrollOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-blue-600" />
-                Enroll in Training
-              </h3>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEnrollOpen(false);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Enroll in Training</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Assign an employee to a curriculum</p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsEnrollOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleEnroll} className="mt-4 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Select Course</label>
-                <select
-                  value={selectedProgramId}
-                  onChange={(e) => setSelectedProgramId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  {programs.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.durationHours} hrs)
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleEnroll} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Select Course *</label>
+                  <select
+                    value={selectedProgramId}
+                    onChange={(e) => setSelectedProgramId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title} ({p.durationHours} hrs)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1.5">Select Employee *</label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
-                <select
-                  value={selectedEmployeeId}
-                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-medium"
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEnrollOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Confirm Enrollment
                 </button>
@@ -543,59 +660,74 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ programs: initia
 
       {/* Modal: Update Progress */}
       {progressModalEnrollment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-blue-600" />
-                Update Completion Progress
-              </h3>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setProgressModalEnrollment(null);
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Update Progress</h3>
+                  <p className="text-xs text-slate-500 truncate mt-0.5">{progressModalEnrollment.employeeName}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setProgressModalEnrollment(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateProgressSubmit} className="mt-4 space-y-4 text-xs">
-              <div>
-                <p className="font-bold text-slate-900">{progressModalEnrollment.employeeName}</p>
-                <p className="text-[11px] text-slate-400">{progressModalEnrollment.trainingTitle}</p>
+            <form onSubmit={handleUpdateProgressSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="font-bold text-slate-900">{progressModalEnrollment.employeeName}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{progressModalEnrollment.trainingTitle}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between font-bold text-xs">
+                    <span>Current Progress:</span>
+                    <span className="text-blue-600 text-sm">{progressVal}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={progressVal}
+                    onChange={(e) => setProgressVal(Number(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
+                    <span>0% Started</span>
+                    <span>50% Mid-way</span>
+                    <span>100% Certified</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between font-bold text-xs">
-                  <span>Current Progress:</span>
-                  <span className="text-blue-600 text-sm">{progressVal}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={progressVal}
-                  onChange={(e) => setProgressVal(Number(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
-                <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
-                  <span>0% Started</span>
-                  <span>50% Mid-way</span>
-                  <span>100% Certified</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setProgressModalEnrollment(null)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
                 >
                   Save Progress
                 </button>

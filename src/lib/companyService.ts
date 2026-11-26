@@ -8,7 +8,7 @@ export interface CompanyAdminUser {
   phone: string;
   avatarUrl?: string;
   designation: string;
-  role: 'HR_ADMIN';
+  role: Role;
   lastLogin?: string;
   password?: string;
 }
@@ -42,70 +42,83 @@ const TENANT_EMPLOYEES_STORAGE_KEY = 'hrms_tenant_company_employees';
 
 export const initialCompanies: CompanyTenant[] = [];
 
-// Initial mock employees for sub-companies (strictly empty, data comes only from real additions / API)
-const initialTenantEmployees: Record<string, Employee[]> = {};
+const ADMIN_BRAND_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN']);
 
 /**
- * Retrieve all registered tenant companies
+ * Resolve the top-left brand avatar from the company Admin's profile picture
+ * (or backend-provided company logo/adminAvatarUrl), without falling back to a generic HRMS logo.
  */
-export function getAllCompanies(): CompanyTenant[] {
-  if (typeof window === 'undefined') return initialCompanies;
-  try {
-    const saved = localStorage.getItem(COMPANIES_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const clean = parsed
-          .filter(
-            (c: any) =>
-              c.id !== 'comp-apex' &&
-              c.id !== 'comp-nexus' &&
-              c.id !== 'comp-spw' &&
-              c.id !== 'comp-vanguard' &&
-              c.id !== 'comp-horizon'
-          )
-          .map((c: any) => ({
-            ...c,
-            adminUser:
-              c.adminUser?.id === 'admin-keyur' || c.adminUser?.fullName === 'Keyur Sangani'
-                ? {
-                    id: 'admin-paneliya',
-                    fullName: 'Paneliya Admin',
-                    email: 'admin@paneliya.com',
-                    phone: '+91 9876543210',
-                    designation: 'Company Director & HR Head',
-                    role: 'HR_ADMIN',
-                    lastLogin: 'Just now',
-                  }
-                : c.adminUser,
-            departments: Array.isArray(c.departments)
-              ? Array.from(new Set(c.departments.filter(Boolean)))
-              : [],
-          }));
-        if (clean.length > 0) {
-          localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(clean));
-          return clean;
-        }
-      }
-    }
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(initialCompanies));
-    return initialCompanies;
-  } catch (err) {
-    console.error('Failed to load companies:', err);
-    return initialCompanies;
+export function resolveCompanyBrandAvatar(
+  company: any,
+  user: any,
+  employees: Employee[] = []
+): string {
+  const fromCompany =
+    company?.adminAvatarUrl ||
+    company?.logoUrl ||
+    company?.logo ||
+    company?.avatarUrl ||
+    company?.imageUrl ||
+    company?.adminAvatar ||
+    company?.ownerAvatarUrl ||
+    company?.admin?.avatarUrl ||
+    company?.adminUser?.avatarUrl ||
+    company?.owner?.avatarUrl ||
+    user?.companyProfile?.logoUrl ||
+    user?.companyProfile?.adminAvatarUrl ||
+    user?.companyLogo;
+  if (fromCompany && String(fromCompany).trim()) {
+    return String(fromCompany).trim();
   }
+
+  const userRole = String(user?.role || '').trim().toUpperCase();
+  if (ADMIN_BRAND_ROLES.has(userRole) && user?.avatarUrl && String(user.avatarUrl).trim()) {
+    return String(user.avatarUrl).trim();
+  }
+
+  if (Array.isArray(employees) && employees.length > 0) {
+    const adminEmp = employees.find(
+      (e) =>
+        ADMIN_BRAND_ROLES.has(String(e?.role || '').trim().toUpperCase()) &&
+        e?.avatarUrl &&
+        String(e.avatarUrl).trim()
+    );
+    if (adminEmp?.avatarUrl) {
+      return String(adminEmp.avatarUrl).trim();
+    }
+  }
+
+  return '';
+}
+
+// Pure In-Memory Company and Tenant Employee Storage
+let liveCompaniesStore: CompanyTenant[] = [];
+let liveTenantEmployeesStore: Record<string, Employee[]> = {};
+
+export function setLiveCompanies(companies: CompanyTenant[]): void {
+  liveCompaniesStore = Array.isArray(companies) ? [...companies] : [];
 }
 
 /**
- * Persist companies to localStorage
+ * Retrieve all registered tenant companies (from live database memory)
+ */
+export function getAllCompanies(): CompanyTenant[] {
+  return liveCompaniesStore;
+}
+
+/**
+ * Update companies and notify listeners (strictly avoids localStorage persistence)
  */
 export function saveCompanies(companies: CompanyTenant[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(companies));
+  liveCompaniesStore = Array.isArray(companies) ? [...companies] : [];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(COMPANIES_STORAGE_KEY);
+      localStorage.removeItem(TENANT_EMPLOYEES_STORAGE_KEY);
+      localStorage.removeItem('hrms_all_companies_v2');
+      localStorage.removeItem('hrms_current_company');
+    } catch {}
     window.dispatchEvent(new Event('hrms_companies_updated'));
-  } catch (err) {
-    console.error('Failed to save companies:', err);
   }
 }
 
@@ -155,7 +168,7 @@ export function createCompany(data: {
       email: data.adminEmail,
       phone: data.adminPhone,
       designation: data.adminDesignation || 'Managing Director / Owner',
-      role: 'HR_ADMIN',
+      role: 'ADMIN',
       lastLogin: 'Never logged in',
       password: data.temporaryPassword || 'Admin@123',
     },
@@ -202,56 +215,33 @@ export function toggleCompanyStatus(id: string): 'Active' | 'Suspended' {
  * Retrieve all employees belonging to a specific company
  */
 export function getCompanyEmployees(companyId: string, primaryEmployees: Employee[]): Employee[] {
-  // Flagship company (Paneliya) has the primary live database employees roster
   if (companyId === 'comp-paneliya') {
     return primaryEmployees || [];
   }
-
-  if (typeof window === 'undefined') return [];
-
-  try {
-    const saved = localStorage.getItem(TENANT_EMPLOYEES_STORAGE_KEY);
-    if (saved) {
-      const store = JSON.parse(saved);
-      if (store['comp-apex'] || store['comp-nexus']) {
-        delete store['comp-apex'];
-        delete store['comp-nexus'];
-        localStorage.setItem(TENANT_EMPLOYEES_STORAGE_KEY, JSON.stringify(store));
-      }
-      return store[companyId] || [];
-    }
-    return [];
-  } catch (err) {
-    console.error('Failed to load company employees:', err);
-    return [];
-  }
+  return liveTenantEmployeesStore[companyId] || [];
 }
 
 /**
- * Persist tenant-specific employees
+ * Persist tenant-specific employees (strictly in-memory, without localStorage)
  */
 export function saveCompanyEmployees(companyId: string, employees: Employee[]): void {
   if (companyId === 'comp-paneliya') {
     saveEmployees(employees);
     return;
   }
-
-  if (typeof window === 'undefined') return;
-  try {
-    const saved = localStorage.getItem(TENANT_EMPLOYEES_STORAGE_KEY);
-    let store: Record<string, Employee[]> = saved ? JSON.parse(saved) : { ...initialTenantEmployees };
-    store[companyId] = employees;
-    localStorage.setItem(TENANT_EMPLOYEES_STORAGE_KEY, JSON.stringify(store));
-
-    // Also update company employeesCount cache
-    const companies = getAllCompanies();
-    const targetComp = companies.find((c) => c.id === companyId);
-    if (targetComp) {
-      updateCompany(companyId, { employeesCount: employees.length });
-    }
+  liveTenantEmployeesStore[companyId] = employees;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(TENANT_EMPLOYEES_STORAGE_KEY);
+    } catch {}
+  }
+  const companies = getAllCompanies();
+  const targetComp = companies.find((c) => c.id === companyId);
+  if (targetComp) {
+    updateCompany(companyId, { employeesCount: employees.length });
+  }
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('hrms_tenant_employees_updated'));
-  } catch (err) {
-    console.error('Failed to save tenant employees:', err);
   }
 }
 
@@ -286,8 +276,8 @@ export function addEmployeeToCompany(
     id: newEmpId,
     employeeCode: code,
     companyId: companyId,
-    companyName: company?.name || 'Paneliya Technology Inc.',
-    password: employeeData.password || 'Password@123',
+    companyName: company?.name || '',
+    password: employeeData.password || '',
     role: employeeData.role || 'EMPLOYEE',
     firstName: employeeData.firstName,
     lastName: employeeData.lastName,
@@ -295,35 +285,35 @@ export function addEmployeeToCompany(
     phone: employeeData.phone,
     avatarUrl: '',
     gender: 'Other',
-    dateOfBirth: '1995-01-01',
-    address: `${company?.city || 'Surat'}, ${company?.state || 'Gujarat'}`,
-    emergencyContact: { name: 'Emergency Contact', relationship: 'Family', phone: employeeData.phone },
+    dateOfBirth: '',
+    address: [company?.city, company?.state].filter(Boolean).join(', '),
+    emergencyContact: { name: '', relationship: '', phone: employeeData.phone },
     joiningDate: new Date().toISOString().split('T')[0],
     employmentType: employeeData.employmentType || 'Full-time',
     status: 'Active',
-    departmentId: `dept-${Date.now()}`,
-    departmentName: employeeData.departmentName || 'General',
-    designationId: `des-${Date.now()}`,
-    designationTitle: employeeData.designationTitle || 'Staff',
-    reportingManagerName: company?.adminUser.fullName || 'Company Admin',
-    workLocationId: 'loc-main',
-    workLocationName: `${company?.city || 'Corporate'} Office`,
-    shift: 'General Shift (09:00 AM – 06:00 PM)',
-    bankDetails: { bankName: 'HDFC Bank', accountNumber: '000012345678', ifscOrRouting: 'HDFC0001234', accountHolderName: `${employeeData.firstName} ${employeeData.lastName}` },
-    taxInformation: { taxId: 'TAX-000', panOrSsn: 'ABCDE1234F', taxRegime: 'New Regime' },
+    departmentId: '',
+    departmentName: employeeData.departmentName || '',
+    designationId: '',
+    designationTitle: employeeData.designationTitle || '',
+    reportingManagerName: company?.adminUser?.fullName || '',
+    workLocationId: '',
+    workLocationName: company?.city ? `${company.city} Office` : '',
+    shift: 'General Shift',
+    bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+    taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
     education: [],
     previousExperience: [],
-    skills: ['Operations', 'Teamwork'],
+    skills: [],
     salary: {
-      basic: employeeData.salaryBasic || 40000,
-      hra: Math.round((employeeData.salaryBasic || 40000) * 0.4),
-      allowances: 10000,
-      bonus: 5000,
-      pf: 4800,
-      tax: 2500,
-      professionalTax: 200,
-      gross: (employeeData.salaryBasic || 40000) + Math.round((employeeData.salaryBasic || 40000) * 0.4) + 15000,
-      net: (employeeData.salaryBasic || 40000) + Math.round((employeeData.salaryBasic || 40000) * 0.4) + 7500,
+      basic: employeeData.salaryBasic || 0,
+      hra: Math.round((employeeData.salaryBasic || 0) * 0.4),
+      allowances: 0,
+      bonus: 0,
+      pf: Math.round((employeeData.salaryBasic || 0) * 0.12),
+      tax: 0,
+      professionalTax: employeeData.salaryBasic ? 200 : 0,
+      gross: Math.round((employeeData.salaryBasic || 0) * 1.4),
+      net: Math.round((employeeData.salaryBasic || 0) * 1.4) - Math.round((employeeData.salaryBasic || 0) * 0.12) - (employeeData.salaryBasic ? 200 : 0),
     },
     createdAt: new Date().toISOString().split('T')[0],
     updatedAt: new Date().toISOString().split('T')[0],
@@ -390,15 +380,15 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
         companyId: comp.id,
         companyName: comp.name,
         adminUser: comp.adminUser,
-        role: comp.adminUser?.role || 'HR_ADMIN',
+        role: comp.adminUser?.role || 'ADMIN',
         isCompanyAdmin: true,
         matchedVia: 'company_admin',
-        password: comp.adminUser?.password || 'Admin@123',
+        password: comp.adminUser?.password,
       };
     }
   }
 
-  // 2. Check Primary Company Employees (comp-paneliya)
+  // 2. Check Primary Company Employees
   const primaryEmployees = getAllEmployees();
   for (const emp of primaryEmployees) {
     const empEmail = emp.email?.trim().toLowerCase();
@@ -412,20 +402,19 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
     ) {
       return {
         isMember: true,
-        companyId: emp.companyId || 'comp-paneliya',
-        companyName: emp.companyName || 'Paneliya Technology Inc.',
+        companyId: emp.companyId,
+        companyName: emp.companyName,
         employee: emp,
         role: emp.role || 'EMPLOYEE',
-        isCompanyAdmin: emp.role === 'HR_ADMIN',
+        isCompanyAdmin: emp.role === 'ADMIN' || emp.role === 'SUPER_ADMIN' || emp.role === 'HR',
         matchedVia: 'employee',
-        password: emp.password || 'Password@123',
+        password: emp.password,
       };
     }
   }
 
   // 3. Check Multi-Tenant Company Employees
   for (const comp of allCompanies) {
-    if (comp.id === 'comp-paneliya') continue;
     const tenantEmps = getCompanyEmployees(comp.id, []);
     for (const emp of tenantEmps) {
       const empEmail = emp.email?.trim().toLowerCase();
@@ -443,9 +432,9 @@ export function findOrganizationByEmail(rawInput: string): OrganizationMembershi
           companyName: comp.name,
           employee: emp,
           role: emp.role || 'EMPLOYEE',
-          isCompanyAdmin: emp.role === 'HR_ADMIN',
+          isCompanyAdmin: emp.role === 'ADMIN' || emp.role === 'SUPER_ADMIN' || emp.role === 'HR',
           matchedVia: 'employee',
-          password: emp.password || 'Password@123',
+          password: emp.password,
         };
       }
     }
