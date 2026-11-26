@@ -108,6 +108,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
   React.useEffect(() => {
     if (!isOpen || !currentEmp) return;
+    const profileRole = String(currentEmp.role || '').toUpperCase();
+    if (['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(profileRole)) {
+      setEmpLeaveSummary(null);
+      setEmpLeaveLoading(false);
+      return;
+    }
     let active = true;
     const loadEmployeeLeaves = async () => {
       setEmpLeaveLoading(true);
@@ -158,8 +164,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
     setUploadingPhoto(true);
     try {
-      const { assertFaceInPhoto } = await import('../../lib/faceMatch');
-      const faceDescriptor = await assertFaceInPhoto(file);
+      const role = String(user?.role || '').toUpperCase();
+      const skipFace = role === 'ADMIN' || role === 'SUPER_ADMIN';
+      const faceDescriptor = skipFace ? null : await (await import('../../lib/faceMatch')).assertFaceInPhoto(file);
       const saved = await api.uploadProfilePhoto(file, faceDescriptor);
       const newAvatarUrl = saved.avatarUrl || '';
       if (!newAvatarUrl) throw new Error('Profile photo was not saved.');
@@ -244,12 +251,15 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         Number(currentEmp.salary.allowances || 0) > 0)
   );
 
+  const profileRole = String(currentEmp.role || '').toUpperCase();
+  const showLeave = !['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(profileRole);
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
     { id: 'personal', label: 'Personal & Photo', icon: UserCheck },
     { id: 'employment', label: 'Employment', icon: Briefcase },
     { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-    { id: 'leave', label: 'Leave', icon: CalendarOff },
+    ...(showLeave ? [{ id: 'leave', label: 'Leave', icon: CalendarOff }] : []),
     ...(hasSalaryData ? [{ id: 'payroll', label: 'Salary', icon: CreditCard }] : []),
   ];
 
@@ -634,6 +644,40 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
                 {!(isOwnProfile && ['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) && (
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {!isOwnProfile && ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
+                    <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer">
+                      {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      <span>Change employee photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingPhoto}
+                        className="hidden"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = '';
+                          if (!file || !currentEmp) return;
+                          const employeeId = currentEmp.id || currentEmp.userId;
+                          if (!employeeId) return;
+                          setUploadingPhoto(true);
+                          setPhotoError(null);
+                          setPhotoSuccess(null);
+                          try {
+                            const saved = await api.uploadEmployeePhoto(employeeId, file);
+                            if (!saved.avatarUrl) throw new Error('Profile photo was not saved.');
+                            setCurrentEmp((prev) => (prev ? { ...prev, avatarUrl: saved.avatarUrl } : null));
+                            window.dispatchEvent(new Event('hrms_employees_updated'));
+                            onRefresh?.();
+                            setPhotoSuccess('Employee profile photo updated.');
+                          } catch (err: unknown) {
+                            setPhotoError(err instanceof Error ? err.message : 'Could not change the employee photo.');
+                          } finally {
+                            setUploadingPhoto(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
                   {isOwnProfile && (photoAccess ? photoAccess.canUpload : !(['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase()) && Boolean(currentEmp.avatarUrl))) ? (
                     <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs shadow-xs cursor-pointer transition active:scale-95">
                       {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}

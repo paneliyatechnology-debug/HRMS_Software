@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { ScanFace } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { api } from '../../lib/api';
-import { prepareFaceModels, sameProfileFace, scanKioskFace } from '../../lib/faceMatch';
+import { nextBlink, prepareFaceModels, sameProfileFace, scanKioskFace, type BlinkTrack } from '../../lib/faceMatch';
 
 type Result = {
   tone: 'ok' | 'warn' | 'error';
   title: string;
   detail: string;
+  photo?: string | null;
 };
 
 function canOpenKiosk(role?: string) {
@@ -33,13 +34,55 @@ function framePhoto(video: HTMLVideoElement) {
   return canvas.toDataURL('image/jpeg', 0.7);
 }
 
+function paintScan(
+  canvas: HTMLCanvasElement | null,
+  video: HTMLVideoElement,
+  live: { box?: { x: number; y: number; width: number; height: number } } | null,
+) {
+  if (!canvas) return;
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) return;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, width, height);
+  if (!live?.box) return;
+  const { x, y, width: boxW, height: boxH } = live.box;
+  const arm = Math.min(boxW, boxH) * 0.22;
+  ctx.strokeStyle = '#39ff88';
+  ctx.lineWidth = Math.max(5, width * 0.007);
+  ctx.lineCap = 'square';
+  const faceCorners = [
+    [x, y + arm, x, y, x + arm, y],
+    [x + boxW, y + arm, x + boxW, y, x + boxW - arm, y],
+    [x, y + boxH - arm, x, y + boxH, x + arm, y + boxH],
+    [x + boxW, y + boxH - arm, x + boxW, y + boxH, x + boxW - arm, y + boxH],
+  ];
+  faceCorners.forEach(([x1, y1, x2, y2, x3, y3]) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+  });
+}
+
 export default function FaceClockPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const missedRef = useRef(0);
   const lastFaceRef = useRef<number[] | null>(null);
+  const blinkRef = useRef<BlinkTrack>({ step: 0, base: 0, low: 0 });
+  const blinkFaceRef = useRef<number[] | null>(null);
+  const holdRef = useRef(false);
+  const differRef = useRef(0);
   const [status, setStatus] = useState('Starting camera…');
   const [result, setResult] = useState<Result | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -101,17 +144,49 @@ export default function FaceClockPage() {
     const tick = async () => {
       const video = videoRef.current;
       if (!video || stopped) return;
-      const descriptor = await scanKioskFace(video);
-      if (stopped) return;
-      if (!descriptor) {
-        missedRef.current += 1;
-        if (missedRef.current >= 2) lastFaceRef.current = null;
-        if (!lastFaceRef.current) setStatus((current) => current === 'Look at the camera.' ? current : 'Look at the camera.');
+      let live: Awaited<ReturnType<typeof scanKioskFace>> = null;
+      try {
+        live = await scanKioskFace(video);
+      } catch {
         return;
       }
+      if (stopped) return;
+      paintScan(overlayRef.current, video, live);
+      if (!live) {
+        missedRef.current += 1;
+        if (missedRef.current >= 12) {
+          lastFaceRef.current = null;
+          blinkRef.current = { step: 0, base: 0, low: 0 };
+          blinkFaceRef.current = null;
+          holdRef.current = false;
+          differRef.current = 0;
+          setStatus('Look at the camera.');
+        }
+        return;
+      }
+      const descriptor = live.descriptor;
       missedRef.current = 0;
-      if (lastFaceRef.current && sameProfileFace(lastFaceRef.current, descriptor)) return;
-      lastFaceRef.current = descriptor;
+      if (holdRef.current && lastFaceRef.current) {
+        if (sameProfileFace(lastFaceRef.current, descriptor)) {
+          differRef.current = 0;
+          return;
+        }
+        differRef.current += 1;
+        if (differRef.current < 6) return;
+        holdRef.current = false;
+        differRef.current = 0;
+      }
+      if (!blinkFaceRef.current || !sameProfileFace(blinkFaceRef.current, descriptor)) {
+        blinkFaceRef.current = descriptor;
+        blinkRef.current = { step: 0, base: 0, low: 0 };
+      }
+      const moved = nextBlink(blinkRef.current, live.eye);
+      blinkRef.current = moved.track;
+      if (!moved.done) {
+        setStatus(blinkRef.current.step === 0 ? 'Look at the camera.' : blinkRef.current.step === 1 ? 'Close your eyes once.' : 'Open your eyes.');
+        return;
+      }
+      blinkRef.current = { step: 0, base: 0, low: 0 };
       setStatus('Checking this face…');
       const photo = framePhoto(video);
       void api.faceKioskClock({
@@ -119,20 +194,27 @@ export default function FaceClockPage() {
         photo: photo || undefined,
       }).then((saved) => {
         if (stopped) return;
+        lastFaceRef.current = descriptor;
         const name = `${saved.employee?.firstName || ''} ${saved.employee?.lastName || ''}`.trim() || 'Employee';
+        const avatar = saved.employee?.avatarUrl || null;
         if (saved.action === 'clock-in') {
-          setResult({ tone: 'ok', title: `${name} clocked in`, detail: saved.message || 'Clock in saved.' });
+          setResult({ tone: 'ok', title: `${name} clocked in`, detail: saved.message || 'Clock in saved.', photo: avatar });
         } else if (saved.action === 'clock-out') {
-          setResult({ tone: 'ok', title: `${name} clocked out`, detail: saved.message || 'Clock out saved.' });
+          setResult({ tone: 'ok', title: `${name} clocked out`, detail: saved.message || 'Clock out saved.', photo: avatar });
         } else {
-          setResult({ tone: 'warn', title: name, detail: saved.message || 'Clock is not allowed right now.' });
+          setResult({ tone: 'warn', title: name, detail: saved.message || 'Clock is not allowed right now.', photo: avatar });
         }
+        holdRef.current = true;
         setStatus('Next person, look at the camera.');
       }).catch((error: unknown) => {
         if (stopped) return;
         const message = error instanceof Error ? error.message : 'Face clock failed.';
         setResult({ tone: 'error', title: 'Not matched', detail: message });
-        setStatus('Next person, look at the camera.');
+        lastFaceRef.current = null;
+        holdRef.current = false;
+        blinkFaceRef.current = null;
+        blinkRef.current = { step: 0, base: 0, low: 0 };
+        setStatus('Look at the camera.');
       });
     };
     const loop = async () => {
@@ -176,21 +258,33 @@ export default function FaceClockPage() {
   return (
     <div className="fixed inset-0 bg-black text-white">
       <video ref={videoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover scale-x-[-1]" />
-      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
-        <p className="text-sm font-semibold truncate">{user?.companyName || 'Face clock'}</p>
-        <button type="button" onClick={() => router.push('/attendance')} className="text-xs font-semibold px-3 py-2 rounded-lg bg-black/50">
-          Close
-        </button>
+      <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full object-cover scale-x-[-1]" />
+      <div className="absolute inset-x-0 top-0 z-10 px-4 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold truncate drop-shadow">{user?.companyName || 'Face clock'}</p>
+          <button type="button" onClick={() => router.push('/attendance')} className="shrink-0 text-xs font-semibold px-3 py-2 rounded-full bg-black/55 backdrop-blur">
+            Close
+          </button>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <p className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur shadow-lg">
+            {status}
+          </p>
+        </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-6 pt-10 bg-gradient-to-t from-black/70 to-transparent space-y-3">
-        <p className="text-sm text-center">{status}</p>
-        {result && (
-          <div className={`mx-auto w-full max-w-lg rounded-2xl px-4 py-3 ${banner}`}>
-            <p className="text-base font-bold">{result.title}</p>
-            <p className="text-sm opacity-90">{result.detail}</p>
+      {result && (
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-5">
+          <div className={`mx-auto flex w-full max-w-md items-center gap-3 rounded-2xl px-4 py-3 shadow-xl ${banner}`}>
+            {result.photo ? (
+              <img src={result.photo} alt="" className="h-14 w-14 shrink-0 rounded-full border-2 border-white/80 object-cover" />
+            ) : null}
+            <div className="min-w-0">
+              <p className="text-base font-bold leading-tight">{result.title}</p>
+              <p className="mt-1 text-sm leading-snug opacity-95">{result.detail}</p>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
