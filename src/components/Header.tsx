@@ -778,7 +778,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {onNavigateSettings && (
+              {portalMode === 'admin' && isModuleAllowedForUser('settings', user) && onNavigateSettings && (
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
