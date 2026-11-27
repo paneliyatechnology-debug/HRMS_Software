@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   CalendarOff,
@@ -88,6 +88,12 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
   } = useSocket();
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
 
+  useEffect(() => {
+    if (unreadNoticesCount > 0) {
+      markAllNoticesRead();
+    }
+  }, [unreadNoticesCount, markAllNoticesRead]);
+
   const tabs: Array<{ id: FilterTab; label: string }> = [
     { id: 'All', label: 'All' },
     { id: 'Unread', label: 'Unread' },
@@ -107,6 +113,7 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
 
   const handleViewNotice = (notice: AppNotice) => {
     markNoticeRead(notice.id);
+    dismissNotice(notice.id);
     if (notice.module) {
       onNavigateModule?.(notice.module);
     }
@@ -172,18 +179,16 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                  isActive
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${isActive
                     ? 'bg-[#2d6a4f] text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 {tab.id === 'Unread' && unreadNoticesCount > 0 && (
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full leading-tight ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-[#d8f3dc] text-[#1b4332]'
-                    }`}
+                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full leading-tight ${isActive ? 'bg-white/20 text-white' : 'bg-[#d8f3dc] text-[#1b4332]'
+                      }`}
                   >
                     {unreadNoticesCount}
                   </span>
@@ -252,9 +257,8 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
                 <div
                   key={notice.id}
                   onClick={() => handleViewNotice(notice)}
-                  className={`flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 transition-colors cursor-pointer ${
-                    isUnread ? 'bg-[#d8f3dc]/15 hover:bg-[#d8f3dc]/25' : 'bg-white hover:bg-slate-50/80'
-                  }`}
+                  className={`flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 transition-colors cursor-pointer ${isUnread ? 'bg-[#d8f3dc]/15 hover:bg-[#d8f3dc]/25' : 'bg-white hover:bg-slate-50/80'
+                    }`}
                 >
                   <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-[#d8f3dc]/70 border border-[#b7e4c7] flex items-center justify-center shrink-0">

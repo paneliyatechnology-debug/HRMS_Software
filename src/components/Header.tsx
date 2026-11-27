@@ -489,21 +489,26 @@ export const Header: React.FC<HeaderProps> = ({
           const isAddStaffActive = isAddEmployeeModalOpen;
           const isHolidaysActive = activeModule === 'calendar' && !isAddEmployeeModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+            `group relative inline-flex items-center justify-center p-2 rounded-[10px] active:scale-95 border shadow-2xs transition-all cursor-pointer shrink-0 ${active
               ? 'bg-[#1b4332] text-white border-[#1b4332]'
               : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
             }`;
+          const tooltipCls =
+            'pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 -translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-50';
           return (
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {isModuleAllowedForUser('companies', user) && (
                 <button
                   type="button"
                   onClick={() => onNavigateModule?.('companies')}
                   className={getBtnCls(activeModule === 'companies')}
-                  title="All Companies"
+                  aria-label="Companies"
                 >
-                  <Building2 className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'companies' ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Companies</span>
+                  <Building2 className={`w-4 h-4 shrink-0 ${activeModule === 'companies' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Companies
+                  </span>
                 </button>
               )}
 
@@ -512,10 +517,13 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => onNavigateModule?.('plans')}
                   className={getBtnCls(activeModule === 'plans')}
-                  title="Plans"
+                  aria-label="Plans"
                 >
-                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'plans' ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Plans</span>
+                  <Receipt className={`w-4 h-4 shrink-0 ${activeModule === 'plans' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Plans
+                  </span>
                 </button>
               )}
 
@@ -524,10 +532,13 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => onNavigateModule?.('orders')}
                   className={getBtnCls(activeModule === 'orders')}
-                  title="Orders"
+                  aria-label="Orders"
                 >
-                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${activeModule === 'orders' ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Orders</span>
+                  <CalendarCheck className={`w-4 h-4 shrink-0 ${activeModule === 'orders' ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Orders
+                  </span>
                 </button>
               )}
 
@@ -537,18 +548,22 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => onNavigateModule?.('leaves')}
                   className={getBtnCls(isLeavesActive)}
-                  title="Leave Requests"
+                  aria-label="Leave Requests"
                 >
-                  <CalendarCheck className={`w-3.5 h-3.5 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Leave Requests</span>
+                  <CalendarCheck className={`w-4 h-4 shrink-0 ${isLeavesActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
                   {pendingLeavesCount > 0 && (
                     <span
-                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none ${isLeavesActive ? 'bg-white/20 text-white' : 'bg-[#2d6a4f] text-white'
-                        }`}
+                      className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center leading-none ${
+                        isLeavesActive ? 'bg-emerald-400 text-[#1b4332]' : 'bg-[#2d6a4f] text-white'
+                      }`}
                     >
                       {pendingLeavesCount}
                     </span>
                   )}
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Leave Requests
+                  </span>
                 </button>
               )}
 
@@ -558,10 +573,13 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={onOpenAddEmployeeModal}
                   className={getBtnCls(isAddStaffActive)}
-                  title="Add Staff"
+                  aria-label="Add Staff"
                 >
-                  <UserPlus className={`w-3.5 h-3.5 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Add Staff</span>
+                  <UserPlus className={`w-4 h-4 shrink-0 ${isAddStaffActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Add Staff
+                  </span>
                 </button>
               )}
 
@@ -571,10 +589,13 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => onNavigateModule?.('calendar')}
                   className={`hidden sm:inline-flex ${getBtnCls(isHolidaysActive).replace('inline-flex ', '')}`}
-                  title="Holidays"
+                  aria-label="Holidays"
                 >
-                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Holidays</span>
+                  <Calendar className={`w-4 h-4 shrink-0 ${isHolidaysActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Holidays
+                  </span>
                 </button>
               )}
             </div>
@@ -587,45 +608,59 @@ export const Header: React.FC<HeaderProps> = ({
           const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
           const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
           const getBtnCls = (active: boolean) =>
-            `inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] active:scale-95 font-semibold text-xs border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+            `group relative inline-flex items-center justify-center p-2 rounded-[10px] active:scale-95 border shadow-2xs transition-all cursor-pointer shrink-0 ${active
               ? 'bg-[#1b4332] text-white border-[#1b4332]'
               : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
             }`;
+          const tooltipCls =
+            'pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 -translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-50';
           return (
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {!resigned && isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-apply-leave"
+                  type="button"
                   onClick={onOpenLeaveModal}
                   className={getBtnCls(isApplyLeaveActive)}
-                  title="Apply Leave"
+                  aria-label="Apply Leave"
                 >
-                  <Calendar className={`w-3.5 h-3.5 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Apply Leave</span>
+                  <Calendar className={`w-4 h-4 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Apply Leave
+                  </span>
                 </button>
               )}
 
               {isModuleAllowedForUser('payslips', user) && (
                 <button
                   id="btn-header-payslips"
+                  type="button"
                   onClick={() => onNavigateModule?.('payslips')}
                   className={getBtnCls(isPayslipsActive)}
-                  title="My Payslips"
+                  aria-label="My Payslips"
                 >
-                  <Receipt className={`w-3.5 h-3.5 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">My Payslips</span>
+                  <Receipt className={`w-4 h-4 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    My Payslips
+                  </span>
                 </button>
               )}
 
               {!resigned && isModuleAllowedForUser('chat', user) && (
                 <button
                   id="btn-header-chat"
+                  type="button"
                   onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
                   className={getBtnCls(isChatActive)}
-                  title="Team Chat"
+                  aria-label="Team Chat"
                 >
-                  <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className="hidden md:inline">Team Chat</span>
+                  <MessageSquare className={`w-4 h-4 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Team Chat
+                  </span>
                 </button>
               )}
             </div>

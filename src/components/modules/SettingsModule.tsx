@@ -1141,50 +1141,20 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { id: 'company', label: 'Company Profile', desc: 'Name, GSTIN, contacts & address', icon: Building },
     { id: 'geofence', label: 'Office Geofencing', desc: 'GPS coordinates, radius & punch lock', icon: MapPin },
     { id: 'schedule', label: 'Shifts & Timing', desc: 'Working hours, buffer & clock-in window', icon: Clock },
-    { id: 'leaves', label: 'Leave Quotas', desc: 'Annual quota allowances & carry forward', icon: CalendarOff },
     { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
     { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
   ];
-  const hasGeofenceFeature = Array.isArray(premiumStatus?.features) && premiumStatus.features.includes('geofence');
   const adminNavItems = canManagePlans
     ? allAdminNavItems.filter((item) => item.id === 'support')
-    : allAdminNavItems.filter((item) => item.id !== 'geofence' || hasGeofenceFeature);
+    : allAdminNavItems;
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-            {canManagePlans ? 'Super Admin Workspace' : (companyData.name || 'Admin Workspace')}
-          </span>
-        </div>
-
-        {!canManagePlans && adminActiveTab !== 'plans' && adminActiveTab !== 'support' && (
-          <div className="flex items-center gap-3">
-            {savedMessage && (
-              <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs">
-                <Check className="w-3.5 h-3.5" /> All Changes Saved
-              </span>
-            )}
-
-            <button
-              onClick={handleAdminSave}
-              disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <Check className="w-4 h-4" />
-              <span>{loading ? 'Saving Settings...' : 'Save Settings'}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* 2-Column Responsive Layout */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start lg:h-[calc(100vh-120px)] lg:overflow-hidden">
         {/* Left Navigation Sidebar */}
         {!canManagePlans && (
-          <div className="w-full lg:w-72 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
+          <div className="w-full lg:w-72 lg:sticky lg:top-0 shrink-0 bg-white rounded-3xl p-3 border border-slate-200/90 shadow-xs space-y-1">
             <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
               Configuration Sections
             </div>
@@ -1219,7 +1189,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         )}
 
         {/* Right Main Content Area */}
-        <div className="flex-1 min-w-0 w-full">
+        <div className="flex-1 min-w-0 w-full lg:h-full lg:overflow-y-auto lg:pr-1 [scrollbar-width:thin]">
           {/* ── Tab: Office Geofencing ── */}
           {adminActiveTab === 'geofence' && (
             <div className="animate-in fade-in duration-200">
@@ -1594,120 +1564,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                 >
                   <Check className="w-4 h-4" />
                   <span>{loading ? 'Saving...' : 'Save Shift Rules'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Tab 3: Leave Quotas ── */}
-          {adminActiveTab === 'leaves' && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-6 animate-in fade-in duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <CalendarOff className="w-4 h-4 text-emerald-600" />
-                    Annual Leave Quotas &amp; Carry-Forward
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Set annual leave quotas allotted to every active employee. Employee leave balances reflect only these configured quotas.
-                  </p>
-                </div>
-                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 shrink-0">
-                  Total Annual Leaves:{' '}
-                  <span className="font-semibold text-emerald-800">
-                    {settingsLoading
-                      ? 'Loading...'
-                      : `${(Number(leavePolicyData.casualLeaveAnnual) || 0) + (Number(leavePolicyData.sickLeaveAnnual) || 0) + (Number(leavePolicyData.paidLeaveAnnual) || 0)} Days`}
-                  </span>
-                </div>
-              </div>
-
-              {settingsLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 animate-pulse">
-                      <div className="h-4 w-32 bg-slate-200 rounded" />
-                      <div className="h-11 w-full bg-slate-200/70 rounded-xl" />
-                      <div className="h-3 w-48 bg-slate-200/60 rounded" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Casual Leave (CL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.casualLeaveAnnual}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, casualLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Short-notice unplanned personal time off.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Sick Leave (SL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.sickLeaveAnnual}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, sickLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Medical recovery and illness leave.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Earned / Paid Leave (PL)</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Days / Year</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={leavePolicyData.paidLeaveAnnual}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, paidLeaveAnnual: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Accrued annual vacation and personal holidays.</p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Carry Forward Limit</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Max Roll Over</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="30"
-                      value={leavePolicyData.carryForwardLimit}
-                      onChange={(e) => setLeavePolicyData({ ...leavePolicyData, carryForwardLimit: Math.max(0, Number(e.target.value) || 0) })}
-                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                    <p className="text-[10px] text-slate-400">Maximum unspent leave allowed into next calendar year.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  onClick={handleAdminSave}
-                  disabled={loading || settingsLoading}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{loading ? 'Saving...' : 'Save Leave Quotas'}</span>
                 </button>
               </div>
             </div>

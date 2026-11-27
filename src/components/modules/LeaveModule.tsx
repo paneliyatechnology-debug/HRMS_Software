@@ -28,6 +28,8 @@ import {
   Loader2,
   Sun,
   RotateCcw,
+  Eye,
+  ArrowLeft,
 } from 'lucide-react';
 import { LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
@@ -140,10 +142,16 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'>('All');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
+  const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
   const [avatarByEmployee, setAvatarByEmployee] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
+  useEffect(() => {
+    if (!viewingLeave) return;
+    const updated = leaves.find((l) => l.id === viewingLeave.id);
+    if (updated) setViewingLeave(updated);
+  }, [leaves, viewingLeave]);
 
   useEffect(() => {
     let active = true;
@@ -188,10 +196,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       return user.avatarUrl;
     }
     return undefined;
-  };
-
-  const toggleExpandRow = (id: string) => {
-    setExpandedLeaveId((prev) => (prev === id ? null : id));
   };
 
   useEffect(() => {
@@ -481,10 +485,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const totalPages = Math.max(1, Math.ceil(displayedLeaves.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(displayedLeaves.length / itemsPerPage));
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, displayedLeaves.length);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, displayedLeaves.length);
   const paginatedLeaves = displayedLeaves.slice(startIndex, endIndex);
 
   const handleOpenApproveModal = (leave: LeaveRequest) => {
@@ -634,7 +638,194 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   };
 
   return (
-    <div className="space-y-4 w-full select-none md:h-[calc(100vh-115px)] md:flex md:flex-col md:overflow-hidden">
+    <div className={`space-y-4 w-full select-none ${viewingLeave ? '' : 'md:h-[calc(100vh-115px)] md:flex md:flex-col md:overflow-hidden'}`}>
+      {viewingLeave ? (
+        (() => {
+          const dayDetails = getLeaveDayDetails(viewingLeave);
+          const avatarUrl = getLeaveAvatar(viewingLeave);
+          const isProcessing = processingId === viewingLeave.id;
+          return (
+            <div className="space-y-4 w-full animate-in fade-in">
+              {/* Top Back Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setViewingLeave(null)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-2xs transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Leave List</span>
+                </button>
+
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-bold ${
+                    viewingLeave.status === 'Approved'
+                      ? 'text-emerald-700'
+                      : viewingLeave.status === 'Pending'
+                        ? 'text-amber-700'
+                        : viewingLeave.status === 'Cancelled'
+                          ? 'text-slate-600'
+                          : 'text-rose-700'
+                  }`}
+                >
+                  {viewingLeave.status === 'Approved' && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                  {viewingLeave.status === 'Pending' && <Clock className="w-3.5 h-3.5 stroke-[2]" />}
+                  {viewingLeave.status === 'Rejected' && <X className="w-3.5 h-3.5 stroke-[2.5]" />}
+                  <span>{viewingLeave.status}</span>
+                </span>
+              </div>
+
+              {/* Main Leave Summary Card */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs p-5 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-700 ring-1 ring-slate-200 shrink-0 overflow-hidden">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={viewingLeave.employeeName || 'Employee'} className="w-full h-full object-cover" />
+                      ) : (
+                        viewingLeave.employeeName?.[0] || 'E'
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">{viewingLeave.employeeName}</h3>
+                      <p className="text-xs text-slate-500">{viewingLeave.departmentName || 'General'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {portalMode === 'employee' &&
+                      (viewingLeave.status === 'Pending' || viewingLeave.status === 'Approved') &&
+                      viewingLeave.endDate >= todayKey && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancellingLeave(viewingLeave);
+                            setCancelReason('');
+                          }}
+                          disabled={isProcessing}
+                          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                        >
+                          {isProcessing ? 'Cancelling...' : 'Cancel Leave'}
+                        </button>
+                      )}
+                    {canApproveRejectLeave(user) && viewingLeave.status === 'Pending' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenApproveModal(viewingLeave)}
+                          disabled={isProcessing}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRejectModal(viewingLeave)}
+                          disabled={isProcessing}
+                          className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Reject</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Key Metadata Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Leave Type</span>
+                    <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{viewingLeave.leaveType}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Start Date</span>
+                    <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{formatLeaveDate(viewingLeave.startDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">End Date</span>
+                    <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{formatLeaveDate(viewingLeave.endDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Total Days</span>
+                    <span className="text-sm font-semibold text-slate-800 mt-0.5 block">
+                      {viewingLeave.daysCount} {viewingLeave.daysCount === 1 ? 'Day' : 'Days'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">Applied Date</span>
+                    <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{formatLeaveDate(viewingLeave.appliedDate)}</span>
+                  </div>
+                </div>
+
+                {/* Reason Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Employee Leave Reason
+                    </span>
+                    <p className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                      {viewingLeave.reason || 'No reason provided.'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Admin / Review Reason
+                    </span>
+                    <p
+                      className={`text-xs sm:text-sm leading-relaxed ${
+                        viewingLeave.response || viewingLeave.comments
+                          ? viewingLeave.status === 'Rejected'
+                            ? 'text-rose-700 font-medium'
+                            : viewingLeave.status === 'Cancelled'
+                              ? 'text-slate-700 font-medium'
+                              : 'text-emerald-700 font-medium'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {viewingLeave.response || viewingLeave.comments || 'No review note added yet.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Day-Wise Schedule */}
+                <div className="pt-2 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-[#2d6a4f]" />
+                      <span>Day-Wise Leave Breakdown</span>
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {dayDetails.length} {dayDetails.length === 1 ? 'Day' : 'Days'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                    {dayDetails.map((d, idx) => (
+                      <div
+                        key={`detail-day-${idx}`}
+                        className="px-3 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200/90 flex flex-col gap-0.5"
+                      >
+                        <span className="text-xs font-bold text-slate-800">{d.date}</span>
+                        <span
+                          className={`text-[11px] font-semibold flex items-center gap-1 ${
+                            d.isHalf ? 'text-amber-700' : 'text-emerald-700'
+                          }`}
+                        >
+                          {d.isHalf && <Sun className="w-3 h-3 text-amber-600 shrink-0" />}
+                          <span>{d.label}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+      <>
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW: PERSONAL LEAVE BALANCES */}
       {/* ========================================================================= */}
@@ -989,73 +1180,55 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 font-medium block">Type & Duration</span>
-                      <span className="font-semibold text-indigo-700 text-[11px] flex items-center gap-1 flex-wrap">
-                        <span>{leave.leaveType}</span>
-                        <span>({leave.daysCount}d{leave.isHalfDay ? ` • ${leave.halfDaySession === 'SECOND_HALF' ? 'Half Day 2nd' : 'Half Day 1st'}` : ' • Full Day'})</span>
+                      <span className="text-[10px] text-slate-400 font-medium block">Type &amp; Day</span>
+                      <span className="font-semibold text-slate-700 text-[11px]">
+                        {leave.leaveType} ({leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'})
                       </span>
                     </div>
                   </div>
 
-                  {portalMode === 'admin' && leave.reason && (
-                    <div className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason</span>
-                      <p className="italic text-slate-800">&ldquo;{leave.reason}&rdquo;</p>
-                    </div>
-                  )}
-
-                  {portalMode === 'employee' && (leave.response || leave.comments) && (
-                    <div
-                      className={`text-xs space-y-0.5 ${
-                        leave.status === 'Rejected'
-                          ? 'text-rose-700'
-                          : leave.status === 'Cancelled'
-                            ? 'text-slate-600'
-                            : 'text-emerald-700'
-                      }`}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewingLeave(leave)}
+                      className="flex-1 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <span className="text-[10px] font-bold uppercase tracking-wider block">
-                        Reason
-                      </span>
-                      <p className="font-semibold">&ldquo;{leave.response || leave.comments}&rdquo;</p>
-                    </div>
-                  )}
-
-                  {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
-                    <div className="pt-1">
+                      <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                      <span>View</span>
+                    </button>
+                    {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
                       <button
                         onClick={() => {
                           setCancellingLeave(leave);
                           setCancelReason('');
                         }}
                         disabled={isProcessing}
-                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                        className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
-                        {isProcessing ? 'Cancelling...' : 'Cancel leave'}
+                        {isProcessing ? 'Cancelling...' : 'Cancel'}
                       </button>
-                    </div>
-                  )}
-
-                  {canApproveRejectLeave(user) && leave.status === 'Pending' && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => handleOpenApproveModal(leave)}
-                        disabled={isProcessing}
-                        className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                      >
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Approve</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenRejectModal(leave)}
-                        disabled={isProcessing}
-                        className="flex-1 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Reject</span>
-                      </button>
-                    </div>
-                  )}
+                    )}
+                    {canApproveRejectLeave(user) && leave.status === 'Pending' && (
+                      <>
+                        <button
+                          onClick={() => handleOpenApproveModal(leave)}
+                          disabled={isProcessing}
+                          className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          onClick={() => handleOpenRejectModal(leave)}
+                          disabled={isProcessing}
+                          className="flex-1 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Reject</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -1065,16 +1238,14 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         {/* Desktop Table View (>= md) */}
         <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto [scrollbar-width:thin]">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 z-10 bg-slate-50">
+            <thead className="sticky top-0 z-[5] bg-slate-50">
               <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700">
                 <th className="py-3 px-4 font-bold">EMPLOYEE</th>
                 <th className="py-3 px-4 font-bold">DEPARTMENT</th>
                 <th className="py-3 px-4 font-bold">START DATE</th>
                 <th className="py-3 px-4 font-bold">END DATE</th>
-                <th className="py-3 px-4 font-bold">DAY</th>
                 <th className="py-3 px-4 font-bold">TYPE</th>
                 <th className="py-3 px-4 font-bold">STATUS</th>
-                <th className="py-3 px-4 font-bold">REASON</th>
                 <th className="py-3 px-4 font-bold text-right">
                   {portalMode === 'admin' ? 'ADMIN ACTION' : 'ACTION'}
                 </th>
@@ -1088,17 +1259,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     <td className="py-3.5 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
-                    <td className="py-3.5 px-4"><div className="w-12 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-16 h-5 bg-slate-100 rounded-full" /></td>
                     <td className="py-3.5 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
-                    <td className="py-3.5 px-4"><div className="w-28 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4 text-right"><div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" /></td>
                   </tr>
                 ))
               ) : displayedLeaves.length === 0 ? (
                 <tr className="!bg-white hover:!bg-white">
                   <td
-                    colSpan={9}
+                    colSpan={7}
                     className="py-14 text-center text-slate-500 font-medium !bg-white hover:!bg-white"
                   >
                     {leaves.length === 0 ? (
@@ -1150,19 +1319,18 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                paginatedLeaves.map((leave) => {
+                paginatedLeaves.map((leave, rowIdx) => {
                   const isProcessing = processingId === leave.id;
-                  const isExpanded = expandedLeaveId === leave.id;
-                  const dayDetails = getLeaveDayDetails(leave);
                   const avatarUrl = getLeaveAvatar(leave);
+                  const tipBelow = rowIdx === 0;
+                  const tipPos = tipBelow
+                    ? 'top-full mt-2 -translate-y-1 group-hover:translate-y-0'
+                    : 'bottom-full mb-2 translate-y-1 group-hover:translate-y-0';
+                  const arrowPos = tipBelow
+                    ? 'bottom-full border-b-slate-900'
+                    : 'top-full border-t-slate-900';
                   return (
-                    <React.Fragment key={leave.id}>
-                    <tr
-                      onClick={() => toggleExpandRow(leave.id)}
-                      className={`transition-colors cursor-pointer ${
-                        isExpanded ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
-                      }`}
-                    >
+                    <tr key={leave.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4 font-normal text-slate-800">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-medium text-slate-700 ring-1 ring-slate-200 shrink-0 overflow-hidden">
@@ -1185,11 +1353,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         {formatLeaveDate(leave.endDate)}
                       </td>
                       <td className="py-3 px-4 font-normal text-slate-700">
-                        <span>
-                          {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-normal text-slate-700">
                         {leave.leaveType}
                       </td>
                       <td className="py-3 px-4 font-normal">
@@ -1209,63 +1372,70 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                           <span>{leave.status}</span>
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-normal text-slate-700 max-w-xs">
-                        {portalMode === 'admin' ? (
-                          <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
-                            <span className="text-slate-700 font-normal text-xs">{leave.reason || '--'}</span>
-                          </div>
-                        ) : (leave.response || leave.comments) ? (
-                          <div
-                            className={`truncate text-xs font-normal ${
-                              leave.status === 'Rejected'
-                                ? 'text-rose-700'
-                                : leave.status === 'Cancelled'
-                                  ? 'text-slate-600'
-                                  : 'text-emerald-700'
-                            }`}
-                            title={leave.response || leave.comments}
-                          >
-                            {leave.response || leave.comments}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 font-normal text-xs">--</span>
-                        )}
-                      </td>
-
                       {/* Action Column */}
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewingLeave(leave)}
+                            aria-label="View"
+                            className="group relative p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center justify-center transition-all cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                            <span className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${tipPos} px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-50`}>
+                              View
+                              <span className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${arrowPos}`} />
+                            </span>
+                          </button>
                           {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setCancellingLeave(leave);
                                 setCancelReason('');
                               }}
                               disabled={isProcessing}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                              aria-label={isProcessing ? 'Cancelling' : 'Cancel'}
+                              className="group relative p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 inline-flex items-center justify-center transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                             >
-                              {isProcessing ? 'Cancelling...' : 'Cancel'}
+                              {isProcessing ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-slate-600" />
+                              )}
+                              <span className={`pointer-events-none absolute right-0 ${tipPos} px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-50`}>
+                                {isProcessing ? 'Cancelling...' : 'Cancel'}
+                                <span className={`absolute right-2.5 border-4 border-transparent ${arrowPos}`} />
+                              </span>
                             </button>
                           )}
                           {canApproveRejectLeave(user) && leave.status === 'Pending' && (
                             <>
                               <button
+                                type="button"
                                 onClick={() => handleOpenApproveModal(leave)}
                                 disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                title="Approve Request"
+                                aria-label="Approve"
+                                className="group relative p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center justify-center shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Approve</span>
+                                <span className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${tipPos} px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-50`}>
+                                  Approve
+                                  <span className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${arrowPos}`} />
+                                </span>
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleOpenRejectModal(leave)}
                                 disabled={isProcessing}
-                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                title="Reject Request"
+                                aria-label="Reject"
+                                className="group relative p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 inline-flex items-center justify-center transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                               >
                                 <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Reject</span>
+                                <span className={`pointer-events-none absolute right-0 ${tipPos} px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-50`}>
+                                  Reject
+                                  <span className={`absolute right-2.5 border-4 border-transparent ${arrowPos}`} />
+                                </span>
                               </button>
                             </>
                           )}
@@ -1273,39 +1443,6 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         </div>
                       </td>
                     </tr>
-                    <tr className={isExpanded ? 'bg-slate-50/80' : 'border-0'}>
-                      <td colSpan={9} className="p-0 border-0">
-                        <div
-                          className={`grid transition-all duration-200 ease-out ${
-                            isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                          }`}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/70">
-                              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                {dayDetails.map((d, idx) => (
-                                  <div
-                                    key={`${leave.id}-day-${idx}`}
-                                    className="px-3 py-2 rounded-xl bg-white border border-slate-200/90 flex flex-col gap-0.5"
-                                  >
-                                    <span className="text-[11px] font-bold text-slate-800">{d.date}</span>
-                                    <span
-                                      className={`text-[11px] font-semibold flex items-center gap-1 ${
-                                        d.isHalf ? 'text-amber-700' : 'text-emerald-700'
-                                      }`}
-                                    >
-                                      {d.isHalf && <Sun className="w-3 h-3 text-amber-600 shrink-0" />}
-                                      <span>{d.label}</span>
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                    </React.Fragment>
                   );
                 })
               )}
@@ -1313,75 +1450,99 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </table>
         </div>
 
-        {/* Pagination Bar (10 records per page) */}
+        {/* Pagination Bar */}
         {displayedLeaves.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="text-slate-500 font-medium">
-              Showing <span className="font-bold text-slate-800">{displayedLeaves.length === 0 ? 0 : startIndex + 1}</span> to{' '}
-              <span className="font-bold text-slate-800">{endIndex}</span> of{' '}
-              <span className="font-bold text-slate-800">{displayedLeaves.length}</span> records
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+            <div className="flex items-center gap-3 text-slate-500 font-medium">
+              <span>
+                Showing <span className="font-bold text-slate-800">{displayedLeaves.length === 0 ? 0 : startIndex + 1}</span> to{' '}
+                <span className="font-bold text-slate-800">{endIndex}</span> of{' '}
+                <span className="font-bold text-slate-800">{displayedLeaves.length}</span> records
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-400">Rows:</span>
+                <select
+                  aria-label="Rows per page"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#2d6a4f] cursor-pointer"
+                >
+                  {[5, 10, 20, 50].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safeCurrentPage === 1}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Previous</span>
-                </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
 
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                    if (
-                      totalPages > 7 &&
-                      pageNum !== 1 &&
-                      pageNum !== totalPages &&
-                      Math.abs(pageNum - safeCurrentPage) > 1
-                    ) {
-                      if (pageNum === 2 || pageNum === totalPages - 1) {
-                        return (
-                          <span key={pageNum} className="px-1 text-slate-400 select-none">
-                            ...
-                          </span>
-                        );
-                      }
-                      return null;
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  if (
+                    totalPages > 7 &&
+                    pageNum !== 1 &&
+                    pageNum !== totalPages &&
+                    Math.abs(pageNum - safeCurrentPage) > 1
+                  ) {
+                    if (pageNum === 2 || pageNum === totalPages - 1) {
+                      return (
+                        <span key={pageNum} className="px-1 text-slate-400 select-none">
+                          ...
+                        </span>
+                      );
                     }
+                    return null;
+                  }
 
-                    const isActive = pageNum === safeCurrentPage;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${isActive
-                          ? 'bg-slate-900 text-white shadow-xs'
+                  const isActive = pageNum === safeCurrentPage;
+                  return (
+                    <button
+                      type="button"
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                        isActive
+                          ? 'bg-[#2d6a4f] text-white shadow-xs'
                           : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safeCurrentPage === totalPages}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                  title="Next Page"
-                >
-                  <span className="hidden sm:inline">Next</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                title="Next Page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Approval Confirmation Modal Dialog */}
       {approvingLeave && (
@@ -1389,7 +1550,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setApprovingLeave(null);
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1522,7 +1683,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setCancellingLeave(null);
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1570,7 +1731,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setRejectingLeave(null);
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1644,7 +1805,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
       {isLeaveTypesModalOpen && (
         <div
           onClick={() => setIsLeaveTypesModalOpen(false)}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}

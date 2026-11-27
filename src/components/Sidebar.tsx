@@ -76,7 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [hasPremium, setHasPremium] = useState(false);
-  const [planFeatures, setPlanFeatures] = useState<string[] | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
   });
@@ -88,10 +87,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     api.getCompanyFeatures()
       .then((res: any) => {
         if (!active) return;
-        const isPrem = Boolean(res?.premium);
-        const feats = Array.isArray(res?.features) ? (res.features as string[]) : [];
+        const data = res?.data || res;
+        const isPrem = Boolean(data?.premium);
+        const feats = Array.isArray(data?.features) ? (data.features as string[]) : [];
         setHasPremium(isPrem && feats.includes('face_clock'));
-        setPlanFeatures(isPrem ? feats : null);
       })
       .catch(() => undefined);
     return () => {
@@ -302,15 +301,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isModuleAllowedForUser(id, user)) {
       return null;
     }
-    const moduleFeatureMap: Record<string, string> = {
-      payroll: 'payroll',
-      payslips: 'payroll',
-      recruitment: 'recruitment',
-    };
-    const requiredFeature = moduleFeatureMap[id];
-    if (requiredFeature && planFeatures && !planFeatures.includes(requiredFeature)) {
-      return null;
-    }
 
     let isActive = activeModule === id;
     if (id === 'organization') {
@@ -383,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
+        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 lg:z-[110] h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
           } bg-white text-[#212529] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#e9ecef] shadow-xs ${isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
           }`}
       >
@@ -487,7 +477,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
                 {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
                 {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
-                {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && hasPremium && (
+                {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
                   effectiveCollapsed ? (
                     <button
                       type="button"
@@ -535,9 +525,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
                   <CalendarOff className="w-4 h-4" />,
                   portalMode === 'admin' && pendingLeavesCount > 0 ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
-                      {pendingLeavesCount}
-                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        activeModule === 'leaves' ? 'bg-[#74c69d]' : 'bg-[#2d6a4f]'
+                      }`}
+                    />
                   ) : undefined
                 )}
                 {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
@@ -561,9 +553,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   'Notifications',
                   <Bell className="w-4 h-4" />,
                   unreadNoticesCount > 0 ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
-                      {unreadNoticesCount > 99 ? '99+' : unreadNoticesCount}
-                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        activeModule === 'notifications' ? 'bg-[#74c69d]' : 'bg-[#2d6a4f]'
+                      }`}
+                    />
                   ) : undefined
                 )}
               </>
@@ -611,16 +605,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onMouseLeave={scheduleFlyoutClose}
                         aria-label="Employees"
                         className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${activeModule === 'employees' ||
-                            (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                            ? 'bg-[#1b4332] text-white shadow-xs'
-                            : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
+                          (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                          ? 'bg-[#1b4332] text-white shadow-xs'
+                          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
                           }`}
                       >
                         <span
                           className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${activeModule === 'employees' ||
-                              (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                              ? 'text-white'
-                              : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
+                            (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                            ? 'text-white'
+                            : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
                             }`}
                         >
                           <Users className="w-4 h-4" />
@@ -799,8 +793,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         handleNav(sub.id, sub.subTab);
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between ${subActive
-                          ? 'bg-[#2d6a4f] text-white font-bold'
-                          : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
+                        ? 'bg-[#2d6a4f] text-white font-bold'
+                        : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
                         }`}
                     >
                       <span>{sub.label}</span>
