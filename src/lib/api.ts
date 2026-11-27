@@ -73,9 +73,9 @@ http.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token =
       getCookie('hrms_auth_token') ||
-            getCookie('bearerToken') ||
-            getCookie('accessToken') ||
-            getCookie('token') ||
+      getCookie('bearerToken') ||
+      getCookie('accessToken') ||
+      getCookie('token') ||
       (typeof localStorage !== 'undefined' ? localStorage.getItem('hrms_auth_token') || localStorage.getItem('bearerToken') || localStorage.getItem('accessToken') : null);
     if (token && !config.headers.Authorization) {
       config.headers.set('Authorization', `Bearer ${token}`);
@@ -339,7 +339,7 @@ function isEmployeeSession(): boolean {
         if (payload?.role && payload.role.toUpperCase() === 'EMPLOYEE') return true;
       }
     }
-  } catch {}
+  } catch { }
   return false;
 }
 
@@ -382,16 +382,16 @@ async function getUser(userId: string) {
 
 // 11. POST /companies/register
 export type CompanyRegisterInput = {
-    companyName: string;
+  companyName: string;
   email: string;
   phone?: string;
-    gstNumber?: string;
-    industrySector?: string;
-    state?: string;
+  gstNumber?: string;
+  industrySector?: string;
+  state?: string;
   city?: string;
   address?: string;
-    firstName: string;
-    lastName: string;
+  firstName: string;
+  lastName: string;
 };
 
 async function listCompanies(params?: { page?: number; limit?: number; search?: string; status?: string }) {
@@ -474,14 +474,14 @@ function backendDocToEmployeeDocument(d: any) {
   const fileExt = d.fileName
     ? d.fileName.split('.').pop()?.toUpperCase()
     : d.mimeType
-    ? d.mimeType.split('/').pop()?.toUpperCase()
-    : 'PDF';
+      ? d.mimeType.split('/').pop()?.toUpperCase()
+      : 'PDF';
 
   const formattedDate = d.createdAt
     ? new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : d.uploadDate || new Date().toISOString().split('T')[0];
 
-    return {
+  return {
     id: d.id || `doc-${Date.now()}`,
     companyId: d.companyId || '',
     companyName: d.companyName || '',
@@ -798,10 +798,10 @@ async function listHolidays() {
     const rawList = Array.isArray(data)
       ? data
       : Array.isArray(data?.holidays)
-      ? data.holidays
-      : Array.isArray(data?.data)
-      ? data.data
-      : [];
+        ? data.holidays
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
     return rawList.map(backendHolidayToFrontend);
   } catch {
     return [];
@@ -813,7 +813,7 @@ function backendHolidayToFrontend(h: any) {
   const d = h.date ? new Date(h.date) : new Date();
   const dayOfWeek = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = isNaN(d.getTime()) ? (h.date || '') : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      return {
+  return {
     id: h.id || `hol-${Date.now()}`,
     name: h.name || 'Holiday',
     date: h.date || '',
@@ -887,7 +887,7 @@ function backendAttendanceToFrontend(a: any): AttendanceRecord {
   else if (rawStatus.includes('leave')) status = 'On Leave';
   else status = 'Present';
 
-      return {
+  return {
     id: a.id || `att-${Date.now()}`,
     companyId: a.companyId || '',
     employeeId: a.userId || a.employeeId || '',
@@ -959,7 +959,7 @@ async function updateAttendance(attendanceId: string, data: { status?: string; w
 // 30. POST /attendance/:attendanceId/correction (Correct attendance)
 async function correctAttendance(attendanceId: string, data: {
   reason: string;
-    status?: string;
+  status?: string;
   workMode?: string;
   punches?: Array<{ type: string; punchedAt: string }>;
 }) {
@@ -1070,7 +1070,7 @@ async function listLeaveTypes(params?: { companyId?: string }) {
     if (params?.companyId) {
       try {
         data = await deduplicatedGet('/leave-types', { params: { companyId: params.companyId } });
-      } catch (_) {}
+      } catch (_) { }
     }
     if (!data || (Array.isArray(data) && data.length === 0) || (data?.data && Array.isArray(data.data) && data.data.length === 0)) {
       try {
@@ -1085,17 +1085,17 @@ async function listLeaveTypes(params?: { companyId?: string }) {
         } else if (!data) {
           data = fallbackData;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     const rawList = Array.isArray(data)
       ? data
       : Array.isArray(data?.leaveTypes)
-      ? data.leaveTypes
-      : Array.isArray(data?.data)
-      ? data.data
-      : Array.isArray(data?.items)
-      ? data.items
-      : [];
+        ? data.leaveTypes
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
     return rawList.map(backendLeaveTypeToFrontend);
   } catch (error) {
     console.error('Failed to list leave types:', error);
@@ -1184,7 +1184,7 @@ async function deleteLeaveType(leaveTypeId: string | { id?: string; _id?: string
           const altResponse = await http.delete(`/leave-types/${encodeURIComponent(altId)}`);
           clearApiCache('/leave-types');
           return altResponse.data;
-        } catch (_) {}
+        } catch (_) { }
       }
     }
     const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
@@ -1232,10 +1232,10 @@ function backendLeaveToFrontend(l: any): LeaveRequest {
     nonFullSession === 'SECOND_HALF'
       ? 'SECOND_HALF'
       : nonFullSession === 'FIRST_HALF'
-      ? 'FIRST_HALF'
-      : l.halfDaySession === 'SECOND_HALF'
-      ? 'SECOND_HALF'
-      : 'FIRST_HALF';
+        ? 'FIRST_HALF'
+        : l.halfDaySession === 'SECOND_HALF'
+          ? 'SECOND_HALF'
+          : 'FIRST_HALF';
 
   let status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' = 'Pending';
   const rawStatus = (l.status || '').toUpperCase();
@@ -1281,8 +1281,8 @@ export interface ApplyLeaveInput {
   leaveType: string;
   reason: string;
   days?: Array<{ date: string; portion: string }>;
-    startDate?: string;
-    endDate?: string;
+  startDate?: string;
+  endDate?: string;
   isHalfDay?: boolean;
   halfDaySession?: string;
   dayBreakdown?: Array<{ date: string; session: string; duration?: number }>;
@@ -1298,7 +1298,7 @@ async function applyLeave(data: ApplyLeaveInput) {
           const isFirst = s === 'FIRST_HALF' || s === 'SESSION_1' || s.includes('FIRST');
           const isSecond = s === 'SECOND_HALF' || s === 'SESSION_2' || s.includes('SECOND');
           const portion = isFirst ? 'First Half' : isSecond ? 'Second Half' : 'Full Day';
-      return {
+          return {
             date: d.date,
             portion,
           };
@@ -1355,10 +1355,10 @@ async function listLeaves(params?: { page?: number; limit?: number; userId?: str
     const rawList = Array.isArray(data)
       ? data
       : Array.isArray(data?.leaves)
-      ? data.leaves
-      : Array.isArray(data?.data)
-      ? data.data
-      : [];
+        ? data.leaves
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
     return rawList.map(backendLeaveToFrontend);
   } catch {
     return [];
@@ -1383,8 +1383,8 @@ async function acceptLeave(leaveId: string, responseText?: string, ...rest: any[
       rest.length > 0 && typeof rest[rest.length - 1] === 'string'
         ? rest[rest.length - 1]
         : typeof responseText === 'string' && responseText.trim().length > 0
-        ? responseText.trim()
-        : 'Accepted. Take care.';
+          ? responseText.trim()
+          : 'Accepted. Take care.';
 
     const response = await http.post(`/leaves/${leaveId}/accept`, {
       response: finalResponse,
@@ -1422,8 +1422,8 @@ async function rejectLeave(leaveId: string, responseText?: string, ...rest: any[
       rest.length > 0 && typeof rest[rest.length - 1] === 'string'
         ? rest[rest.length - 1]
         : typeof responseText === 'string' && responseText.trim().length > 0
-        ? responseText.trim()
-        : 'Rejected.';
+          ? responseText.trim()
+          : 'Rejected.';
 
     const response = await http.post(`/leaves/${leaveId}/reject`, {
       response: finalResponse,
@@ -1472,7 +1472,7 @@ async function getApiRoot() {
    ========================================================================== */
 
 // 42. POST /departments (Create department)
-async function createDepartment(payload: { name: string; [key: string]: any }) {
+async function createDepartment(payload: { name: string;[key: string]: any }) {
   try {
     const res = await http.post('/departments', { name: payload.name?.trim() }, {
       headers: { 'Content-Type': 'application/json' },
@@ -1492,12 +1492,12 @@ async function listDepartments() {
     const raw = Array.isArray(res)
       ? res
       : Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res?.departments)
-      ? res.departments
-      : Array.isArray(res?.items)
-      ? res.items
-      : [];
+        ? res.data
+        : Array.isArray(res?.departments)
+          ? res.departments
+          : Array.isArray(res?.items)
+            ? res.items
+            : [];
     return raw.map((d: any) => ({
       ...d,
       id: d.id || d._id,
@@ -1515,7 +1515,7 @@ async function listDepartments() {
 }
 
 // 44. PATCH /departments/:departmentId (Edit department)
-async function editDepartment(departmentId: string, payload: { name: string; [key: string]: any }) {
+async function editDepartment(departmentId: string, payload: { name: string;[key: string]: any }) {
   try {
     const res = await http.patch(`/departments/${departmentId}`, { name: payload.name?.trim() }, {
       headers: { 'Content-Type': 'application/json' },
@@ -1707,13 +1707,13 @@ async function updateResignationClearance(id: string, payload: { clearance: Reco
 }
 
 async function createAnnouncement(payload: {
-    title: string;
+  title: string;
   content: string;
   priority?: string;
   targetAudience?: string;
   targetEmployeeId?: string;
-    departmentName?: string;
-  }) {
+  departmentName?: string;
+}) {
   try {
     const res = await http.post('/notices', {
       title: payload.title,
@@ -2022,7 +2022,7 @@ function fromApiTask(task: any) {
   if (!task || typeof task !== 'object') return task;
   const status = String(task.status || '');
   const priority = String(task.priority || '');
-      return {
+  return {
     ...task,
     status: status === 'Pending' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : status === 'Done' ? 'COMPLETED' : status,
     priority: priority === 'Low' ? 'LOW' : priority === 'Medium' ? 'MEDIUM' : priority === 'High' ? 'HIGH' : priority,
@@ -2030,7 +2030,7 @@ function fromApiTask(task: any) {
 }
 
 function taskPayload(payload: Record<string, unknown>) {
-    return {
+  return {
     ...payload,
     status: payload.status == null ? undefined : toApiTaskStatus(String(payload.status)),
     priority: payload.priority == null ? undefined : toApiTaskPriority(String(payload.priority)),
@@ -2041,7 +2041,7 @@ function taskPayload(payload: Record<string, unknown>) {
 async function createTask(payload: {
   teamId?: string;
   assigneeId?: string;
-    title: string;
+  title: string;
   description?: string;
   priority?: string;
   status?: string;
@@ -2066,7 +2066,7 @@ async function listTasks(params?: any) {
     const res = await deduplicatedGet('/tasks', { params });
     if (Array.isArray(res)) return res.map(fromApiTask);
     if (Array.isArray(res?.data)) return { ...res, data: res.data.map(fromApiTask) };
-        return res;
+    return res;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list tasks.');
@@ -2645,7 +2645,7 @@ async function updatePremiumOrder(premiumOrderId: string, payload: { status: str
 // 93. POST /support (Send demo or contact request)
 async function sendSupportRequest(payload: {
   kind?: string;
-    name: string;
+  name: string;
   email: string;
   phone?: string;
   companyName?: string;
@@ -3031,10 +3031,10 @@ async function getMyCompany() {
         const staffList = Array.isArray(staffRes)
           ? staffRes
           : Array.isArray(staffRes?.staff)
-          ? staffRes.staff
-          : Array.isArray(staffRes?.data)
-          ? staffRes.data
-          : [];
+            ? staffRes.staff
+            : Array.isArray(staffRes?.data)
+              ? staffRes.data
+              : [];
         const adminEntry = staffList.find((s: any) => {
           const r = String(s?.role || s?.user?.role || '').trim().toUpperCase();
           return ['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(r) &&
