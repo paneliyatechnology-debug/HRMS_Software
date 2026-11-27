@@ -28,15 +28,16 @@ import {
   Check,
   UserCheck,
 } from 'lucide-react';
-import { Employee, LeaveRequest } from '../../types/hrms';
+import { AttendanceRecord, Employee, LeaveRequest } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { useModalOverlay } from '../../lib/useModalOverlay';
-import { getTodayRecordForEmployee, formatSecondsToHMS } from '../../lib/attendanceService';
+import { getTodayRecordForEmployee, getTodayDateString, parseTimeStringToTimestamp } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
 import { api } from '../../lib/api';
 import { ProfilePhotoCard } from '../common/ProfilePhotoCard';
 import {
+  calculateEmployeeLeaveBalances,
   fetchLeaveQuotaData,
   resolveLeaveQuotaSummary,
   ResolvedLeaveQuotaSummary,
@@ -68,7 +69,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [empLeaveSummary, setEmpLeaveSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
+  const [empDynamicLeave, setEmpDynamicLeave] = useState<ReturnType<typeof calculateEmployeeLeaveBalances> | null>(null);
+  const [empLeaveRequests, setEmpLeaveRequests] = useState<LeaveRequest[]>([]);
   const [empLeaveLoading, setEmpLeaveLoading] = useState(false);
+  const [liveTodayRec, setLiveTodayRec] = useState<AttendanceRecord | null>(null);
+  const [empAttendanceRecords, setEmpAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [empAttendanceLoading, setEmpAttendanceLoading] = useState(false);
   const [bankDetails, setBankDetails] = useState<{
     bankName?: string;
     accountHolderName?: string;
@@ -92,6 +98,59 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       const scrollAmount = direction === 'left' ? -220 : 220;
       tabsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
+  };
+
+  const resolveWorkedSeconds = (rec: AttendanceRecord): number => {
+    const breakSecs =
+      (typeof rec.breakSeconds === 'number' && rec.breakSeconds > 0 ? rec.breakSeconds : 0) ||
+      (typeof rec.breakDurationMinutes === 'number' && rec.breakDurationMinutes > 0
+        ? Math.round(rec.breakDurationMinutes * 60)
+        : 0);
+
+    if (typeof rec.activeSeconds === 'number' && rec.activeSeconds > 0) {
+      return rec.activeSeconds;
+    }
+
+    if (rec.checkIn && rec.checkOut && rec.checkIn !== '—' && rec.checkOut !== '—') {
+      const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+      const outTs = parseTimeStringToTimestamp(rec.checkOut, rec.date);
+      if (inTs > 0 && outTs > inTs) {
+        const gross = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        return Math.max(0, gross - breakSecs);
+      }
+    }
+
+    const totalHoursRaw = String((rec as any).totalHours || '').trim();
+    if (totalHoursRaw && totalHoursRaw !== '00:00' && totalHoursRaw !== '00:00:00') {
+      const parts = totalHoursRaw.split(':').map((n) => Number(n));
+      if (parts.length >= 2 && parts.every((n) => Number.isFinite(n))) {
+        return parts[0] * 3600 + parts[1] * 60 + (parts[2] || 0);
+      }
+    }
+
+    if (!rec.isCompleted && !rec.checkOut && rec.checkIn && rec.checkIn !== '—' && !rec.isOnBreak) {
+      const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+      if (inTs > 0 && Date.now() > inTs) {
+        const gross = Math.floor((Date.now() - inTs) / 1000);
+        return Math.max(0, gross - breakSecs);
+      }
+    }
+
+    return 0;
+  };
+
+  const formatWorkedDuration = (rec: AttendanceRecord): string => {
+    const totalSecs = resolveWorkedSeconds(rec);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    if (hrs > 0) {
+      return mins > 0 ? `${hrs} hr${hrs > 1 ? 's' : ''} ${mins} min` : `${hrs} hr${hrs > 1 ? 's' : ''}`;
+    }
+    if (mins > 0) {
+      return secs > 0 ? `${mins} min ${secs}s` : `${mins} min`;
+    }
+    return `${secs}s`;
   };
 
   const copyToClipboard = (text: string, key: string) => {
@@ -148,10 +207,63 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   }, [isOpen, isOwnProfile, currentEmp?.avatarUrl]);
 
   React.useEffect(() => {
-    if (!isOpen || !currentEmp) return;
+    if ((!isOpen && !isPageMode) || !currentEmp) return;
+    let active = true;
+    const loadEmployeeAttendance = async () => {
+      setEmpAttendanceLoading(true);
+      try {
+        const allRecords = await api.getAttendance().catch(() => [] as AttendanceRecord[]);
+        if (!active) return;
+
+        const candIds = [
+          currentEmp.id,
+          (currentEmp as any)._id,
+          currentEmp.userId,
+          currentEmp.employeeCode,
+        ]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase());
+        const fullName = `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim().toLowerCase();
+
+        const matchesEmp = (r: AttendanceRecord) => {
+          const rEmpId = String(r.employeeId || '').toLowerCase();
+          const rUserId = String((r as any).userId || '').toLowerCase();
+          const rCode = String((r as any).employeeCode || '').toLowerCase();
+          if (candIds.includes(rEmpId) || candIds.includes(rUserId) || candIds.includes(rCode)) return true;
+          if (fullName && r.employeeName && r.employeeName.toLowerCase().trim() === fullName) return true;
+          return false;
+        };
+
+        const empRecs = (Array.isArray(allRecords) ? allRecords : [])
+          .filter(matchesEmp)
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+        const today = getTodayDateString();
+        const todayMatch = empRecs.find((r) => r.date === today) || null;
+        setLiveTodayRec(todayMatch);
+        setEmpAttendanceRecords(empRecs.slice(0, 10));
+      } catch (_) {
+        if (active) {
+          setLiveTodayRec(null);
+          setEmpAttendanceRecords([]);
+        }
+      } finally {
+        if (active) setEmpAttendanceLoading(false);
+      }
+    };
+    loadEmployeeAttendance();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isPageMode, currentEmp]);
+
+  React.useEffect(() => {
+    if ((!isOpen && !isPageMode) || !currentEmp) return;
     const profileRole = String(currentEmp.role || '').toUpperCase();
     if (['ADMIN', 'SUPER_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(profileRole)) {
       setEmpLeaveSummary(null);
+      setEmpDynamicLeave(null);
+      setEmpLeaveRequests([]);
       setEmpLeaveLoading(false);
       return;
     }
@@ -160,28 +272,50 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       setEmpLeaveLoading(true);
       try {
         const targetId = currentEmp.id || currentEmp.userId || '';
+        const candIds = [
+          currentEmp.id,
+          (currentEmp as any)._id,
+          currentEmp.userId,
+          currentEmp.employeeCode,
+        ]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase());
         const targetEmail = currentEmp.email?.toLowerCase() || '';
         const targetName = `${currentEmp.firstName || ''} ${currentEmp.lastName || ''}`.trim().toLowerCase();
+        const compId = (user as any)?.companyId || (currentEmp as any)?.companyId || '';
 
-        const [quotaPayload, rawLeaves] = await Promise.all([
+        const [quotaPayload, rawLeaves, rawLeaveTypes] = await Promise.all([
           fetchLeaveQuotaData(targetId),
-          api.getLeaves(targetId ? { employeeId: targetId } : undefined).catch(() => [] as LeaveRequest[]),
+          api.getLeaves().catch(() => [] as LeaveRequest[]),
+          api.listLeaveTypes(compId ? { companyId: compId } : undefined).catch(() => []),
         ]);
         if (!active) return;
 
         const allLeaves = Array.isArray(rawLeaves) ? rawLeaves : [];
         const empLeaves = allLeaves.filter((l) => {
-          if (targetId && l.employeeId === targetId) return true;
+          const lEmpId = String(l.employeeId || '').toLowerCase();
+          const lUserId = String((l as any).userId || '').toLowerCase();
+          if (lEmpId && candIds.includes(lEmpId)) return true;
+          if (lUserId && candIds.includes(lUserId)) return true;
           if (targetEmail && (l as any).employeeEmail?.toLowerCase() === targetEmail) return true;
-          if (targetName && l.employeeName?.toLowerCase() === targetName) return true;
+          if (targetName && l.employeeName?.toLowerCase().trim() === targetName) return true;
           return false;
         });
 
+        const leaveTypesList = Array.isArray(rawLeaveTypes) ? rawLeaveTypes : [];
+        setEmpLeaveRequests(empLeaves);
         setEmpLeaveSummary(
-          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, empLeaves)
+          resolveLeaveQuotaSummary(quotaPayload.settings, quotaPayload.balances, empLeaves, leaveTypesList)
+        );
+        setEmpDynamicLeave(
+          calculateEmployeeLeaveBalances(leaveTypesList, empLeaves, quotaPayload.settings, quotaPayload.balances)
         );
       } catch (_) {
-        if (active) setEmpLeaveSummary(null);
+        if (active) {
+          setEmpLeaveSummary(null);
+          setEmpDynamicLeave(null);
+          setEmpLeaveRequests([]);
+        }
       } finally {
         if (active) setEmpLeaveLoading(false);
       }
@@ -190,7 +324,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     return () => {
       active = false;
     };
-  }, [isOpen, currentEmp]);
+  }, [isOpen, isPageMode, currentEmp, user]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -825,7 +959,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
         {/* ── 4. Attendance ── */}
         {effectiveTab === 'attendance' && (() => {
-          const todayRec = getTodayRecordForEmployee(currentEmp.id);
+          const todayRec = liveTodayRec || getTodayRecordForEmployee(currentEmp.id);
           return (
             <div className="space-y-4">
               <div>
@@ -833,14 +967,19 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   <Clock className="w-4 h-4 text-[#1b4332]" />
                   <span>Today's Work Shift Status</span>
                 </h4>
-                {todayRec ? (
+                {empAttendanceLoading && !todayRec ? (
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center gap-2 text-xs text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#2d6a4f]" />
+                    <span>Loading live attendance...</span>
+                  </div>
+                ) : todayRec ? (
                   <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                       <span className="font-bold text-slate-900 text-xs">
-                        {todayRec.date} • {todayRec.isCompleted ? 'Shift Completed' : todayRec.isOnBreak ? 'On Break' : 'Active Working'}
+                        {todayRec.date} • {(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—')) ? 'Shift Completed' : todayRec.isOnBreak ? 'On Break' : 'Active Working'}
                       </span>
-                      <span className="font-mono font-bold text-emerald-700 text-xs bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {formatSecondsToHMS(todayRec.activeSeconds || 0)} Worked
+                      <span className="font-mono font-bold text-emerald-700 text-xs bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        {formatWorkedDuration(todayRec)} Worked
                       </span>
                     </div>
 
@@ -906,6 +1045,34 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {empAttendanceRecords.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold uppercase text-slate-800 tracking-wider mb-2">
+                    Recent Attendance Logs ({empAttendanceRecords.length})
+                  </h4>
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+                    {empAttendanceRecords.slice(0, 5).map((rec) => (
+                      <div key={rec.id || rec.date} className="px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+                        <div>
+                          <p className="font-semibold text-slate-800">{rec.date}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {rec.checkIn || '—'} – {rec.checkOut || (rec.isCompleted ? '—' : 'Working')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-semibold text-slate-800 block">
+                            {formatWorkedDuration(rec)}
+                          </span>
+                          <span className="text-[10px] font-semibold text-emerald-700">
+                            {rec.status || ((rec.isCompleted || (rec.checkOut && rec.checkOut !== '—')) ? 'Completed' : rec.isOnBreak ? 'On Break' : 'Working')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -920,6 +1087,18 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     <div className="h-3 w-20 mx-auto bg-slate-200 rounded" />
                     <div className="h-6 w-16 mx-auto bg-slate-200 rounded" />
                     <div className="h-3 w-24 mx-auto bg-slate-100 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : empDynamicLeave?.hasConfiguredTypes && empDynamicLeave.cards.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {empDynamicLeave.cards.map((card) => (
+                  <div key={card.id} className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-center">
+                    <span className="text-slate-500 text-[10px] uppercase font-bold">{card.name}</span>
+                    <p className="text-xl font-extrabold text-[#1b4332] mt-1">{card.available} Left</p>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
+                      {card.taken} Used / {card.quota} Total
+                    </span>
                   </div>
                 ))}
               </div>
@@ -957,6 +1136,37 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       ? `${empLeaveSummary.paid.taken} Used / ${empLeaveSummary.paid.quota} Total`
                       : '0 Used / 0 Total'}
                   </span>
+                </div>
+              </div>
+            )}
+
+            {!empLeaveLoading && empLeaveRequests.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase text-slate-800 tracking-wider mb-2">
+                  Recent Leave Requests ({empLeaveRequests.length})
+                </h4>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+                  {empLeaveRequests.slice(0, 5).map((lv) => (
+                    <div key={lv.id} className="px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{lv.leaveType}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {lv.startDate}{lv.endDate && lv.endDate !== lv.startDate ? ` – ${lv.endDate}` : ''} ({lv.daysCount || 1}d)
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${
+                          lv.status === 'Approved'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : lv.status === 'Rejected'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {lv.status}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

@@ -99,7 +99,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [groupPanel, setGroupPanel] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
-  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string; avatarUrl?: string; avatar?: string; profilePhoto?: string; photoUrl?: string; image?: string }>>([]);
+  const [staffAvatarMap, setStaffAvatarMap] = useState<Record<string, string>>({});
+  const [brokenAvatarUrls, setBrokenAvatarUrls] = useState<Record<string, boolean>>({});
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
@@ -215,22 +217,34 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const roleLabel = (role: string) => (
     role === 'ADMIN' ? 'Admin' : role === 'HR' ? 'HR' : role === 'MANAGER' ? 'Manager' : 'Employee'
   );
-  const toDirectConversation = (person: { userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
-    id: `direct-${person.userId}`,
-    type: 'direct',
-    title: person.name,
-    participantIds: [person.userId, myStaffId],
-    participantNames: {
-      [person.userId]: person.name,
-      [myStaffId]: currentUserName,
-    },
-    participantDesignations: { [person.userId]: roleLabel(person.role) },
-    participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
-    lastMessage: person.lastMessage || '',
-    lastMessageTimestamp: person.lastMessageAt || undefined,
-    unreadCount: {},
-    updatedAt: person.lastMessageAt || new Date().toISOString(),
-  });
+  const toDirectConversation = (person: { userId: string; name: string; role: string; avatarUrl?: string; avatar?: string; profilePhoto?: string; photoUrl?: string; image?: string; user?: { avatarUrl?: string }; employee?: { avatarUrl?: string }; lastMessage?: string; lastMessageAt?: string }): ChatConversation => {
+    const rawAvatar =
+      person.avatarUrl ||
+      person.avatar ||
+      person.profilePhoto ||
+      person.photoUrl ||
+      person.image ||
+      person.user?.avatarUrl ||
+      person.employee?.avatarUrl ||
+      '';
+    return {
+      id: `direct-${person.userId}`,
+      type: 'direct',
+      title: person.name,
+      participantIds: [person.userId, myStaffId],
+      participantNames: {
+        [person.userId]: person.name,
+        [myStaffId]: currentUserName,
+      },
+      participantAvatars: rawAvatar ? { [person.userId]: rawAvatar } : undefined,
+      participantDesignations: { [person.userId]: roleLabel(person.role) },
+      participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
+      lastMessage: person.lastMessage || '',
+      lastMessageTimestamp: person.lastMessageAt || undefined,
+      unreadCount: {},
+      updatedAt: person.lastMessageAt || new Date().toISOString(),
+    };
+  };
   const groupIdOf = (conversationId: string) => (
     conversationId.startsWith('group-') ? conversationId.slice('group-'.length) : ''
   );
@@ -251,11 +265,35 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   useEffect(() => {
     let cancelled = false;
     if (!myStaffId) return;
-    const loadChats = () => Promise.all([api.listDirectChats(), api.listChatGroups()])
-      .then(([peopleRes, groupRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }]) => {
+    const loadChats = () => Promise.all([
+      api.listDirectChats(),
+      api.listChatGroups(),
+      api.listStaffThreads().catch(() => null),
+    ])
+      .then(([peopleRes, groupRes, staffRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }, any]) => {
         if (cancelled) return;
         const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
         const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+        const staffList = Array.isArray(staffRes)
+          ? staffRes
+          : Array.isArray(staffRes?.staff)
+            ? staffRes.staff
+            : Array.isArray(staffRes?.data)
+              ? staffRes.data
+              : [];
+        const nextAvatarMap: Record<string, string> = {};
+        for (const s of staffList) {
+          const url = s?.avatarUrl || s?.avatar || s?.profilePhoto || s?.photoUrl || s?.user?.avatarUrl || s?.employee?.avatarUrl;
+          if (!url) continue;
+          const ids = [s?.userId, s?.user?.id, s?.employeeId, s?.employee?.id, s?.id].filter(Boolean);
+          for (const id of ids) nextAvatarMap[String(id)] = String(url);
+          const sName = String(
+            s?.name ||
+            `${s?.firstName || s?.user?.firstName || ''} ${s?.lastName || s?.user?.lastName || ''}`
+          ).trim().toLowerCase();
+          if (sName) nextAvatarMap[sName] = String(url);
+        }
+        setStaffAvatarMap(nextAvatarMap);
         setChatPeople(people);
         setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
       })
@@ -542,6 +580,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
     if (isDirectWithAdmin) {
       const adminName = conv.participantNames?.[ADMIN_USER_ID] || ADMIN_NAME || 'HR Administration';
+      const cleanAdminName = adminName.replace(/\s*\(Admin\)\s*$/i, '').trim().toLowerCase();
+      const adminEmp = employees.find(
+        (e) =>
+          e.id === ADMIN_USER_ID ||
+          (e as any).userId === ADMIN_USER_ID ||
+          `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() === cleanAdminName
+      );
       return {
         id: ADMIN_USER_ID,
         name: adminName.includes('(Admin)') ? adminName : `${adminName} (Admin)`,
@@ -550,7 +595,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         email: conv.participantEmails?.[ADMIN_USER_ID] || 'hr@paneliya.com',
         designation: 'Company HR & Management',
         initials: 'HR',
-        avatarUrl: undefined as string | undefined,
+        avatarUrl:
+          conv.participantAvatars?.[ADMIN_USER_ID] ||
+          staffAvatarMap[ADMIN_USER_ID] ||
+          (cleanAdminName ? staffAvatarMap[cleanAdminName] : undefined) ||
+          adminEmp?.avatarUrl ||
+          (adminEmp as any)?.avatar,
       };
     }
 
@@ -560,20 +610,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       targetId = conv.participantIds?.find((id) => id !== currentUserId) || conv.participantIds?.[0] || '';
     }
 
+    const rawConvName = (
+      (targetId && conv.participantNames?.[targetId]) ||
+      conv.title ||
+      ''
+    ).trim().toLowerCase();
+
     // Match with actual employee from directory
     const matchedEmp = employees.find(
       (e) =>
         e.id === targetId ||
+        (e as any).userId === targetId ||
         e.employeeCode === targetId ||
-        (conv.id && conv.id.endsWith(e.id))
+        (conv.id && conv.id.endsWith(e.id)) ||
+        (rawConvName && `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() === rawConvName)
     );
+
+    const matchedPerson = chatPeople.find((p) => p.userId === targetId);
 
     let name = '';
     let role = 'Staff Member';
     let code = 'EMP';
     let email = '';
     let designation = 'Staff Member';
-    let avatarUrl: string | undefined;
+    const avatarUrl: string | undefined =
+      (targetId ? conv.participantAvatars?.[targetId] : undefined) ||
+      (targetId ? staffAvatarMap[targetId] : undefined) ||
+      (rawConvName ? staffAvatarMap[rawConvName] : undefined) ||
+      matchedPerson?.avatarUrl ||
+      matchedPerson?.avatar ||
+      matchedPerson?.profilePhoto ||
+      matchedPerson?.photoUrl ||
+      matchedPerson?.image ||
+      matchedEmp?.avatarUrl ||
+      (matchedEmp as any)?.avatar;
 
     if (matchedEmp) {
       name = `${matchedEmp.firstName || ''} ${matchedEmp.lastName || ''}`.trim();
@@ -581,7 +651,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       email = matchedEmp.email || '';
       designation = matchedEmp.designationTitle || 'Staff Member';
       role = 'Staff Member';
-      avatarUrl = matchedEmp.avatarUrl;
     } else if (targetId && conv.participantNames?.[targetId] && conv.participantNames[targetId] !== ADMIN_NAME) {
       name = conv.participantNames[targetId];
       code = conv.participantCodes?.[targetId] || 'EMP';
@@ -895,7 +964,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   const handleClearActiveConversation = () => {
-    if (teamMode) return;
     if (!activeConversation) return;
     setCustomConfirmAction({
       title: 'Clear Conversation?',
@@ -903,6 +971,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       onConfirm: () => {
         clearConversationMessages(activeConversation.id);
         setMessages([]);
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id
+              ? { ...c, lastMessage: '', lastMessageTimestamp: undefined }
+              : c,
+          ),
+        );
         loadConversations();
         setCustomConfirmAction(null);
       },
@@ -976,90 +1051,76 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       ? 'bg-[#d8f3dc] text-[#1b4332]'
       : kind === 'admin'
         ? 'bg-[#1b4332] text-white'
-        : 'bg-emerald-50 text-[#1b4332] border border-emerald-200/70';
+        : 'bg-[#e9ecef] text-[#343a40]';
 
-  const renderParticipantAvatar = (
+  const renderUserAvatar = (
     info: { name: string; initials: string; role: string; avatarUrl?: string },
     conv: ChatConversation,
     sizeClass = 'w-11 h-11',
+    extraClass = '',
   ) => {
     const kind = conv.type === 'broadcast' ? 'broadcast' : info.role === 'Admin' ? 'admin' : 'staff';
-    const showOnlineDot = conv.type !== 'broadcast' && !conv.id.startsWith('group-');
+    const canShowPhoto =
+      Boolean(info.avatarUrl) &&
+      !brokenAvatarUrls[info.avatarUrl!] &&
+      conv.type !== 'broadcast' &&
+      !conv.id.startsWith('group-');
+
     return (
       <div className="relative shrink-0">
-        {info.avatarUrl && conv.type !== 'broadcast' && !conv.id.startsWith('group-') ? (
+        {canShowPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={info.avatarUrl}
             alt={info.name}
-            className={`${sizeClass} rounded-full object-cover border border-slate-200/80 bg-slate-100`}
+            onError={() =>
+              setBrokenAvatarUrls((prev) => ({ ...prev, [info.avatarUrl!]: true }))
+            }
+            className={`${sizeClass} rounded-full object-cover border border-[#dee2e6] bg-[#f8f9fa] ${extraClass}`}
           />
         ) : (
           <div
-            className={`${sizeClass} rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(kind)}`}
+            className={`${sizeClass} rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(kind)} ${extraClass}`}
           >
             {conv.type === 'broadcast' ? 'All' : info.initials}
           </div>
-        )}
-        {showOnlineDot && (
-          <span
-            className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
-            aria-hidden="true"
-          />
         )}
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-155px)] sm:h-[calc(100dvh-118px)] min-h-[460px] w-full gap-3">
+      <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-[340px] lg:w-[370px] border-r border-slate-200/80 flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
+        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#dee2e6] flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
           }`}
       >
-        <div className="px-4 sm:px-5 pt-4 pb-3 bg-white border-b border-slate-100 space-y-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 shrink-0">Chats</h2>
-
-            {/* Search bar */}
-            <div className="relative flex-1 min-w-0">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                id="input-search-conversations"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search"
-                className="w-full pl-9 pr-7 py-2 text-[13px] rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+        <div className="px-4 py-3.5 bg-white border-b border-[#dee2e6] space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight text-[#212529]">Chats</h2>
+              <p className="text-[11px] text-[#6c757d]">
+                {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
+              </p>
             </div>
-
             {(canMakeGroup || !teamMode) && (
-            <div className="relative shrink-0">
+            <div className="relative">
               <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
                   setHeaderMenu((open) => (open === 'list' ? null : 'list'));
                 }}
-                className="p-2 rounded-full text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
                 title="Chat menu"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-5 h-5" />
               </button>
               {headerMenu === 'list' && (
                 <div
-                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {canMakeGroup && (
@@ -1072,7 +1133,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         setGroupAdding(false);
                         setGroupOpen(true);
                       }}
-                      className="w-full px-3 py-2 text-left text-[13px] text-slate-800 hover:bg-slate-50 cursor-pointer"
+                      className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
                     >
                       New group
                     </button>
@@ -1096,6 +1157,27 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             )}
           </div>
 
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="input-search-conversations"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search staff, code, or messages..."
+              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6c757d] hover:text-[#212529] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           {/* Filter Pills */}
           <div className="flex items-center gap-1.5">
             {([
@@ -1109,7 +1191,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 onClick={() => setFilterTab(id)}
                 className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${filterTab === id
                   ? 'bg-[#2d6a4f] text-white shadow-2xs'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-[#d8f3dc]/60 hover:text-[#1b4332] hover:border-[#95d5b2]'
+                  : 'bg-[#f8f9fa] text-[#495057] border border-[#dee2e6] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
                   }`}
               >
                 {label}
@@ -1141,18 +1223,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     clearChatUnread(conv.id);
                     markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left px-4 py-3.5 transition-colors flex items-center gap-3.5 cursor-pointer border-b border-slate-100 ${isActive
-                    ? 'bg-slate-100/90'
-                    : 'hover:bg-slate-50/80'
+                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 cursor-pointer border-l-[3px] ${conv.type === 'broadcast'
+                    ? 'border-b border-[#dee2e6]'
+                    : 'border-b border-[#e9ecef]'
+                    } ${isActive
+                      ? 'bg-[#d8f3dc]/60 border-l-[#2d6a4f]'
+                      : 'border-l-transparent hover:bg-[#f8f9fa]'
                     }`}
                 >
                   {/* Avatar */}
-                  {renderParticipantAvatar(other, conv, 'w-11 h-11')}
+                  {renderUserAvatar(other, conv, 'w-11 h-11')}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-[14px] font-semibold text-slate-900 truncate flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                      <span className="text-[14px] font-medium text-[#212529] truncate flex items-center gap-1.5">
                         <span className="truncate">{other.name}</span>
                         {conv.id.startsWith('group-') && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0">
@@ -1170,23 +1255,22 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         )}
                       </span>
                       {conv.lastMessage ? (
-                        <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-1">
                           {formatTime(conv.lastMessageTimestamp)}
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`text-[12.5px] truncate ${unread > 0 ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
-                        {conv.lastMessage || 'No messages yet'}
-                      </p>
-                      {unread > 0 && (
-                        <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
-                          {unread}
-                        </span>
-                      )}
-                    </div>
+                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#212529] font-medium' : 'text-[#6c757d]'}`}>
+                      {conv.lastMessage || 'No messages yet'}
+                    </p>
                   </div>
+
+                  {unread > 0 && (
+                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
+                      {unread}
+                    </span>
+                  )}
                 </button>
               );
             })
@@ -1201,34 +1285,29 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            <div className="h-[68px] px-4 sm:px-6 bg-white border-b border-slate-200/80 text-slate-900 flex items-center justify-between shrink-0">
+            <div className="h-[62px] px-3 sm:px-5 bg-white border-b border-[#dee2e6] text-[#212529] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-full text-slate-500 hover:bg-slate-100 md:hidden cursor-pointer"
+                  className="p-1.5 -ml-1 rounded-full text-[#495057] hover:bg-[#f8f9fa] md:hidden cursor-pointer"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
                 {/* Avatar */}
-                {renderParticipantAvatar(activeOtherInfo, activeConversation, 'w-10 h-10')}
+                {renderUserAvatar(activeOtherInfo, activeConversation, 'w-10 h-10', 'border border-[#95d5b2]/60')}
 
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-slate-900 truncate">{activeOtherInfo.name}</h3>
-                  <p className="text-[12px] text-slate-500 truncate">
-                    {typingUser ? (
-                      <span className="text-emerald-600 font-medium">{typingUser} is typing...</span>
-                    ) : (
-                      activeOtherInfo.designation
-                    )}
+                  <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
+                  <p className="text-[11px] text-[#6c757d] truncate">
+                    {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
                   </p>
                 </div>
               </div>
 
-              {(activeConversation.id.startsWith('group-') || !teamMode) && (
               <div className="relative shrink-0">
                 <button
                   type="button"
@@ -1320,8 +1399,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                             Delete group
                           </button>
                         )}
+                        <button
+                          type="button"
+                          id="btn-clear-group-chat"
+                          onClick={() => {
+                            setHeaderMenu(null);
+                            handleClearActiveConversation();
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                        >
+                          Clear chat
+                        </button>
                       </>
-                    ) : !teamMode ? (
+                    ) : (
                       <button
                         type="button"
                         id="btn-clear-conversation-chat"
@@ -1333,11 +1423,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       >
                         Clear chat
                       </button>
-                    ) : null}
+                    )}
                   </div>
                 )}
               </div>
-              )}
             </div>
 
             {groupPanel && activeConversation.id.startsWith('group-') && (
@@ -1446,10 +1535,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Messages Scroll Area */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-5 space-y-2.5 bg-[#fafbfc] [scrollbar-width:thin]"
+              className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-4 space-y-2 [scrollbar-width:thin]"
+              style={{
+                backgroundColor: '#e9ecef',
+                backgroundImage: 'radial-gradient(rgba(73,80,87,0.09) 0.7px, transparent 0.7px)',
+                backgroundSize: '16px 16px',
+              }}
             >
-              <div className="flex items-center justify-center py-1.5">
-                <span className="px-3.5 py-1 rounded-full bg-slate-100/90 text-slate-500 text-[11px] font-medium">
+              <div className="flex items-center justify-center py-2">
+                <span className="px-3 py-1 rounded-lg bg-white border border-[#dee2e6] text-[#495057] text-[11px] font-semibold shadow-xs">
                   Today
                 </span>
               </div>
@@ -1493,14 +1587,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       <div className="relative group/bubble max-w-[85%] sm:max-w-md md:max-w-lg">
                         {/* Hover action menu for Edit & Delete */}
                         {canManage && !isEditingThis && (
-                          <div className={`absolute top-1 z-10 ${isMe ? 'left-1' : 'right-1'}`}>
+                          <div
+                            className={`absolute top-1.5 z-10 transition-opacity ${
+                              messageMenuId === msg.id
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100'
+                            } ${isMe ? '-left-7' : '-right-7'}`}
+                          >
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setMessageMenuId((open) => (open === msg.id ? null : msg.id));
                               }}
-                              className={`p-1 rounded-full cursor-pointer ${isMe ? 'text-white/80 hover:bg-white/15' : 'text-[#6c757d] hover:bg-[#f8f9fa]'}`}
+                              className="p-1 rounded-full cursor-pointer text-[#6c757d] hover:text-[#212529] hover:bg-white/90 transition-colors"
                               title="Message menu"
                             >
                               <MoreVertical className="w-3.5 h-3.5" />
@@ -1539,9 +1639,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                         {/* Message Bubble */}
                         <div
-                          className={`px-4 py-2.5 ${isMe
-                            ? 'bg-[#2d6a4f] text-white rounded-2xl rounded-tr-sm shadow-xs'
-                            : 'bg-[#f1f3f5] text-slate-900 rounded-2xl rounded-tl-sm'
+                          className={`px-3 py-2 shadow-sm ${isMe
+                            ? 'bg-[#2d6a4f] text-white border border-[#1b4332] rounded-lg rounded-tr-none'
+                            : 'bg-white text-[#212529] border border-[#dee2e6] rounded-lg rounded-tl-none'
                             }`}
                         >
                           {!isMe && activeConversation.id.startsWith('group-') && (
@@ -1746,7 +1846,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="px-4 sm:px-6 py-3 bg-white border-t border-slate-200/80"
+              className="px-3 py-2.5 bg-white border-t border-[#e9ecef] flex items-center gap-2"
             >
               {/* Hidden File Input for Real Attachments */}
               <input
@@ -1799,7 +1899,42 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <>
+                  {/* Attachment Actions */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenAttachFile(
+                          '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
+                        )
+                      }
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Document, PDF, or Audio"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAttachFile('image/*')}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Attach Photo"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartVoiceRecording}
+                      disabled={isPreparingAttachment}
+                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
+                      title="Record Voice Note"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
+
                   {/* Text Input */}
                   <input
                     ref={inputRef}
@@ -1822,57 +1957,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         }
                       }
                     }}
-                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type your message...'}
-                    className="w-full py-1.5 text-[14px] bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type a message...'}
+                    className="flex-1 py-2.5 px-4 text-[14px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
                   />
 
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Attachment Actions */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleOpenAttachFile(
-                            '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
-                          )
-                        }
-                        disabled={isPreparingAttachment}
-                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
-                        title="Attach Document, PDF, or Audio"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAttachFile('image/*')}
-                        disabled={isPreparingAttachment}
-                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
-                        title="Attach Photo"
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleStartVoiceRecording}
-                        disabled={isPreparingAttachment}
-                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
-                        title="Record Voice Note"
-                      >
-                        <Mic className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <button
-                      id="btn-send-chat-message"
-                      type="submit"
-                      disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
-                      className="w-9 h-9 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
-                      title="Send"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    id="btn-send-chat-message"
+                    type="submit"
+                    disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
+                    className="w-10 h-10 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
+                    title="Send"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </form>
           </>
