@@ -647,7 +647,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return false;
       }
-      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
+      const roleUpper = String(user?.role || '').toUpperCase();
+      const requiresFaceOrGeo =
+        planStatus.features.includes('face_selfie') ||
+        (roleUpper === 'EMPLOYEE' && planStatus.features.includes('geofence'));
+      if (requiresFaceOrGeo && ['EMPLOYEE', 'HR', 'MANAGER'].includes(roleUpper)) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
       }
@@ -911,7 +915,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
    */
   const checkOut = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
-      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
+      const roleUpper = String(user?.role || '').toUpperCase();
+      const requiresFaceOrGeo =
+        planStatus.features.includes('face_selfie') ||
+        (roleUpper === 'EMPLOYEE' && planStatus.features.includes('geofence'));
+      if (requiresFaceOrGeo && ['EMPLOYEE', 'HR', 'MANAGER'].includes(roleUpper)) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
       }

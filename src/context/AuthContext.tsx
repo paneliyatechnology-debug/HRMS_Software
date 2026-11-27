@@ -114,7 +114,7 @@ interface AuthContextType {
   hasPermission: (action: string) => boolean;
   allUsers: User[];
   logout: () => void;
-  planStatus: { checked: boolean; premium: boolean; expired: boolean };
+  planStatus: { checked: boolean; premium: boolean; expired: boolean; features: string[] };
   refreshPlanStatus: () => Promise<void>;
 }
 
@@ -156,29 +156,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return true;
   });
-  const [planStatus, setPlanStatus] = useState<{ checked: boolean; premium: boolean; expired: boolean }>({
+  const [planStatus, setPlanStatus] = useState<{ checked: boolean; premium: boolean; expired: boolean; features: string[] }>({
     checked: false,
     premium: false,
     expired: false,
+    features: [],
   });
 
   const refreshPlanStatus = useCallback(async () => {
     const roleUpper = String(user?.role || '').toUpperCase();
     if (!isAuthenticated || !user?.id) {
-      setPlanStatus({ checked: false, premium: false, expired: false });
+      setPlanStatus({ checked: false, premium: false, expired: false, features: [] });
       return;
     }
     if (roleUpper === 'SUPER_ADMIN') {
-      setPlanStatus({ checked: true, premium: true, expired: false });
+      setPlanStatus({ checked: true, premium: true, expired: false, features: [] });
       return;
     }
     try {
       const res = await api.getCompanyFeatures();
       const data = res?.data || res;
+      const feats = Array.isArray(data?.features) ? (data.features as string[]) : [];
       setPlanStatus({
         checked: true,
         premium: Boolean(data?.premium),
         expired: Boolean(data?.expired),
+        features: feats,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message.toLowerCase() : '';
@@ -187,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           checked: true,
           premium: false,
           expired: msg.includes('expired'),
+          features: [],
         });
         return;
       }

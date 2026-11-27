@@ -303,12 +303,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return null;
     }
     const moduleFeatureMap: Record<string, string> = {
-      attendance: 'attendance',
-      leaves: 'leaves',
       payroll: 'payroll',
+      payslips: 'payroll',
       recruitment: 'recruitment',
-      chat: 'team_chat',
-      tasks: 'tasks',
     };
     const requiredFeature = moduleFeatureMap[id];
     if (requiredFeature && planFeatures && !planFeatures.includes(requiredFeature)) {
