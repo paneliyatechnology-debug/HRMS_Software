@@ -136,26 +136,7 @@ export function WorkspaceApp() {
       router.replace('/dashboard');
       return;
     }
-
-    if (portalMode === 'employee') {
-      const allowedInEmployee = [
-        'dashboard',
-        'calendar',
-        'attendance',
-        'leaves',
-        'payslips',
-        'resignations',
-        'organization',
-        'documents',
-        'announcements',
-        'chat',
-        'settings',
-      ];
-      if (!allowedInEmployee.includes(activeModule)) {
-        router.replace('/dashboard');
-      }
-    }
-  }, [portalMode, activeModule, user?.role, setPortalMode, router]);
+  }, [portalMode, activeModule, user, setPortalMode, router]);
 
   const { showToast } = useSocket();
 
