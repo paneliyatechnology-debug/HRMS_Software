@@ -524,6 +524,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         email: 'helpdesk@paneliya.com',
         designation: 'Paneliya Workforce Channel',
         initials: 'GS',
+        avatarUrl: undefined as string | undefined,
       };
     }
 
@@ -549,6 +550,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         email: conv.participantEmails?.[ADMIN_USER_ID] || 'hr@paneliya.com',
         designation: 'Company HR & Management',
         initials: 'HR',
+        avatarUrl: undefined as string | undefined,
       };
     }
 
@@ -571,6 +573,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
     let code = 'EMP';
     let email = '';
     let designation = 'Staff Member';
+    let avatarUrl: string | undefined;
 
     if (matchedEmp) {
       name = `${matchedEmp.firstName || ''} ${matchedEmp.lastName || ''}`.trim();
@@ -578,6 +581,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       email = matchedEmp.email || '';
       designation = matchedEmp.designationTitle || 'Staff Member';
       role = 'Staff Member';
+      avatarUrl = matchedEmp.avatarUrl;
     } else if (targetId && conv.participantNames?.[targetId] && conv.participantNames[targetId] !== ADMIN_NAME) {
       name = conv.participantNames[targetId];
       code = conv.participantCodes?.[targetId] || 'EMP';
@@ -602,7 +606,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         .slice(0, 2)
         .toUpperCase() || 'ST';
 
-    return { id: targetId || conv.id, name, role, code, email, designation, initials };
+    return { id: targetId || conv.id, name, role, code, email, designation, initials, avatarUrl };
   };
 
   const sendTeamText = async (text: string) => {
@@ -972,40 +976,90 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       ? 'bg-[#d8f3dc] text-[#1b4332]'
       : kind === 'admin'
         ? 'bg-[#1b4332] text-white'
-        : 'bg-[#e9ecef] text-[#343a40]';
+        : 'bg-emerald-50 text-[#1b4332] border border-emerald-200/70';
+
+  const renderParticipantAvatar = (
+    info: { name: string; initials: string; role: string; avatarUrl?: string },
+    conv: ChatConversation,
+    sizeClass = 'w-11 h-11',
+  ) => {
+    const kind = conv.type === 'broadcast' ? 'broadcast' : info.role === 'Admin' ? 'admin' : 'staff';
+    const showOnlineDot = conv.type !== 'broadcast' && !conv.id.startsWith('group-');
+    return (
+      <div className="relative shrink-0">
+        {info.avatarUrl && conv.type !== 'broadcast' && !conv.id.startsWith('group-') ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={info.avatarUrl}
+            alt={info.name}
+            className={`${sizeClass} rounded-full object-cover border border-slate-200/80 bg-slate-100`}
+          />
+        ) : (
+          <div
+            className={`${sizeClass} rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(kind)}`}
+          >
+            {conv.type === 'broadcast' ? 'All' : info.initials}
+          </div>
+        )}
+        {showOnlineDot && (
+          <span
+            className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
-      <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
-        className={`w-full md:w-[340px] lg:w-[380px] border-r border-[#dee2e6] flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
+        className={`w-full md:w-[340px] lg:w-[370px] border-r border-slate-200/80 flex flex-col min-h-0 bg-white shrink-0 ${mobileShowThread ? 'hidden md:flex' : 'flex'
           }`}
       >
-        <div className="px-4 py-3.5 bg-white border-b border-[#dee2e6] space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-[15px] font-semibold tracking-tight text-[#212529]">Chats</h2>
-              <p className="text-[11px] text-[#6c757d]">
-                {portalMode === 'admin' ? 'Staff messages' : 'HR and team'}
-              </p>
+        <div className="px-4 sm:px-5 pt-4 pb-3 bg-white border-b border-slate-100 space-y-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 shrink-0">Chats</h2>
+
+            {/* Search bar */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="input-search-conversations"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full pl-9 pr-7 py-2 text-[13px] rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
+
             {(canMakeGroup || !teamMode) && (
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
                   setHeaderMenu((open) => (open === 'list' ? null : 'list'));
                 }}
-                className="p-2 rounded-full text-[#495057] hover:bg-[#f8f9fa] cursor-pointer"
+                className="p-2 rounded-full text-slate-500 hover:bg-slate-100 cursor-pointer"
                 title="Chat menu"
               >
-                <MoreVertical className="w-5 h-5" />
+                <MoreVertical className="w-4 h-4" />
               </button>
               {headerMenu === 'list' && (
                 <div
-                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-[#dee2e6] bg-white py-1 shadow-lg"
+                  className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {canMakeGroup && (
@@ -1018,7 +1072,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         setGroupAdding(false);
                         setGroupOpen(true);
                       }}
-                      className="w-full px-3 py-2 text-left text-[13px] text-[#212529] hover:bg-[#f8f9fa] cursor-pointer"
+                      className="w-full px-3 py-2 text-left text-[13px] text-slate-800 hover:bg-slate-50 cursor-pointer"
                     >
                       New group
                     </button>
@@ -1042,27 +1096,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             )}
           </div>
 
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="input-search-conversations"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search staff, code, or messages..."
-              className="w-full pl-9 pr-3 py-2 text-[13px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6c757d] hover:text-[#212529] cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
           {/* Filter Pills */}
           <div className="flex items-center gap-1.5">
             {([
@@ -1076,7 +1109,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 onClick={() => setFilterTab(id)}
                 className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${filterTab === id
                   ? 'bg-[#2d6a4f] text-white shadow-2xs'
-                  : 'bg-[#f8f9fa] text-[#495057] border border-[#dee2e6] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:border-[#95d5b2]'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-[#d8f3dc]/60 hover:text-[#1b4332] hover:border-[#95d5b2]'
                   }`}
               >
                 {label}
@@ -1108,29 +1141,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     clearChatUnread(conv.id);
                     markConversationAsRead(conv.id, currentUserId);
                   }}
-                  className={`w-full text-left px-3 py-3 transition-colors flex items-center gap-3 cursor-pointer border-l-[3px] ${conv.type === 'broadcast'
-                    ? 'border-b border-[#dee2e6]'
-                    : 'border-b border-[#e9ecef]'
-                    } ${isActive
-                      ? 'bg-[#d8f3dc]/60 border-l-[#2d6a4f]'
-                      : 'border-l-transparent hover:bg-[#f8f9fa]'
+                  className={`w-full text-left px-4 py-3.5 transition-colors flex items-center gap-3.5 cursor-pointer border-b border-slate-100 ${isActive
+                    ? 'bg-slate-100/90'
+                    : 'hover:bg-slate-50/80'
                     }`}
                 >
                   {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
-                        conv.type === 'broadcast' ? 'broadcast' : other.role === 'Admin' ? 'admin' : 'staff',
-                      )}`}
-                    >
-                      {conv.type === 'broadcast' ? 'All' : other.initials}
-                    </div>
-                  </div>
+                  {renderParticipantAvatar(other, conv, 'w-11 h-11')}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                      <span className="text-[14px] font-medium text-[#212529] truncate flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-[14px] font-semibold text-slate-900 truncate flex items-center gap-1.5">
                         <span className="truncate">{other.name}</span>
                         {conv.id.startsWith('group-') && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2] text-[9px] font-semibold shrink-0">
@@ -1148,22 +1170,23 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         )}
                       </span>
                       {conv.lastMessage ? (
-                        <span className="text-[10px] text-slate-400 shrink-0 ml-1">
+                        <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
                           {formatTime(conv.lastMessageTimestamp)}
                         </span>
                       ) : null}
                     </div>
 
-                    <p className={`text-[13px] truncate ${unread > 0 ? 'text-[#212529] font-medium' : 'text-[#6c757d]'}`}>
-                      {conv.lastMessage || 'No messages yet'}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-[12.5px] truncate ${unread > 0 ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
+                        {conv.lastMessage || 'No messages yet'}
+                      </p>
+                      {unread > 0 && (
+                        <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
+                          {unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
-
-                  {unread > 0 && (
-                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#2d6a4f] text-white text-[11px] font-bold flex items-center justify-center">
-                      {unread}
-                    </span>
-                  )}
                 </button>
               );
             })
@@ -1178,33 +1201,29 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       >
         {activeConversation && activeOtherInfo ? (
           <>
-            <div className="h-[62px] px-3 sm:px-5 bg-white border-b border-[#dee2e6] text-[#212529] flex items-center justify-between shrink-0">
+            <div className="h-[68px] px-4 sm:px-6 bg-white border-b border-slate-200/80 text-slate-900 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   id="btn-back-to-conversations"
                   onClick={() => setMobileShowThread(false)}
-                  className="p-1.5 -ml-1 rounded-full text-[#495057] hover:bg-[#f8f9fa] md:hidden cursor-pointer"
+                  className="p-1.5 -ml-1 rounded-full text-slate-500 hover:bg-slate-100 md:hidden cursor-pointer"
                   title="Back to conversation list"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
                 {/* Avatar */}
-                <div className="relative shrink-0">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs border border-[#95d5b2]/60 ${avatarClass(
-                      activeConversation.type === 'broadcast' ? 'broadcast' : activeOtherInfo.role === 'Admin' ? 'admin' : 'staff',
-                    )}`}
-                  >
-                    {activeConversation.type === 'broadcast' ? 'All' : activeOtherInfo.initials}
-                  </div>
-                </div>
+                {renderParticipantAvatar(activeOtherInfo, activeConversation, 'w-10 h-10')}
 
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
-                  <p className="text-[11px] text-[#6c757d] truncate">
-                    {typingUser ? `${typingUser} is typing...` : activeOtherInfo.designation}
+                  <h3 className="text-[15px] font-semibold text-slate-900 truncate">{activeOtherInfo.name}</h3>
+                  <p className="text-[12px] text-slate-500 truncate">
+                    {typingUser ? (
+                      <span className="text-emerald-600 font-medium">{typingUser} is typing...</span>
+                    ) : (
+                      activeOtherInfo.designation
+                    )}
                   </p>
                 </div>
               </div>
@@ -1427,15 +1446,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Messages Scroll Area */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-4 space-y-2 [scrollbar-width:thin]"
-              style={{
-                backgroundColor: '#e9ecef',
-                backgroundImage: 'radial-gradient(rgba(73,80,87,0.09) 0.7px, transparent 0.7px)',
-                backgroundSize: '16px 16px',
-              }}
+              className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-5 space-y-2.5 bg-[#fafbfc] [scrollbar-width:thin]"
             >
-              <div className="flex items-center justify-center py-2">
-                <span className="px-3 py-1 rounded-lg bg-white border border-[#dee2e6] text-[#495057] text-[11px] font-semibold shadow-xs">
+              <div className="flex items-center justify-center py-1.5">
+                <span className="px-3.5 py-1 rounded-full bg-slate-100/90 text-slate-500 text-[11px] font-medium">
                   Today
                 </span>
               </div>
@@ -1525,9 +1539,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
                         {/* Message Bubble */}
                         <div
-                          className={`px-3 py-2 shadow-sm ${isMe
-                            ? 'bg-[#2d6a4f] text-white border border-[#1b4332] rounded-lg rounded-tr-none'
-                            : 'bg-white text-[#212529] border border-[#dee2e6] rounded-lg rounded-tl-none'
+                          className={`px-4 py-2.5 ${isMe
+                            ? 'bg-[#2d6a4f] text-white rounded-2xl rounded-tr-sm shadow-xs'
+                            : 'bg-[#f1f3f5] text-slate-900 rounded-2xl rounded-tl-sm'
                             }`}
                         >
                           {!isMe && activeConversation.id.startsWith('group-') && (
@@ -1732,7 +1746,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
             {/* Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="px-3 py-2.5 bg-white border-t border-[#e9ecef] flex items-center gap-2"
+              className="px-4 sm:px-6 py-3 bg-white border-t border-slate-200/80"
             >
               {/* Hidden File Input for Real Attachments */}
               <input
@@ -1785,42 +1799,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                   </div>
                 </div>
               ) : (
-                <>
-                  {/* Attachment Actions */}
-                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleOpenAttachFile(
-                          '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
-                        )
-                      }
-                      disabled={isPreparingAttachment}
-                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
-                      title="Attach Document, PDF, or Audio"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAttachFile('image/*')}
-                      disabled={isPreparingAttachment}
-                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
-                      title="Attach Photo"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleStartVoiceRecording}
-                      disabled={isPreparingAttachment}
-                      className="p-2 rounded-full text-[#6c757d] hover:text-[#2d6a4f] hover:bg-[#d8f3dc] transition-colors cursor-pointer disabled:opacity-40"
-                      title="Record Voice Note"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </button>
-                  </div>
-
+                <div className="space-y-2">
                   {/* Text Input */}
                   <input
                     ref={inputRef}
@@ -1843,20 +1822,57 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                         }
                       }
                     }}
-                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type a message...'}
-                    className="flex-1 py-2.5 px-4 text-[14px] rounded-full border border-[#dee2e6] bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-none transition-all"
+                    placeholder={pendingAttachment ? 'Add a caption (optional)...' : 'Type your message...'}
+                    className="w-full py-1.5 text-[14px] bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none"
                   />
 
-                  <button
-                    id="btn-send-chat-message"
-                    type="submit"
-                    disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
-                    className="w-10 h-10 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
-                    title="Send"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </>
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Attachment Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenAttachFile(
+                            '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.zip,audio/*'
+                          )
+                        }
+                        disabled={isPreparingAttachment}
+                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
+                        title="Attach Document, PDF, or Audio"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAttachFile('image/*')}
+                        disabled={isPreparingAttachment}
+                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
+                        title="Attach Photo"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartVoiceRecording}
+                        disabled={isPreparingAttachment}
+                        className="p-2 rounded-full text-slate-500 hover:text-[#2d6a4f] hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
+                        title="Record Voice Note"
+                      >
+                        <Mic className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <button
+                      id="btn-send-chat-message"
+                      type="submit"
+                      disabled={isPreparingAttachment || (!inputText.trim() && !pendingAttachment)}
+                      className="w-9 h-9 rounded-full bg-[#2d6a4f] hover:bg-[#1b4332] text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-xs"
+                      title="Send"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               )}
             </form>
           </>
