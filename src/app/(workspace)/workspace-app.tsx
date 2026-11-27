@@ -136,7 +136,6 @@ export function WorkspaceApp() {
       router.replace('/dashboard');
       return;
     }
-
     if (portalMode === 'employee') {
       const allowedInEmployee = [
         'dashboard',
@@ -158,7 +157,7 @@ export function WorkspaceApp() {
         router.replace('/dashboard');
       }
     }
-  }, [portalMode, activeModule, user?.role, setPortalMode, router]);
+  }, [portalMode, activeModule, user, setPortalMode, router]);
 
   const { showToast } = useSocket();
 
