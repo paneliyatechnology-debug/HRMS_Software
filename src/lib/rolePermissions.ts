@@ -113,6 +113,20 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'calendar',
     'profile',
   ],
+  SUPERVISOR: [
+    'dashboard',
+    'attendance',
+    'leaves',
+    'organization',
+    'tasks',
+    'payslips',
+    'resignations',
+    'announcements',
+    'documents',
+    'chat',
+    'calendar',
+    'profile',
+  ],
   EMPLOYEE: [
     'dashboard',
     'attendance',
@@ -138,6 +152,7 @@ export function normalizeRoleKey(role?: string): string {
   if (r === 'ADMIN' || r === 'COMPANY_ADMIN' || r === 'ORG_ADMIN') return 'ADMIN';
   if (r === 'HR' || r === 'HR_ADMIN') return 'HR';
   if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD') return 'MANAGER';
+  if (r === 'SUPERVISOR') return 'SUPERVISOR';
   return 'EMPLOYEE';
 }
 

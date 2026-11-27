@@ -138,6 +138,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
   // Fetch Teams
   useEffect(() => {
     const fetchTeams = async () => {
+      if (!canManageTasks(user)) return;
       try {
         const res = await api.listTeams();
         const list = Array.isArray(res) ? res : res?.data || [];
@@ -148,7 +149,7 @@ export const TasksModule: React.FC<TasksModuleProps> = ({
     };
     fetchTeams();
     fetchTasks();
-  }, [fetchTasks]);
+  }, [fetchTasks, user]);
   useCompanyLive(['tasks', 'organization'], () => {
     fetchTasks();
   });
