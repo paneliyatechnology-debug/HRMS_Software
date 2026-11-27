@@ -47,6 +47,7 @@ import { BouncingDotsLoader } from '../../components/common/BouncingDotsLoader';
 import { checkEmployeePunchEligibility } from '../../lib/attendanceService';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { isModuleAllowedForUser } from '../../lib/rolePermissions';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import {
@@ -319,6 +320,13 @@ export function WorkspaceApp() {
       setSelectedEmployee(null);
     }
   }, [isAuthenticated, user?.employeeId, user?.id, user?.role, planGate.checked, planGate.premium]);
+
+  useCompanyLive(['all'], () => {
+    const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+    if (isAuthenticated && (isSuperAdmin || (planGate.checked && planGate.premium))) {
+      void loadData();
+    }
+  });
 
   useEffect(() => {
     const handleLogout = () => {

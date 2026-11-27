@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -596,6 +597,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       setHistoryLoading(false);
     }
   }, [isEmployeeView]);
+
+  useCompanyLive(['all', 'attendance', 'leaves', 'employees', 'settings'], () => {
+    void fetchAttendanceSummaryAndCalendar();
+    void fetchWorkStatus();
+    void loadWorkHistory();
+    onRefresh?.();
+  });
 
   const fetchWorkStatusRef = useRef(fetchWorkStatus);
   fetchWorkStatusRef.current = fetchWorkStatus;

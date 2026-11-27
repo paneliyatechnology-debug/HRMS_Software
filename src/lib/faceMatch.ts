@@ -505,18 +505,18 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
 export async function matchLiveFace(video: HTMLVideoElement) {
   const width = video.videoWidth;
   const height = video.videoHeight;
-  if (!width || !height) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
+  if (!width || !height) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null, box: null as { x: number; y: number; width: number; height: number } | null };
   const faceapi = await faceApi();
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.62 });
+  if (!ctx) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null, box: null as { x: number; y: number; width: number; height: number } | null };
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.62 });
   ctx.drawImage(video, 0, 0, width, height);
   const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
   const clear = faces.filter((face) => face.detection.score >= 0.62);
-  if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null };
+  if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null, box: null as { x: number; y: number; width: number; height: number } | null };
   const found = clear[0];
   const view = visibleFrame(video);
   const box = found.detection.box;
@@ -526,7 +526,12 @@ export async function matchLiveFace(video: HTMLVideoElement) {
     && Math.abs(centerY - (view.y + view.height / 2)) < view.height * 0.36
     && box.width > view.width * 0.12
     && box.width < view.width * 0.9;
-  return { aligned, descriptor: Array.from(found.descriptor), eye: eyeOpen(found.landmarks.positions) };
+  return {
+    aligned,
+    descriptor: Array.from(found.descriptor),
+    eye: eyeOpen(found.landmarks.positions),
+    box: { x: box.x, y: box.y, width: box.width, height: box.height },
+  };
 }
 
 export async function facesMatch(profileUrl: string, selfieUrl: string) {

@@ -388,6 +388,28 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   }, [selfieMode, capturedPhoto]);
 
   useEffect(() => {
+    if (!isOpen || !needsFace || !user.avatarUrl) return;
+    let active = true;
+    void (async () => {
+      try {
+        const [{ profileDescriptor }, { preparePadModel }] = await Promise.all([
+          import('../../lib/faceMatch'),
+          import('../../lib/facePad'),
+        ]);
+        await preparePadModel().catch(() => undefined);
+        if (active && !profileFaceRef.current && user.avatarUrl) {
+          profileFaceRef.current = await profileDescriptor(user.avatarUrl).catch(() => null);
+        }
+      } catch {
+        // Preload best-effort only
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, needsFace, user.avatarUrl]);
+
+  useEffect(() => {
     if (!cameraReady || selfieMode === 'idle' || capturedPhoto || !user.avatarUrl) return;
     let stopped = false;
     setFaceState('checking');
@@ -397,16 +419,32 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       if (!video || stopped || captureLock.current || busy) return;
       busy = true;
       try {
-        const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
+        const [{ matchLiveFace, profileDescriptor, sameProfileFace }, { evaluateFacePad }] = await Promise.all([
+          import('../../lib/faceMatch'),
+          import('../../lib/facePad'),
+        ]);
         const result = await matchLiveFace(video);
         if (stopped || captureLock.current) return;
-        if (!result.descriptor) {
+        if (!result.descriptor || !result.box) {
           setFaceState('none');
           return;
         }
         if (!result.aligned) {
           setFaceState('none');
           setFaceError(null);
+          return;
+        }
+        const pad = await evaluateFacePad(video, result.box);
+        if (stopped || captureLock.current) return;
+        if (pad.verdict === 'busy') return;
+        if (pad.verdict === 'spoof' || (!pad.ready && pad.verdict === 'error')) {
+          setFaceState('mismatch');
+          setFaceError('Photo or screen spoof detected. Show your real live face.');
+          return;
+        }
+        if (pad.verdict !== 'live') {
+          setFaceState('checking');
+          setFaceError('Hold steady in clear lighting for live face verification.');
           return;
         }
         try {
@@ -445,7 +483,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       } finally {
         busy = false;
       }
-    }, 700);
+    }, 250);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -705,7 +743,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
     captureLock.current = true;
     try {
-      const { matchLiveFace, profileDescriptor, sameProfileFace } = await import('../../lib/faceMatch');
+      const [{ matchLiveFace, profileDescriptor, sameProfileFace }, { evaluateFacePad }] = await Promise.all([
+        import('../../lib/faceMatch'),
+        import('../../lib/facePad'),
+      ]);
       if (!user.avatarUrl) {
         const message = 'Upload your profile photo first. It must clearly show your face.';
         setFaceError(message);
@@ -714,11 +755,20 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         return;
       }
       const result = await matchLiveFace(videoRef.current);
-      if (!result.aligned || !result.descriptor) {
+      if (!result.aligned || !result.descriptor || !result.box) {
         setFaceState('none');
         const message = 'Keep your face inside the circle.';
         setFaceError(message);
         notifyPunchError('Face check failed', message);
+        captureLock.current = false;
+        return;
+      }
+      const pad = await evaluateFacePad(videoRef.current, result.box);
+      if (pad.verdict !== 'live') {
+        setFaceState('mismatch');
+        const message = 'Photo or screen spoof detected. Show your real live face.';
+        setFaceError(message);
+        notifyPunchError('Live face required', message);
         captureLock.current = false;
         return;
       }

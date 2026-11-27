@@ -8,6 +8,13 @@ import { clearApiCache, api } from '../lib/api';
 import { getCookie } from '../lib/cookies';
 import { useAuth } from './AuthContext';
 import {
+  clearFcmToken,
+  getNotificationPermissionState,
+  hasFirebaseWebConfig,
+  requestFcmToken,
+  subscribeForegroundMessages,
+} from '../lib/firebase';
+import {
   receiveIncomingSocketMessage,
   receiveIncomingSocketEdit,
   receiveIncomingSocketDelete,
@@ -49,12 +56,23 @@ interface SocketContextType {
   emitLeaveApplied: (leaveData: any) => void;
   emitLeaveStatusUpdated: (payload: any) => void;
   notices: AppNotice[];
+  noticesLoading: boolean;
+  noticesError: string | null;
   readNoticeIds: string[];
   unreadNoticesCount: number;
   markNoticeRead: (id: string) => void;
   markAllNoticesRead: () => void;
   dismissNotice: (id: string) => void;
   clearNotices: () => void;
+  refreshNotices: () => Promise<void>;
+  fcmPermission: NotificationPermission | 'unsupported';
+  fcmToken: string | null;
+  fcmConfigured: boolean;
+  fcmEnabled: boolean;
+  fcmBusy: boolean;
+  fcmError: string | null;
+  enablePushNotifications: () => Promise<boolean>;
+  disablePushNotifications: () => Promise<void>;
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -74,12 +92,23 @@ const SocketContext = createContext<SocketContextType>({
   emitLeaveApplied: () => { },
   emitLeaveStatusUpdated: () => { },
   notices: [],
+  noticesLoading: false,
+  noticesError: null,
   readNoticeIds: [],
   unreadNoticesCount: 0,
   markNoticeRead: () => { },
   markAllNoticesRead: () => { },
   dismissNotice: () => { },
   clearNotices: () => { },
+  refreshNotices: async () => { },
+  fcmPermission: 'default',
+  fcmToken: null,
+  fcmConfigured: false,
+  fcmEnabled: false,
+  fcmBusy: false,
+  fcmError: null,
+  enablePushNotifications: async () => false,
+  disablePushNotifications: async () => { },
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -88,16 +117,28 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [notices, setNotices] = useState<AppNotice[]>([]);
+  const [noticesLoading, setNoticesLoading] = useState(false);
+  const [noticesError, setNoticesError] = useState<string | null>(null);
   const [readNoticeIds, setReadNoticeIds] = useState<string[]>([]);
+  const [fcmPermission, setFcmPermission] = useState<NotificationPermission | 'unsupported'>(() =>
+    getNotificationPermissionState(),
+  );
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [fcmEnabled, setFcmEnabled] = useState(false);
+  const [fcmBusy, setFcmBusy] = useState(false);
+  const [fcmError, setFcmError] = useState<string | null>(null);
+  const fcmConfigured = hasFirebaseWebConfig();
 
   const unreadNoticesCount = notices.filter((n) => !readNoticeIds.includes(n.id)).length;
 
   const markNoticeRead = (id: string) => {
     setReadNoticeIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    api.markNoticeRead(id).catch(() => {});
   };
 
   const markAllNoticesRead = () => {
     setReadNoticeIds(notices.map((n) => n.id));
+    api.markAllNoticesRead().catch(() => {});
   };
 
   const dismissNotice = (id: string) => {
@@ -112,26 +153,135 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     api.clearNotices().catch(() => {});
   };
 
-  useEffect(() => {
+  const refreshNotices = async () => {
     const roleUpper = String(user?.role || '').toUpperCase();
     if (!isAuthenticated || !user?.id || (roleUpper !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) {
       setNotices([]);
+      setNoticesError(null);
       return;
     }
-    let live = true;
-    api.listNotices()
-      .then((rows) => {
-        if (!live) return;
-        setNotices((prev) => {
-          const ids = new Set(((rows as any[]) || []).map((row: any) => row.id));
-          return [...prev.filter((item) => !ids.has(item.id)), ...((rows as any[]) || [])].slice(0, 40);
-        });
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
+    setNoticesLoading(true);
+    setNoticesError(null);
+    try {
+      const rows = await api.listNotices();
+      setNotices((prev) => {
+        const ids = new Set(((rows as any[]) || []).map((row: any) => row.id));
+        return [...prev.filter((item) => !ids.has(item.id)), ...((rows as any[]) || [])].slice(0, 40);
+      });
+    } catch (err) {
+      setNoticesError(err instanceof Error ? err.message : 'Could not load notifications.');
+    } finally {
+      setNoticesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshNotices();
   }, [isAuthenticated, user?.id, user?.role, planStatus.checked, planStatus.premium]);
+
+  useEffect(() => {
+    setFcmPermission(getNotificationPermissionState());
+    if (!isAuthenticated || !user?.id) {
+      setFcmToken(null);
+      setFcmEnabled(false);
+      setFcmError(null);
+      setReadNoticeIds([]);
+      return;
+    }
+    const key = `hrms_fcm_enabled_${user.id}`;
+    const wasEnabled = typeof window !== 'undefined' && localStorage.getItem(key) === 'true';
+    if (wasEnabled && getNotificationPermissionState() === 'granted' && hasFirebaseWebConfig()) {
+      void requestFcmToken().then(async (res) => {
+        if (res.token) {
+          await api.saveFcmToken(res.token).catch(() => {});
+          setFcmToken(res.token);
+          setFcmEnabled(true);
+        }
+      });
+    }
+  }, [isAuthenticated, user?.id]);
+
+  const enablePushNotifications = async (): Promise<boolean> => {
+    if (!isAuthenticated || !user?.id) {
+      setFcmError('Please log in first to enable notifications.');
+      return false;
+    }
+    if (fcmToken && fcmEnabled && fcmPermission === 'granted') {
+      return true;
+    }
+    setFcmBusy(true);
+    setFcmError(null);
+    try {
+      const result = await requestFcmToken();
+      setFcmPermission(result.permission);
+      if (!result.token) {
+        setFcmEnabled(false);
+        setFcmError(result.error || 'Could not enable push notifications.');
+        return false;
+      }
+      await api.saveFcmToken(result.token);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`hrms_fcm_enabled_${user.id}`, 'true');
+      }
+      setFcmToken(result.token);
+      setFcmEnabled(true);
+      return true;
+    } catch (err) {
+      setFcmEnabled(false);
+      setFcmError(err instanceof Error ? err.message : 'Failed to enable push notifications.');
+      return false;
+    } finally {
+      setFcmBusy(false);
+    }
+  };
+
+  const disablePushNotifications = async (): Promise<void> => {
+    setFcmBusy(true);
+    try {
+      if (fcmToken) {
+        await api.removeFcmToken(fcmToken).catch(() => {});
+      }
+      if (typeof window !== 'undefined' && user?.id) {
+        localStorage.removeItem(`hrms_fcm_enabled_${user.id}`);
+      }
+      await clearFcmToken();
+      setFcmToken(null);
+      setFcmEnabled(false);
+      setFcmError(null);
+    } finally {
+      setFcmBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !fcmEnabled || fcmPermission !== 'granted') return;
+    let unsub: (() => void) | null = null;
+    let active = true;
+    void subscribeForegroundMessages((payload) => {
+      if (!active) return;
+      const data = payload.data || {};
+      const title = payload.notification?.title || data.title || 'HRMS Notification';
+      const message = payload.notification?.body || data.body || data.message || '';
+      const id = data.id || payload.messageId || `fcm-${Date.now()}`;
+      const mod = data.module || 'notifications';
+      setNotices((prev) => {
+        if (prev.some((n) => n.id === id)) return prev;
+        return [{ id, kind: 'message' as const, title, message, module: mod, createdAt: new Date().toISOString() }, ...prev].slice(0, 40);
+      });
+      showToast({ title, message, type: 'info', module: mod });
+      void refreshNotices();
+    }).then((fn) => {
+      if (!active) {
+        fn?.();
+        return;
+      }
+      unsub = fn;
+    });
+    return () => {
+      active = false;
+      unsub?.();
+    };
+  }, [isAuthenticated, user?.id, fcmEnabled, fcmPermission]);
 
   const showToast = (item: Omit<ToastItem, 'id' | 'timestamp'>) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -524,6 +674,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     s.on('company_data', (payload: { scope?: string; companyId?: string }) => {
+      clearApiCache();
       const detail = payload || { scope: 'all' };
       const scope = detail.scope || 'all';
       const fire = (name: string) => window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -547,6 +698,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
 
     s.on('app_notification', (payload: AppNotice) => {
+      clearApiCache();
       pushNotice(payload);
       if (payload?.module === 'leaves') window.dispatchEvent(new CustomEvent('hrms_leaves_updated', { detail: payload }));
       if (payload?.module === 'tasks') window.dispatchEvent(new CustomEvent('hrms_tasks_updated', { detail: payload }));
@@ -666,12 +818,23 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         emitLeaveApplied,
         emitLeaveStatusUpdated,
         notices,
+        noticesLoading,
+        noticesError,
         readNoticeIds,
         unreadNoticesCount,
         markNoticeRead,
         markAllNoticesRead,
         dismissNotice,
         clearNotices,
+        refreshNotices,
+        fcmPermission,
+        fcmToken,
+        fcmConfigured,
+        fcmEnabled,
+        fcmBusy,
+        fcmError,
+        enablePushNotifications,
+        disablePushNotifications,
       }}
     >
       {children}

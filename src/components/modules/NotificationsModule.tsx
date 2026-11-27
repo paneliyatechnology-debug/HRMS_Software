@@ -69,7 +69,23 @@ function getNoticeIcon(notice: AppNotice) {
 export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
   onNavigateModule,
 }) => {
-  const { notices, readNoticeIds, unreadNoticesCount, markNoticeRead, clearNotices } = useSocket();
+  const {
+    notices,
+    noticesLoading,
+    noticesError,
+    readNoticeIds,
+    unreadNoticesCount,
+    markNoticeRead,
+    markAllNoticesRead,
+    clearNotices,
+    fcmPermission,
+    fcmConfigured,
+    fcmEnabled,
+    fcmBusy,
+    fcmError,
+    enablePushNotifications,
+    disablePushNotifications,
+  } = useSocket();
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
 
   const tabs: Array<{ id: FilterTab; label: string }> = [
@@ -98,6 +114,53 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
 
   return (
     <div className="space-y-4 w-full animate-in fade-in select-none">
+      {/* Push Notification Settings Bar */}
+      <div className="bg-white rounded-2xl border border-[#dee2e6] p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${fcmEnabled && fcmPermission === 'granted' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            <Bell className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-900">
+              Browser Push Notifications ({fcmEnabled && fcmPermission === 'granted' ? 'Enabled' : fcmPermission === 'denied' ? 'Blocked in Browser' : fcmPermission === 'unsupported' ? 'Unsupported' : 'Disabled'})
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {fcmError
+                ? fcmError
+                : !fcmConfigured
+                  ? 'Firebase Web credentials are not configured in .env.local yet.'
+                  : fcmPermission === 'denied'
+                    ? 'Notifications are blocked in your browser site settings.'
+                    : fcmEnabled && fcmPermission === 'granted'
+                      ? 'You will receive real-time push alerts even when this tab is in the background.'
+                      : 'Click Enable Notifications to receive push alerts on this device.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {fcmEnabled && fcmPermission === 'granted' ? (
+            <button
+              type="button"
+              disabled={fcmBusy}
+              onClick={() => void disablePushNotifications()}
+              className="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs cursor-pointer disabled:opacity-50"
+            >
+              {fcmBusy ? 'Updating...' : 'Disable Notifications'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={fcmBusy || fcmPermission === 'unsupported' || fcmPermission === 'denied' || !fcmConfigured}
+              onClick={() => void enablePushNotifications()}
+              className="px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-semibold text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {fcmBusy ? 'Enabling...' : 'Enable Notifications'}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Top Right: Mark all Read */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Segmented Filter Tabs */}
@@ -130,20 +193,35 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={clearNotices}
-          disabled={notices.length === 0}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#dee2e6] bg-white hover:bg-[#f8f9fa] text-slate-700 font-semibold text-xs shadow-2xs transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <Trash2 className="w-3.5 h-3.5 text-[#2d6a4f]" />
-          <span>Clear</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {unreadNoticesCount > 0 && (
+            <button
+              type="button"
+              onClick={markAllNoticesRead}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#dee2e6] bg-white hover:bg-[#f8f9fa] text-slate-700 font-semibold text-xs shadow-2xs transition cursor-pointer"
+            >
+              <span>Mark all read</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={clearNotices}
+            disabled={notices.length === 0}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#dee2e6] bg-white hover:bg-[#f8f9fa] text-slate-700 font-semibold text-xs shadow-2xs transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-[#2d6a4f]" />
+            <span>Clear</span>
+          </button>
+        </div>
       </div>
 
       {/* Notifications List Card */}
       <div className="bg-white rounded-2xl border border-[#dee2e6] shadow-2xs overflow-hidden">
-        {filteredNotices.length === 0 ? (
+        {noticesLoading && notices.length === 0 ? (
+          <div className="py-16 px-4 text-center text-xs text-slate-500">Loading notifications...</div>
+        ) : noticesError ? (
+          <div className="py-16 px-4 text-center text-xs text-rose-600">{noticesError}</div>
+        ) : filteredNotices.length === 0 ? (
           <div className="py-16 px-4 text-center">
             <div className="w-12 h-12 rounded-2xl bg-[#d8f3dc]/60 border border-[#b7e4c7] text-[#2d6a4f] flex items-center justify-center mx-auto mb-3">
               <Bell className="w-5 h-5" />

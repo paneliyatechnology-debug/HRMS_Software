@@ -1788,6 +1788,29 @@ async function clearNotices() {
   }
 }
 
+async function markNoticeRead(id: string) {
+  const res = await http.patch(`/notices/${encodeURIComponent(id)}/read`);
+  return res.data;
+}
+
+async function markAllNoticesRead() {
+  const res = await http.patch('/notices/read-all');
+  return res.data;
+}
+
+async function saveFcmToken(token: string) {
+  const res = await http.post('/notices/fcm-token', { token }, { headers: { 'Content-Type': 'application/json' } });
+  return res.data;
+}
+
+async function removeFcmToken(token?: string) {
+  const res = await http.delete('/notices/fcm-token', {
+    data: token ? { token } : {},
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return res.data;
+}
+
 async function listDirectChats() {
   try {
     const res = await http.get('/chat/direct');
@@ -3180,6 +3203,10 @@ export const api = new Proxy({
   listNotices,
   dismissNotice,
   clearNotices,
+  markNoticeRead,
+  markAllNoticesRead,
+  saveFcmToken,
+  removeFcmToken,
   listDirectChat,
   sendDirectChat,
   listStaffThreads,

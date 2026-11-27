@@ -103,7 +103,17 @@ export const Header: React.FC<HeaderProps> = ({
   const router = useRouter();
   const { user, logout } = useAuth();
   const resigned = Boolean(user?.resigned);
-  const { notices, unreadNoticesCount, dismissNotice, clearNotices, showToast } = useSocket();
+  const {
+    notices,
+    noticesLoading,
+    noticesError,
+    readNoticeIds,
+    unreadNoticesCount,
+    markNoticeRead,
+    markAllNoticesRead,
+    clearNotices,
+    showToast,
+  } = useSocket();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -694,34 +704,60 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           {notificationsOpen && (
             <div className="absolute right-0 top-11 z-50 w-[320px] max-w-[80vw] rounded-2xl border border-[#dee2e6] bg-white shadow-xl overflow-hidden">
-              <div className="px-3 py-2 border-b border-[#e9ecef] flex items-center justify-between">
+              <div className="px-3 py-2 border-b border-[#e9ecef] flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-[#212529]">Notifications</p>
                 {notices.length > 0 && (
-                  <button type="button" onClick={clearNotices} className="text-[11px] font-semibold text-[#2d6a4f] cursor-pointer">Clear</button>
+                  <div className="flex items-center gap-2.5">
+                    {unreadNoticesCount > 0 && (
+                      <button type="button" onClick={markAllNoticesRead} className="text-[11px] font-semibold text-slate-600 hover:text-[#2d6a4f] cursor-pointer">
+                        Mark all read
+                      </button>
+                    )}
+                    <button type="button" onClick={clearNotices} className="text-[11px] font-semibold text-[#2d6a4f] cursor-pointer">
+                      Clear
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {notices.length === 0 ? (
+                {noticesLoading && notices.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-xs text-[#6c757d]">Loading notifications...</p>
+                ) : noticesError ? (
+                  <p className="px-3 py-6 text-center text-xs text-rose-600">{noticesError}</p>
+                ) : notices.length === 0 ? (
                   <p className="px-3 py-6 text-center text-xs text-[#6c757d]">No new notifications.</p>
-                ) : notices.map((notice) => (
-                  <button
-                    key={notice.id}
-                    type="button"
-                    onClick={() => {
-                      dismissNotice(notice.id);
-                      setNotificationsOpen(false);
-                      if (notice.module === 'chat') {
-                        onOpenChat ? onOpenChat() : onNavigateModule?.('chat');
-                      } else if (notice.module) {
-                        onNavigateModule?.(notice.module);
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2.5 border-b border-[#f1f3f5] hover:bg-[#f8f9fa] cursor-pointer"
-                  >
-                    <p className="text-[13px] font-semibold text-[#212529]">{notice.title}</p>
-                    <p className="text-[12px] text-[#495057] line-clamp-2">{notice.message}</p>
-                  </button>
-                ))}
+                ) : notices.map((notice) => {
+                  const isUnread = !readNoticeIds.includes(notice.id);
+                  return (
+                    <button
+                      key={notice.id}
+                      type="button"
+                      onClick={() => {
+                        markNoticeRead(notice.id);
+                        setNotificationsOpen(false);
+                        if (notice.module === 'chat') {
+                          onOpenChat ? onOpenChat() : onNavigateModule?.('chat');
+                        } else if (notice.module) {
+                          onNavigateModule?.(notice.module);
+                        }
+                      }}
+                      className={`w-full text-left px-3 py-2.5 border-b border-[#f1f3f5] hover:bg-[#f8f9fa] cursor-pointer flex items-start gap-2 ${
+                        isUnread ? 'bg-emerald-50/35' : ''
+                      }`}
+                    >
+                      <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-[#2d6a4f]' : 'bg-transparent'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-[#212529] truncate">{notice.title}</p>
+                        <p className="text-[12px] text-[#495057] line-clamp-2">{notice.message}</p>
+                        {notice.createdAt && (
+                          <p className="text-[10px] text-[#868e96] mt-0.5">
+                            {new Date(notice.createdAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

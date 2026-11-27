@@ -188,8 +188,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   useEffect(() => {
     void loadPhotoRequests();
   }, [canReviewPhotos]);
+  const [liveTick, setLiveTick] = useState(0);
   useCompanyLive(['employees'], () => {
     void loadPhotoRequests();
+  });
+  useCompanyLive(['all', 'employees', 'attendance', 'leaves', 'notices', 'holidays', 'settings', 'tasks', 'payroll'], () => {
+    setLiveTick((t) => t + 1);
+    onRefreshData?.();
   });
 
   // Current system clock
@@ -762,7 +767,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [user?.companyId, employees.length]);
+  }, [user?.companyId, employees.length, liveTick]);
 
   useEffect(() => {
     if (portalMode === 'admin') return;
@@ -785,7 +790,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [portalMode, currentEmp.id]);
+  }, [portalMode, currentEmp.id, liveTick]);
 
   const todayDate = getTodayDateString();
   const teamIds = new Set(employees.map((emp) => emp.id));
