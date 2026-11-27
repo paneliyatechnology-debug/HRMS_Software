@@ -104,7 +104,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   portalMode = 'admin',
   loading = false,
 }) => {
-  const { user } = useAuth();
+  const { user, planStatus } = useAuth();
   const { showToast } = useSocket();
 <<<<<<< HEAD
   const {
@@ -1068,6 +1068,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             : logic?.totalMinutes && logic.totalMinutes > 0
               ? formatSecondsToHMS(logic.totalMinutes * 60)
               : summary?.totalDurationFormatted ||
+<<<<<<< HEAD
                 lastComp?.durationFormatted ||
                 (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
                 (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
@@ -1077,6 +1078,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
         (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+              lastComp?.durationFormatted ||
+              (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
+              (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
 
       const statusStr = isCompleted
         ? 'Completed'
@@ -1682,15 +1688,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Quick Attendance Employee Search */}
-            {!isEmployeeView && (
-              <button
-                type="button"
-                onClick={() => { window.location.href = '/face-clock'; }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
-              >
-                <ScanFace className="w-3.5 h-3.5" />
-                Face clock
-              </button>
+              {!isEmployeeView && planStatus.premium && planStatus.features.includes('face_clock') && (
+            <button
+              type="button"
+              onClick={() => { window.location.href = '/face-clock'; }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
+            >
+              <ScanFace className="w-3.5 h-3.5" />
+              Face clock
+            </button>
             )}
             {!isEmployeeView && (
               <div className="relative min-w-[210px]">
@@ -1876,6 +1882,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
             {/* KPI Metrics for Admin */}
             {!isEmployeeView && (
+<<<<<<< HEAD
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
@@ -1950,6 +1957,74 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Punched Today</span>
+                    {isDataLoading ? (
+                      <div className="h-7 w-20 bg-slate-200/80 animate-pulse rounded-md mt-1.5" />
+                    ) : (
+                      <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+                    )}
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Total registered</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-white to-white border border-emerald-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Working Now</span>
+                    {isDataLoading ? (
+                      <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1.5" />
+                    ) : (
+                      <p className="text-2xl font-extrabold tracking-tight text-emerald-700 mt-1 flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {workingCount}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-emerald-600/80 mt-0.5 font-medium">Active timers</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 via-white to-white border border-amber-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">On Break</span>
+                    {isDataLoading ? (
+                      <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1.5" />
+                    ) : (
+                      <p className="text-2xl font-extrabold tracking-tight text-amber-600 mt-1 flex items-center gap-1.5">
+                        {onBreakCount}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-amber-600/80 mt-0.5 font-medium">Timer paused</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <Pause className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Shift Completed</span>
+                    {isDataLoading ? (
+                      <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1.5" />
+                    ) : (
+                      <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-1 flex items-center gap-1.5">
+                        {completedCount}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Clocked out</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4" />
+                  </div>
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
                 </div>
               </div>
             )}
@@ -1973,16 +2048,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             )}
 
             {/* Daily Attendance & Live Shift Log */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-              <div className="px-4 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-[0_10px_30px_-12px_rgba(15,23,42,0.08)]">
+              <div className="px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900">
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
                       {isEmployeeView
                         ? 'Daily Attendance Records'
-                        : "Today's Live Workforce Shift Log"}
+                        : "Today's log"}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {isDataLoading ? (
                         <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
@@ -1995,7 +2070,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       )}
                     </span>
                   </div>
-                  
+
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2218,9 +2293,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 <React.Fragment key={rowKey}>
                                   <tr
                                     onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
-                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
-                                      expandedPunchId === rowKey ? 'bg-emerald-50/20' : ''
-                                    }`}
+                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${expandedPunchId === rowKey ? 'bg-emerald-50/20' : ''
+                                      }`}
                                   >
                                     {!isEmployeeView && (
                                       <td className="py-3 px-4 font-semibold text-slate-900">
@@ -2306,13 +2380,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                           e.stopPropagation();
                                           setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey);
                                         }}
-                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
-                                          expandedPunchId === rowKey
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${expandedPunchId === rowKey
                                             ? 'bg-emerald-600 text-white border-emerald-600'
                                             : punchesList.length > 0
                                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                        }`}
+                                          }`}
                                       >
                                         <Clock className="w-3.5 h-3.5" />
                                         <span>
@@ -2323,9 +2396,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                               : 'Details'}
                                         </span>
                                         <ChevronDown
-                                          className={`w-3.5 h-3.5 transition-transform ${
-                                            expandedPunchId === rowKey ? 'rotate-180' : ''
-                                          }`}
+                                          className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''
+                                            }`}
                                         />
                                       </button>
                                     </td>
@@ -2424,9 +2496,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         return (
                           <div
                             key={emp.id}
-                            className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
-                              isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
-                            }`}
+                            className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
+                              }`}
                             onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -2435,8 +2506,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   {emp.firstName?.[0] || 'E'}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-bold text-xs text-slate-900 truncate">
-                                    {emp.firstName} {emp.lastName}
+                                  <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                                    <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                    {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        You
+                                      </span>
+                                    )}
                                   </p>
                                   <p className="text-[10px] text-slate-400 font-mono">
                                     {emp.employeeCode} • {emp.departmentName || 'General'}
@@ -2515,57 +2591,53 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       }))}
                   </div>
 
-                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
-                    <table className="w-full text-left text-xs min-w-[760px]">
-                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                  <div className="hidden md:block max-h-[540px] overflow-y-auto overflow-x-auto w-full [scrollbar-width:thin]">
+                    <table className="w-full text-left text-[13px] min-w-[780px] border-collapse">
+                      <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 text-[13px] font-semibold text-slate-900">
                         <tr>
-                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
-                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
-                          <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
-                          <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
-                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
-                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
-                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
-                          <th className="py-2.5 px-4 font-medium text-right">ACTIVITY LOGS</th>
+                          <th className="py-3.5 px-5 font-semibold">Employee Name</th>
+                          <th className="py-3.5 px-4 font-semibold">Clock In - Out</th>
+                          <th className="py-3.5 px-4 font-semibold">Hours</th>
+                          <th className="py-3.5 px-4 font-semibold">Break</th>
+                          <th className="py-3.5 px-4 font-semibold">Type</th>
+                          <th className="py-3.5 px-4 font-semibold">Status</th>
+                          <th className="py-3.5 px-5 font-semibold text-right">Activity Logs</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {isDataLoading ? (
                           Array.from({ length: 6 }).map((_, idx) => (
                             <tr key={`skel-d-${idx}`} className="animate-pulse">
-                              <td className="py-3 px-4 flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0" />
-                                <div className="space-y-1 min-w-0">
+                              <td className="py-4 px-5 flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-slate-200 shrink-0" />
+                                <div className="space-y-1.5 min-w-0">
                                   <div className="w-28 h-3.5 bg-slate-200 rounded" />
-                                  <div className="w-16 h-2.5 bg-slate-100 rounded" />
+                                  <div className="w-20 h-2.5 bg-slate-100 rounded" />
                                 </div>
                               </td>
-                              <td className="py-3 px-4">
-                                <div className="w-20 h-3.5 bg-slate-100 rounded" />
+                              <td className="py-4 px-4">
+                                <div className="w-32 h-3.5 bg-slate-100 rounded" />
                               </td>
-                              <td className="py-3 px-4">
-                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
-                              </td>
-                              <td className="py-3 px-4">
+                              <td className="py-4 px-4">
                                 <div className="w-16 h-3.5 bg-slate-100 rounded" />
                               </td>
-                              <td className="py-3 px-4">
-                                <div className="w-12 h-3.5 bg-slate-100 rounded" />
+                              <td className="py-4 px-4">
+                                <div className="w-14 h-3.5 bg-slate-100 rounded" />
                               </td>
-                              <td className="py-3 px-4">
-                                <div className="w-16 h-5 bg-slate-100 rounded-full" />
+                              <td className="py-4 px-4">
+                                <div className="w-14 h-3.5 bg-slate-100 rounded" />
                               </td>
-                              <td className="py-3 px-4 text-right">
-                                <div className="w-14 h-6 bg-slate-100 rounded-lg ml-auto" />
+                              <td className="py-4 px-4">
+                                <div className="w-20 h-6 bg-slate-100 rounded-full" />
+                              </td>
+                              <td className="py-4 px-5 text-right">
+                                <div className="w-16 h-7 bg-slate-100 rounded-full ml-auto" />
                               </td>
                             </tr>
                           ))
                         ) : visibleEmployees.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-12 text-center">
+                            <td colSpan={7} className="py-12 text-center">
                               <div className="max-w-sm mx-auto space-y-3">
                                 <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                                   <Search className="w-5 h-5" />
@@ -2609,44 +2681,55 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               <React.Fragment key={emp.id}>
                                 <tr
                                   onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
-                                  className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${
-                                    isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
-                                  }`}
+                                  className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
+                                    }`}
                                 >
-                                  <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
-                                    <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                                      {emp.firstName?.[0] || 'E'}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-slate-900 flex items-center gap-1.5">
-                                        <span>{emp.firstName} {emp.lastName}</span>
-                                        {isWfhActive && (
-                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
-                                            WFH
-                                          </span>
-                                        )}
-                                      </p>
-                                      <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                                  <td className="py-4 px-5">
+                                    <div className="flex items-center gap-3">
+                                      {emp.avatarUrl ? (
+                                        <img
+                                          src={emp.avatarUrl}
+                                          alt={`${emp.firstName} ${emp.lastName}`}
+                                          className="w-9 h-9 rounded-full object-cover border border-slate-200/80 shrink-0"
+                                        />
+                                      ) : (
+                                        <div className="w-9 h-9 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-emerald-50 border-emerald-200/70 text-emerald-700">
+                                          {emp.firstName?.[0] || 'E'}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-[13.5px] text-slate-900 leading-tight flex items-center gap-1.5 truncate">
+                                          <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                          {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                              You
+                                            </span>
+                                          )}
+                                        </p>
+                                        <p className="text-[11.5px] text-slate-500 mt-0.5 truncate">
+                                          {emp.departmentName || 'General'} · <span className="font-mono text-slate-400">{emp.employeeCode}</span>
+                                        </p>
+                                      </div>
                                     </div>
                                   </td>
-                                  <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
-                                  <td className="py-3 px-4 font-mono text-slate-700">
+                                  <td className="py-4 px-4 text-[13px] font-medium text-slate-700 tabular-nums whitespace-nowrap">
                                     {rec?.checkIn ? (
-                                      <span>{rec.checkIn}</span>
+                                      <span>
+                                        {rec.checkIn}
+                                        <span className="mx-1.5 text-slate-400">–</span>
+                                        {rec.checkOut ? (
+                                          <span>{rec.checkOut}</span>
+                                        ) : isWorking ? (
+                                          <span className="text-emerald-600 font-semibold">Working</span>
+                                        ) : (
+                                          <span className="text-slate-400">—</span>
+                                        )}
+                                      </span>
                                     ) : (
                                       <span className="text-slate-400">—</span>
                                     )}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-slate-700">
-                                    {rec?.checkOut ? (
-                                      <span>{rec.checkOut}</span>
-                                    ) : isWorking ? (
-                                      <span className="text-emerald-600 font-medium">Working...</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                                  <td className="py-4 px-4 text-[13px] font-semibold text-slate-800 tabular-nums whitespace-nowrap">
                                     {rec ? (
                                       <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
                                         {getRecordActiveWorkedDisplay(rec)}
@@ -2655,44 +2738,51 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                       <span className="text-slate-400">—</span>
                                     )}
                                   </td>
-                                  <td className="py-3 px-4 font-mono text-slate-600">
+                                  <td className="py-4 px-4 text-[13px] text-slate-600 tabular-nums whitespace-nowrap">
                                     <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
                                       {rec ? getRecordBreakDisplay(rec) : '0s'}
                                     </span>
                                   </td>
-                                  <td className="py-3 px-4">
+                                  <td className="py-4 px-4 text-[13px] font-medium text-slate-700 whitespace-nowrap">
+                                    {isWfhActive ? (
+                                      <span className="text-purple-700">Remote</span>
+                                    ) : (
+                                      <span>Office</span>
+                                    )}
+                                  </td>
+                                  <td className="py-4 px-4 whitespace-nowrap">
                                     {isWorking ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                         Working
                                       </span>
                                     ) : isOnBreak ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-300">
                                         <Pause className="w-3 h-3 text-amber-600" />
                                         On Break
                                       </span>
                                     ) : isDone ? (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                        <Check className="w-3 h-3 text-slate-600" />
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50/70 text-emerald-700 border border-emerald-200">
+                                        <Check className="w-3 h-3 text-emerald-600" />
                                         Completed
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[11.5px] font-medium bg-rose-50/60 text-rose-600 border border-rose-200">
                                         Not Punched
                                       </span>
                                     )}
                                   </td>
-                                  <td className="py-3 px-4 text-right">
+                                  <td className="py-4 px-5 text-right whitespace-nowrap">
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setExpandedAdminEmpId(isExpanded ? null : emp.id);
                                       }}
-                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${
+                                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer border ${
                                         isExpanded
-                                          ? 'bg-emerald-600 text-white border-emerald-600'
-                                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                          ? 'bg-emerald-700 text-white border-emerald-700'
+                                          : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
                                       }`}
                                     >
                                       <span>Logs</span>
@@ -2706,7 +2796,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 <<<<<<< HEAD
                                 {isExpanded && (
                                   <tr className="bg-slate-50/70 border-b border-slate-200">
-                                    <td colSpan={8} className="py-3 px-4 sm:px-6">
+                                    <td colSpan={7} className="py-3 px-4 sm:px-6">
                                       <div className="space-y-3">
                                         {renderPunchTimeline(
                                           Array.isArray(rec?.punches) ? rec.punches : [],
@@ -3047,8 +3137,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-bold text-xs text-slate-900 truncate">
-                                  {emp.firstName} {emp.lastName}
+                                <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                                  <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                  {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      You
+                                    </span>
+                                  )}
                                 </p>
                                 <p className="text-[10px] text-slate-400 font-mono">
                                   {emp.employeeCode || emp.id} • {emp.departmentName || 'Staff'}
@@ -3206,149 +3301,154 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </tr>
                         ) : (
                           visibleEmployees.map((emp) => {
-                          const metrics = getEmployeeMonthlyMetrics(emp);
-                          const todayRec = getEmpTodayRecord(emp);
-                          const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                          const isDoneToday = todayRec && todayRec.isCompleted;
+                            const metrics = getEmployeeMonthlyMetrics(emp);
+                            const todayRec = getEmpTodayRecord(emp);
+                            const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                            const isDoneToday = todayRec && todayRec.isCompleted;
 
-                          return (
-                            <tr
-                              key={emp.id}
-                              className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                              onClick={() => setDetailEmp(emp)}
-                            >
-                              {/* 1. Employee Info */}
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                                    {emp.avatarUrl ? (
-                                      <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <span>
-                                        {emp.firstName?.[0] || 'E'}
-                                        {emp.lastName?.[0] || ''}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
-                                      <span>{emp.firstName} {emp.lastName}</span>
+                            return (
+                              <tr
+                                key={emp.id}
+                                className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                                onClick={() => setDetailEmp(emp)}
+                              >
+                                {/* 1. Employee Info */}
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                                      {emp.avatarUrl ? (
+                                        <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span>
+                                          {emp.firstName?.[0] || 'E'}
+                                          {emp.lastName?.[0] || ''}
+                                        </span>
+                                      )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                                      <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
-                                        {emp.employeeCode || emp.id}
-                                      </span>
-                                      <span>•</span>
-                                      <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                    <div>
+                                      <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+                                        <span>{emp.firstName} {emp.lastName}</span>
+                                        {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            You
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                                        <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
+                                          {emp.employeeCode || emp.id}
+                                        </span>
+                                        <span>•</span>
+                                        <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </td>
+                                </td>
 
-                              {/* 2. Present Days */}
-                              <td className="py-3 px-3">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                  <span>{metrics.presentDays} Days</span>
-                                </span>
-                              </td>
+                                {/* 2. Present Days */}
+                                <td className="py-3 px-3">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                    <span>{metrics.presentDays} Days</span>
+                                  </span>
+                                </td>
 
-                              {/* 3. Half Days */}
-                              <td className="py-3 px-3">
-                                {metrics.halfDays > 0 ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>{metrics.halfDays} Days</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                    0 Days
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* 4. Leaves & Off */}
-                              <td className="py-3 px-3">
-                                {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                                    <Plane className="w-3 h-3" />
-                                    <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                    0 Leave
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* 5. Attendance Score */}
-                              <td className="py-3 px-4">
-                                <div className="w-32">
-                                  <div className="flex items-center justify-between text-[11px] font-bold mb-1">
-                                    <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
-                                      {metrics.score}%
+                                {/* 3. Half Days */}
+                                <td className="py-3 px-3">
+                                  {metrics.halfDays > 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                      <Clock className="w-3.5 h-3.5" />
+                                      <span>{metrics.halfDays} Days</span>
                                     </span>
-                                    <span className="text-[10px] text-slate-400 font-normal">
-                                      {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                      0 Days
                                     </span>
+                                  )}
+                                </td>
+
+                                {/* 4. Leaves & Off */}
+                                <td className="py-3 px-3">
+                                  {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                      <Plane className="w-3 h-3" />
+                                      <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                      0 Leave
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* 5. Attendance Score */}
+                                <td className="py-3 px-4">
+                                  <div className="w-32">
+                                    <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                                      <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
+                                        {metrics.score}%
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-normal">
+                                        {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all ${metrics.score >= 90
+                                          ? 'bg-emerald-500'
+                                          : metrics.score >= 75
+                                            ? 'bg-amber-500'
+                                            : 'bg-rose-500'
+                                          }`}
+                                        style={{ width: `${metrics.score}%` }}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all ${metrics.score >= 90
-                                        ? 'bg-emerald-500'
-                                        : metrics.score >= 75
-                                          ? 'bg-amber-500'
-                                          : 'bg-rose-500'
-                                        }`}
-                                      style={{ width: `${metrics.score}%` }}
-                                    />
+                                </td>
+
+                                {/* 6. Hours Logged */}
+                                <td className="py-3 px-3">
+                                  <div className="font-semibold text-slate-800">
+                                    {metrics.totalHours} hrs
                                   </div>
-                                </div>
-                              </td>
+                                  <div className="text-[10px] text-slate-400">
+                                    ~{metrics.avgDailyHours} h/day
+                                  </div>
+                                </td>
 
-                              {/* 6. Hours Logged */}
-                              <td className="py-3 px-3">
-                                <div className="font-semibold text-slate-800">
-                                  {metrics.totalHours} hrs
-                                </div>
-                                <div className="text-[10px] text-slate-400">
-                                  ~{metrics.avgDailyHours} h/day
-                                </div>
-                              </td>
+                                {/* 7. Today's Live Status */}
+                                <td className="py-3 px-3">
+                                  {isWorkingNow ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                      Working ({todayRec?.checkIn})
+                                    </span>
+                                  ) : isDoneToday ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                      <Check className="w-3 h-3" />
+                                      Punched Out
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                                      Not Punched
+                                    </span>
+                                  )}
+                                </td>
 
-                              {/* 7. Today's Live Status */}
-                              <td className="py-3 px-3">
-                                {isWorkingNow ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                                    Working ({todayRec?.checkIn})
-                                  </span>
-                                ) : isDoneToday ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                    <Check className="w-3 h-3" />
-                                    Punched Out
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
-                                    Not Punched
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* 8. Action Button */}
-                              <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  type="button"
-                                  onClick={() => setDetailEmp(emp)}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>View Log</span>
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        }))}
+                                {/* 8. Action Button */}
+                                <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetailEmp(emp)}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>View Log</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }))}
                       </tbody>
                     </table>
                   </div>
@@ -3438,6 +3538,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             <span className="truncate max-w-[140px]">
                               {emp.firstName} {emp.lastName}
                             </span>
+                            {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                              <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                You
+                              </span>
+                            )}
                           </td>
 
                           {daysInMonth.map(({ day }) => {
@@ -3915,7 +4020,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 >
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                      {emp.firstName} {emp.lastName}{(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) ? ' (You)' : ''} ({emp.employeeCode} - {emp.departmentName})
                     </option>
                   ))}
                 </select>

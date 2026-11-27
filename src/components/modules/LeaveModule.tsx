@@ -146,7 +146,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
   const [avatarByEmployee, setAvatarByEmployee] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
   useEffect(() => {
     let active = true;
@@ -491,10 +491,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const totalPages = Math.max(1, Math.ceil(displayedLeaves.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(displayedLeaves.length / itemsPerPage));
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, displayedLeaves.length);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, displayedLeaves.length);
   const paginatedLeaves = displayedLeaves.slice(startIndex, endIndex);
 
 <<<<<<< HEAD
@@ -1724,45 +1724,66 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           </table>
         </div>
 
-        {/* Pagination Bar (10 records per page) */}
+        {/* Pagination Bar */}
         {displayedLeaves.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="text-slate-500 font-medium">
-              Showing <span className="font-bold text-slate-800">{displayedLeaves.length === 0 ? 0 : startIndex + 1}</span> to{' '}
-              <span className="font-bold text-slate-800">{endIndex}</span> of{' '}
-              <span className="font-bold text-slate-800">{displayedLeaves.length}</span> records
+          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+            <div className="flex items-center gap-3 text-slate-500 font-medium">
+              <span>
+                Showing <span className="font-bold text-slate-800">{displayedLeaves.length === 0 ? 0 : startIndex + 1}</span> to{' '}
+                <span className="font-bold text-slate-800">{endIndex}</span> of{' '}
+                <span className="font-bold text-slate-800">{displayedLeaves.length}</span> records
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-400">Rows:</span>
+                <select
+                  aria-label="Rows per page"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#2d6a4f] cursor-pointer"
+                >
+                  {[5, 10, 20, 50].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safeCurrentPage === 1}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Previous</span>
-                </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
 
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                    if (
-                      totalPages > 7 &&
-                      pageNum !== 1 &&
-                      pageNum !== totalPages &&
-                      Math.abs(pageNum - safeCurrentPage) > 1
-                    ) {
-                      if (pageNum === 2 || pageNum === totalPages - 1) {
-                        return (
-                          <span key={pageNum} className="px-1 text-slate-400 select-none">
-                            ...
-                          </span>
-                        );
-                      }
-                      return null;
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  if (
+                    totalPages > 7 &&
+                    pageNum !== 1 &&
+                    pageNum !== totalPages &&
+                    Math.abs(pageNum - safeCurrentPage) > 1
+                  ) {
+                    if (pageNum === 2 || pageNum === totalPages - 1) {
+                      return (
+                        <span key={pageNum} className="px-1 text-slate-400 select-none">
+                          ...
+                        </span>
+                      );
                     }
+                    return null;
+                  }
 
+<<<<<<< HEAD
                     const isActive = pageNum === safeCurrentPage;
                     return (
                       <button
@@ -1789,8 +1810,37 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   <span className="hidden sm:inline">Next</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
+=======
+                  const isActive = pageNum === safeCurrentPage;
+                  return (
+                    <button
+                      type="button"
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                        isActive
+                          ? 'bg-[#2d6a4f] text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
               </div>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                title="Next Page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

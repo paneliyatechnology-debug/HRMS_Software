@@ -219,17 +219,19 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
 <<<<<<< HEAD
       className="fixed inset-0 z-[100] bg-white/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-        {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-[0_28px_70px_-18px_rgba(27,67,50,0.28)] border border-[#95d5b2]/80 overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+        {/* Forest-Emerald Top Header */}
+        <div className="px-5 sm:px-7 py-4 sm:py-5 bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] text-white flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/25 text-[#d8f3dc] flex items-center justify-center shrink-0 shadow-xs">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">Book a Personalized Demo</h2>
-              <p className="text-xs text-slate-500 truncate mt-0.5">
-                See how MyOwn HRMS automates attendance &amp; payroll
+              <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-white truncate">
+                Book a Personalized Live Demo
+              </h2>
+              <p className="text-[11px] sm:text-xs text-[#d8f3dc] truncate mt-0.5">
+                See how MyOwn HRMS automates attendance, leaves &amp; payroll for your team
               </p>
             </div>
           </div>
@@ -237,6 +239,7 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
           <button
             type="button"
             onClick={handleReset}
+<<<<<<< HEAD
             className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
 =======
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
@@ -249,15 +252,18 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
             onClick={handleReset}
             className="absolute top-4 right-4 p-2 rounded-xl text-emerald-100 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+            className="p-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white transition-colors cursor-pointer shrink-0"
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
             aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
 <<<<<<< HEAD
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 flex-1 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
+        <div className="p-5 sm:p-7 flex-1 overflow-y-auto space-y-4 bg-gradient-to-b from-[#f7fbf8] to-white" style={{ scrollbarWidth: 'thin' }}>
           {successData ? (
             /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                SUCCESS CONFIRMATION SCREEN
@@ -483,7 +489,7 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                 <label className="block font-bold text-slate-700 mb-1.5">
                   Key Modules You Want to Explore
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {AVAILABLE_MODULES.map((mod) => {
                     const isSelected = selectedModules.includes(mod);
                     return (
@@ -491,14 +497,14 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                         key={mod}
                         type="button"
                         onClick={() => toggleModule(mod)}
-                        className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold text-left transition-all flex items-center justify-between cursor-pointer select-none ${
+                        className={`px-3 py-2 rounded-xl border text-[11px] font-bold text-left transition-all flex items-center justify-between cursor-pointer select-none ${
                           isSelected
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                            ? 'bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] border-[#1b4332] text-white shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-[#95d5b2] hover:bg-emerald-50/30'
                         }`}
                       >
                         <span className="truncate">{mod}</span>
-                        {isSelected && <Check className="w-3 h-3 text-emerald-700 shrink-0 ml-1 stroke-[2.5]" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#d8f3dc] shrink-0 ml-1.5 stroke-[2.5]" />}
                       </button>
                     );
                   })}
@@ -515,15 +521,16 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="e.g. Currently using biometric machine, want to know if MyOwn HRMS supports payroll integration..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-xs font-medium text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400"
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-900 focus:outline-none focus:border-[#2d6a4f] focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400"
                 />
               </div>
 
               {/* Submit CTA & Trust Line */}
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-2.5">
                 <button
                   type="submit"
                   disabled={isSubmitting}
+<<<<<<< HEAD
 <<<<<<< HEAD
                   className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
@@ -537,24 +544,35 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-[#d8f3dc]" />
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+                  className="group w-full h-12 rounded-xl bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] hover:from-[#2d6a4f] hover:to-[#1b4332] active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/20 hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#d8f3dc]" />
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
                       <span>Reserving Your Demo Slot...</span>
                     </>
                   ) : (
                     <>
 <<<<<<< HEAD
+<<<<<<< HEAD
                       <CalendarDays className="w-4 h-4 text-emerald-100" />
 =======
                       <CalendarDays className="w-4 h-4 text-[#d8f3dc]" />
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+                      <CalendarDays className="w-4 h-4 text-[#d8f3dc]" />
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
                       <span>Confirm &amp; Schedule Live Demo</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </button>
 
-                <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-slate-500 font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>No credit card required • Instant confirmation • Free 1-on-1 consultation</span>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                  <span>No credit card required &bull; Instant confirmation &bull; Free 1-on-1 consultation</span>
                 </div>
               </div>
             </form>

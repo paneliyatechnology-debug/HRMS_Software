@@ -11,6 +11,8 @@ import {
   Coffee,
   Users,
   Receipt,
+  Building2,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isModuleAllowedForUser } from '../../lib/rolePermissions';
@@ -46,6 +48,69 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   const iconWrapClass = (isActive: boolean) =>
     `px-2.5 py-1 rounded-xl transition-colors ${isActive ? 'bg-[#d8f3dc] text-[#1b4332]' : ''}`;
+
+  const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+
+  if (isSuperAdmin) {
+    return (
+      <nav
+        id="mobile-bottom-nav"
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-1.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around lg:hidden shadow-[0_-6px_24px_rgba(15,23,42,0.08)] select-none"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveModule('dashboard')}
+          className={navItemClass(activeModule === 'dashboard')}
+        >
+          <div className={iconWrapClass(activeModule === 'dashboard')}>
+            <Home className="w-5 h-5 stroke-[2.1]" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5 leading-none">Home</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveModule('companies')}
+          className={navItemClass(activeModule === 'companies')}
+        >
+          <div className={iconWrapClass(activeModule === 'companies')}>
+            <Building2 className="w-5 h-5 stroke-[2.1]" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5 leading-none">Companies</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveModule('plans')}
+          className={navItemClass(activeModule === 'plans')}
+        >
+          <div className={iconWrapClass(activeModule === 'plans')}>
+            <Award className="w-5 h-5 stroke-[2.1]" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5 leading-none">Plans</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveModule('orders')}
+          className={navItemClass(activeModule === 'orders')}
+        >
+          <div className={iconWrapClass(activeModule === 'orders')}>
+            <Receipt className="w-5 h-5 stroke-[2.1]" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5 leading-none">Orders</span>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className={navItemClass(false)}
+        >
+          <div className={iconWrapClass(false)}>
+            <Menu className="w-5 h-5 stroke-[2.1]" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5 leading-none">More</span>
+        </button>
+      </nav>
+    );
+  }
 
   if (resigned) {
     return (

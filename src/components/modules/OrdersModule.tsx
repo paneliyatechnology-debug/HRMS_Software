@@ -226,25 +226,29 @@ export const OrdersModule: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-2">
-                          {ord.status === 'Pending' && (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => void handleUpdateOrder(ord.id, 'Active')}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                            >
-                              <CheckCircle2 className="w-3 h-3" /> Activate
-                            </button>
-                          )}
-                          {(ord.status === 'Pending' || ord.status === 'Active') && (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => void handleUpdateOrder(ord.id, 'Cancelled')}
-                              className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                            >
-                              <XCircle className="w-3 h-3" /> Cancel
-                            </button>
+                          {ord.status === 'Pending' ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleUpdateOrder(ord.id, 'Active')}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3 h-3" /> Accept
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void handleUpdateOrder(ord.id, 'Cancelled')}
+                                className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <XCircle className="w-3 h-3" /> Reject
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-slate-400">
+                              {ord.status === 'Active' ? 'Accepted' : ord.status === 'Cancelled' ? 'Rejected' : ord.status}
+                            </span>
                           )}
                         </div>
                       </td>

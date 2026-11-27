@@ -975,7 +975,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         : 'bg-[#e9ecef] text-[#343a40]';
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0 w-full gap-3">
+    <div className="flex flex-col flex-1 h-[calc(100dvh-136px)] md:h-[calc(100dvh-100px)] min-h-[480px] w-full gap-3">
       <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div

@@ -353,8 +353,12 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
       </div>
 
       {/* EMPLOYEE VIEW: Official Company Details & Owner Information Card */}
+<<<<<<< HEAD
       {portalMode === 'employee' && (
 <<<<<<< HEAD
+=======
+      {portalMode === 'employee' && (companySettings.name || companySettings.ownerName) && (
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
         <div className="bg-gradient-to-br from-slate-900 via-[#212529] to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
           <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
 =======
@@ -865,11 +869,14 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                       onChange={(e) => setSelectedEmployeeId(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                     >
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
-                        </option>
-                      ))}
+                      {employees.map((emp) => {
+                        const isMe = emp.id === myEmpId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email);
+                        return (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName}{isMe ? ' (You)' : ''} ({emp.employeeCode || 'EMP'} - {emp.departmentName || 'General'})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 ) : null}

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { AlertTriangle, LogOut } from 'lucide-react';
 import { Sidebar } from '../../components/Sidebar';
 import { Header } from '../../components/Header';
 import { DashboardView } from '../../components/DashboardView';
@@ -23,6 +24,13 @@ import { ChatModule } from '../../components/modules/ChatModule';
 import { ReportsModule } from '../../components/modules/ReportsModule';
 import { AuditLogsModule } from '../../components/modules/AuditLogsModule';
 import { SettingsModule } from '../../components/modules/SettingsModule';
+import { CompaniesModule } from '../../components/modules/CompaniesModule';
+import { PlansModule } from '../../components/modules/PlansModule';
+import { OrdersModule } from '../../components/modules/OrdersModule';
+import { SupportModule } from '../../components/modules/SupportModule';
+import { TasksModule } from '../../components/modules/TasksModule';
+import { ProfileModule } from '../../components/modules/ProfileModule';
+import { NotificationsModule } from '../../components/modules/NotificationsModule';
 import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
 import { moduleFromPath, pathForModule } from '../../lib/appRoutes';
 
@@ -31,12 +39,14 @@ import { LeaveModal } from '../../components/modals/LeaveModal';
 import { EmployeeDrawer } from '../../components/modals/EmployeeDrawer';
 import { EmployeeProfileModal } from '../../components/modals/EmployeeProfileModal';
 import { GlobalSearchModal } from '../../components/modals/GlobalSearchModal';
+import { UpgradePlanModal } from '../../components/modals/UpgradePlanModal';
 import { LandingPage } from '../../components/landing/LandingPage';
 import { MobileBottomNav } from '../../components/common/MobileBottomNav';
 import { WavyBackground } from '../../components/common/WavyBackground';
 import { BouncingDotsLoader } from '../../components/common/BouncingDotsLoader';
 import { checkEmployeePunchEligibility } from '../../lib/attendanceService';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { isModuleAllowedForUser } from '../../lib/rolePermissions';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import {
@@ -55,7 +65,7 @@ import {
 export function WorkspaceApp() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isLoading, portalMode, setPortalMode } = useAuth();
+  const { user, isAuthenticated, isLoading, portalMode, setPortalMode, logout, planStatus: planGate, refreshPlanStatus: refreshPlanGate } = useAuth();
   const activeModule = moduleFromPath(pathname);
   const [subTab, setSubTab] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -114,7 +124,7 @@ export function WorkspaceApp() {
 
   const pendingLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending').length;
 
-  // Strict role guard: prevent employees from accessing admin-only views or portal
+  // Strict role guard: prevent unauthorized modules (e.g. Super Admin on /leaves, or Employee on admin views)
   useEffect(() => {
     const isAdmin = isUserAdminRole(user?.role);
     if (!isAdmin && portalMode === 'admin') {
@@ -122,25 +132,32 @@ export function WorkspaceApp() {
       return;
     }
 
+    if (user && activeModule !== 'dashboard' && !isModuleAllowedForUser(activeModule, user)) {
+      router.replace('/dashboard');
+      return;
+    }
     if (portalMode === 'employee') {
       const allowedInEmployee = [
         'dashboard',
         'calendar',
         'attendance',
         'leaves',
+        'tasks',
         'payslips',
         'resignations',
         'organization',
         'documents',
         'announcements',
         'chat',
+        'notifications',
+        'profile',
         'settings',
       ];
       if (!allowedInEmployee.includes(activeModule)) {
         router.replace('/dashboard');
       }
     }
-  }, [portalMode, activeModule, user?.role, setPortalMode, router]);
+  }, [portalMode, activeModule, user, setPortalMode, router]);
 
   const { showToast } = useSocket();
 
@@ -173,6 +190,14 @@ export function WorkspaceApp() {
 
   const loadData = async () => {
     try {
+      const role = String(user?.role || '').toUpperCase();
+      const isSuperAdmin = role === 'SUPER_ADMIN';
+      if (!isSuperAdmin && (!planGate.checked || !planGate.premium)) {
+        return;
+      }
+      const canReadCompanyLists = ['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN', 'HR', 'MANAGER'].includes(role);
+      const hasPayroll = isSuperAdmin || planGate.features.includes('payroll');
+      const hasRecruitment = isSuperAdmin || planGate.features.includes('recruitment');
       const [
         statsData,
         employeesData,
@@ -186,15 +211,15 @@ export function WorkspaceApp() {
         assetsData,
       ] = await Promise.all([
         api.getDashboardStats().catch(() => null),
-        api.getEmployees().catch(() => []),
-        api.getDepartments().catch(() => []),
-        api.getDesignations().catch(() => []),
-        api.getLeaves().catch(() => []),
-        api.getAttendance().catch(() => []),
-        api.getPayroll().catch(() => []),
-        api.getJobs().catch(() => []),
-        api.getCandidates().catch(() => []),
-        api.getAssets().catch(() => []),
+        canReadCompanyLists ? api.getEmployees().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getDepartments().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getDesignations().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin ? api.getLeaves().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin ? api.getAttendance().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin && hasPayroll ? api.getPayroll().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists && hasRecruitment ? api.getJobs().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists && hasRecruitment ? api.getCandidates().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getAssets().catch(() => []) : Promise.resolve([]),
       ]);
 
       const seenEmpIds = new Set<string>();
@@ -285,7 +310,8 @@ export function WorkspaceApp() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+    if (isAuthenticated && (isSuperAdmin || (planGate.checked && planGate.premium))) {
       loadData();
       const pollInterval = setInterval(() => {
         loadData();
@@ -300,7 +326,7 @@ export function WorkspaceApp() {
         window.removeEventListener('hrms_announcements_updated', handleUpdate);
         window.removeEventListener('hrms_leaves_updated', handleUpdate);
       };
-    } else {
+    } else if (!isAuthenticated) {
       setEmployees([]);
       setDepartments([]);
       setDesignations([]);
@@ -313,7 +339,7 @@ export function WorkspaceApp() {
       setAssets([]);
       setSelectedEmployee(null);
     }
-  }, [isAuthenticated, user?.employeeId, user?.id]);
+  }, [isAuthenticated, user?.employeeId, user?.id, user?.role, planGate.checked, planGate.premium]);
 
   useEffect(() => {
     const handleLogout = () => {
@@ -330,7 +356,12 @@ export function WorkspaceApp() {
       setSelectedEmployee(null);
     };
     window.addEventListener('hrms_auth_logout', handleLogout);
-    return () => window.removeEventListener('hrms_auth_logout', handleLogout);
+    const handleOpenClock = () => setClockModalOpen(true);
+    window.addEventListener('hrms_open_clock_modal', handleOpenClock);
+    return () => {
+      window.removeEventListener('hrms_auth_logout', handleLogout);
+      window.removeEventListener('hrms_open_clock_modal', handleOpenClock);
+    };
   }, []);
 
   const [mounted, setMounted] = useState(false);
@@ -350,6 +381,65 @@ export function WorkspaceApp() {
 
   if (!isAuthenticated) {
     return <LandingPage onOpenLogin={() => router.push('/login')} />;
+  }
+
+  const currentRole = String(user?.role || '').toUpperCase();
+  if (user && currentRole !== 'SUPER_ADMIN') {
+    if (!planGate.checked) {
+      return (
+        <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+          <BouncingDotsLoader size="lg" />
+          <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
+        </div>
+      );
+    }
+
+    if (!planGate.premium) {
+      if (currentRole === 'ADMIN' || currentRole === 'HR') {
+        return (
+          <div className="h-screen w-full bg-[#f2f9f5] relative">
+            <WavyBackground />
+            <UpgradePlanModal
+              isOpen={true}
+              mandatory={true}
+              expired={planGate.expired}
+              onClose={() => undefined}
+              onLogout={logout}
+              onPlanUpdated={() => {
+                void refreshPlanGate();
+              }}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div className="h-screen w-full bg-[#f2f9f5] relative flex items-center justify-center p-4">
+          <WavyBackground />
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">
+                {planGate.expired ? 'Your Plan Is Expired' : 'No Active Plan'}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Your plan is expired. Please contact HR and Admin.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
 
   const navigateToModule = (mod: string) => {
@@ -506,7 +596,12 @@ export function WorkspaceApp() {
             )}
 
             {(activeModule === 'payroll' || activeModule === 'payslips') && (
-              portalMode === 'employee' ? (
+              !planGate.features.includes('payroll') && currentRole !== 'SUPER_ADMIN' ? (
+                <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center max-w-md mx-auto mt-10 space-y-2">
+                  <h3 className="text-base font-bold text-slate-900">Payroll &amp; Payslips Not Included</h3>
+                  <p className="text-xs text-slate-500">Your current plan does not include Payroll &amp; Payslips. Upgrade your plan in Settings to unlock it.</p>
+                </div>
+              ) : portalMode === 'employee' ? (
                 <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
               ) : (
                 <PayrollModule
@@ -517,11 +612,18 @@ export function WorkspaceApp() {
             )}
 
             {activeModule === 'recruitment' && (
-              <RecruitmentModule
-                jobs={jobs}
-                candidates={candidates}
-                onRefresh={loadData}
-              />
+              !planGate.features.includes('recruitment') && currentRole !== 'SUPER_ADMIN' ? (
+                <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center max-w-md mx-auto mt-10 space-y-2">
+                  <h3 className="text-base font-bold text-slate-900">Recruitment &amp; Hiring Not Included</h3>
+                  <p className="text-xs text-slate-500">Your current plan does not include Recruitment &amp; Hiring. Upgrade your plan in Settings to unlock it.</p>
+                </div>
+              ) : (
+                <RecruitmentModule
+                  jobs={jobs}
+                  candidates={candidates}
+                  onRefresh={loadData}
+                />
+              )
             )}
 
             {activeModule === 'performance' && (
@@ -572,6 +674,21 @@ export function WorkspaceApp() {
             {activeModule === 'reports' && <ReportsModule />}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
             {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
+            {activeModule === 'companies' && <CompaniesModule />}
+            {activeModule === 'plans' && <PlansModule />}
+            {activeModule === 'orders' && <OrdersModule />}
+            {activeModule === 'support' && <SupportModule />}
+            {activeModule === 'tasks' && (
+              <TasksModule
+                employees={employees}
+                departments={departments}
+                portalMode={portalMode}
+              />
+            )}
+            {activeModule === 'profile' && <ProfileModule />}
+            {activeModule === 'notifications' && (
+              <NotificationsModule onNavigateModule={navigateToModule} />
+            )}
           </div>
         </main>
 

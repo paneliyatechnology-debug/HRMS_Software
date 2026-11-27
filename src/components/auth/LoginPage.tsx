@@ -241,10 +241,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const [ownerLastName, setOwnerLastName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
+<<<<<<< HEAD
   const [ownerPassword, setOwnerPassword] = useState('');
   const [ownerConfirmPassword, setOwnerConfirmPassword] = useState('');
   const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [showOwnerConfirmPassword, setShowOwnerConfirmPassword] = useState(false);
+=======
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -285,8 +289,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setOwnerLastName('');
     setOwnerEmail('');
     setOwnerPhone('');
+<<<<<<< HEAD
     setOwnerPassword('');
     setOwnerConfirmPassword('');
+=======
+    setSignupStep(1);
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
     setFieldErrors({});
     setPasswordReadOnly(true);
     setConfirmPasswordReadOnly(true);
@@ -399,25 +407,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   };
 
 
-  // Handle Company Registration (Owner Onboarding)
-  const handleRegisterCompanySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    setSuccessMessage(null);
+  // Shared Step 1 validation (Company Information)
+  const validateStepOne = (): Record<string, string> => {
     const errors: Record<string, string> = {};
-
-    // 1. Company Legal Name validation
     const compCheck = validateName(companyName, 'Company legal name', 2, true);
     if (!compCheck.isValid) {
       errors.companyName = compCheck.error || 'Company legal name is required.';
     }
-
-    // 2. GSTIN format validation (if provided)
     if (companyGst.trim()) {
       const gstCheck = validateGstin(companyGst, false);
       if (!gstCheck.isValid) {
         errors.companyGst = gstCheck.error || 'Invalid GSTIN format. Example: 24AAAAA0000A1Z5';
       }
+    }
+    return errors;
+  };
+
+  const handleNextSignupStep = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const stepOneErrors = validateStepOne();
+    if (Object.keys(stepOneErrors).length > 0) {
+      setFieldErrors(stepOneErrors);
+      return;
+    }
+    setFieldErrors({});
+    setSignupStep(2);
+  };
+
+  // Handle Company Registration (Owner Onboarding)
+  const handleRegisterCompanySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const errors: Record<string, string> = validateStepOne();
+    if (Object.keys(errors).length > 0) {
+      setSignupStep(1);
+      setFieldErrors(errors);
+      return;
     }
 
     // 3. Owner First Name & Last Name validation
@@ -1276,19 +1303,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           /* ========================================================== */
           /* SIGNUP & PENDING APPROVAL CONTAINER                        */
           /* ========================================================== */
-          <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : 'max-w-lg'} transition-all duration-300 ease-out will-change-transform ${signupAnimationClass}`}>
+          <div className={`w-full ${viewMode === 'signup' ? 'max-w-6xl' : 'max-w-lg'} transition-all duration-300 ease-out will-change-transform ${signupAnimationClass}`}>
             {/* Luxury Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-slate-200/80 shadow-[0_20px_60px_-15px_rgba(5,150,105,0.08),0_1px_3px_rgba(0,0,0,0.05)] p-6 sm:p-9">
-              {/* Internal Brand Header Row */}
-              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 mb-6 pb-5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-xs p-1">
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-[#95d5b2]/70 shadow-[0_24px_64px_-16px_rgba(27,67,50,0.22),0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+              {/* Rich Forest-Emerald Brand Header Banner */}
+              <div className="bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] px-6 sm:px-8 py-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-white">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-white border border-white/30 flex items-center justify-center shadow-md p-1.5">
                     <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                   </div>
                   <div>
-                    <img src="/brand-name.png" alt="myown hrms" className="h-6 w-auto object-contain mb-1" />
-                    <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
-                      {viewMode === 'signup' ? 'Company Workspace Setup' : 'Registration Status'}
+                    <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-white">
+                      {viewMode === 'signup' ? 'Create Company Workspace' : 'Registration Status'}
+                    </h2>
+                    <span className="text-[11px] font-semibold text-[#d8f3dc] block mt-0.5">
+                      {viewMode === 'signup' ? 'MyOwn HRMS • 2-Step Organization Setup' : 'Workspace Verification'}
                     </span>
                   </div>
                 </div>
@@ -1298,13 +1327,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     type="button"
                     onClick={handleSwitchToLogin}
                     disabled={isTransitioning}
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline transition-all cursor-pointer shrink-0 flex items-center gap-1.5 active:scale-95 disabled:opacity-50 group py-1"
+                    className="px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-xs font-bold text-white transition-all cursor-pointer shrink-0 flex items-center gap-1.5 active:scale-95 disabled:opacity-50 group"
                   >
                     <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                     <span>Back to Sign In</span>
                   </button>
                 )}
               </div>
+
+              <div className="p-6 sm:p-8">
 
             {/* Feedback Alerts */}
             {errorMessage && (
@@ -1400,25 +1431,86 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                   <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="off" />
                   <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="new-password" />
                 </div>
-                {/* Employee Warning Notice */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-xs text-slate-800 flex items-start gap-2.5 shadow-2xs">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold text-amber-900">Important for Staff Employees:</p>
-                    <p className="text-[11px] text-amber-800/90 mt-0.5 leading-snug">
-                      Employees <strong>cannot self-register</strong> here. Only new <strong>Company Owners</strong> register their company. Once registered, the owner will add your Email or Phone in their Owner Dashboard, enabling your employee login.
-                    </p>
+                {/* 2-Step Progress Stepper */}
+                <div className="p-3.5 rounded-2xl bg-[#f3faf5] border border-[#95d5b2]/70 flex items-center justify-between gap-2 sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSignupStep(1)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all flex-1 cursor-pointer ${
+                      signupStep === 1
+                        ? 'bg-white border border-[#95d5b2] shadow-xs'
+                        : 'hover:bg-white/60'
+                    }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center shrink-0 transition-colors ${
+                        signupStep === 2
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-xs'
+                      }`}
+                    >
+                      {signupStep === 2 ? '✓' : '01'}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-extrabold text-slate-900 truncate">Company Info</p>
+                      <p className="text-[10px] text-slate-500 truncate">Legal name &amp; address</p>
+                    </div>
+                  </button>
+
+                  <div className="hidden sm:flex items-center w-10 shrink-0">
+                    <div
+                      className={`h-1 w-full rounded-full transition-colors duration-300 ${
+                        signupStep === 2 ? 'bg-[#2d6a4f]' : 'bg-slate-200'
+                      }`}
+                    />
+                  </div>
+
+                  <div
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all flex-1 ${
+                      signupStep === 2
+                        ? 'bg-white border border-[#95d5b2] shadow-xs'
+                        : 'opacity-70'
+                    }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center shrink-0 transition-colors ${
+                        signupStep === 2
+                          ? 'bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-xs'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      02
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-extrabold text-slate-900 truncate">Owner Account</p>
+                      <p className="text-[10px] text-slate-500 truncate">Admin credentials</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Section 1: Company Information */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                    <Building2 className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      1. Company Information
-                    </h3>
-                  </div>
+                {signupStep === 1 ? (
+                  <>
+                    {/* Employee Warning Notice */}
+                    <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-xs text-slate-800 flex items-start gap-2.5 shadow-2xs">
+                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-900">Important for Staff Employees:</p>
+                        <p className="text-[11px] text-amber-800/90 mt-0.5 leading-snug">
+                          Employees <strong>cannot self-register</strong> here. Only new <strong>Company Owners</strong> register their company. Once registered, the owner will add your Email or Phone in their Owner Dashboard, enabling your employee login.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Section 1: Company Information */}
+                    <div className="space-y-3.5 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#f6fbf8] to-white border border-[#95d5b2]/60 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2 pb-2 border-b border-emerald-100">
+                        <div className="w-6 h-6 rounded-lg bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center">
+                          <Building2 className="w-3.5 h-3.5" />
+                        </div>
+                        <h3 className="text-xs font-bold text-[#1b4332] uppercase tracking-wider">
+                          Step 1 • Company Information
+                        </h3>
+                      </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1550,16 +1642,48 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                       />
                     </div>
                   </div>
-                </div>
+                    </div>
 
-                {/* Section 2: Owner Account */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      2. Company Owner & Administrator Account
-                    </h3>
-                  </div>
+                    {/* Next Step Button */}
+                    <button
+                      id="btn-next-signup-step"
+                      type="button"
+                      onClick={handleNextSignupStep}
+                      className="w-full h-12 rounded-xl bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] hover:from-[#2d6a4f] hover:to-[#1b4332] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/20 hover:shadow-xl active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 group"
+                    >
+                      <span>Continue to Owner Details</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                    {/* Selected Company Pill */}
+                    <div className="px-4 py-2.5 rounded-xl bg-[#eaf5ee] border border-[#95d5b2]/80 flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="w-4 h-4 text-[#1b4332] shrink-0" />
+                        <span className="text-slate-600 font-medium truncate">
+                          Company: <strong className="text-[#1b4332] font-bold">{companyName}</strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSignupStep(1)}
+                        className="text-[11px] font-bold text-[#1b4332] hover:underline shrink-0 cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    </div>
+
+                    {/* Section 2: Owner Account */}
+                    <div className="space-y-3.5 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#f6fbf8] to-white border border-[#95d5b2]/60">
+                      <div className="flex items-center gap-2 pb-2 border-b border-emerald-100">
+                        <div className="w-6 h-6 rounded-lg bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        </div>
+                        <h3 className="text-xs font-bold text-[#1b4332] uppercase tracking-wider">
+                          Step 2 • Company Owner &amp; Administrator Account
+                        </h3>
+                      </div>
 
                   <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                     <div>
@@ -1803,27 +1927,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     </div>
                   </div>
-                </div>
+                    </div>
 
-                {/* Submit Sign Up Button */}
-                <button
-                  id="btn-submit-company-register"
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 mt-4 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Creating Company & Onboarding Workspace...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Register Company &amp; Launch Workspace</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                    {/* Step 2 Action Buttons: Previous + Submit */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+                      <button
+                        id="btn-prev-signup-step"
+                        type="button"
+                        onClick={() => setSignupStep(1)}
+                        disabled={loading}
+                        className="sm:w-36 h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Previous</span>
+                      </button>
+
+                      <button
+                        id="btn-submit-company-register"
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] hover:from-[#2d6a4f] hover:to-[#1b4332] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/25 hover:shadow-xl active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Creating Company &amp; Onboarding Workspace...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Register Company &amp; Launch Workspace</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </form>
             )}
 
@@ -1837,13 +1976,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     type="button"
                     onClick={handleSwitchToLogin}
                     disabled={isTransitioning}
-                    className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
+                    className="font-bold text-[#1b4332] hover:text-[#2d6a4f] hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Sign in here
                   </button>
                 </p>
               </div>
             )}
+<<<<<<< HEAD
           </div>
 
           {/* Security & Trust Badges */}
@@ -1853,6 +1993,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 =======
         </div>
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+              </div>
+            </div>
+          </div>
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
       )}
     </main>
 

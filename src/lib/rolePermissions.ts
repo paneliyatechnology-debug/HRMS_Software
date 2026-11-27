@@ -3,6 +3,8 @@ import { User, Role } from '../types/hrms';
 /**
  * Module IDs used across HRMS routing and sidebar
  */
+
+
 export type HrmsModuleId =
   | 'dashboard'
   | 'companies'
@@ -69,6 +71,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -84,6 +87,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -99,6 +103,20 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'organization',
+    'tasks',
+    'payslips',
+    'resignations',
+    'announcements',
+    'documents',
+    'chat',
+    'calendar',
+    'profile',
+  ],
+  SUPERVISOR: [
+    'dashboard',
+    'attendance',
+    'leaves',
     'organization',
     'tasks',
     'payslips',
@@ -134,6 +152,7 @@ export function normalizeRoleKey(role?: string): string {
   if (r === 'ADMIN' || r === 'COMPANY_ADMIN' || r === 'ORG_ADMIN') return 'ADMIN';
   if (r === 'HR' || r === 'HR_ADMIN') return 'HR';
   if (r === 'MANAGER' || r === 'TEAM_LEAD' || r === 'LEAD') return 'MANAGER';
+  if (r === 'SUPERVISOR') return 'SUPERVISOR';
   return 'EMPLOYEE';
 }
 
@@ -157,13 +176,13 @@ const SHARED_MODULES = new Set([
 function industryAllowsModule(moduleId: string, keys: string[]) {
   if (SHARED_MODULES.has(moduleId)) return true;
   const has = (...names: string[]) => names.some((name) => keys.includes(name));
-  if (moduleId === 'employees') return has('employee', 'staff', 'store-employees');
-  if (moduleId === 'attendance') return has('attendance', 'shift', 'roster', 'staff-scheduling');
-  if (moduleId === 'leaves') return has('leave');
-  if (moduleId === 'payroll' || moduleId === 'payslips') return has('payroll');
-  if (moduleId === 'recruitment') return has('recruitment');
-  if (moduleId === 'organization') return has('departments', 'teams');
-  if (moduleId === 'tasks') return has('tasks', 'performance');
+  if (moduleId === 'employees') return has('employee', 'employees', 'staff', 'directory', 'users', 'store-employees');
+  if (moduleId === 'attendance') return has('attendance', 'shift', 'shifts', 'roster', 'staff-scheduling');
+  if (moduleId === 'leaves') return has('leave', 'leaves');
+  if (moduleId === 'payroll' || moduleId === 'payslips') return has('payroll', 'salary', 'salaries', 'payslip', 'payslips');
+  if (moduleId === 'recruitment') return has('recruitment', 'hiring', 'jobs', 'candidates');
+  if (moduleId === 'organization') return has('departments', 'department', 'teams', 'team', 'organization');
+  if (moduleId === 'tasks') return has('tasks', 'task', 'projects', 'project', 'performance');
   return false;
 }
 
@@ -183,6 +202,11 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
   // 1. Strict base check by role
   if (!allowedList.includes(moduleId as HrmsModuleId)) {
     return false;
+  }
+
+  // Admin & Super Admin always have full access to their role's modules
+  if (normalizedRole === 'ADMIN' || normalizedRole === 'SUPER_ADMIN') {
+    return true;
   }
 
   const industryKeys = Array.isArray((user as User & { industryModules?: string[] }).industryModules)
@@ -219,6 +243,7 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
       if (moduleId === 'reports' && (m === 'analytics' || m === 'reporting')) return true;
       if (moduleId === 'settings' && (m === 'config' || m === 'preferences')) return true;
       if (moduleId === 'profile' && (m === 'user' || m === 'my-profile')) return true;
+      if (moduleId === 'tasks' && (m === 'task' || m === 'projects' || m === 'project' || m === 'tasks-projects' || m === 'tasks & projects' || m === 'performance')) return true;
       return false;
     });
     if (!matches) return false;

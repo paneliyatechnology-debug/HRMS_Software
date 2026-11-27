@@ -22,9 +22,13 @@ import {
 import { LandingNav } from '../../components/landing/LandingNav';
 import { LandingFooter } from '../../components/landing/LandingFooter';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { Tilt3D, Reveal3D, Ambient3DScene, BottomCta3D } from '../../components/landing/Motion3D';
 =======
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+import { Tilt3D, Reveal3D, Ambient3DScene, BottomCta3D, LaunchWorkspaceButton } from '../../components/landing/Motion3D';
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
 
 export default function FeaturesPage() {
   const features = [
@@ -57,9 +61,13 @@ export default function FeaturesPage() {
       bullets: ['Complete team records', 'Departmental hierarchy mapping', 'Role-based access permissions'],
 <<<<<<< HEAD
       span: 'lg:col-span-6',
+<<<<<<< HEAD
       featured: 'light',
 =======
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+      featured: 'dark',
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
     },
     {
       icon: Calendar,
@@ -100,9 +108,13 @@ export default function FeaturesPage() {
       bullets: ['Company public holiday schedule', 'Live team out-of-office status', 'Planning & roster visibility'],
 <<<<<<< HEAD
       span: 'lg:col-span-6',
+<<<<<<< HEAD
       featured: 'light',
 =======
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+      featured: 'dark',
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
     },
   ];
 
@@ -126,13 +138,12 @@ export default function FeaturesPage() {
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                href="/register"
-                className="h-11 px-5 rounded-2xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-              >
-                <span>Launch Company Workspace</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              <LaunchWorkspaceButton
+                label="Launch Company Workspace"
+                className="h-11 px-5 rounded-2xl bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                iconClassName="w-4 h-4 text-[#d8f3dc]"
+                trailClassName="bg-gradient-to-r from-transparent to-[#d8f3dc]"
+              />
               <Link
                 href="/login"
                 className="h-11 px-5 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm border border-slate-200 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -312,37 +323,103 @@ export default function FeaturesPage() {
 <<<<<<< HEAD
       {/* 3D Trust & Architecture Cards */}
       <section className="py-14 bg-[#f8f9fa]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               icon: ShieldCheck,
               title: 'Tenant Isolation',
+              badge: 'Siloed Data',
               desc: 'Every company data is strictly siloed with private boundaries.',
+              variant: 'emerald',
             },
             {
               icon: Zap,
               title: 'Real-Time Sync',
+              badge: '< 50ms Live',
               desc: 'Live clock-in and attendance sync with sub-50ms latency.',
+              variant: 'dark',
             },
             {
               icon: Lock,
               title: 'Role-Based Control',
+              badge: 'RBAC Ready',
               desc: 'Granular permissions across Company Owners, HRs, and Employees.',
+              variant: 'teal',
             },
           ].map((card, idx) => {
             const Icon = card.icon;
+            const isDark = card.variant === 'dark';
+            const isEmerald = card.variant === 'emerald';
             return (
-              <Reveal3D key={card.title} delayMs={idx * 70}>
-                <Tilt3D intensity={8} glare className="h-full">
-                  <div className="h-full p-6 rounded-3xl bg-white border border-slate-200/90 shadow-[0_10px_24px_-10px_rgba(15,23,42,0.08)] space-y-2 text-center md:text-left">
-                    <div
-                      style={{ transform: 'translateZ(22px)' }}
-                      className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center mx-auto md:mx-0"
-                    >
-                      <Icon className="w-5 h-5" />
+              <Reveal3D key={card.title} delayMs={idx * 90}>
+                <Tilt3D intensity={10} glare className="h-full">
+                  <div
+                    className={`group relative overflow-hidden h-full p-6 rounded-3xl transition-all duration-300 ease-out hover:-translate-y-1.5 flex flex-col justify-between text-center md:text-left ${
+                      isDark
+                        ? 'bg-gradient-to-br from-[#1b4332] via-[#2d6a4f] to-[#1b4332] text-white border border-[#40916c]/40 shadow-[0_20px_42px_-14px_rgba(27,67,50,0.45)] hover:shadow-[0_28px_54px_-12px_rgba(27,67,50,0.6)]'
+                        : isEmerald
+                          ? 'bg-gradient-to-br from-emerald-50/90 via-white to-[#d8f3dc]/40 border border-emerald-200/80 hover:border-emerald-400 shadow-[0_12px_28px_-12px_rgba(27,67,50,0.12)] hover:shadow-[0_22px_44px_-12px_rgba(27,67,50,0.22)]'
+                          : 'bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/50 border border-teal-200/80 hover:border-teal-400 shadow-[0_12px_28px_-12px_rgba(13,148,136,0.12)] hover:shadow-[0_22px_44px_-12px_rgba(13,148,136,0.22)]'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <div
+                          style={{ transform: 'translateZ(24px)' }}
+                          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-3 mx-auto md:mx-0 ${
+                            isDark
+                              ? 'bg-white/15 text-[#d8f3dc] border border-white/25 shadow-sm'
+                              : isEmerald
+                                ? 'bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-md shadow-emerald-900/15'
+                                : 'bg-gradient-to-br from-teal-700 to-emerald-700 text-white shadow-md shadow-teal-900/15'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                        </div>
+
+                        <span
+                          className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            isDark
+                              ? 'bg-white/15 text-[#d8f3dc] border border-white/20'
+                              : isEmerald
+                                ? 'bg-emerald-100/80 text-emerald-800 border border-emerald-200'
+                                : 'bg-teal-100/80 text-teal-800 border border-teal-200'
+                          }`}
+                        >
+                          {isDark && <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />}
+                          {card.badge}
+                        </span>
+                      </div>
+
+                      <h4
+                        style={{ transform: 'translateZ(16px)' }}
+                        className={`text-sm sm:text-base font-bold ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}
+                      >
+                        {card.title}
+                      </h4>
+                      <p
+                        style={{ transform: 'translateZ(10px)' }}
+                        className={`text-xs mt-1.5 leading-relaxed ${
+                          isDark ? 'text-[#d8f3dc]/90' : 'text-slate-600'
+                        }`}
+                      >
+                        {card.desc}
+                      </p>
                     </div>
-                    <h4 className="text-sm font-bold text-slate-900">{card.title}</h4>
-                    <p className="text-xs text-slate-500">{card.desc}</p>
+
+                    <div className="mt-5 pt-3 border-t border-current/10">
+                      <div
+                        className={`h-1 w-10 group-hover:w-full transition-all duration-500 ease-out rounded-full mx-auto md:mx-0 ${
+                          isDark
+                            ? 'bg-gradient-to-r from-[#95d5b2] to-white/80'
+                            : isEmerald
+                              ? 'bg-gradient-to-r from-[#1b4332] to-[#52b788]'
+                              : 'bg-gradient-to-r from-teal-700 to-emerald-400'
+                        }`}
+                      />
+                    </div>
                   </div>
                 </Tilt3D>
               </Reveal3D>

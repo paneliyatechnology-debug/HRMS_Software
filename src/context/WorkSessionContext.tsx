@@ -208,7 +208,7 @@ function segmentPunches(punches: any[]): SegmentResult {
 const WorkSessionContext = createContext<WorkSessionContextType | null>(null);
 
 export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated, portalMode } = useAuth();
+  const { user, isAuthenticated, portalMode, planStatus } = useAuth();
   const { showToast } = useSocket();
 
   const [status, setStatus] = useState<WorkPunchStatus>('not_started');
@@ -575,6 +575,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (isFetchingRef.current) return;
 <<<<<<< HEAD
     const role = String(user?.role || '').toUpperCase();
+<<<<<<< HEAD
     if (role === 'SUPER_ADMIN' && !(user as any)?.companyId) {
 =======
     // Admins viewing in admin portal mode do not have personal shift tracking console
@@ -582,6 +583,9 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const isStrictAdmin = (rawRole === 'SUPER_ADMIN' || rawRole === 'ADMIN' || rawRole === 'HR' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
     if (isStrictAdmin) {
 >>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+=======
+    if ((role === 'SUPER_ADMIN' && !(user as any)?.companyId) || (role !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) {
+>>>>>>> 0d10fa3b585569ce8a42ed27dde970aafc01b11f
       setInitialLoading(false);
       return;
     }
@@ -817,11 +821,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isFetchingRef.current = false;
       setInitialLoading(false);
     }
-  }, [applyAttendanceLogic, user]);
+  }, [applyAttendanceLogic, user, planStatus.checked, planStatus.premium]);
 
   // Initial fetch on mount & listen to cross-component punch events
   useEffect(() => {
-    if (!isAuthenticated) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (!isAuthenticated || (role !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) return;
     refresh();
 
     const handleExternalUpdate = () => {
@@ -876,7 +881,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return false;
       }
-      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
+      const roleUpper = String(user?.role || '').toUpperCase();
+      const requiresFaceOrGeo =
+        planStatus.features.includes('face_selfie') ||
+        (roleUpper === 'EMPLOYEE' && planStatus.features.includes('geofence'));
+      if (requiresFaceOrGeo && ['EMPLOYEE', 'HR', 'MANAGER'].includes(roleUpper)) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
       }
@@ -1196,7 +1205,11 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 <<<<<<< HEAD
   const checkOut = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
-      if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
+      const roleUpper = String(user?.role || '').toUpperCase();
+      const requiresFaceOrGeo =
+        planStatus.features.includes('face_selfie') ||
+        (roleUpper === 'EMPLOYEE' && planStatus.features.includes('geofence'));
+      if (requiresFaceOrGeo && ['EMPLOYEE', 'HR', 'MANAGER'].includes(roleUpper)) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
 =======
