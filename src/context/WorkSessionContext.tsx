@@ -207,7 +207,7 @@ function segmentPunches(punches: any[]): SegmentResult {
 const WorkSessionContext = createContext<WorkSessionContextType | null>(null);
 
 export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated, portalMode } = useAuth();
+  const { user, isAuthenticated, portalMode, planStatus } = useAuth();
   const { showToast } = useSocket();
 
   const [status, setStatus] = useState<WorkPunchStatus>('not_started');
@@ -569,7 +569,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
     const role = String(user?.role || '').toUpperCase();
-    if (role === 'SUPER_ADMIN' && !(user as any)?.companyId) {
+    if ((role === 'SUPER_ADMIN' && !(user as any)?.companyId) || (role !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) {
       setInitialLoading(false);
       return;
     }
@@ -588,11 +588,12 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isFetchingRef.current = false;
       setInitialLoading(false);
     }
-  }, [applyAttendanceLogic, user]);
+  }, [applyAttendanceLogic, user, planStatus.checked, planStatus.premium]);
 
   // Initial fetch on mount & listen to cross-component punch events
   useEffect(() => {
-    if (!isAuthenticated) return;
+    const role = String(user?.role || '').toUpperCase();
+    if (!isAuthenticated || (role !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) return;
     refresh();
 
     const handleExternalUpdate = () => {

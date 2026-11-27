@@ -1,5 +1,9 @@
 export const APP_MODULES = [
   'dashboard',
+  'companies',
+  'plans',
+  'orders',
+  'support',
   'attendance',
   'leaves',
   'payslips',
@@ -8,6 +12,7 @@ export const APP_MODULES = [
   'calendar',
   'employees',
   'organization',
+  'tasks',
   'payroll',
   'recruitment',
   'reports',
@@ -18,6 +23,8 @@ export const APP_MODULES = [
   'training',
   'assets',
   'audit-logs',
+  'profile',
+  'notifications',
 ] as const;
 
 export type AppModule = (typeof APP_MODULES)[number];

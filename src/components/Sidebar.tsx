@@ -75,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { unreadNoticesCount } = useSocket();
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
-  const [hasPremium, setHasPremium] = useState(true);
+  const [hasPremium, setHasPremium] = useState(false);
   const [planFeatures, setPlanFeatures] = useState<string[] | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
@@ -483,93 +483,93 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)}
               </>
             ) : (
-            <>
-            {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
-            {navItem('companies', 'All Companies', <Building2 className="w-4 h-4" />)}
-            {navItem('plans', 'Plans', <Award className="w-4 h-4" />)}
-            {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
-            {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
-            {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
-            {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
-              effectiveCollapsed ? (
-                <button
-                  type="button"
-                  aria-label="Face clock"
-                  onMouseEnter={(e) => openFlyout(e, { key: 'face-clock', label: 'Face clock' })}
-                  onMouseLeave={scheduleFlyoutClose}
-                  onClick={() => {
-                    setHoverFlyout(null);
-                    if (!hasPremium) {
-                      setActiveModule('plans');
-                      setIsOpen(false);
-                      return;
-                    }
-                    window.location.href = '/face-clock';
-                  }}
-                  className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105 transition-all duration-200 cursor-pointer group active:scale-95"
-                >
-                  <span className="w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 text-[#6c757d] group-hover:text-[#2d6a4f]">
-                    <ScanFace className="w-4 h-4" />
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!hasPremium) {
-                      setActiveModule('plans');
-                      setIsOpen(false);
-                      return;
-                    }
-                    window.location.href = '/face-clock';
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 font-medium cursor-pointer group active:scale-[0.99]"
-                >
-                  <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150"><ScanFace className="w-4 h-4" /></span>
-                  <span className="truncate">Face clock</span>
-                  <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${hasPremium ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    PRO
-                  </span>
-                </button>
-              )
-            )}
-            {navItem(
-              'leaves',
-              portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
-              <CalendarOff className="w-4 h-4" />,
-              portalMode === 'admin' && pendingLeavesCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
-                  {pendingLeavesCount}
-                </span>
-              ) : undefined
-            )}
-            {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
-            {navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)}
-            {(user?.role === 'EMPLOYEE' || user?.role === 'MANAGER') && (
-              navItem('resignations', 'My Resignation', <LogOut className="w-4 h-4" />)
-            )}
-            {navItem(
-              'chat',
-              'Team Chat',
-              <MessageSquare className="w-4 h-4" />,
-              unreadChatCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
-                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                </span>
-              ) : undefined
-            )}
-            {navItem('calendar', 'Calendar & Holidays', <Calendar className="w-4 h-4" />)}
-            {navItem(
-              'notifications',
-              'Notifications',
-              <Bell className="w-4 h-4" />,
-              unreadNoticesCount > 0 ? (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
-                  {unreadNoticesCount > 99 ? '99+' : unreadNoticesCount}
-                </span>
-              ) : undefined
-            )}
-            </>
+              <>
+                {navItem('dashboard', 'Dashboard', <Home className="w-4 h-4" />)}
+                {navItem('companies', 'All Companies', <Building2 className="w-4 h-4" />)}
+                {navItem('plans', 'Plans', <Award className="w-4 h-4" />)}
+                {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
+                {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
+                {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
+                {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && hasPremium && (
+                  effectiveCollapsed ? (
+                    <button
+                      type="button"
+                      aria-label="Face clock"
+                      onMouseEnter={(e) => openFlyout(e, { key: 'face-clock', label: 'Face clock' })}
+                      onMouseLeave={scheduleFlyoutClose}
+                      onClick={() => {
+                        setHoverFlyout(null);
+                        if (!hasPremium) {
+                          setActiveModule('plans');
+                          setIsOpen(false);
+                          return;
+                        }
+                        window.location.href = '/face-clock';
+                      }}
+                      className="w-full relative flex items-center justify-center h-10 rounded-[10px] text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105 transition-all duration-200 cursor-pointer group active:scale-95"
+                    >
+                      <span className="w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 text-[#6c757d] group-hover:text-[#2d6a4f]">
+                        <ScanFace className="w-4 h-4" />
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!hasPremium) {
+                          setActiveModule('plans');
+                          setIsOpen(false);
+                          return;
+                        }
+                        window.location.href = '/face-clock';
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 font-medium cursor-pointer group active:scale-[0.99]"
+                    >
+                      <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150"><ScanFace className="w-4 h-4" /></span>
+                      <span className="truncate">Face clock</span>
+                      <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${hasPremium ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        PRO
+                      </span>
+                    </button>
+                  )
+                )}
+                {navItem(
+                  'leaves',
+                  portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
+                  <CalendarOff className="w-4 h-4" />,
+                  portalMode === 'admin' && pendingLeavesCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
+                      {pendingLeavesCount}
+                    </span>
+                  ) : undefined
+                )}
+                {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
+                {navItem('payslips', 'My Payslips', <Receipt className="w-4 h-4" />)}
+                {(user?.role === 'EMPLOYEE' || user?.role === 'MANAGER') && (
+                  navItem('resignations', 'My Resignation', <LogOut className="w-4 h-4" />)
+                )}
+                {navItem(
+                  'chat',
+                  'Team Chat',
+                  <MessageSquare className="w-4 h-4" />,
+                  unreadChatCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
+                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                    </span>
+                  ) : undefined
+                )}
+                {navItem('calendar', 'Calendar & Holidays', <Calendar className="w-4 h-4" />)}
+                {navItem(
+                  'notifications',
+                  'Notifications',
+                  <Bell className="w-4 h-4" />,
+                  unreadNoticesCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
+                      {unreadNoticesCount > 99 ? '99+' : unreadNoticesCount}
+                    </span>
+                  ) : undefined
+                )}
+              </>
             )}
           </div>
 
@@ -582,148 +582,146 @@ export const Sidebar: React.FC<SidebarProps> = ({
             (canManageResignations(user) && isModuleAllowedForUser('resignations', user)) ||
             isModuleAllowedForUser('reports', user)
           ) && (
-            <div className="space-y-0.5">
-              {effectiveCollapsed ? (
-                <div className="my-2 border-t border-[#343a40]/20 mx-1" />
-              ) : (
-                <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
-                  Workforce
-                </p>
-              )}
+              <div className="space-y-0.5">
+                {effectiveCollapsed ? (
+                  <div className="my-2 border-t border-[#343a40]/20 mx-1" />
+                ) : (
+                  <p className="px-3 pb-1 text-[10px] font-extrabold text-[#343a40] uppercase tracking-[1.2px] pt-2">
+                    Workforce
+                  </p>
+                )}
 
-              {effectiveCollapsed ? (
-                <>
-                  {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHoverFlyout(null);
-                        handleNav('employees');
-                      }}
-                      onMouseEnter={(e) =>
-                        openFlyout(e, {
-                          key: 'people',
-                          label: 'Employees',
-                          subItems: [
-                            { id: 'employees', label: 'Directory' },
-                            { id: 'organization', label: 'Departments', subTab: 'departments' },
-                            { id: 'organization', label: 'Teams', subTab: 'teams' },
-                          ],
-                        })
-                      }
-                      onMouseLeave={scheduleFlyoutClose}
-                      aria-label="Employees"
-                      className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${
-                        activeModule === 'employees' ||
-                        (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                          ? 'bg-[#1b4332] text-white shadow-xs'
-                          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
-                      }`}
-                    >
-                      <span
-                        className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${
-                          activeModule === 'employees' ||
-                          (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                            ? 'text-white'
-                            : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
-                        }`}
-                      >
-                        <Users className="w-4 h-4" />
-                      </span>
-                    </button>
-                  ) : (
-                    <>
-                      {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
-                      {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
-                      {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
-                    </>
-                  )}
-                  {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
-                  {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
-                  {canManageResignations(user) &&
-                    navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
-                  }
-                  {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
-                </>
-              ) : (
-                <div>
-                  {/* Both employees & organization allowed (Admin) */}
-                  {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
-                    <div>
+                {effectiveCollapsed ? (
+                  <>
+                    {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
                       <button
-                        onClick={() => toggleSection('people')}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 cursor-pointer group"
+                        type="button"
+                        onClick={() => {
+                          setHoverFlyout(null);
+                          handleNav('employees');
+                        }}
+                        onMouseEnter={(e) =>
+                          openFlyout(e, {
+                            key: 'people',
+                            label: 'Employees',
+                            subItems: [
+                              { id: 'employees', label: 'Directory' },
+                              { id: 'organization', label: 'Departments', subTab: 'departments' },
+                              { id: 'organization', label: 'Teams', subTab: 'teams' },
+                            ],
+                          })
+                        }
+                        onMouseLeave={scheduleFlyoutClose}
+                        aria-label="Employees"
+                        className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${activeModule === 'employees' ||
+                            (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                            ? 'bg-[#1b4332] text-white shadow-xs'
+                            : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
+                          }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150">
-                            <Users className="w-4 h-4" />
-                          </span>
-                          <span>Employees</span>
-                        </div>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 text-[#6c757d] transition-transform ${openSections.people ? 'rotate-180' : ''
+                        <span
+                          className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${activeModule === 'employees' ||
+                              (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                              ? 'text-white'
+                              : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
                             }`}
-                        />
+                        >
+                          <Users className="w-4 h-4" />
+                        </span>
                       </button>
+                    ) : (
+                      <>
+                        {navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)}
+                        {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                        {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
+                      </>
+                    )}
+                    {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
+                    {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
+                    {canManageResignations(user) &&
+                      navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
+                    }
+                    {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
+                  </>
+                ) : (
+                  <div>
+                    {/* Both employees & organization allowed (Admin) */}
+                    {isModuleAllowedForUser('employees', user) && isModuleAllowedForUser('organization', user) ? (
+                      <div>
+                        <button
+                          onClick={() => toggleSection('people')}
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] font-medium text-[#343a40] hover:bg-slate-100/90 hover:text-[#1b4332] transition-colors duration-150 cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-5 flex justify-center text-[#6c757d] group-hover:text-[#2d6a4f] transition-colors duration-150">
+                              <Users className="w-4 h-4" />
+                            </span>
+                            <span>Employees</span>
+                          </div>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-[#6c757d] transition-transform ${openSections.people ? 'rotate-180' : ''
+                              }`}
+                          />
+                        </button>
 
-                      {openSections.people && (
-                        <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
-                          <button
-                            onClick={() => handleNav('employees')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'employees'
-                              ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
-                              }`}
-                          >
-                            Directory
-                          </button>
-                          <button
-                            onClick={() => handleNav('organization', 'departments')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
-                              ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
-                              }`}
-                          >
-                            Departments
-                          </button>
-                          <button
-                            onClick={() => handleNav('organization', 'teams')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
-                              ? 'text-white font-bold bg-[#2d6a4f]'
-                              : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
-                              }`}
-                          >
-                            Teams
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {/* HR: Employees only */}
-                      {isModuleAllowedForUser('employees', user) && (
-                        navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)
-                      )}
-                      {/* Manager: Departments & Teams only */}
-                      {isModuleAllowedForUser('organization', user) && (
-                        <>
-                          {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
-                          {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
-                        </>
-                      )}
-                    </>
-                  )}
+                        {openSections.people && (
+                          <div className="ml-5 pl-3 space-y-0.5 border-l-2 border-[#95d5b2] my-1">
+                            <button
+                              onClick={() => handleNav('employees')}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'employees'
+                                ? 'text-white font-bold bg-[#2d6a4f]'
+                                : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
+                                }`}
+                            >
+                              Directory
+                            </button>
+                            <button
+                              onClick={() => handleNav('organization', 'departments')}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'departments'
+                                ? 'text-white font-bold bg-[#2d6a4f]'
+                                : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
+                                }`}
+                            >
+                              Departments
+                            </button>
+                            <button
+                              onClick={() => handleNav('organization', 'teams')}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs transition-colors duration-150 cursor-pointer ${activeModule === 'organization' && activeSubTab === 'teams'
+                                ? 'text-white font-bold bg-[#2d6a4f]'
+                                : 'text-[#495057] hover:text-[#1b4332] hover:bg-slate-100/90'
+                                }`}
+                            >
+                              Teams
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* HR: Employees only */}
+                        {isModuleAllowedForUser('employees', user) && (
+                          navItem('employees', 'Employees Directory', <Users className="w-4 h-4" />)
+                        )}
+                        {/* Manager: Departments & Teams only */}
+                        {isModuleAllowedForUser('organization', user) && (
+                          <>
+                            {navItem('organization', 'Departments', <Layers className="w-4 h-4" />, undefined, 'departments')}
+                            {navItem('organization', 'Teams', <Users className="w-4 h-4" />, undefined, 'teams')}
+                          </>
+                        )}
+                      </>
+                    )}
 
-                  {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
-                  {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
-                  {canManageResignations(user) &&
-                    navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
-                  }
-                  {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
-                </div>
-              )}
-            </div>
-          )}
+                    {navItem('payroll', 'Payroll & Slips', <CircleDollarSign className="w-4 h-4" />)}
+                    {navItem('recruitment', 'Recruitment', <UserCheck className="w-4 h-4" />)}
+                    {canManageResignations(user) &&
+                      navItem('resignations', 'Resignations & Clearance', <LogOut className="w-4 h-4" />)
+                    }
+                    {navItem('reports', 'Reports', <BarChart3 className="w-4 h-4" />)}
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* Company section */}
           {!resigned && (
@@ -803,11 +801,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setHoverFlyout(null);
                         handleNav(sub.id, sub.subTab);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between ${
-                        subActive
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between ${subActive
                           ? 'bg-[#2d6a4f] text-white font-bold'
                           : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
-                      }`}
+                        }`}
                     >
                       <span>{sub.label}</span>
                       <ChevronRight className={`w-3 h-3 ${subActive ? 'text-white' : 'text-slate-400'}`} />
