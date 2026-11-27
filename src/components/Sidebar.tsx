@@ -87,8 +87,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     api.getCompanyFeatures()
       .then((res: any) => {
         if (!active) return;
-        const isPrem = Boolean(res?.premium);
-        const feats = Array.isArray(res?.features) ? (res.features as string[]) : [];
+        const data = res?.data || res;
+        const isPrem = Boolean(data?.premium);
+        const feats = Array.isArray(data?.features) ? (data.features as string[]) : [];
         setHasPremium(isPrem && feats.includes('face_clock'));
       })
       .catch(() => undefined);
@@ -372,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
+        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 lg:z-[110] h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
           } bg-white text-[#212529] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#e9ecef] shadow-xs ${isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
           }`}
       >
@@ -524,9 +525,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   portalMode === 'admin' ? 'Leave Requests' : 'My Leaves',
                   <CalendarOff className="w-4 h-4" />,
                   portalMode === 'admin' && pendingLeavesCount > 0 ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#adb5bd] text-white text-[10px] font-bold">
-                      {pendingLeavesCount}
-                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        activeModule === 'leaves' ? 'bg-[#74c69d]' : 'bg-[#2d6a4f]'
+                      }`}
+                    />
                   ) : undefined
                 )}
                 {navItem('tasks', 'Tasks & Projects', <CheckSquare className="w-4 h-4" />)}
@@ -550,9 +553,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   'Notifications',
                   <Bell className="w-4 h-4" />,
                   unreadNoticesCount > 0 ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold">
-                      {unreadNoticesCount > 99 ? '99+' : unreadNoticesCount}
-                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        activeModule === 'notifications' ? 'bg-[#74c69d]' : 'bg-[#2d6a4f]'
+                      }`}
+                    />
                   ) : undefined
                 )}
               </>

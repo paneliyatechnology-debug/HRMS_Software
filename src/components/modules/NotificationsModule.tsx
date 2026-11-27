@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   CalendarOff,
@@ -69,8 +69,14 @@ function getNoticeIcon(notice: AppNotice) {
 export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
   onNavigateModule,
 }) => {
-  const { notices, readNoticeIds, unreadNoticesCount, markNoticeRead, clearNotices } = useSocket();
+  const { notices, readNoticeIds, unreadNoticesCount, markNoticeRead, markAllNoticesRead, dismissNotice, clearNotices } = useSocket();
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
+
+  useEffect(() => {
+    if (unreadNoticesCount > 0) {
+      markAllNoticesRead();
+    }
+  }, [unreadNoticesCount, markAllNoticesRead]);
 
   const tabs: Array<{ id: FilterTab; label: string }> = [
     { id: 'All', label: 'All' },
@@ -91,6 +97,7 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
 
   const handleViewNotice = (notice: AppNotice) => {
     markNoticeRead(notice.id);
+    dismissNotice(notice.id);
     if (notice.module) {
       onNavigateModule?.(notice.module);
     }

@@ -518,7 +518,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/35 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
