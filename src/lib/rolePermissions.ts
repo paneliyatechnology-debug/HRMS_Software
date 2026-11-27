@@ -3,6 +3,8 @@ import { User, Role } from '../types/hrms';
 /**
  * Module IDs used across HRMS routing and sidebar
  */
+
+
 export type HrmsModuleId =
   | 'dashboard'
   | 'companies'
@@ -69,6 +71,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -84,6 +87,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
+    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -163,7 +167,7 @@ function industryAllowsModule(moduleId: string, keys: string[]) {
   if (moduleId === 'payroll' || moduleId === 'payslips') return has('payroll');
   if (moduleId === 'recruitment') return has('recruitment');
   if (moduleId === 'organization') return has('departments', 'teams');
-  if (moduleId === 'tasks') return has('tasks', 'performance');
+  if (moduleId === 'tasks') return has('tasks', 'task', 'projects', 'project', 'performance');
   return false;
 }
 
@@ -219,6 +223,7 @@ export function isModuleAllowedForUser(moduleId: string, user?: User | null): bo
       if (moduleId === 'reports' && (m === 'analytics' || m === 'reporting')) return true;
       if (moduleId === 'settings' && (m === 'config' || m === 'preferences')) return true;
       if (moduleId === 'profile' && (m === 'user' || m === 'my-profile')) return true;
+      if (moduleId === 'tasks' && (m === 'task' || m === 'projects' || m === 'project' || m === 'tasks-projects' || m === 'tasks & projects' || m === 'performance')) return true;
       return false;
     });
     if (!matches) return false;

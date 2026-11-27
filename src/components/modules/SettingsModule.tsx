@@ -1145,9 +1145,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
     { id: 'plans', label: 'Subscription & Plans', desc: 'Active tier, checkout & orders', icon: Crown },
     { id: 'support', label: 'Support Inquiries', desc: 'Demo requests & customer leads', icon: Headphones },
   ];
+  const hasGeofenceFeature = Array.isArray(premiumStatus?.features) && premiumStatus.features.includes('geofence');
   const adminNavItems = canManagePlans
     ? allAdminNavItems.filter((item) => item.id === 'support')
-    : allAdminNavItems;
+    : allAdminNavItems.filter((item) => item.id !== 'geofence' || hasGeofenceFeature);
 
   return (
     <div className="space-y-5 w-full animate-in fade-in select-none">
@@ -1827,6 +1828,33 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                           <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">₹{price.toLocaleString('en-IN')}</p>
                           <p className="mt-1 text-xs font-medium text-slate-500">{months} month{months === 1 ? '' : 's'}</p>
                           <p className="mt-3 min-h-10 text-sm leading-5 text-slate-600">{plan.description || 'Company plan'}</p>
+                          {Array.isArray(plan.features) && plan.features.length > 0 && (
+                            <div className="mt-4 flex-1 border-t border-slate-100 pt-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                Included Features
+                              </p>
+                              <ul className="space-y-1.5">
+                                {plan.features.map((featKey: string) => (
+                                  <li key={featKey} className="flex items-center gap-2 text-xs text-slate-700">
+                                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                    <span>
+                                      {featKey === 'face_clock'
+                                        ? 'Face Clock Kiosk'
+                                        : featKey === 'face_selfie'
+                                          ? 'Selfie Face Verification'
+                                          : featKey === 'payroll'
+                                            ? 'Payroll & Payslips'
+                                            : featKey === 'geofence'
+                                              ? 'Office Geofence'
+                                              : featKey === 'recruitment'
+                                                ? 'Recruitment & Hiring'
+                                                : featKey}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                           <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-4">
                             {canManagePlans ? (
                               <>

@@ -44,13 +44,10 @@ const loadRazorpayScript = (): Promise<boolean> => {
 
 const PLAN_FEATURE_LABELS: Record<string, string> = {
   face_clock: 'Face Clock Kiosk',
-  attendance: 'Attendance & Shifts',
-  leaves: 'Leave Management',
+  face_selfie: 'Selfie Face Verification',
   payroll: 'Payroll & Payslips',
-  recruitment: 'Recruitment & Hiring',
-  team_chat: 'Team Chat & Notices',
   geofence: 'Office Geofence',
-  tasks: 'Tasks & Projects',
+  recruitment: 'Recruitment & Hiring',
 };
 
 type LivePlan = {

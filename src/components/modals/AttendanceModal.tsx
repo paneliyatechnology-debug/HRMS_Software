@@ -61,7 +61,31 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const currentEmpId = user.employeeId || user.id || '';
 
   const rawRole = (user?.role || role || '').toUpperCase();
-  const needsFace = rawRole === 'EMPLOYEE' || rawRole === 'HR' || rawRole === 'MANAGER';
+  const [hasFaceSelfie, setHasFaceSelfie] = useState(false);
+  const [hasGeofence, setHasGeofence] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    api.getCompanyFeatures()
+      .then((res: any) => {
+        if (!active) return;
+        const data = res?.data || res;
+        const feats = Array.isArray(data?.features) ? data.features : [];
+        const isActivePlan = Boolean(data?.premium);
+        setHasFaceSelfie(isActivePlan && feats.includes('face_selfie'));
+        setHasGeofence(isActivePlan && feats.includes('geofence'));
+      })
+      .catch(() => {
+        if (active) {
+          setHasFaceSelfie(false);
+          setHasGeofence(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+  const needsFace = (rawRole === 'EMPLOYEE' || rawRole === 'HR' || rawRole === 'MANAGER') && hasFaceSelfie;
   const isAdminUser =
     rawRole === 'ADMIN' ||
     rawRole === 'HR_ADMIN' ||
@@ -281,16 +305,18 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
     const tick = () => setTime(new Date());
 
-    api.getGeofence().then((fence) => {
-      if (!fence?.latitude || !fence?.longitude) return;
-      saveOfficeGeofenceConfig({
-        officeName: fence.officeName || 'Office',
-        latitude: Number(fence.latitude),
-        longitude: Number(fence.longitude),
-        radiusMeters: Number(fence.radiusMeters) || 500,
-        enabled: fence.enabled !== false,
-      });
-    }).catch(() => {});
+    if (hasGeofence) {
+      api.getGeofence().then((fence) => {
+        if (!fence?.latitude || !fence?.longitude) return;
+        saveOfficeGeofenceConfig({
+          officeName: fence.officeName || 'Office',
+          latitude: Number(fence.latitude),
+          longitude: Number(fence.longitude),
+          radiusMeters: Number(fence.radiusMeters) || 500,
+          enabled: fence.enabled !== false,
+        });
+      }).catch(() => {});
+    }
 
     tick();
     const interval = setInterval(tick, 1000);
@@ -298,7 +324,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       clearInterval(interval);
       stopCameraStream();
     };
-  }, [isOpen, stopCameraStream]);
+  }, [isOpen, hasGeofence, stopCameraStream]);
 
   useEffect(() => {
     const rows = (sessionPunches || []).map((punch: any) => {
@@ -432,8 +458,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Direct Check In (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckIn = async () => {
-    requestCameraNow();
-    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (needsFace) requestCameraNow();
+    const locationRequest = hasGeofence && rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchBlockMessage) {
       notifyPunchError('Clock in blocked', punchBlockMessage);
       return;
@@ -451,7 +477,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         notifyPunchError('Clock in blocked', message);
         return;
       }
-      if (locationRequest) {
+      if (hasGeofence && locationRequest) {
         try {
           const coords = (await locationRequest) || undefined;
           const geo = await verifyCurrentGeofence(coords);
@@ -473,8 +499,37 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
     setLoading(true);
     try {
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      let accuracy: number | undefined;
+      if (hasGeofence && locationRequest) {
+        try {
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock in blocked', message);
+            setLoading(false);
+            return;
+          }
+          if (geo.userCoords) {
+            latitude = geo.userCoords.latitude;
+            longitude = geo.userCoords.longitude;
+            accuracy = geo.userCoords.accuracy;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
       const fullRemarks = remarks || 'Morning shift clock-in';
-      const res = await api.startWork({ workMode: 'Office', note: fullRemarks });
+      const res = await api.startWork({
+        workMode: isWFH ? 'Work From Home' : 'Office',
+        note: fullRemarks,
+        latitude,
+        longitude,
+        accuracy,
+      });
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -499,8 +554,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
   // Step 1: Direct Clock Out (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckOut = async () => {
-    requestCameraNow();
-    const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
+    if (needsFace) requestCameraNow();
+    const locationRequest = hasGeofence && rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchState.status === 'on_break') {
       notifyPunchError('Clock out blocked', 'Cannot clock out while on break. Please click Resume Work first.');
       return;
@@ -511,7 +566,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         notifyPunchError('Clock out blocked', message);
         return;
       }
-      if (locationRequest) {
+      if (hasGeofence && locationRequest) {
         try {
           const coords = (await locationRequest) || undefined;
           const geo = await verifyCurrentGeofence(coords);
@@ -532,8 +587,37 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
     setLoading(true);
     try {
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      let accuracy: number | undefined;
+      if (hasGeofence && locationRequest) {
+        try {
+          const coords = (await locationRequest) || undefined;
+          const geo = await verifyCurrentGeofence(coords);
+          if (geo.errorCode === 'OUTSIDE_GEOFENCE') {
+            const message = geo.errorMessage || 'You are outside the office area.';
+            setPunchNotice(message);
+            notifyPunchError('Clock out blocked', message);
+            setLoading(false);
+            return;
+          }
+          if (geo.userCoords) {
+            latitude = geo.userCoords.latitude;
+            longitude = geo.userCoords.longitude;
+            accuracy = geo.userCoords.accuracy;
+          }
+        } catch {
+          // Browser did not share a location. Punch still continues.
+        }
+      }
       const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
-      const res = await api.stopWork({ workMode: 'Office', note: fullRemarks });
+      const res = await api.stopWork({
+        workMode: isWFH ? 'Work From Home' : 'Office',
+        note: fullRemarks,
+        latitude,
+        longitude,
+        accuracy,
+      });
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -721,7 +805,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       let punchLongitude: number | undefined;
       let punchAccuracy: number | undefined;
       if (rawRole === 'EMPLOYEE') {
-        if (locationRequest) {
+        if (hasGeofence && locationRequest) {
           try {
             const coords = (await locationRequest) || undefined;
             const geo = await verifyCurrentGeofence(coords);
