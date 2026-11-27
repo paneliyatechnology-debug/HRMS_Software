@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
+import { Employee, LeaveRequest, AttendanceRecord, Announcement } from '../types/hrms';
 import { api } from '../lib/api';
 import { useCompanyLive } from '../lib/useCompanyLive';
 import {
@@ -505,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [holidays]);
 
   // Leave processing state for admin
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
+  const pendingLeaves = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending');
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
   const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
   const [approveModalData, setApproveModalData] = useState<{
@@ -750,9 +750,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     await handleCheckOutAction();
   };
 
-  // Admin stats computation
+  const [leaveDaysLeft, setLeaveDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getAnnouncements().then((list) => {
+      if (!cancelled) setAnnouncements(Array.isArray(list) ? list.slice(0, 3) : []);
+    }).catch(() => {
+      if (!cancelled) setAnnouncements([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.companyId, employees.length]);
+
+  useEffect(() => {
+    if (portalMode === 'admin') return;
+    const employeeId = currentEmp.id;
+    if (!employeeId || employeeId === 'emp-self') {
+      setLeaveDaysLeft(null);
+      return;
+    }
+    let cancelled = false;
+    api.getLeaveBalances(employeeId).then((balance) => {
+      if (cancelled || !balance) return;
+      const remaining =
+        (balance.casualLeave?.remaining || 0) +
+        (balance.sickLeave?.remaining || 0) +
+        (balance.paidLeave?.remaining || 0);
+      setLeaveDaysLeft(remaining);
+    }).catch(() => {
+      if (!cancelled) setLeaveDaysLeft(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [portalMode, currentEmp.id]);
+
   const todayDate = getTodayDateString();
-  const todayRecords = allAttendance.filter((a) => a.date === todayDate);
+  const teamIds = new Set(employees.map((emp) => emp.id));
+  const isPresent = (record: AttendanceRecord) => {
+    const status = String(record.status || '').toLowerCase();
+    return Boolean(record.checkIn) || status === 'present' || status === 'late' || status === 'half day';
+  };
+  const weekBars = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const presentIds = new Set(
+      attendance
+        .filter((record) => String(record.date || '').slice(0, 10) === iso && teamIds.has(record.employeeId) && isPresent(record))
+        .map((record) => record.employeeId),
+    );
+    const count = presentIds.size;
+    const rate = employees.length === 0 ? 0 : Math.round((count / employees.length) * 100);
+    return {
+      day: index === 6 ? 'Today' : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      val: rate,
+      count: `${count} Present`,
+      isToday: index === 6,
+    };
+  });
+  const todayRecords = attendance.filter(
+    (record) => String(record.date || '').slice(0, 10) === todayDate && teamIds.has(record.employeeId) && isPresent(record),
+  );
   const activeWorkingCount = todayRecords.filter((a) => !a.isCompleted && !a.isOnBreak).length;
   const onBreakCount = todayRecords.filter((a) => !a.isCompleted && a.isOnBreak).length;
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;

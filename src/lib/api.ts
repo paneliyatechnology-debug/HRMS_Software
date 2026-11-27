@@ -580,10 +580,22 @@ async function deleteDocument(id: string) {
    MODULE 4: ATTENDANCE (14 ENDPOINTS)
    ========================================================================== */
 
+async function getKioskSession() {
+  try {
+    const response = await http.get('/attendance/kiosk-session');
+    return response.data as { token: string; expiresAt: number };
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? (error.response?.data?.message || error.response?.data?.error) : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to start kiosk session.');
+  }
+}
+
 async function faceKioskClock(data: {
   faceDescriptor: number[];
   photo?: string;
   action?: 'clock-in' | 'clock-out' | 'break-in' | 'break-out';
+  scanNonce?: string;
+  kioskSessionToken?: string;
 }) {
   try {
     clearApiCache('/attendance');
@@ -591,6 +603,8 @@ async function faceKioskClock(data: {
       faceDescriptor: data.faceDescriptor,
       photo: data.photo || undefined,
       action: data.action || undefined,
+      scanNonce: data.scanNonce || undefined,
+      kioskSessionToken: data.kioskSessionToken || undefined,
     }, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -3059,6 +3073,7 @@ export const api = new Proxy({
   // Attendance (14)
   verifyFace,
   faceKioskClock,
+  getKioskSession,
   clock,
   clockIn,
   checkIn,

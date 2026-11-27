@@ -669,11 +669,11 @@ export const PayrollModule: React.FC<PayrollModuleProps> = ({
                       </div>
                     </td>
                     <td className="py-3 px-3 text-slate-500">{rec.role}</td>
-                    <td className="py-3 px-3 text-slate-700 font-medium">₹{rec.basic.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-slate-500">+₹{rec.allowances.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-slate-900 font-semibold">₹{rec.gross.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-amber-600 font-medium">-₹{rec.deductions.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-blue-600 font-bold">₹{rec.net.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-slate-700 font-medium">₹{(Number(rec.basic) || 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-slate-500">+₹{(Number(rec.allowances) || 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-slate-900 font-semibold">₹{(Number(rec.gross) || 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-amber-600 font-medium">-₹{(Number(rec.deductions) || 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-blue-600 font-bold">₹{(Number(rec.net) || 0).toLocaleString()}</td>
                     <td className="py-3 px-3">
                       <select
                         value={rec.status}

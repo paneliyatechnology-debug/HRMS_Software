@@ -25,6 +25,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
 import { prepareFaceModels, sameProfileFace, scanKioskFace } from '../../lib/faceMatch';
+import { evaluateFacePad, preparePadModel } from '../../lib/facePad.js';
+import { evaluatePassiveFrame, initialLivenessState, stepLiveness, type LivenessState } from '../../lib/kioskLiveness';
 import {
   KIOSK_VOICE_LANGUAGES,
   buildKioskPhrase,
@@ -124,11 +126,19 @@ export default function FaceClockPage() {
   const runFaceKiosk = async (payload: {
     faceDescriptor: number[];
     action?: 'clock-in' | 'clock-out' | 'break-in' | 'break-out';
+    scanNonce?: string;
   }): Promise<Awaited<ReturnType<typeof api.faceKioskClock>>> => {
+    let token = kioskSessionRef.current.token;
+    if (!token || Date.now() >= kioskSessionRef.current.expiresAt - 30000) {
+      const fresh = await api.getKioskSession();
+      kioskSessionRef.current = fresh;
+      token = fresh.token;
+    }
+    const body = { ...payload, kioskSessionToken: token };
     const activeSocket = socketRef.current;
     if (activeSocket && connectedRef.current) {
       try {
-        const res = await activeSocket.timeout(3500).emitWithAck('face_kiosk_clock', payload);
+        const res = await activeSocket.timeout(3500).emitWithAck('face_kiosk_clock', body);
         if (res?.ok && res.data) {
           return res.data;
         }
@@ -141,7 +151,7 @@ export default function FaceClockPage() {
         }
       }
     }
-    return api.faceKioskClock(payload);
+    return api.faceKioskClock(body);
   };
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
@@ -149,11 +159,11 @@ export default function FaceClockPage() {
   const wakeLockRef = useRef<any>(null);
   const missedRef = useRef(0);
   const lastFaceRef = useRef<number[] | null>(null);
-  const liveTrackRef = useRef<{ count: number; descriptor: number[] | null; box: { x: number; y: number; width: number; height: number } | null }>({
-    count: 0,
-    descriptor: null,
-    box: null,
-  });
+  const livenessRef = useRef<LivenessState>(initialLivenessState());
+  const avgScanMsRef = useRef(80);
+  const padReadyRef = useRef(false);
+  const padErrorRef = useRef<string | null>(null);
+  const kioskSessionRef = useRef<{ token: string; expiresAt: number }>({ token: '', expiresAt: 0 });
   const holdRef = useRef(false);
   const holdUntilRef = useRef(0);
   const checkingRef = useRef(false);
@@ -392,6 +402,26 @@ export default function FaceClockPage() {
               ? `Your ${planName} plan has expired. Please upgrade to continue using Face Clock Kiosk.`
               : 'Face Clock Kiosk is a Premium feature. Please purchase a plan to continue.';
         setPremiumState({ loading: false, premium: hasFaceClock, message: msg });
+        if (hasFaceClock) {
+          void api.getKioskSession()
+            .then((sess) => {
+              if (!cancelled) kioskSessionRef.current = sess;
+            })
+            .catch(() => undefined);
+          void Promise.all([prepareFaceModels(), preparePadModel()])
+            .then(() => {
+              if (!cancelled) {
+                padReadyRef.current = true;
+                padErrorRef.current = null;
+              }
+            })
+            .catch((err: unknown) => {
+              if (!cancelled) {
+                padReadyRef.current = false;
+                padErrorRef.current = err instanceof Error ? err.message : 'Anti-spoof PAD model failed to load.';
+              }
+            });
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -472,36 +502,71 @@ export default function FaceClockPage() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
-  // Update camera dependencies so it restarts when premium becomes active
+    // Update camera dependencies so it restarts when premium becomes active
   }, [ready, isAuthenticated, user?.role, facingMode, cameraRetryTick, premiumState.premium]);
 
   useEffect(() => {
     if (!cameraReady) return;
     let timer = 0;
     let stopped = false;
+    let inFlight = false;
+    let lastStatus = '';
+    const updateStatus = (next: string) => {
+      if (lastStatus === next) return;
+      lastStatus = next;
+      setStatus(next);
+    };
+
     const tick = async () => {
       const video = videoRef.current;
-      if (!video || stopped) return;
+      if (!video || stopped || inFlight) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (pendingChoiceRef.current || checkingRef.current) return;
-      const needDescriptor = holdRef.current || !liveTrackRef.current.descriptor;
+      inFlight = true;
+      const t0 = performance.now();
+      if (!padReadyRef.current) {
+        if (padErrorRef.current) {
+          inFlight = false;
+          updateStatus('Anti-spoof model failed to load. Attendance blocked.');
+          return;
+        }
+        try {
+          await preparePadModel();
+          padReadyRef.current = true;
+          padErrorRef.current = null;
+        } catch (err: unknown) {
+          padReadyRef.current = false;
+          padErrorRef.current = err instanceof Error ? err.message : 'PAD model load failed.';
+          inFlight = false;
+          updateStatus('Anti-spoof model failed to load. Attendance blocked.');
+          return;
+        }
+      }
+
+      const needDescriptor = holdRef.current;
       let live: Awaited<ReturnType<typeof scanKioskFace>> = null;
       try {
         live = await scanKioskFace(video, needDescriptor);
       } catch {
+        inFlight = false;
         return;
       }
+      const scanMs = performance.now() - t0;
+      avgScanMsRef.current = avgScanMsRef.current * 0.7 + scanMs * 0.3;
+      inFlight = false;
       if (stopped) return;
+
       paintScan(overlayRef.current, video, live, scanToneRef.current);
       if (!live) {
         missedRef.current += 1;
         if (missedRef.current >= 6) {
           lastFaceRef.current = null;
-          liveTrackRef.current = { count: 0, descriptor: null, box: null };
+          livenessRef.current = initialLivenessState();
           holdRef.current = false;
           holdUntilRef.current = 0;
           differRef.current = 0;
           scanToneRef.current = 'ok';
-          setStatus('Look at the camera.');
+          updateStatus('Look at the camera.');
         }
         return;
       }
@@ -522,52 +587,67 @@ export default function FaceClockPage() {
         scanToneRef.current = 'ok';
       }
 
-      // Passive real-face quality & stability check (fast scan, rejects flat/glare photos)
-      const minFaceW = Math.max(60, video.videoWidth * 0.16);
-      if (!live.textureOk) {
-        liveTrackRef.current = { count: 0, descriptor: null, box: null };
-        setStatus('Live face required. Please try again.');
+      const quality = evaluatePassiveFrame(live.liveness, video.videoWidth);
+      if (!quality.qualityOk) {
+        livenessRef.current = initialLivenessState();
+        updateStatus(quality.prompt || 'Look at the camera.');
+        return;
+      }
+
+      // Dedicated MiniFASNetV2 PAD inference (runs only on quality-approved face)
+      const pad = await evaluateFacePad(video, live.box);
+      if (stopped) return;
+      if (pad.verdict === 'busy') return;
+
+      const nextLiv = stepLiveness(
+        livenessRef.current,
+        live.liveness,
+        descriptor,
+        video.videoWidth,
+        pad,
+      );
+      livenessRef.current = nextLiv.state;
+
+      if (nextLiv.failedSpoof) {
+        updateStatus(nextLiv.prompt);
         setResult({
           tone: 'error',
           title: 'Face is not match',
-          detail: 'Photo or screen glare detected. Please try again.',
+          detail: pad.verdict === 'error'
+            ? 'Anti-spoof model unavailable. Please retry.'
+            : 'Spoof or photo attack detected. Please try again.',
           speech: { kind: 'not-matched' },
         });
         return;
       }
-      if (live.score < 0.54 || live.box.width < minFaceW) {
-        liveTrackRef.current = { count: 0, descriptor: null, box: null };
-        setStatus(live.box.width < minFaceW ? 'Move closer to the camera.' : 'Look clearly at the camera.');
+
+      if (!nextLiv.passed) {
+        updateStatus(nextLiv.prompt);
         return;
       }
 
-      const prevBox = liveTrackRef.current.box;
-      if (prevBox) {
-        const shift = Math.hypot(
-          live.box.x + live.box.width / 2 - (prevBox.x + prevBox.width / 2),
-          live.box.y + live.box.height / 2 - (prevBox.y + prevBox.height / 2),
-        );
-        if (shift > Math.max(live.box.width, 1) * 0.25) {
-          liveTrackRef.current = { count: 1, descriptor: descriptor ?? liveTrackRef.current.descriptor, box: live.box };
-          setStatus('Hold still for a moment…');
-          return;
+      // PAD passed -> now compute Full 68-point face descriptor for identity matching
+      livenessRef.current = initialLivenessState();
+      checkingRef.current = true;
+      updateStatus('Checking this face…');
+      let matchDescriptor = descriptor;
+      if (!matchDescriptor) {
+        try {
+          const finalScan = await scanKioskFace(video, true);
+          matchDescriptor = finalScan?.descriptor ?? null;
+        } catch {
+          matchDescriptor = null;
         }
       }
-
-      const nextCount = liveTrackRef.current.count + 1;
-      const trackedDescriptor = liveTrackRef.current.descriptor || descriptor;
-      liveTrackRef.current = { count: nextCount, descriptor: trackedDescriptor, box: live.box };
-      if (nextCount < 2 || !trackedDescriptor) {
-        setStatus('Scanning face…');
+      if (!matchDescriptor) {
+        checkingRef.current = false;
+        updateStatus('Look clearly at the camera.');
         return;
       }
-
-      liveTrackRef.current = { count: 0, descriptor: null, box: null };
-      checkingRef.current = true;
-      setStatus('Checking this face…');
-      const matchDescriptor = trackedDescriptor;
+      const scanNonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       void runFaceKiosk({
         faceDescriptor: matchDescriptor,
+        scanNonce,
       }).then((saved) => {
         checkingRef.current = false;
         if (stopped) return;
@@ -659,18 +739,35 @@ export default function FaceClockPage() {
         lastFaceRef.current = null;
         holdRef.current = false;
         holdUntilRef.current = 0;
-        liveTrackRef.current = { count: 0, descriptor: null, box: null };
-        setStatus('Look at the camera.');
+        livenessRef.current = initialLivenessState();
+        updateStatus('Look at the camera.');
       });
+    };
+    const nextDelay = () => {
+      if (missedRef.current >= 3) return 220;
+      const avg = avgScanMsRef.current;
+      return avg < 80 ? 15 : Math.min(70, Math.max(25, Math.round(avg * 0.4)));
     };
     const loop = async () => {
       if (stopped) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        timer = window.setTimeout(loop, 500);
+        return;
+      }
       await tick();
-      if (!stopped) timer = window.setTimeout(loop, 10);
+      if (!stopped) timer = window.setTimeout(loop, nextDelay());
     };
+    const onVisibility = () => {
+      if (!stopped && document.visibilityState === 'visible') {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(loop, 80);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     void loop();
     return () => {
       stopped = true;
+      document.removeEventListener('visibilitychange', onVisibility);
       window.clearTimeout(timer);
     };
   }, [cameraReady]);
@@ -689,7 +786,7 @@ export default function FaceClockPage() {
       lastFaceRef.current = pendingChoice.descriptor;
       holdRef.current = true;
       holdUntilRef.current = Date.now() + 5000;
-      liveTrackRef.current = { count: 0, descriptor: null, box: null };
+      livenessRef.current = initialLivenessState();
       setPendingChoice(null);
       if (action === 'break-in') {
         scanToneRef.current = 'warn';
@@ -1177,11 +1274,10 @@ export default function FaceClockPage() {
                     key={item.code}
                     type="button"
                     onClick={() => setVoiceLang(item.code)}
-                    className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${
-                      voiceLang === item.code
-                        ? 'bg-emerald-600/20 border-emerald-400 text-white'
-                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
-                    }`}
+                    className={`px-3 py-2 rounded-xl border text-left text-xs font-semibold transition cursor-pointer ${voiceLang === item.code
+                      ? 'bg-emerald-600/20 border-emerald-400 text-white'
+                      : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
+                      }`}
                   >
                     <div>{item.label}</div>
                     <div className="text-[10px] text-slate-400">{item.native}</div>
@@ -1198,11 +1294,10 @@ export default function FaceClockPage() {
                     key={g}
                     type="button"
                     onClick={() => setVoiceGender(g)}
-                    className={`py-2.5 rounded-xl border text-xs font-bold capitalize transition cursor-pointer ${
-                      voiceGender === g
-                        ? 'bg-emerald-600/20 border-emerald-400 text-white'
-                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
-                    }`}
+                    className={`py-2.5 rounded-xl border text-xs font-bold capitalize transition cursor-pointer ${voiceGender === g
+                      ? 'bg-emerald-600/20 border-emerald-400 text-white'
+                      : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-500'
+                      }`}
                   >
                     {g}
                   </button>

@@ -404,6 +404,15 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
 
   useModalOverlay({ isOpen, onClose });
 
+  // Sync default employee whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setStartDate(new Date().toISOString().split('T')[0]);
+      setEndDate(new Date().toISOString().split('T')[0]);
+      setError('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
