@@ -76,7 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const resigned = Boolean(user?.resigned);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [hasPremium, setHasPremium] = useState(false);
-  const [planFeatures, setPlanFeatures] = useState<string[] | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     people: true,
   });
@@ -91,7 +90,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const isPrem = Boolean(res?.premium);
         const feats = Array.isArray(res?.features) ? (res.features as string[]) : [];
         setHasPremium(isPrem && feats.includes('face_clock'));
-        setPlanFeatures(isPrem ? feats : null);
       })
       .catch(() => undefined);
     return () => {
@@ -302,18 +300,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!isModuleAllowedForUser(id, user)) {
       return null;
     }
-    const moduleFeatureMap: Record<string, string> = {
-      attendance: 'attendance',
-      leaves: 'leaves',
-      payroll: 'payroll',
-      recruitment: 'recruitment',
-      chat: 'team_chat',
-      tasks: 'tasks',
-    };
-    const requiredFeature = moduleFeatureMap[id];
-    if (requiredFeature && planFeatures && !planFeatures.includes(requiredFeature)) {
-      return null;
-    }
 
     let isActive = activeModule === id;
     if (id === 'organization') {
@@ -490,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {navItem('orders', 'Orders', <Receipt className="w-4 h-4" />)}
                 {navItem('support', 'Support Inquiries', <MessageSquare className="w-4 h-4" />)}
                 {navItem('attendance', 'Attendance', <Clock className="w-4 h-4" />)}
-                {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && hasPremium && (
+                {['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(String(user?.role || '').toUpperCase()) && (
                   effectiveCollapsed ? (
                     <button
                       type="button"
@@ -614,16 +600,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onMouseLeave={scheduleFlyoutClose}
                         aria-label="Employees"
                         className={`w-full relative flex items-center justify-center h-10 rounded-[10px] transition-all duration-200 cursor-pointer group active:scale-95 ${activeModule === 'employees' ||
-                            (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                            ? 'bg-[#1b4332] text-white shadow-xs'
-                            : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
+                          (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                          ? 'bg-[#1b4332] text-white shadow-xs'
+                          : 'text-[#495057] hover:bg-[#d8f3dc] hover:text-[#1b4332] hover:scale-105'
                           }`}
                       >
                         <span
                           className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${activeModule === 'employees' ||
-                              (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
-                              ? 'text-white'
-                              : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
+                            (activeModule === 'organization' && (activeSubTab === 'departments' || activeSubTab === 'teams'))
+                            ? 'text-white'
+                            : 'text-[#6c757d] group-hover:text-[#2d6a4f]'
                             }`}
                         >
                           <Users className="w-4 h-4" />
@@ -802,8 +788,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         handleNav(sub.id, sub.subTab);
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between ${subActive
-                          ? 'bg-[#2d6a4f] text-white font-bold'
-                          : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
+                        ? 'bg-[#2d6a4f] text-white font-bold'
+                        : 'text-slate-600 hover:bg-[#d8f3dc] hover:text-[#1b4332] font-medium'
                         }`}
                     >
                       <span>{sub.label}</span>
