@@ -23,7 +23,7 @@ function getLocalIps(): string[] {
 
 const localIps = getLocalIps();
 
-const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.104:4000').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.103:4000').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
 const backendApiUrl = backendBase.endsWith('/api') ? backendBase : `${backendBase}/api`;
 
 const nextConfig: NextConfig = {
