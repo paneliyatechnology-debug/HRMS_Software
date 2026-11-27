@@ -101,30 +101,60 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       id="mobile-bottom-nav"
       aria-label="Mobile Navigation"
+<<<<<<< HEAD
       className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-1.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around lg:hidden shadow-[0_-6px_24px_rgba(15,23,42,0.08)] select-none"
+=======
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 flex items-center justify-around lg:hidden shadow-lg pb-[calc(0.4rem+env(safe-area-inset-bottom))] select-none"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     >
       {/* 1. Home / Dashboard */}
       <button
         id="btn-mobile-nav-dashboard"
         type="button"
         onClick={() => setActiveModule('dashboard')}
+<<<<<<< HEAD
         className={navItemClass(activeModule === 'dashboard')}
       >
         <div className={iconWrapClass(activeModule === 'dashboard')}>
           <Home className="w-5 h-5 stroke-[2.1]" />
+=======
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
+          activeModule === 'dashboard'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
+        }`}
+      >
+        <div className={`p-1 rounded-lg ${activeModule === 'dashboard' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <Home className="w-5 h-5 stroke-[2]" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Home</span>
       </button>
 
+<<<<<<< HEAD
       {/* 2. Attendance */}
+=======
+      {/* 2. Attendance Tab */}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       <button
         id="btn-mobile-nav-attendance"
         type="button"
         onClick={() => setActiveModule('attendance')}
+<<<<<<< HEAD
         className={navItemClass(activeModule === 'attendance')}
       >
         <div className={iconWrapClass(activeModule === 'attendance')}>
           <Clock className="w-5 h-5 stroke-[2.1]" />
+=======
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
+          activeModule === 'attendance'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
+        }`}
+      >
+        <div className={`p-1 rounded-lg ${activeModule === 'attendance' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <Clock className="w-5 h-5 stroke-[2]" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">Attendance</span>
       </button>
@@ -136,8 +166,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             id="btn-mobile-nav-center-staff"
             type="button"
             onClick={() => setActiveModule('employees')}
+<<<<<<< HEAD
             className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#1b4332] via-[#2d6a4f] to-[#40916c] text-white flex items-center justify-center shadow-lg shadow-emerald-900/25 active:scale-95 transition-transform cursor-pointer border-4 border-white"
             title="Employees"
+=======
+            className="w-12 h-12 rounded-full bg-emerald-600 text-white flex flex-col items-center justify-center shadow-md shadow-emerald-700/30 active:scale-90 transition-transform cursor-pointer border-[3px] border-white"
+            title="Manage Employees"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           >
             <Users className="w-5 h-5" />
           </button>
@@ -146,7 +181,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             id="btn-mobile-nav-center-punch"
             type="button"
             onClick={onOpenClockModal}
+<<<<<<< HEAD
             className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#1b4332] via-[#2d6a4f] to-[#40916c] text-white flex items-center justify-center shadow-lg shadow-emerald-900/25 active:scale-95 transition-transform cursor-pointer border-4 border-white"
+=======
+            className="w-12 h-12 rounded-full bg-emerald-600 text-white flex flex-col items-center justify-center shadow-md shadow-emerald-700/30 active:scale-90 transition-transform cursor-pointer border-[3px] border-white"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             title="Attendance Punch Clock"
           >
             {punchStatus === 'working' ? (
@@ -161,6 +200,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             )}
           </button>
         )}
+<<<<<<< HEAD
         <span className="text-[10px] font-bold text-[#1b4332] tracking-tight mt-0.5 leading-none">
           {isAdminCenter
             ? 'Employees'
@@ -169,6 +209,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               : punchStatus === 'on_break'
                 ? 'On Break'
                 : 'Punch In'}
+=======
+        <span className="text-[10px] font-bold text-slate-700 tracking-tight mt-0.5">
+          {portalMode === 'admin'
+            ? 'Staff'
+            : punchStatus === 'working'
+            ? 'Out'
+            : punchStatus === 'on_break'
+            ? 'Break'
+            : 'Punch'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         </span>
       </div>
 
@@ -177,12 +227,25 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         id="btn-mobile-nav-leaves"
         type="button"
         onClick={() => setActiveModule('leaves')}
+<<<<<<< HEAD
         className={`relative ${navItemClass(activeModule === 'leaves')}`}
       >
         <div className={`relative ${iconWrapClass(activeModule === 'leaves')}`}>
           <CalendarOff className="w-5 h-5 stroke-[2.1]" />
           {portalMode === 'admin' && pendingLeavesCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
+=======
+        className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] cursor-pointer ${
+          activeModule === 'leaves'
+            ? 'text-emerald-700 font-bold'
+            : 'text-slate-500 hover:text-slate-900'
+        }`}
+      >
+        <div className={`p-1 rounded-lg relative ${activeModule === 'leaves' ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+          <CalendarOff className="w-5 h-5 stroke-[2]" />
+          {portalMode === 'admin' && pendingLeavesCount > 0 && (
+            <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               {pendingLeavesCount}
             </span>
           )}
@@ -195,12 +258,21 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         id="btn-mobile-nav-more"
         type="button"
         onClick={onOpenSidebar}
+<<<<<<< HEAD
         className={navItemClass(false)}
       >
         <div className="relative px-2.5 py-1 rounded-xl">
           <Menu className="w-5 h-5 stroke-[2.1]" />
           {unreadChatCount > 0 && (
             <span className="absolute top-0.5 right-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+=======
+        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[56px] text-slate-500 hover:text-slate-900 active:scale-95 cursor-pointer"
+      >
+        <div className="p-1 rounded-lg relative">
+          <Menu className="w-5 h-5 stroke-[2]" />
+          {unreadChatCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           )}
         </div>
         <span className="text-[10px] tracking-tight mt-0.5 leading-none">More</span>

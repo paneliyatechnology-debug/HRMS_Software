@@ -212,11 +212,60 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       >
+<<<<<<< HEAD
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Razorpay test mode</p>
             <h2 className="mt-1 text-lg font-bold text-slate-900">Choose a plan</h2>
             <p className="mt-1 text-xs text-slate-500">Pay with UPI, cards, or net banking. The plan turns on after payment is confirmed.</p>
+=======
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Header */}
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>Official Razorpay Payment Gateway (Test Mode)</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Choose Your Paneliya HRMS Plan
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">
+            Instant online activation via UPI, GPay, PhonePe, Paytm, NetBanking, and Credit/Debit Cards.
+          </p>
+
+          {/* Billing Cycle Switcher */}
+          <div className="pt-3 flex items-center justify-center">
+            <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200/80 inline-flex items-center gap-1 text-xs font-bold">
+              <button
+                onClick={() => setBillingCycle('Monthly')}
+                className={`px-4 py-1.5 rounded-xl transition cursor-pointer ${billingCycle === 'Monthly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
+              >
+                Monthly Billing
+              </button>
+              <button
+                onClick={() => setBillingCycle('Annual')}
+                className={`px-4 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${billingCycle === 'Annual'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
+              >
+                <span>Annual Billing</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-400 text-slate-900 text-[10px] font-black uppercase tracking-wider">
+                  Save 17%
+                </span>
+              </button>
+            </div>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           </div>
           <button
             type="button"
@@ -227,6 +276,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           </button>
         </div>
 
+<<<<<<< HEAD
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {plansError && (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{plansError}</p>
@@ -251,6 +301,54 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                         <Check className="h-3 w-3" />
                         Active
+=======
+        {/* Pricing Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+          {plans.map((plan) => {
+            const isCurrent = plan.id === currentSub.plan.id;
+            const price =
+              billingCycle === 'Annual'
+                ? Math.round(plan.priceAnnualINR / 12)
+                : plan.priceMonthlyINR;
+            const totalBill =
+              billingCycle === 'Annual'
+                ? plan.priceAnnualINR
+                : plan.priceMonthlyINR;
+            const isUpgradingThis = upgradingPlanId === plan.id;
+
+            return (
+              <div
+                key={plan.id}
+                className={`rounded-3xl p-6 border transition-all flex flex-col justify-between relative ${plan.isPopular
+                  ? 'border-emerald-500/80 ring-2 ring-emerald-500/20 shadow-xl bg-gradient-to-b from-emerald-50/40 via-white to-white'
+                  : isCurrent
+                    ? 'border-emerald-400/80 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/20'
+                    : 'border-slate-200/90 hover:border-slate-300 shadow-xs bg-white'
+                  }`}
+              >
+                {/* Top Badge */}
+                {plan.isPopular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs flex items-center gap-1">
+                    <Zap className="w-3 h-3 fill-current" />
+                    <span>Most Popular</span>
+                  </div>
+                )}
+
+                {isCurrent && (
+                  <div className="absolute -top-3.5 right-6 px-3 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    <span>Active Plan</span>
+                  </div>
+                )}
+
+                <div>
+                  {/* Title & Tagline */}
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-lg font-black text-slate-900">{plan.name}</h3>
+                    {plan.id === 'Enterprise' && (
+                      <span className="p-1 rounded-lg bg-purple-100 text-purple-700">
+                        <Fingerprint className="w-4 h-4" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </span>
                     )}
                   </div>
@@ -261,9 +359,20 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                     type="button"
                     disabled={isUpgradingThis || isCurrent}
                     onClick={() => handleSelectPlan(plan)}
+<<<<<<< HEAD
                     className={`mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold ${isCurrent
                       ? 'cursor-not-allowed bg-white text-slate-400 border border-slate-200'
                       : 'bg-emerald-700 text-white hover:bg-emerald-800'}`}
+=======
+                    className={`w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${isCurrent
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                      : plan.isPopular
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/25'
+                        : plan.id === 'Enterprise'
+                          ? 'bg-purple-700 hover:bg-purple-800 text-white shadow-md shadow-purple-500/25'
+                          : 'bg-slate-900 hover:bg-slate-800 text-white'
+                      }`}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   >
                     {isUpgradingThis ? (
                       'Opening Razorpay...'

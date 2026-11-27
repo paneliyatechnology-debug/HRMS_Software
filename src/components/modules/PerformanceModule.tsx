@@ -109,18 +109,26 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   return (
-    <div className="space-y-5 w-full animate-in fade-in select-none">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
-            {cycles[0]?.title || 'Q3-Q4 2026 Cycle'}
-          </span>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              Performance Management & OKRs
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
+              {cycles[0]?.title || 'Q3-Q4 2026 Cycle'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Goal tracking, quarterly appraisal cycles, self-assessment ratings, and manager 360-degree feedback
+          </p>
         </div>
 
         {cycles.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-2xs">
-            <Calendar className="w-4 h-4 text-blue-600" />
+            <Calendar className="w-4 h-4 text-emerald-600" />
             <span className="font-semibold text-slate-800">Review Window:</span>
             <span>{cycles[0]?.startDate} → {cycles[0]?.endDate}</span>
           </div>
@@ -153,7 +161,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">Manager: {rev.managerName || '—'}</p>
                   </div>
-                  <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold text-xs border border-amber-200">
+                  <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-600 font-black text-xs">
                     <Star className="w-3.5 h-3.5 fill-current" />
                     <span>{rev.finalRating ? `${rev.finalRating} / 5.0` : rev.managerRating ? `${rev.managerRating} / 5.0` : 'Not Rated'}</span>
                   </div>
@@ -169,11 +177,11 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                       <div key={idx} className="space-y-1 text-xs">
                         <div className="flex items-center justify-between font-semibold">
                           <span className="text-slate-700">{g.title}</span>
-                          <span className="text-blue-600 font-bold">{g.progress}%</span>
+                          <span className="text-emerald-700 font-bold">{g.progress}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                           <div
-                            className="h-full bg-blue-600 rounded-full transition-all"
+                            className="h-full bg-emerald-600 rounded-full transition-all"
                             style={{ width: `${g.progress}%` }}
                           />
                         </div>
@@ -221,7 +229,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                     setManagerFeedback(rev.managerFeedback || '');
                     setAppraisalReco(rev.appraisalRecommended || '');
                   }}
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Star className="w-3.5 h-3.5" />
                   <span>Rate & Appraise</span>
@@ -258,12 +266,17 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               </div>
               <button
                 onClick={() => setRatingModalReview(null)}
+<<<<<<< HEAD
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+=======
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+<<<<<<< HEAD
             <form onSubmit={handleRateSubmit} className="flex flex-col flex-1 min-h-0">
               <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm flex-1">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80">
@@ -288,6 +301,30 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                       Self Appraisal
                     </button>
                   </div>
+=======
+            <form onSubmit={handleRateSubmit} className="mt-4 space-y-3.5 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="font-semibold text-slate-700">Submitting Evaluation As:</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setRateRole('MANAGER')}
+                    className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                      rateRole === 'MANAGER' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
+                    }`}
+                  >
+                    Manager Feedback
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRateRole('EMPLOYEE')}
+                    className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                      rateRole === 'EMPLOYEE' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
+                    }`}
+                  >
+                    Self Appraisal
+                  </button>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </div>
 
                 {rateRole === 'MANAGER' ? (
@@ -362,7 +399,82 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 )}
               </div>
 
+<<<<<<< HEAD
               <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
+=======
+              {rateRole === 'MANAGER' ? (
+                <>
+                  <div>
+                    <div className="flex justify-between font-semibold mb-1 text-slate-700">
+                      <span>Manager Rating Score (1.0 - 5.0):</span>
+                      <span className="font-black text-amber-600 text-sm">{managerScore} / 5.0</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={0.1}
+                      value={managerScore}
+                      onChange={(e) => setManagerScore(Number(e.target.value))}
+                      className="w-full accent-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Qualitative Manager Feedback</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Feedback on key deliverables, technical leadership, and team collaboration..."
+                      value={managerFeedback}
+                      onChange={(e) => setManagerFeedback(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Appraisal & Promotion Recommendation</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Promotion to Lead Software Engineer + 15% merit increment"
+                      value={appraisalReco}
+                      onChange={(e) => setAppraisalReco(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div className="flex justify-between font-semibold mb-1 text-slate-700">
+                      <span>Self-Assessment Score (1.0 - 5.0):</span>
+                      <span className="font-black text-emerald-700 text-sm">{selfScore} / 5.0</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={0.1}
+                      value={selfScore}
+                      onChange={(e) => setSelfScore(Number(e.target.value))}
+                      className="w-full accent-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Self-Assessment Remarks</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Summarize your major achievements, sprint milestones, and personal development goals..."
+                      value={selfComments}
+                      onChange={(e) => setSelfComments(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <button
                   type="button"
                   onClick={() => setRatingModalReview(null)}
@@ -372,7 +484,11 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 </button>
                 <button
                   type="submit"
+<<<<<<< HEAD
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+=======
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-600/20 cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Submit Rating
                 </button>

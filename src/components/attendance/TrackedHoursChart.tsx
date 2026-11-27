@@ -262,25 +262,25 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
 
   return (
     <div
-      className={`bg-white rounded-3xl border border-[#e9ecef] p-5 sm:p-7 shadow-xs relative select-none overflow-hidden ${className}`}
+      className={`bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-xs relative select-none overflow-hidden ${className}`}
     >
       {/* Top Header: Title, Target Badge, Week Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#f8f9fa]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] flex items-center justify-center text-white shadow-2xs">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-2xs">
               <Award className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black text-[#212529] tracking-tight">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                   Activity Goal Rings
                 </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#343a40] bg-[#f8f9fa] border border-[#dee2e6] px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                   9h Daily Shift Goal
                 </span>
               </div>
-              <p className="text-xs text-[#343a40] mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Apple-style activity rings tracking your shift completion & attendance
               </p>
             </div>
@@ -288,27 +288,28 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
         </div>
 
         {/* Week Switcher */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#f8f9fa] border border-[#e9ecef] px-3 py-1.5 rounded-2xl text-xs">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-2xl text-xs">
           <button
             onClick={() => setWeekOffset((prev) => prev - 1)}
-            className="p-1 text-[#6c757d] hover:bg-white rounded-lg transition-colors cursor-pointer"
+            className="p-1 text-emerald-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
             title="Previous Week"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="font-extrabold text-[#212529] px-2 whitespace-nowrap">
+          <span className="font-extrabold text-slate-900 px-2 whitespace-nowrap">
             {weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : `${Math.abs(weekOffset)}w Ago`}{' '}
-            <span className="text-[#343a40] font-normal text-[11px] hidden sm:inline">
+            <span className="text-slate-500 font-normal text-[11px] hidden sm:inline">
               ({weekRangeLabel})
             </span>
           </span>
           <button
             onClick={() => setWeekOffset((prev) => Math.min(0, prev + 1))}
             disabled={weekOffset === 0}
-            className={`p-1 rounded-lg transition-colors ${weekOffset === 0
-              ? 'opacity-30 cursor-not-allowed text-[#343a40]'
-              : 'text-[#6c757d] hover:bg-white cursor-pointer'
-              }`}
+            className={`p-1 rounded-lg transition-colors ${
+              weekOffset === 0
+                ? 'opacity-30 cursor-not-allowed text-slate-400'
+                : 'text-emerald-600 hover:bg-white cursor-pointer'
+            }`}
             title="Next Week"
           >
             <ChevronRight className="w-4 h-4" />
@@ -319,64 +320,64 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
       {/* 4 Metric Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 my-5">
         {/* Card 1: Weekly Work Total */}
-        <div className="p-3.5 rounded-2xl bg-[#f8f9fa] border border-[#e9ecef] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] text-white flex items-center justify-center shrink-0 shadow-2xs">
+        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
             <Clock className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Weekly Total</p>
-            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Weekly Total</p>
+            <p className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
               {formatHMS(totalWorkedSeconds)}
             </p>
-            <p className="text-[10px] text-[#6c757d] font-semibold truncate mt-0.5">
+            <p className="text-[10px] text-emerald-700 font-bold truncate mt-0.5">
               {weeklyPercent}% of {WEEKLY_TARGET_HOURS}h goal
             </p>
           </div>
         </div>
 
         {/* Card 2: Shift Target */}
-        <div className="p-3.5 rounded-2xl bg-[#f8f9fa] border border-[#e9ecef] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] text-[#6c757d] flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
             <Target className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Remaining</p>
-            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Remaining</p>
+            <p className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
               {formatHMS(remainingSeconds)}
             </p>
-            <p className="text-[10px] text-[#343a40] font-semibold truncate mt-0.5">
+            <p className="text-[10px] text-slate-500 font-semibold truncate mt-0.5">
               to meet 45h target
             </p>
           </div>
         </div>
 
         {/* Card 3: Daily Average */}
-        <div className="p-3.5 rounded-2xl bg-[#f8f9fa] border border-[#e9ecef] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] text-[#6c757d] flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Daily Pace</p>
-            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#212529] font-mono leading-tight">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Daily Pace</p>
+            <p className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
               {formatHoursDecimal(totalWorkedSeconds / 5)} / day
             </p>
-            <p className="text-[10px] text-[#6c757d] font-semibold truncate mt-0.5">
+            <p className="text-[10px] text-emerald-700 font-semibold truncate mt-0.5">
               9.0h Standard
             </p>
           </div>
         </div>
 
         {/* Card 4: Healthy Breaks */}
-        <div className="p-3.5 rounded-2xl bg-[#f8f9fa] border border-[#f8f9fa] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#f8f9fa] text-[#6c757d] flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-2xl bg-[#fffbeb] border border-[#fef3c7] flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#fef3c7] text-[#d97706] flex items-center justify-center shrink-0">
             <Coffee className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#343a40]">Breaks Logged</p>
-            <p className="text-base sm:text-lg font-semibold tracking-tight text-[#343a40] font-mono leading-tight">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#92400e]">Breaks Logged</p>
+            <p className="text-base sm:text-lg font-black text-[#78350f] font-mono leading-tight">
               {formatHMS(totalBreakSeconds)}
             </p>
-            <p className="text-[10px] text-[#343a40] font-semibold truncate mt-0.5">
+            <p className="text-[10px] text-[#b45309] font-semibold truncate mt-0.5">
               Proper rest intervals
             </p>
           </div>
@@ -384,25 +385,25 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
       </div>
 
       {/* Master Apple Watch Concentric Rings Banner */}
-      <div className="my-5 bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-3xl p-5 sm:p-6 text-white border border-[#343a40] shadow-md relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="my-5 bg-gradient-to-br from-[#062d1f] via-[#083b28] to-[#041d14] rounded-3xl p-5 sm:p-6 text-white border border-[#0d4a34] shadow-md relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Ambient Glow */}
-        <div className="absolute top-0 right-0 w-48 h-48 bg-[#adb5bd]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-[#10b981]/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Left: Triple Concentric SVG Activity Rings */}
         <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
             <defs>
               <linearGradient id="ringWorkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ced4da" />
-                <stop offset="100%" stopColor="#6c757d" />
+                <stop offset="0%" stopColor="#34d399" />
+                <stop offset="100%" stopColor="#059669" />
               </linearGradient>
               <linearGradient id="ringBreakGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ced4da" />
-                <stop offset="100%" stopColor="#6c757d" />
+                <stop offset="0%" stopColor="#fbbf24" />
+                <stop offset="100%" stopColor="#d97706" />
               </linearGradient>
               <linearGradient id="ringOvertimeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ced4da" />
-                <stop offset="100%" stopColor="#6c757d" />
+                <stop offset="0%" stopColor="#38bdf8" />
+                <stop offset="100%" stopColor="#0284c7" />
               </linearGradient>
             </defs>
 
@@ -475,10 +476,10 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
 
           {/* Center Label inside rings */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-semibold tracking-tight font-mono text-white leading-none">
+            <span className="text-2xl font-black font-mono text-white tracking-tight leading-none">
               {weeklyPercent}%
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#dee2e6] mt-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#a7f3d0] mt-1">
               Completed
             </span>
           </div>
@@ -486,17 +487,17 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
 
         {/* Center / Right: Progress details and Breakdown */}
         <div className="flex-1 space-y-4 w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#343a40] pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#0d4a34] pb-3">
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#dee2e6]">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#a7f3d0]">
                 Weekly Target Summary
               </span>
-              <h4 className="text-xl sm:text-2xl font-semibold tracking-tight text-white font-mono mt-0.5">
+              <h4 className="text-xl sm:text-2xl font-black text-white font-mono mt-0.5">
                 {formatHMS(totalWorkedSeconds)} <span className="text-sm font-sans font-normal text-slate-300">of {WEEKLY_TARGET_HOURS}h Standard</span>
               </h4>
             </div>
-            <div className="self-start sm:self-auto px-3 py-1 rounded-full bg-[#adb5bd]/20 border border-[#adb5bd]/40 text-[#dee2e6] text-xs font-bold font-mono inline-flex items-center gap-1">
-              {remainingSeconds > 0 ? `${formatHMS(remainingSeconds)} remaining` : <><Check className="w-3.5 h-3.5" /> Goal Met</>}
+            <div className="self-start sm:self-auto px-3 py-1 rounded-full bg-[#10b981]/20 border border-[#10b981]/40 text-[#a7f3d0] text-xs font-bold font-mono">
+              {remainingSeconds > 0 ? `${formatHMS(remainingSeconds)} remaining` : '✓ Goal Met!'}
             </div>
           </div>
 
@@ -504,28 +505,28 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#adb5bd]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                 <span className="text-xs font-bold text-slate-200">Work Hours</span>
               </div>
-              <p className="text-base font-semibold tracking-tight text-white font-mono">{formatHMS(totalWorkedSeconds)}</p>
-              <p className="text-[10px] text-[#dee2e6] mt-0.5">{weeklyPercent}% of 45h goal</p>
+              <p className="text-base font-black text-white font-mono">{formatHMS(totalWorkedSeconds)}</p>
+              <p className="text-[10px] text-[#6ee7b7] mt-0.5">{weeklyPercent}% of 45h goal</p>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#adb5bd]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
                 <span className="text-xs font-bold text-amber-200">Breaks</span>
               </div>
-              <p className="text-base font-semibold tracking-tight text-amber-300 font-mono">{formatHMS(totalBreakSeconds)}</p>
+              <p className="text-base font-black text-amber-300 font-mono">{formatHMS(totalBreakSeconds)}</p>
               <p className="text-[10px] text-amber-300/80 mt-0.5">Compliant with policy</p>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#ced4da]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
                 <span className="text-xs font-bold text-sky-200">Overtime</span>
               </div>
-              <p className="text-base font-semibold tracking-tight text-sky-300 font-mono">{formatHMS(totalOvertimeSeconds)}</p>
+              <p className="text-base font-black text-sky-300 font-mono">{formatHMS(totalOvertimeSeconds)}</p>
               <p className="text-[10px] text-sky-300/80 mt-0.5">Standard shift hours</p>
             </div>
           </div>
@@ -533,17 +534,17 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
       </div>
 
       {/* ═══ 7-DAY CIRCULAR ACTIVITY RINGS (Apple Watch Style) ═══ */}
-      <div className="mt-6 pt-5 border-t border-[#e9ecef]">
+      <div className="mt-6 pt-5 border-t border-slate-100">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="text-sm font-black text-[#212529]">
+            <h4 className="text-sm font-bold text-slate-900">
               Daily Shift Completion Rings (Mon – Sun)
             </h4>
-            <p className="text-xs text-[#343a40]">
-              Tap any day's ring to inspect exact clock-in, clock-out, and break timestamps
+            <p className="text-xs text-slate-500">
+              Tap any day's ring to inspect exact check-in, check-out, and break timestamps
             </p>
           </div>
-          <span className="text-[11px] font-semibold text-[#6c757d] hidden sm:inline">
+          <span className="text-[11px] font-semibold text-emerald-700 hidden sm:inline">
             ● Full Circle = 9.0h Shift Met
           </span>
         </div>
@@ -563,24 +564,26 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
               <div
                 key={idx}
                 onClick={() => setSelectedDayIdx(idx)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-between gap-3 text-center group ${isSelected
-                  ? 'bg-[#f8f9fa] border-[#adb5bd] shadow-sm ring-2 ring-[#adb5bd]/30 -translate-y-0.5'
-                  : 'bg-[#f8f9fa] border-[#e9ecef] hover:border-[#dee2e6] hover:bg-white hover:shadow-2xs'
-                  }`}
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col items-center justify-between gap-3 text-center group ${
+                  isSelected
+                    ? 'bg-emerald-50/50 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20 -translate-y-0.5'
+                    : 'bg-white border-slate-200/80 hover:border-emerald-300 hover:bg-slate-50/50 hover:shadow-2xs'
+                }`}
               >
                 {/* Day Header Badge */}
                 <div className="w-full flex items-center justify-between">
                   <span
-                    className={`text-xs font-black px-2 py-0.5 rounded-full ${day.isToday
-                      ? 'bg-[#6c757d] text-white shadow-2xs'
-                      : isSelected
-                        ? 'text-[#6c757d] bg-white border border-[#dee2e6]'
-                        : 'text-[#212529]'
-                      }`}
+                    className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                      day.isToday
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : isSelected
+                        ? 'text-emerald-700 bg-white border border-emerald-200'
+                        : 'text-slate-900'
+                    }`}
                   >
                     {day.shortDay}
                   </span>
-                  <span className="text-[10px] font-semibold text-[#343a40]">
+                  <span className="text-[10px] font-semibold text-slate-500">
                     {day.dayMonth}
                   </span>
                 </div>
@@ -593,7 +596,7 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                       cx="38"
                       cy="38"
                       r={dayRadius}
-                      stroke={day.isToday ? 'rgba(16, 185, 129, 0.25)' : '#e9ecef'}
+                      stroke={day.isToday ? 'rgba(5, 150, 105, 0.2)' : '#f1f5f9'}
                       strokeWidth="7"
                       fill="none"
                     />
@@ -606,10 +609,10 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                         r={dayRadius}
                         stroke={
                           meetsGoal
-                            ? '#6c757d'
+                            ? '#059669'
                             : day.isToday
-                              ? '#adb5bd'
-                              : '#adb5bd'
+                            ? '#10b981'
+                            : '#059669'
                         }
                         strokeWidth="7"
                         strokeDasharray={dayCircumference}
@@ -624,20 +627,20 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                   {/* Ring Center Content */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     {meetsGoal ? (
-                      <div className="w-6 h-6 rounded-full bg-[#adb5bd] text-white flex items-center justify-center shadow-2xs">
+                      <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
                         <Check className="w-4 h-4 stroke-[3]" />
                       </div>
                     ) : day.workedSeconds > 0 ? (
                       <>
-                        <span className="text-xs font-black font-mono text-[#212529]">
+                        <span className="text-xs font-black font-mono text-slate-900">
                           {formatHoursDecimal(day.workedSeconds)}
                         </span>
-                        <span className="text-[9px] font-bold text-[#6c757d]">
+                        <span className="text-[9px] font-bold text-emerald-700">
                           {day.goalPercent}%
                         </span>
                       </>
                     ) : day.isToday ? (
-                      <span className="text-[9px] font-black uppercase text-[#6c757d] animate-pulse">
+                      <span className="text-[9px] font-black uppercase text-emerald-700 animate-pulse">
                         Today
                       </span>
                     ) : day.isWeekend ? (
@@ -655,15 +658,15 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
                 {/* Bottom Status Tag */}
                 <div className="w-full">
                   {meetsGoal ? (
-                    <span className="inline-flex items-center justify-center gap-1 w-full text-[10px] font-extrabold text-[#343a40] bg-[#f8f9fa] border border-[#dee2e6] rounded-lg py-0.5 truncate">
-                      <Check className="w-2.5 h-2.5 shrink-0" /> 9h Goal Met
+                    <span className="block text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg py-0.5 truncate">
+                      ✓ 9h Goal Met
                     </span>
                   ) : day.workedSeconds > 0 ? (
-                    <span className="block text-[10px] font-bold text-[#6c757d] bg-white border border-[#e9ecef] rounded-lg py-0.5 truncate">
+                    <span className="block text-[10px] font-bold text-emerald-700 bg-white border border-slate-200 rounded-lg py-0.5 truncate">
                       {formatHoursDecimal(day.workedSeconds)} logged
                     </span>
                   ) : day.isToday ? (
-                    <span className="block text-[10px] font-bold text-white bg-[#6c757d] rounded-lg py-0.5 truncate">
+                    <span className="block text-[10px] font-bold text-white bg-emerald-600 rounded-lg py-0.5 truncate">
                       ● Active Shift
                     </span>
                   ) : day.isWeekend ? (
@@ -683,63 +686,63 @@ export const TrackedHoursChart: React.FC<TrackedHoursChartProps> = ({
       </div>
 
       {/* Selected Day Inspector Banner */}
-      <div className="mt-5 p-4 rounded-2xl bg-[#f8f9fa] border border-[#e9ecef] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#adb5bd] to-[#6c757d] text-white flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
             {selectedDay.shortDay}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-black text-[#212529]">
+              <h4 className="text-sm font-bold text-slate-900">
                 {selectedDay.fullDayName}, {selectedDay.formattedDate}
               </h4>
               {selectedDay.isToday && (
-                <span className="text-[9px] font-extrabold uppercase bg-[#6c757d] text-white px-2 py-0.5 rounded-full">
+                <span className="text-[9px] font-extrabold uppercase bg-emerald-600 text-white px-2 py-0.5 rounded-full">
                   Today
                 </span>
               )}
               {selectedDay.workedSeconds >= DAILY_TARGET_SECONDS && (
-                <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase bg-[#f8f9fa] text-[#343a40] border border-[#dee2e6] px-2 py-0.5 rounded-full">
-                  <Check className="w-2.5 h-2.5 shrink-0" /> 9.0h Goal Completed
+                <span className="text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  ✓ 9.0h Goal Completed
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#343a40] mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               {selectedDay.checkIn
                 ? `Shift Punches: In at ${selectedDay.checkIn} ${selectedDay.checkOut ? `• Out at ${selectedDay.checkOut}` : '• Ongoing active shift'}`
                 : selectedDay.isWeekend
-                  ? 'Scheduled weekend rest day'
-                  : 'No attendance punch logged for this date'}
+                ? 'Scheduled weekend rest day'
+                : 'No attendance punch logged for this date'}
             </p>
           </div>
         </div>
 
         {/* Selected Day Figures */}
-        <div className="flex items-center gap-4 text-xs font-mono self-end sm:self-auto bg-white px-3.5 py-2 rounded-xl border border-[#e9ecef]">
+        <div className="flex items-center gap-4 text-xs font-mono self-end sm:self-auto bg-white px-3.5 py-2 rounded-xl border border-slate-200/80">
           <div>
-            <span className="text-[9px] text-[#343a40] block uppercase font-sans font-bold">Work Time</span>
-            <span className="font-black text-[#212529] text-sm sm:text-base">
+            <span className="text-[9px] text-slate-500 block uppercase font-sans font-bold">Work Time</span>
+            <span className="font-black text-slate-900 text-sm sm:text-base">
               {formatHMS(selectedDay.workedSeconds)}
             </span>
           </div>
-          <div className="h-6 w-px bg-[#e9ecef]" />
+          <div className="h-6 w-px bg-slate-200" />
           <div>
-            <span className="text-[9px] text-[#343a40] block uppercase font-sans font-bold">Break Time</span>
-            <span className="font-bold text-[#6c757d] text-sm sm:text-base">
+            <span className="text-[9px] text-slate-500 block uppercase font-sans font-bold">Break Time</span>
+            <span className="font-bold text-amber-600 text-sm sm:text-base">
               {formatHMS(selectedDay.breakSeconds)}
             </span>
           </div>
-          <div className="h-6 w-px bg-[#e9ecef]" />
+          <div className="h-6 w-px bg-slate-200" />
           <div>
-            <span className="text-[9px] text-[#343a40] block uppercase font-sans font-bold">Shift Goal</span>
-            <span className="font-bold text-[#6c757d] text-xs font-sans">
+            <span className="text-[9px] text-slate-500 block uppercase font-sans font-bold">Shift Goal</span>
+            <span className="font-bold text-emerald-700 text-xs font-sans">
               {selectedDay.workedSeconds >= DAILY_TARGET_SECONDS
                 ? '100% (Completed)'
                 : selectedDay.workedSeconds > 0
-                  ? `${selectedDay.goalPercent}% of 9.0h`
-                  : selectedDay.isWeekend
-                    ? 'Off'
-                    : 'Pending'}
+                ? `${selectedDay.goalPercent}% of 9.0h`
+                : selectedDay.isWeekend
+                ? 'Off'
+                : 'Pending'}
             </span>
           </div>
         </div>

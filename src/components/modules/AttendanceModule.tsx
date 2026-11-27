@@ -35,8 +35,11 @@ import {
   Square,
   RotateCcw,
   Loader2,
+<<<<<<< HEAD
   ArrowRight,
   ScanFace,
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -76,8 +79,11 @@ import { useWorkSession } from '../../context/WorkSessionContext';
 import { TrackedHoursChart } from '../attendance/TrackedHoursChart';
 import { ModernDigitClock } from '../common/ModernDigitClock';
 import { DailyShiftConsole } from '../common/DailyShiftConsole';
+<<<<<<< HEAD
 import { isDateWeekend, getWorkScheduleConfig } from '../../lib/shiftScheduleService';
 import { canUserPunch } from '../../lib/rolePermissions';
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
 interface AttendanceModuleProps {
   records: AttendanceRecord[];
@@ -100,6 +106,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
+<<<<<<< HEAD
   const {
     status: sessionWorkStatus,
     todaySummary,
@@ -113,6 +120,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     punches: sessionPunches,
     attendanceLogic: sessionAttendanceLogic,
   } = useWorkSession();
+=======
+  const { todaySummary, liveBreakWords: sessionBreakWords, activeSession, lastCompletedSession } = useWorkSession();
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   // Strict role check: If role is not an admin, user MUST be in employee self-service view
   const rawRole = (user?.role || '').trim().toUpperCase();
   const userIsAdminRole =
@@ -547,11 +557,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
   // Dedicated state for authoritative work status response (/api/attendance/work/status)
   const [workStatusData, setWorkStatusData] = useState<any>(null);
+<<<<<<< HEAD
   const [attendanceSummaryData, setAttendanceSummaryData] = useState<any | null>(null);
   const [attendanceCalendarData, setAttendanceCalendarData] = useState<any | null>(null);
   const [historySessions, setHistorySessions] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const isFetchingWorkStatusRef = React.useRef(false);
 
   const fetchAttendanceSummaryAndCalendar = useCallback(async () => {
@@ -582,6 +595,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   }, []);
 
+<<<<<<< HEAD
   const loadWorkHistory = useCallback(async () => {
     if (!isEmployeeView) return;
     setHistoryLoading(true);
@@ -615,11 +629,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       loadWorkHistoryRef.current();
       fetchSummaryCalRef.current();
     };
+=======
+  // Sync logged in employee's work status from backend on mount only if not already loaded by WorkSessionContext, and on punch updates
+  useEffect(() => {
+    if (!todaySummary && !activeSession && !lastCompletedSession) {
+      fetchWorkStatus();
+    }
+    const handleUpdate = () => fetchWorkStatus();
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     window.addEventListener('hrms_work_status_updated', handleUpdate);
     return () => {
       window.removeEventListener('hrms_work_status_updated', handleUpdate);
     };
+<<<<<<< HEAD
   }, []);
+=======
+  }, [fetchWorkStatus, todaySummary, activeSession, lastCompletedSession]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -701,7 +727,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           totalWorkSeconds += 4 * 3600;
         }
       } else {
-        const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         if (!isWeekend && dateStr < todayStr && allEmpRecs.length > 0) {
           absentDays++;
         }
@@ -854,40 +880,36 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     }
   };
 
-  // Daily attendance for the logged-in employee, including past days from /attendance/work/history
+  // Full daily attendance records for the logged-in employee (Strictly Today Only per user requirement)
   const employeeDailyRecords = React.useMemo(() => {
     const todayDateStr = getTodayDateString();
     const map = new Map<string, AttendanceRecord>();
 
-    const cleanRecordDate = (r: any): string => {
-      const d = r?.date || r?.todayDate || r?.attendanceDate || r?.startTime || r?.createdAt;
-      if (!d) return '';
-      if (typeof d === 'string' && d.includes('T')) {
-        const parsed = new Date(d);
-        if (!isNaN(parsed.getTime())) {
-          const month = String(parsed.getMonth() + 1).padStart(2, '0');
-          const day = String(parsed.getDate()).padStart(2, '0');
-          return `${parsed.getFullYear()}-${month}-${day}`;
-        }
-        return d.split('T')[0];
-      }
-      return String(d).slice(0, 10);
+    const isRecordForToday = (r: any): boolean => {
+      if (!r) return false;
+      const d = r.date || r.todayDate || r.attendanceDate || r.startTime || r.createdAt;
+      if (!d) return false;
+      const clean = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : String(d);
+      return clean === todayDateStr;
     };
 
+    // 1. Process database records for today only
     (records || []).forEach((r) => {
-      if (r && isMyAttendanceRecord(r)) {
-        const cleanDate = cleanRecordDate(r) || todayDateStr;
+      if (r && isRecordForToday(r) && isMyAttendanceRecord(r)) {
+        const cleanDate = r.date && !r.date.includes('T') ? r.date : todayDateStr;
         map.set(cleanDate, { ...r, date: cleanDate });
       }
     });
 
+    // 2. Overlay live records for today only
     (liveRecords || []).forEach((r) => {
-      if (r && isMyAttendanceRecord(r)) {
-        const cleanDate = cleanRecordDate(r) || todayDateStr;
+      if (r && isRecordForToday(r) && isMyAttendanceRecord(r)) {
+        const cleanDate = r.date && !r.date.includes('T') ? r.date : todayDateStr;
         map.set(cleanDate, { ...r, date: cleanDate });
       }
     });
 
+<<<<<<< HEAD
     if (historySessions.length > 0) {
       map.clear();
     }
@@ -919,19 +941,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       } as unknown as AttendanceRecord));
     });
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     // 3. Ensure today's live record is present with most current ticking/punch state
-    const todayRec = historySessions.length === 0 && selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
-    if (todayRec) {
+    const todayRec = selfEmployee ? getEmpTodayRecord(selfEmployee) : null;
+    if (todayRec && (isRecordForToday(todayRec) || !todayRec.date)) {
       const cleanDate = todayRec.date && !todayRec.date.includes('T') ? todayRec.date : todayDateStr;
       map.set(cleanDate, { ...todayRec, date: cleanDate });
     }
 
+<<<<<<< HEAD
     // 4. Authoritative overlay from /api/attendance/logic (todayDate, status, start time, end time, break time, active work time, punches)
     const statusDataToUse =
       workStatusData ||
       sessionAttendanceLogic ||
       (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
 
+=======
+    // 4. Authoritative overlay from /api/attendance/work/status (todayDate, status, start time, end time, break time, active work time)
+    const statusDataToUse = workStatusData || (todaySummary ? { todaySummary, activeSession, lastCompletedSession } : null);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     if (statusDataToUse) {
       const summary = statusDataToUse.todaySummary;
       const active = statusDataToUse.activeSession;
@@ -1031,6 +1060,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       : '00h 00m 00s';
 
       const activeWorkedStr =
+<<<<<<< HEAD
         sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
           ? sessionWorkedHMS
           : logic?.totalHours && logic.totalHours !== '00:00:00'
@@ -1041,6 +1071,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 lastComp?.durationFormatted ||
                 (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
                 (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
+=======
+        summary?.totalDurationFormatted ||
+        lastComp?.durationFormatted ||
+        (summary?.totalSecondsWorked ? formatSecondsToHMS(summary.totalSecondsWorked) : undefined) ||
+        (session?.durationSeconds ? formatSecondsToHMS(session.durationSeconds) : (hasActive ? liveWorkedHMS : '00:00:00'));
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
       const statusStr = isCompleted
         ? 'Completed'
@@ -1088,11 +1124,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
     // Sort descending by date (newest first)
     return Array.from(map.values()).sort((a, b) => {
-      const aTime = (a as any).createdAt || a.date || '';
-      const bTime = (b as any).createdAt || b.date || '';
-      return String(bTime).localeCompare(String(aTime));
+      return (b.date || '').localeCompare(a.date || '');
     });
+<<<<<<< HEAD
   }, [records, liveRecords, historySessions, selfEmployee, isMyAttendanceRecord, myEmpId, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS, sessionWorkedHMS, sessionBreakWords, sessionBreakHMS, totalWorkedHMS, totalBreakHMS, sessionPunches, sessionAttendanceLogic]);
+=======
+  }, [records, liveRecords, selfEmployee, isMyAttendanceRecord, nowTick, todaySummary, workStatusData, activeSession, lastCompletedSession, liveWorkedHMS]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   // Helper to reliably extract and format break time for any attendance record
   const secondsFromPunches = (rec: AttendanceRecord) => {
@@ -1164,6 +1202,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const getRecordActiveWorkedDisplay = (rec: AttendanceRecord) => {
     const mine = isMyAttendanceRecord(rec);
     const isToday = rec.date === getTodayDateString();
+<<<<<<< HEAD
     if (mine && isToday) {
       if (totalWorkedHMS && totalWorkedHMS !== '00:00:00') {
         return totalWorkedHMS;
@@ -1183,6 +1222,28 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         const gross = Math.max(0, Math.floor((outTs - inTs) / 1000));
         const net = Math.max(0, gross - breakSecs);
         return formatSecondsToHMS(net);
+=======
+    const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn);
+
+    if (isWorking && liveWorkedHMS && liveWorkedHMS !== '00:00:00') {
+      return liveWorkedHMS;
+    }
+    if (anyRec.durationFormatted && anyRec.durationFormatted !== '00:00:00' && anyRec.durationFormatted !== '00h 00m 00s') {
+      return anyRec.durationFormatted;
+    }
+    if (anyRec.todaySummary?.totalDurationFormatted) {
+      return anyRec.todaySummary.totalDurationFormatted;
+    }
+    if (isToday) {
+      if (workStatusData?.todaySummary?.totalDurationFormatted) {
+        return workStatusData.todaySummary.totalDurationFormatted;
+      }
+      if (workStatusData?.lastCompletedSession?.durationFormatted) {
+        return workStatusData.lastCompletedSession.durationFormatted;
+      }
+      if (todaySummary?.totalDurationFormatted) {
+        return todaySummary.totalDurationFormatted;
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       }
     }
 
@@ -1243,7 +1304,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, []);
 
   const handleToggleWFH = (emp: Employee) => {
-    const msg = `WFH Configuration Blocked: Backend API endpoint for employee Work From Home assignment is not implemented.`;
+    const msg = `⚠️ WFH Configuration Blocked: Backend API endpoint for employee Work From Home assignment is not implemented.`;
     setWfhNotice(msg);
     setTimeout(() => setWfhNotice(null), 6000);
   };
@@ -1316,6 +1377,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       const myRec = getEmpTodayRecord(selfEmployee);
       if (myRec) {
+<<<<<<< HEAD
         const isDone = Boolean(myRec.isCompleted || (myRec.checkOut && myRec.checkOut !== '—') || (myRec as any).status === 'Completed');
         if (isDone) {
           setLiveWorkedHMS('00:00:00');
@@ -1338,6 +1400,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       } else if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
         setLiveWorkedHMS(sessionWorkedHMS);
         setLiveBreakWords(sessionBreakWords || '0s');
+=======
+        const active = getLiveActiveSeconds(myRec);
+        const brk = getLiveBreakSeconds(myRec);
+        setLiveWorkedHMS(formatSecondsToHMS(active));
+        setLiveBreakWords(formatSecondsToWords(brk));
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       } else {
         setLiveWorkedHMS('00:00:00');
         setLiveBreakWords('0s');
@@ -1358,7 +1426,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckInAction = async () => {
     setActionLoading(true);
     try {
+<<<<<<< HEAD
       const res = await api.startWork({ workMode: 'Office', note: '' });
+=======
+      const res = await api.startWork({});
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       performCheckIn({
         id: selfEmployee.id || myEmpId,
         firstName: selfEmployee.firstName,
@@ -1366,10 +1438,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         employeeCode: selfEmployee.employeeCode,
         remarks: 'Morning shift clock-in',
       });
-      showToast({ title: 'Shift Started', message: res?.message || 'Clocked in successfully! Work timer has started.', type: 'success' });
+      showToast({ title: 'Shift Started', message: res?.message || 'Checked in successfully! Work timer has started.', type: 'success' });
       onRefresh();
     } catch (err: any) {
-      showToast({ title: 'Clock In Failed', message: err.message || 'Unable to clock in.', type: 'error' });
+      showToast({ title: 'Check In Failed', message: err.message || 'Unable to check in.', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -1406,18 +1478,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const handleCheckOutAction = async () => {
     setActionLoading(true);
     try {
+<<<<<<< HEAD
       const res = await api.stopWork({ workMode: 'Office', note: '' });
+=======
+      const res = await api.stopWork({});
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       const outRes = performCheckOut(selfEmployee.id || myEmpId, {
         remarks: 'Evening clock-out',
       });
       showToast({
-        title: 'Shift Clocked Out',
-        message: res?.message || outRes.message || 'Clock-out complete! Final day hours calculated.',
+        title: 'Shift Checked Out',
+        message: res?.message || outRes.message || 'Check-out complete! Final day hours calculated.',
         type: 'success',
       });
       onRefresh();
     } catch (err: any) {
-      showToast({ title: 'Clock Out Failed', message: err.message || 'Unable to clock out.', type: 'error' });
+      showToast({ title: 'Check Out Failed', message: err.message || 'Unable to check out.', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -1430,7 +1506,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     if (isEmployeeView) {
       const todayDateStr = getTodayDateString();
       fileName = `My_Attendance_Records_${todayDateStr}.csv`;
-      csvContent += 'Date,Employee ID,Employee Name,Clock In,Clock Out,Break Time,Worked Duration,Status\n';
+      csvContent += 'Date,Employee ID,Employee Name,Check In,Check Out,Break Time,Worked Duration,Status\n';
 
       let list = employeeDailyRecords.length > 0 ? [...employeeDailyRecords] : records.filter(isMyAttendanceRecord);
 
@@ -1490,7 +1566,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     } else if (resolvedTab === 'today') {
       const todayDateStr = getTodayDateString();
       fileName = `Attendance_Workforce_${todayDateStr}.csv`;
-      csvContent += 'Date,Employee ID,Employee Name,Department,Clock In,Clock Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
+      csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Active Worked,Working Hours,Status,Office / Location,Device / IP\n';
 
       visibleEmployees.forEach((emp) => {
         const rec = getEmpTodayRecord(emp);
@@ -1551,7 +1627,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     } else {
       const todayDateStr = getTodayDateString();
       fileName = `Attendance_Records_${todayDateStr}.csv`;
-      csvContent += 'Date,Employee ID,Employee Name,Department,Clock In,Clock Out,Break Time,Work Hours,Status\n';
+      csvContent += 'Date,Employee ID,Employee Name,Department,Check In,Check Out,Break Time,Work Hours,Status\n';
       records.forEach((rec) => {
         const emp = employees.find((e) => e.id === rec.employeeId);
         const empCode = (emp?.employeeCode || rec.employeeId || '').replace(/"/g, '""');
@@ -1594,6 +1670,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   };
 
   return (
+<<<<<<< HEAD
     <div className="space-y-5 w-full select-none animate-in fade-in">
       {/* Compact Daily Shift Clock Banner (same as Dashboard) */}
       {resolvedTab === 'today' && canUserPunch(user) && (
@@ -1655,6 +1732,117 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           )}
         </div>
       )}
+=======
+    <div className="space-y-4 max-w-7xl mx-auto select-none animate-in fade-in">
+      {/* Top Header & Tab Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Attendance</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isEmployeeView
+              ? 'Monitor daily clock punches, live work timers, and workforce monthly summaries'
+              : "Monitor today's live clock punches, active work timers, and shift records"}
+          </p>
+        </div>
+      </div>
+
+      {/* Action Buttons Row */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+          {isEmployeeView && (
+            <button
+              onClick={onOpenPunchModal}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all active:scale-95 ${myIsOnBreak
+                ? 'bg-amber-600 hover:bg-amber-700'
+                : myIsWorking
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+            >
+              {myIsOnBreak ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="truncate">On Break (Resume Work)</span>
+                </>
+              ) : myIsWorking ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="truncate">Check Out</span>
+                </>
+              ) : myIsDone ? (
+                <>
+                  <Clock className="w-4 h-4" />
+                  <span className="truncate">Check In Again</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span className="truncate">Check In</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {!isEmployeeView && (
+            <button
+              onClick={() => setIsRegModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-600" />
+              <span>Regularize Punch</span>
+            </button>
+          )}
+
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
+          </button>
+
+          {/* Quick Attendance Employee Search */}
+          {!isEmployeeView && (
+            <div className="relative min-w-[210px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={attendanceSearch}
+                onChange={(e) => setAttendanceSearch(e.target.value)}
+                placeholder="Filter staff by name/ID..."
+                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
+              />
+              {attendanceSearch && (
+                <button
+                  onClick={() => setAttendanceSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  title="Clear"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Filters dropdowns for Summary */}
+        {(resolvedTab as string) === 'summary' && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-slate-500">Month:</span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="py-1.5 px-2.5 rounded-xl bg-white border border-slate-200 font-semibold text-slate-800 shadow-2xs"
+            >
+              <option value="October">October 2026</option>
+              <option value="November">November 2026</option>
+              <option value="December">December 2026</option>
+            </select>
+          </div>
+        )}
+      </div>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
       {/* TAB: Today's Live Attendance & Break Tracker */}
       {resolvedTab === 'today' && (() => {
@@ -1679,21 +1867,33 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
         return (
           <div className="space-y-4">
+            {/* DAILY SHIFT CONSOLE (Unified across Dashboard and Attendance) */}
+            {isEmployeeView && (
+              <div className="mb-4 max-w-2xl mx-auto">
+                <DailyShiftConsole />
+              </div>
+            )}
+
             {/* KPI Metrics for Admin */}
             {!isEmployeeView && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Punched Today</span>
+<<<<<<< HEAD
                   {isDataLoading ? (
                     <div className="h-7 w-20 bg-slate-200/80 animate-pulse rounded-md mt-1" />
                   ) : (
                     <p className="text-xl font-semibold tracking-tight text-slate-800 mt-1">{todayRecords.length} / {employees.length}</p>
                   )}
+=======
+                  <p className="text-xl font-bold text-slate-900 mt-1">{todayRecords.length} / {employees.length}</p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   <p className="text-[11px] text-slate-400 mt-0.5">Total registered</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Working Now</span>
+<<<<<<< HEAD
                   {isDataLoading ? (
                     <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
                   ) : (
@@ -1702,11 +1902,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       {workingCount}
                     </p>
                   )}
+=======
+                  <p className="text-xl font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {workingCount}
+                  </p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   <p className="text-[11px] text-slate-400 mt-0.5">Active timers</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">On Break</span>
+<<<<<<< HEAD
                   {isDataLoading ? (
                     <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
                   ) : (
@@ -1715,11 +1922,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       {onBreakCount}
                     </p>
                   )}
+=======
+                  <p className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-1.5">
+                    <Pause className="w-3.5 h-3.5 text-amber-600" />
+                    {onBreakCount}
+                  </p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   <p className="text-[11px] text-slate-400 mt-0.5">Timer paused</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
                   <span className="text-[11px] font-medium text-slate-500 uppercase">Shift Completed</span>
+<<<<<<< HEAD
                   {isDataLoading ? (
                     <div className="h-7 w-12 bg-slate-200/80 animate-pulse rounded-md mt-1" />
                   ) : (
@@ -1729,6 +1943,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     </p>
                   )}
                   <p className="text-[11px] text-slate-400 mt-0.5">Clocked out</p>
+=======
+                  <p className="text-xl font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-slate-600" />
+                    {completedCount}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Checked out</p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </div>
               </div>
             )}
@@ -1738,15 +1959,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             {wfhNotice && (
               <div className="mb-3 p-3 rounded-2xl bg-purple-50 border-2 border-purple-400 text-purple-950 text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in">
                 <div className="flex items-center gap-2">
-                  <Home className="w-4 h-4 text-purple-700 shrink-0" />
+                  <span className="text-base">🏡</span>
                   <span>{wfhNotice}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setWfhNotice(null)}
-                  className="text-purple-700 hover:text-purple-950 font-bold ml-2 cursor-pointer"
+                  className="text-purple-700 hover:text-purple-950 font-bold ml-2 cursor-pointer text-sm"
                 >
-                  <X className="w-4 h-4" />
+                  ✕
                 </button>
               </div>
             )}
@@ -1780,19 +2001,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={exportCSV}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title={isEmployeeView ? 'Export My Attendance' : 'Export CSV'}
-                  >
-                    <Download className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={async () => {
+<<<<<<< HEAD
                       clearApiCache('/attendance/logic');
                       await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
+=======
+                      await fetchWorkStatus();
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       onRefresh?.();
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -1801,20 +2016,49 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Refresh</span>
                   </button>
+
+                  {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+                  {isEmployeeView && (
+                    <button
+                      onClick={onOpenPunchModal}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs ${myIsOnBreak
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : myIsWorking
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                    >
+                      {myIsOnBreak ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span>On Break (Resume Work)</span>
+                        </>
+                      ) : myIsWorking ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span>Check Out</span>
+                        </>
+                      ) : myIsDone ? (
+                        <>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Check In Again</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Check In</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* VIEW 1: Employee Daily Attendance */}
               {isEmployeeView ? (
                 <>
-                  {historyError ? (
-                    <div className="py-10 px-4 text-center">
-                      <h4 className="text-sm font-bold text-rose-700">Attendance history could not be loaded</h4>
-                      <p className="text-xs text-slate-500 mt-1">{historyError}</p>
-                    </div>
-                  ) : historyLoading && employeeDailyRecords.length === 0 ? (
-                    <div className="py-14 px-4 text-center text-xs text-slate-500">Loading attendance log history...</div>
-                  ) : employeeDailyRecords.length === 0 ? (
+                  {/* Empty state when no daily records exist */}
+                  {employeeDailyRecords.length === 0 ? (
                     <div className="py-14 px-4 text-center">
                       <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-200">
                         <Clock className="w-6 h-6" />
@@ -1828,7 +2072,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <>
                       {/* Mobile Cards View (Visible on < md) */}
                       <div className="md:hidden divide-y divide-slate-100">
-                        {employeeDailyRecords.map((rec, recIdx) => {
+                        {employeeDailyRecords.map((rec) => {
                           const dateInfo = formatDailyDate(rec.date);
                           const isToday = dateInfo.isToday;
                           const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
@@ -1840,7 +2084,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                           return (
+<<<<<<< HEAD
                             <div key={rowKey} className="p-3.5 space-y-2.5">
+=======
+                            <div key={rec.id || rec.date} className="p-3.5 space-y-2.5">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                               <div className="flex items-center justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-1.5">
@@ -1948,15 +2196,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
                               <th className="py-2.5 px-4 font-medium">DATE &amp; DAY</th>
                               <th className="py-2.5 px-4 font-medium">STATUS</th>
-                              <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
-                              <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
+                              <th className="py-2.5 px-4 font-medium">CHECK IN</th>
+                              <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
                               <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
                               <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
                               <th className="py-2.5 px-4 font-medium text-right">PUNCH LOGS</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {employeeDailyRecords.map((rec, recIdx) => {
+                            {employeeDailyRecords.map((rec) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
                               const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
@@ -1966,6 +2214,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
                               return (
+<<<<<<< HEAD
                                 <React.Fragment key={rowKey}>
                                   <tr
                                     onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
@@ -1989,6 +2238,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                           <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
                                         )}
                                       </div>
+=======
+                                <tr key={rec.id || rec.date} className="hover:bg-slate-50/70 transition-colors">
+                                  {!isEmployeeView && (
+                                    <td className="py-3 px-4 font-semibold text-slate-900">
+                                      {rec.employeeName || rec.employeeId}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                                     </td>
 
                                     <td className="py-3 px-4">
@@ -2448,6 +2703,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   </td>
                                 </tr>
 
+<<<<<<< HEAD
                                 {isExpanded && (
                                   <tr className="bg-slate-50/70 border-b border-slate-200">
                                     <td colSpan={8} className="py-3 px-4 sm:px-6">
@@ -2475,6 +2731,113 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                       </div>
                                     </td>
                                   </tr>
+=======
+                      const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                      const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                      const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+
+                      return (
+                        <div key={emp.id} className="p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                {emp.firstName?.[0] || 'E'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs text-slate-900 truncate">
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode} • {emp.departmentName || 'General'}</p>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0">
+                              {isWorking ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Working
+                                </span>
+                              ) : isOnBreak ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                  <Pause className="w-3 h-3 text-amber-600" />
+                                  On Break
+                                </span>
+                              ) : isDone ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-slate-600" />
+                                  Completed
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                  Not Punched
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                              <span className="font-semibold text-slate-800 text-[11px]">
+                                {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                              <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                {rec ? formatSecondsToHMS(liveSecs) : '—'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
+                    <table className="w-full text-left text-xs min-w-[700px]">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>
+                          <th className="py-2.5 px-4 font-medium">DEPARTMENT</th>
+                          <th className="py-2.5 px-4 font-medium">CHECK IN</th>
+                          <th className="py-2.5 px-4 font-medium">CHECK OUT</th>
+                          <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
+                          <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
+                          <th className="py-2.5 px-4 font-medium">LIVE STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {visibleEmployees.map((emp) => {
+                          const rec = getEmpTodayRecord(emp);
+                          const isWorking = rec && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut;
+                          const isOnBreak = rec && !rec.isCompleted && rec.isOnBreak;
+                          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut));
+
+                          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                          const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+
+                          return (
+                            <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                  {emp.firstName?.[0] || 'E'}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-slate-900">
+                                    {emp.firstName} {emp.lastName}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 font-mono">{emp.employeeCode}</p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">{emp.departmentName || 'General'}</td>
+                              <td className="py-3 px-4 font-mono text-slate-700">
+                                {rec?.checkIn ? (
+                                  <span>{rec.checkIn}</span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                                 )}
                               </React.Fragment>
                             );
@@ -2551,10 +2914,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                 <div className="flex items-center gap-2 text-slate-500 text-[11px] font-semibold">
-                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                  <Users className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Total Employees</span>
                 </div>
-                <div className="text-xl font-semibold tracking-tight text-slate-800 mt-1">
+                <div className="text-xl font-bold text-slate-900 mt-1">
                   {visibleEmployees.length}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Staff on company roster</div>
@@ -2565,7 +2928,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
                   <span>Avg Attendance Rate</span>
                 </div>
-                <div className="text-xl font-semibold tracking-tight text-emerald-800 mt-1">
+                <div className="text-xl font-bold text-emerald-800 mt-1">
                   {visibleEmployees.length > 0
                     ? Math.round(
                       visibleEmployees.reduce(
@@ -2584,7 +2947,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
                   <span>Calendar Days</span>
                 </div>
-                <div className="text-xl font-semibold tracking-tight text-blue-800 mt-1">
+                <div className="text-xl font-bold text-blue-800 mt-1">
                   {daysInMonth.length} Days
                 </div>
                 <div className="text-[10px] text-blue-600 mt-0.5">Total days in {selectedMonth}</div>
@@ -2595,7 +2958,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   <Plane className="w-3.5 h-3.5 text-purple-600" />
                   <span>Leaves &amp; Absences</span>
                 </div>
-                <div className="text-xl font-semibold tracking-tight text-purple-800 mt-1">
+                <div className="text-xl font-bold text-purple-800 mt-1">
                   {visibleEmployees.reduce(
                     (acc, e) =>
                       acc +
@@ -2728,8 +3091,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                               <span>Total Hours: <strong className="text-slate-800">{metrics.totalHours} hrs</strong> (~{metrics.avgDailyHours} h/d)</span>
-                              <span className="font-semibold text-emerald-700 inline-flex items-center gap-1">
-                                {isWorkingNow ? <><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Currently Working</> : isDoneToday ? 'Shift Done' : 'Not Punched Today'}
+                              <span className="font-semibold text-emerald-700">
+                                {isWorkingNow ? '🟢 Currently Working' : isDoneToday ? 'Shift Done' : 'Not Punched Today'}
                               </span>
                             </div>
                             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -2999,7 +3362,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                  <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
                     <CalendarIcon className="w-4 h-4" />
                   </div>
                   <div>
@@ -3043,7 +3406,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
               {/* Mobile Swipe Hint */}
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium sm:hidden px-1">
-                <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>👉</span>
                 <span>Swipe horizontally to view days 1 to 31</span>
               </div>
 
@@ -3203,20 +3566,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     return (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                         <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
-                          <div className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">Present Days</div>
-                          <div className="text-lg font-semibold tracking-tight text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
+                          <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Present Days</div>
+                          <div className="text-lg font-black text-emerald-800 mt-0.5">{presentCount} {presentCount === 1 ? 'Day' : 'Days'}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80">
-                          <div className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Total Break Taken</div>
-                          <div className="text-lg font-semibold tracking-tight text-amber-800 mt-0.5">{totalBreakStr}</div>
+                          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Total Break Taken</div>
+                          <div className="text-lg font-black text-amber-800 mt-0.5">{totalBreakStr}</div>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
-                          <div className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">Total Work Hours</div>
-                          <div className="text-lg font-semibold tracking-tight text-indigo-800 mt-0.5">{totalWorkHrsStr}</div>
+                        <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/80">
+                          <div className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Total Work Hours</div>
+                          <div className="text-lg font-black text-teal-900 mt-0.5">{totalWorkHrsStr}</div>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Daily Average</div>
-                          <div className="text-lg font-semibold tracking-tight text-slate-800 mt-0.5">{avgHrsStr}</div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Daily Average</div>
+                          <div className="text-lg font-black text-slate-800 mt-0.5">{avgHrsStr}</div>
                         </div>
                       </div>
                     );
@@ -3239,9 +3602,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                               : 'bg-slate-400'
                             }`} />
                           {detailEmpStatusData.isOnBreak || detailEmpStatusData.activeSession?.status === 'ON_BREAK'
-                            ? <span className="inline-flex items-center gap-1"><Coffee className="w-3 h-3" /> Currently on Break</span>
+                            ? '☕ Currently on Break'
                             : detailEmpStatusData.hasActiveSession || detailEmpStatusData.activeSession?.status === 'ACTIVE'
-                              ? 'Live Shift Active'
+                              ? '● Live Shift Active'
                               : 'Shift Completed'}
                         </span>
 
@@ -3355,13 +3718,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                         : st === 'late'
                                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                           : st === 'half day'
-                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                             : st === 'absent'
                                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         }`}
                                     >
-                                      {rec.isOnBreak || st === 'on_break' ? <span className="inline-flex items-center gap-1"><Coffee className="w-3 h-3" /> On Break</span> : (rec.status || 'Present')}
+                                      {rec.isOnBreak || st === 'on_break' ? '☕ On Break' : (rec.status || 'Present')}
                                     </span>
                                   </td>
                                   <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
@@ -3426,7 +3789,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             const dateStr = `${currentYearNum}-${monthStr}-${dayStr}`;
                             const rec = m.allRecords.find((r) => r.date === dateStr);
 
-                            const isWeekend = isDateWeekend(dateStr, getWorkScheduleConfig(user?.companyId));
+                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                             const isPast = dateStr < todayStr;
                             const isToday = dateStr === todayStr;
 
@@ -3440,7 +3803,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 statusClass = 'bg-amber-50 text-amber-700 border border-amber-200';
                               } else if (st === 'half day') {
                                 statusLabel = 'Half Day';
-                                statusClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+                                statusClass = 'bg-sky-50 text-sky-700 border border-sky-200';
                               } else if (st === 'absent') {
                                 statusLabel = 'Absent';
                                 statusClass = 'bg-rose-50 text-rose-700 border border-rose-200';
@@ -3584,7 +3947,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Clock-in Time</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Check-in Time</label>
                   <input
                     type="text"
                     value={regCheckIn}
@@ -3594,7 +3957,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Clock-out Time</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Check-out Time</label>
                   <input
                     type="text"
                     value={regCheckOut}
@@ -3627,7 +3990,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 </button>
                 <button
                   type="submit"
+<<<<<<< HEAD
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+=======
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Save Regularization
                 </button>

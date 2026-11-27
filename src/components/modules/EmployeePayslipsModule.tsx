@@ -230,13 +230,63 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
   };
 
   return (
+<<<<<<< HEAD
     <div className="space-y-5 w-full animate-in fade-in select-none">
+=======
+    <div className="space-y-6 animate-in fade-in select-none">
+      {/* Module Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
+              <Receipt className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                My Payslips & Salary History
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                View, download, and print your month-wise official salary disbursement slips.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Year Filter Tabs */}
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setSelectedYear('All')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              selectedYear === 'All'
+                ? 'bg-white text-emerald-700 shadow-2xs font-black'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Years
+          </button>
+          {availableYears.map((yr) => (
+            <button
+              key={yr}
+              onClick={() => setSelectedYear(yr)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedYear === yr
+                  ? 'bg-white text-emerald-700 shadow-2xs font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {yr}
+            </button>
+          ))}
+        </div>
+      </div>
+
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       {/* 4 Overview Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Latest Salary */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black uppercase text-indigo-600 tracking-wider">
+            <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
               Latest In-Hand Salary
             </span>
             {latestPayslip ? (
@@ -250,8 +300,13 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             )}
           </div>
           <div className="mt-2.5">
+<<<<<<< HEAD
             <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
               {latestPayslip ? `₹${amount(latestPayslip.netSalary).toLocaleString('en-IN')}` : '—'}
+=======
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">
+              {latestPayslip ? `₹${latestPayslip.netSalary.toLocaleString('en-IN')}` : '—'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -263,15 +318,15 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
         {/* Card 2: Total Disbursed */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase text-emerald-700 tracking-wider">
+            <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider">
               Total Earnings Received
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200">
+            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
               All Time
             </span>
           </div>
           <div className="mt-2.5">
-            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">
               ₹{totalDisbursed.toLocaleString('en-IN')}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
@@ -283,13 +338,13 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
         {/* Card 3: Average Take-Home */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase text-violet-700 tracking-wider">
+            <span className="text-[11px] font-black uppercase text-violet-700 tracking-wider">
               Average Net Pay
             </span>
             <span className="text-[10px] font-bold text-slate-400">Monthly</span>
           </div>
           <div className="mt-2.5">
-            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-800">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900">
               ₹{avgSalary.toLocaleString('en-IN')}
             </p>
             <p className="text-[11px] font-medium text-slate-500 mt-1">
@@ -342,7 +397,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               placeholder="Search by month or status..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500"
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500"
             />
           </div>
         </div>
@@ -416,8 +471,13 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                 <th className="py-3 px-4">Pay Period</th>
                 <th className="py-3 px-4">Disbursement Date</th>
                 <th className="py-3 px-4">Gross Earnings</th>
+<<<<<<< HEAD
                 <th className="py-3 px-4">Deductions</th>
                 <th className="py-3 px-4 font-black text-indigo-950">Net Take-Home</th>
+=======
+                <th className="py-3 px-4">Deductions (PF &amp; Tax)</th>
+                <th className="py-3 px-4 font-black text-slate-900">Net Take-Home</th>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <th className="py-3 px-4">Payment Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
@@ -435,7 +495,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
                     {/* Pay Period */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0 font-black text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 font-black text-xs">
                           {rec.payrollMonth ? rec.payrollMonth.split('-')[1] : 'M'}
                         </div>
                         <div>
@@ -694,19 +754,29 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               </div>
 
               {/* Net Take-Home Highlight Banner */}
-              <div className="p-4 sm:p-5 rounded-xl bg-indigo-50 border-2 border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 sm:p-5 rounded-xl bg-emerald-50 border-2 border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-black uppercase text-indigo-700 tracking-wider">
+                  <span className="text-[11px] font-black uppercase text-emerald-800 tracking-wider">
                     Net Take-Home Disbursed Amount
                   </span>
+<<<<<<< HEAD
                   <p className="text-xs text-indigo-900/80 font-medium mt-0.5 italic">
                     {numberToWords(amount(selectedPayslip.netSalary))}
+=======
+                  <p className="text-xs text-emerald-950/80 font-medium mt-0.5 italic">
+                    {numberToWords(selectedPayslip.netSalary)}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   </p>
                 </div>
 
                 <div className="text-left sm:text-right">
+<<<<<<< HEAD
                   <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-indigo-700">
                     ₹{amount(selectedPayslip.netSalary).toLocaleString('en-IN')}
+=======
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-800">
+                    ₹{selectedPayslip.netSalary.toLocaleString('en-IN')}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   </p>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
                     ● Disbursed to Bank

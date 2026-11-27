@@ -28,22 +28,11 @@ import {
   LayoutGrid,
   ListOrdered,
   Award,
-  CalendarOff,
-  UserMinus,
 } from 'lucide-react';
 import { AttendanceRecord, LeaveRequest } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
-import { getAllLeaves, setLiveLeaves } from '../../lib/leaveService';
-import { getAllEmployees } from '../../lib/employeeService';
-import {
-  WorkScheduleConfig,
-  getWorkScheduleConfig,
-  saveWorkScheduleConfig,
-  isDateWeekend,
-  getWeekendPolicyDescription,
-} from '../../lib/shiftScheduleService';
 
 function clockLabel(value?: string | null) {
   if (!value) return '';
@@ -70,7 +59,7 @@ interface CalendarModuleProps {
 
 export const CalendarModule: React.FC<CalendarModuleProps> = ({
   attendance,
-  leaves: leavesProp = [],
+  leaves: _leaves,
   onOpenLeaveModal: _onOpenLeaveModal,
   onOpenClockModal,
   portalMode = 'admin',
@@ -91,6 +80,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     );
   };
 
+<<<<<<< HEAD
   // Live in-memory leaves store for calendar
   const [leavesList, setLeavesList] = useState<LeaveRequest[]>(() =>
     Array.isArray(leavesProp) && leavesProp.length > 0 ? leavesProp : getAllLeaves() || []
@@ -197,6 +187,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       (!!myEmpCode && (leave as any).employeeCode === myEmpCode)
     );
   };
+=======
+  const userAttendance = isAdminCalendar
+    ? attendance.filter((record) => !isOwnPunch(record))
+    : attendance.filter((record) => isOwnPunch(record));
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster)
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays'>('grid');
@@ -224,130 +219,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const [isDeletingHoliday, setIsDeletingHoliday] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Tooltip Hover Popup State for Dates & Employees on Leave
-  interface HoveredDateInfo {
-    day: number;
-    dateStr: string;
-    isCurrentMonth: boolean;
-    isToday: boolean;
-    isWeekend: boolean;
-    holiday?: string;
-    holidayObj?: any;
-    attendance?: AttendanceRecord;
-    staffCount?: number;
-    leaves: LeaveRequest[];
-  }
-
-  interface HoverPosition {
-    x: number;
-    y: number;
-    placement: 'top' | 'bottom';
-  }
-
-  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const [hoveredDate, setHoveredDate] = useState<HoveredDateInfo | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<HoverPosition | null>(null);
-
-  const handleCellMouseEnter = (e: React.MouseEvent<HTMLDivElement>, item: any) => {
-    if (!item.isCurrentMonth && !item.day) return;
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const popupWidth = 320;
-    const estimatedHeight = 250;
-
-    let x = rect.left + rect.width / 2 - popupWidth / 2;
-    const minX = 12;
-    const maxX = window.innerWidth - popupWidth - 12;
-    x = Math.max(minX, Math.min(x, maxX));
-
-    let y: number;
-    let placement: 'top' | 'bottom';
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-
-    if (spaceBelow >= estimatedHeight + 16 || spaceBelow >= spaceAbove) {
-      y = rect.bottom + 8;
-      placement = 'bottom';
-    } else {
-      y = rect.top - 8;
-      placement = 'top';
-    }
-
-    const isToday =
-      item.isCurrentMonth &&
-      item.day === todayDateNum &&
-      month === todayMonth &&
-      year === todayYear;
-
-    setHoveredDate({
-      day: item.day,
-      dateStr: item.dateStr,
-      isCurrentMonth: item.isCurrentMonth,
-      isToday,
-      isWeekend: item.isWeekend,
-      holiday: item.holiday,
-      holidayObj: item.holidayObj,
-      attendance: item.attendance,
-      staffCount: item.staffCount,
-      leaves: item.leaves || [],
-    });
-
-    setHoverPosition({ x, y, placement });
-  };
-
-  const handleCellMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setHoveredDate(null);
-      setHoverPosition(null);
-    }, 120);
-  };
-
-  const handlePopupMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-  };
-
-  const handlePopupMouseLeave = () => {
-    setHoveredDate(null);
-    setHoverPosition(null);
-  };
-
-  useEffect(() => {
-    const handleScrollOrResize = () => {
-      setHoveredDate(null);
-      setHoverPosition(null);
-    };
-    window.addEventListener('scroll', handleScrollOrResize, true);
-    window.addEventListener('resize', handleScrollOrResize);
-    return () => {
-      window.removeEventListener('scroll', handleScrollOrResize, true);
-      window.removeEventListener('resize', handleScrollOrResize);
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
-  }, []);
-
-  // Corporate Work Schedule & Weekend Config (Loaded from backend settings)
-  const [scheduleConfig, setScheduleConfig] = useState<WorkScheduleConfig>(() =>
-    getWorkScheduleConfig(user?.companyId)
-  );
-  // Modal: Weekend Rules Config
-  const [isWeekendModalOpen, setIsWeekendModalOpen] = useState(false);
-  const [editingWeekendDays, setEditingWeekendDays] = useState<number[]>([0]);
-  const [editingSatRule, setEditingSatRule] = useState<'all' | 'none' | 'alternate_2_4' | 'alternate_1_3'>('none');
-  const [isSavingWeekend, setIsSavingWeekend] = useState(false);
-
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Sync Work Schedule & Weekend Config from backend & live events
   useEffect(() => {
+<<<<<<< HEAD
     let active = true;
     const loadSchedule = async () => {
       try {
@@ -380,19 +256,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   useEffect(() => {
     if (!isAddHolidayOpen && !isWeekendModalOpen) return;
+=======
+    if (!isAddHolidayOpen) return;
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsAddHolidayOpen(false);
-        setIsWeekendModalOpen(false);
-      }
+      if (e.key === 'Escape') setIsAddHolidayOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
+<<<<<<< HEAD
   }, [isAddHolidayOpen, isWeekendModalOpen]);
 
   const handleOpenWeekendModal = () => {
@@ -433,6 +310,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       setIsSavingWeekend(false);
     }
   };
+=======
+  }, [isAddHolidayOpen]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   const [holidayName, setHolidayName] = useState('');
   const [holidayDate, setHolidayDate] = useState(() => {
@@ -490,7 +370,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   };
 
   const handleConfirmDeleteHoliday = async () => {
-    if (!deletingHoliday || portalMode === 'employee') return;
+    if (!deletingHoliday) return;
     const { id, name } = deletingHoliday;
     setIsDeletingHoliday(true);
     try {
@@ -632,14 +512,11 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const prevMonthNum = prevMonthDate.getMonth() + 1;
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = prevMonthDays - i;
-      const dateStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
-      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
       list.push({
         day: dNum,
         isCurrentMonth: false,
-        dateStr,
-        isWeekend: isDateWeekend(dateStr, scheduleConfig),
-        leaves: dayLeaves,
+        dateStr: `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`,
+        isWeekend: false,
       });
     }
 
@@ -647,12 +524,16 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayOfWeek = new Date(year, month, d).getDay();
-      const isWeekend = isDateWeekend(dateStr, scheduleConfig);
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       const dayRecords = userAttendance.filter((a) => a.date === dateStr);
+<<<<<<< HEAD
       const beforeJoining = !isAdminCalendar && Boolean(joinedOn) && dateStr < joinedOn;
       const holObj = beforeJoining ? undefined : holidayDateMap[dateStr];
       const dayLeaves = beforeJoining ? [] : leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
+=======
+      const holObj = holidayDateMap[dateStr];
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
       list.push({
         day: d,
@@ -665,7 +546,6 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         staffCount: isAdminCalendar ? dayRecords.length : 0,
         holiday: holObj?.name,
         holidayObj: holObj,
-        leaves: dayLeaves,
       });
     }
 
@@ -676,19 +556,20 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     const totalSlots = Math.ceil(list.length / 7) * 7;
     const remainingSlots = totalSlots - list.length;
     for (let i = 1; i <= remainingSlots; i++) {
-      const dateStr = `${nextYear}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const dayLeaves = leavesList.filter((l) => isLeaveActiveOnDate(l, dateStr));
       list.push({
         day: i,
         isCurrentMonth: false,
-        dateStr,
-        isWeekend: isDateWeekend(dateStr, scheduleConfig),
-        leaves: dayLeaves,
+        dateStr: `${nextYear}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`,
+        isWeekend: false,
       });
     }
 
     return list;
+<<<<<<< HEAD
   }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig, leavesList, isAdminCalendar, joinedOn]);
+=======
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
@@ -745,89 +626,91 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   }, [holidaysList, holidaySearchQuery, holidayTypeFilter]);
 
   return (
-    <div className="space-y-5 w-full select-none">
+    <div className="space-y-5 max-w-7xl mx-auto select-none pb-12">
+
+
       {/* =========================================================================
           TOP EXECUTIVE METRICS CARDS
           ========================================================================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
         {/* Card 1: Month Overview */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Month</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <CalendarIcon className="w-4 h-4 text-[#495057]" />
-            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Month</span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CalendarIcon className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
             {monthNames[month].slice(0, 3)} {year}
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#6c757d] font-medium">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-slate-500 font-medium">
             <span>{stats.totalDays} Total Days</span>
           </div>
         </div>
 
         {/* Card 2: Working Days */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Working Days</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Briefcase className="w-4 h-4 text-[#495057]" />
-            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Working Days</span>
+            <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Briefcase className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.workingDays} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+            {stats.workingDays} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-blue-600 font-semibold">
             <span>Excludes weekends</span>
           </div>
         </div>
 
         {/* Card 3: Days Logged / Present */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
-            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <p className="text-lg font-semibold tracking-tight text-[#1b4332] mt-1">
-            {stats.presentCount + stats.lateCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
+          <p className="text-base sm:text-lg font-bold text-emerald-700 mt-0.5">
+            {stats.presentCount + stats.lateCount} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-emerald-700 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>{isAdminCalendar ? 'Employees this month' : `${stats.completionPercent}% Attendance`}</span>
           </div>
         </div>
 
         {/* Card 4: Official Holidays */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Holidays</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Star className="w-4 h-4 text-[#2d6a4f]" />
-            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Holidays</span>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+            </span>
           </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.holidaysCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+            {stats.holidaysCount} <span className="text-xs font-semibold text-slate-400">Days</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-amber-700 font-medium">
             <span>Official gazetted</span>
           </div>
         </div>
 
         {/* Card 5: Hours Worked */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all col-span-2 sm:col-span-1">
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-shadow col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Clock className="w-4 h-4 text-[#495057]" />
-            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
+            <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Clock className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.totalHoursWorked} <span className="text-xs font-semibold text-[#6c757d]">Hrs</span>
+          <p className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+            {stats.totalHoursWorked} <span className="text-xs font-semibold text-slate-400">Hrs</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
-            <span>{stats.weekendsCount} weekend days &bull; {stats.holidaysCount} holidays</span>
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-[11px] text-purple-700 font-medium">
+            <span>{stats.weekendsCount} weekend days • {stats.holidaysCount} holidays</span>
           </div>
         </div>
       </div>
@@ -835,38 +718,38 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
       {/* =========================================================================
           CONTROLS BAR: Navigation, View Switcher & Filters
           ========================================================================= */}
-      <div className="bg-white border border-[#dee2e6] rounded-xl p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         {/* Left: Month Navigation */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center rounded-xl border border-[#dee2e6] bg-[#f8f9fa] p-1">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
             <button
               onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg text-[#495057] hover:text-[#1b4332] hover:bg-white transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
               title="Previous Month"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 text-emerald-800" />
             </button>
             <button
               onClick={handleJumpToToday}
-              className="px-3 py-1 text-xs font-bold text-[#1b4332] hover:bg-[#d8f3dc] rounded-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1 text-xs font-extrabold text-emerald-800 hover:bg-white rounded-lg transition cursor-pointer flex items-center gap-1.5"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Today</span>
             </button>
             <button
               onClick={handleNextMonth}
-              className="p-1.5 rounded-lg text-[#495057] hover:text-[#1b4332] hover:bg-white transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition cursor-pointer"
               title="Next Month"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-emerald-800" />
             </button>
           </div>
 
           <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-extrabold text-[#212529] tracking-tight">
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
               {monthNames[month]} {year}
             </h2>
-            <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] text-[10px] font-bold">
+            <span className="hidden md:inline-block px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold">
               Q{Math.floor(month / 3) + 1}
             </span>
           </div>
@@ -875,37 +758,40 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         {/* Center / Right: View Mode Toggle & Quick Actions */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           {/* View Mode Switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] text-xs font-semibold">
+          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-bold shadow-2xs">
             <button
               onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'grid'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-3.5 h-3.5 text-emerald-600" />
               <span>Month Grid</span>
             </button>
 
             <button
               onClick={() => setViewMode('agenda')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'agenda'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                viewMode === 'agenda'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <ListOrdered className="w-3.5 h-3.5" />
+              <ListOrdered className="w-3.5 h-3.5 text-emerald-600" />
               <span>Agenda</span>
             </button>
 
             <button
               onClick={() => setViewMode('holidays')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'holidays'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                viewMode === 'holidays'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <Star className="w-3.5 h-3.5" />
+              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
               <span>Holidays ({holidaysList.length})</span>
             </button>
           </div>
@@ -913,26 +799,26 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* Quick Actions */}
           <div className="flex items-center gap-2">
             {portalMode !== 'employee' && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleOpenWeekendModal}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#ced4da] text-[#212529] hover:text-[#1b4332] text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  title="Configure Corporate Weekend Policy"
-                >
-                  <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                  <span>Weekend Rules</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddHolidayOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Holiday</span>
-                </button>
-              </>
+              <button
+                onClick={() => setIsAddHolidayOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Add Holiday</span>
+              </button>
             )}
+
+            {/* [DISABLED FOR ADMIN]: admin side se clockin and out ka feature nikal de abhi ke liye use comment karde */}
+            {portalMode !== 'admin' && onOpenClockModal && (
+              <button
+                onClick={onOpenClockModal}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+              >
+                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Log Punch</span>
+              </button>
+            )}
+
           </div>
         </div>
       </div>
@@ -941,56 +827,52 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 1: LUXURY MONTH GRID
           ========================================================================= */}
       {viewMode === 'grid' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
           {/* Legend Badges Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef] text-xs">
-            <div className="flex items-center gap-1.5 text-[#495057] text-[11px] font-semibold">
-              <Filter className="w-3.5 h-3.5 text-[#2d6a4f]" />
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-semibold">
+              <Filter className="w-3.5 h-3.5 text-emerald-600" />
               <span>Status Legend:</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-[11px] font-semibold">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d]">
-                <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" /> Today
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50/80 text-amber-900 border border-amber-300">
+                <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" /> Holiday
               </span>
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1b4332] text-white border border-[#081c15]">
-                <Star className="w-2.5 h-2.5 text-[#95d5b2] fill-[#95d5b2]" /> Holiday
-              </span>
-              <span
-                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e9ecef] text-[#495057] border border-[#ced4da]"
-                title={`Company Weekend Schedule: ${getWeekendPolicyDescription(scheduleConfig)}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#6c757d]" /> Weekend ({getWeekendPolicyDescription(scheduleConfig)})
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="w-2 h-2 rounded-full bg-slate-400" /> Weekend
               </span>
               {!isAdminCalendar && (
                 <>
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] border border-[#95d5b2]">
-                    <span className="w-2 h-2 rounded-full bg-[#40916c]" /> Present
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Present
                   </span>
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
                     <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
+                  </span>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
+                    <span className="w-2 h-2 rounded-full bg-cyan-500" /> Remote WFH
                   </span>
                 </>
               )}
               {isAdminCalendar && (
-                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] border border-[#95d5b2]">
-                  <span className="w-2 h-2 rounded-full bg-[#40916c]" /> Staff present
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Staff present
                 </span>
               )}
             </div>
           </div>
 
           {/* Weekday Names Header */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center bg-[#1b4332] rounded-xl p-1.5 shadow-2xs">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center pb-2 border-b border-slate-100">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
-              const isWeekend = (scheduleConfig.weekendDays ?? [0]).includes(i) || (i === 6 && (scheduleConfig.saturdayRule || 'none') !== 'none');
+              const isWeekend = i === 0 || i === 6;
               return (
                 <div
                   key={d}
-                  className={`text-[11px] font-bold uppercase tracking-wider py-1.5 rounded-lg ${isWeekend
-                    ? 'text-[#b7e4c7] bg-white/10'
-                    : 'text-white'
-                    }`}
+                  className={`text-xs font-black uppercase tracking-wider py-1 rounded-lg ${
+                    isWeekend ? 'text-slate-400 bg-slate-50/60' : 'text-emerald-800 bg-emerald-50/60'
+                  }`}
                 >
                   {d}
                 </div>
@@ -999,7 +881,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </div>
 
           {/* Days Grid Cells */}
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 pt-0.5">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 pt-1">
             {days.map((item, idx) => {
               const isToday =
                 item.isCurrentMonth &&
@@ -1008,6 +890,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 year === todayYear;
               const isSelected = item.isCurrentMonth && !item.beforeJoining && item.day === selectedDay;
 
+<<<<<<< HEAD
               let cellStyle = 'bg-white border-[#dee2e6] hover:border-[#52b788] hover:bg-[#d8f3dc]/20';
               if (item.beforeJoining) {
                 cellStyle = 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed';
@@ -1017,12 +900,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 cellStyle = 'border-[#1b4332] ring-2 ring-[#2d6a4f]/30 bg-[#d8f3dc]/55 shadow-xs';
               } else if (isToday) {
                 cellStyle = 'border-[#2d6a4f] bg-[#d8f3dc]/45 hover:bg-[#d8f3dc]/60 shadow-2xs';
+=======
+              let cellStyle = 'bg-white border-slate-200/80 hover:border-emerald-300 hover:bg-emerald-50/20';
+              if (!item.isCurrentMonth) {
+                cellStyle = 'bg-slate-50/40 text-slate-300 border-slate-100 pointer-events-none opacity-60';
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               } else if (isSelected) {
-                cellStyle = 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/25 bg-[#d8f3dc]/25 shadow-xs';
-              } else if (item.holiday) {
-                cellStyle = 'bg-[#d8f3dc]/35 border-[#95d5b2] hover:border-[#2d6a4f]';
+                cellStyle = 'border-emerald-600 ring-2 ring-emerald-600/25 bg-emerald-50/70 shadow-xs';
+              } else if (isToday) {
+                cellStyle = 'border-emerald-400 bg-emerald-50/30';
               } else if (item.isWeekend) {
-                cellStyle = 'bg-[#f1f3f5] border-[#dee2e6] hover:border-[#adb5bd] text-[#495057]';
+                cellStyle = 'bg-slate-50/80 border-slate-200/70 text-slate-500';
               }
 
               return (
@@ -1036,38 +924,34 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     if (item.beforeJoining) return;
                     handleCellMouseEnter(e, item);
                   }}
+<<<<<<< HEAD
                   onMouseLeave={handleCellMouseLeave}
                   className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between group ${item.beforeJoining ? 'cursor-not-allowed' : 'cursor-pointer'} ${cellStyle}`}
+=======
+                  className={`min-h-[75px] sm:min-h-[118px] p-1.5 sm:p-2.5 rounded-2xl border transition-all duration-150 flex flex-col justify-between cursor-pointer group ${cellStyle}`}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   {/* Day Number Header */}
-                  <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-extrabold w-7 h-7 flex items-center justify-center rounded-full transition-all ${isToday
-                        ? 'bg-[#2d6a4f] text-white shadow-xs'
-                        : isSelected
-                          ? 'bg-[#1b4332] text-white shadow-xs'
-                          : !item.isCurrentMonth
-                            ? 'text-[#adb5bd]'
-                            : item.isWeekend
-                              ? 'text-[#495057] group-hover:text-[#1b4332]'
-                              : 'text-[#212529] group-hover:bg-[#d8f3dc] group-hover:text-[#1b4332]'
-                        }`}
+                      className={`text-xs font-black w-6 h-6 flex items-center justify-center rounded-full transition-all ${
+                        isToday
+                          ? 'bg-gradient-to-tr from-emerald-500 to-emerald-700 text-white shadow-xs'
+                          : isSelected
+                          ? 'bg-emerald-900 text-white'
+                          : item.isCurrentMonth
+                          ? 'text-slate-800 group-hover:text-emerald-700'
+                          : 'text-slate-300'
+                      }`}
                     >
                       {item.day}
                     </span>
 
-                    <div className="flex items-center gap-1">
-                      {isToday && (
-                        <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-full bg-[#1b4332] text-white text-[9px] font-bold uppercase tracking-wide">
-                          Today
-                        </span>
-                      )}
-                      {item.holiday && (
-                        <span className="p-1 rounded-full bg-[#1b4332] text-[#95d5b2]" title={item.holiday}>
-                          <Star className="w-3 h-3 fill-[#95d5b2] text-[#95d5b2]" />
-                        </span>
-                      )}
-                    </div>
+                    {item.holiday && (
+                      <span className="p-0.5 rounded-full bg-amber-100 text-amber-600" title={item.holiday}>
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                      </span>
+                    )}
                   </div>
 
                   {/* Day Badges and Event Tags: ONLY official holidays and weekends */}
@@ -1079,10 +963,10 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     )}
                     {item.holiday && !item.beforeJoining && (
                       <div
-                        className="truncate px-2 py-0.5 rounded-md bg-[#1b4332] text-white font-semibold border border-[#081c15] shadow-2xs flex items-center gap-1"
+                        className="truncate px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-50 to-amber-100 text-amber-900 font-extrabold border border-amber-300 shadow-2xs flex items-center gap-1"
                         title={`Holiday: ${item.holiday}`}
                       >
-                        <Star className="w-2.5 h-2.5 fill-[#95d5b2] text-[#95d5b2] shrink-0" />
+                        <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-600 shrink-0" />
                         <span className="truncate">{item.holiday}</span>
                       </div>
                     )}
@@ -1090,17 +974,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     {/* Weekend Tag */}
                     {item.isWeekend && !item.holiday && !item.beforeJoining && item.isCurrentMonth && (
                       <div
-                        className="truncate px-2 py-0.5 rounded-md bg-white text-[#495057] font-semibold border border-[#ced4da] flex items-center gap-1.5"
+                        className="truncate px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200 shadow-2xs flex items-center gap-1"
                         title="Weekend"
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d] shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                         <span className="truncate">Weekend</span>
                       </div>
                     )}
 
                     {isAdminCalendar && (item.staffCount ?? 0) > 0 && !item.holiday && !item.isWeekend && (
-                      <div className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]">
-                        <Users className="w-2.5 h-2.5 shrink-0 text-[#2d6a4f]" />
+                      <div className="truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-200">
+                        <Users className="w-2.5 h-2.5 shrink-0" />
                         <span className="truncate">{item.staffCount} staff</span>
                       </div>
                     )}
@@ -1108,25 +992,28 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     {/* Attendance Record Status (Regular Working Days Only) */}
                     {!isAdminCalendar && item.attendance && !item.beforeJoining && !item.holiday && !item.isWeekend && (
                       <div
-                        className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 ${item.attendance.status === 'Present'
-                          ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                          : item.attendance.status === 'Late'
-                            ? 'bg-[#f8f9fa] text-[#343a40] border-[#adb5bd]'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}
+                        className={`truncate px-2 py-0.5 rounded-lg font-bold border shadow-2xs flex items-center gap-1 ${
+                          item.attendance.status === 'Present'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : item.attendance.status === 'Late'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-rose-50 text-rose-800 border-rose-200'
+                        }`}
                         title={`${item.attendance.status} • ${item.attendance.checkIn || '--'} to ${item.attendance.checkOut || '--'}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.attendance.status === 'Present'
-                            ? 'bg-[#2d6a4f]'
-                            : item.attendance.status === 'Late'
-                              ? 'bg-[#6c757d]'
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            item.attendance.status === 'Present'
+                              ? 'bg-emerald-500'
+                              : item.attendance.status === 'Late'
+                              ? 'bg-amber-500'
                               : 'bg-rose-500'
-                            }`}
+                          }`}
                         />
                         <span className="truncate">{item.attendance.status}</span>
                       </div>
                     )}
+<<<<<<< HEAD
 
                     {/* Employees on Leave Badge */}
                     {item.isCurrentMonth && !item.beforeJoining && item.leaves && item.leaves.length > 0 && (
@@ -1138,6 +1025,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         <span className="truncate">{item.leaves.length} on leave</span>
                       </div>
                     )}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   </div>
                 </div>
               );
@@ -1150,47 +1039,48 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           SELECTED DAY INSPECTOR / DETAILS CARD
           ========================================================================= */}
       {viewMode === 'grid' && selectedDayInfo && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
+        <div className="bg-white border border-emerald-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-black text-sm shadow-xs">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-800 to-emerald-950 text-white flex items-center justify-center font-black text-sm shadow-xs">
                 {selectedDayInfo.day}
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-[#212529]">
+                <h3 className="text-base font-extrabold text-slate-900">
                   {selectedDayInfo.day} {monthNames[month]} {year}
                 </h3>
-                <p className="text-xs text-[#6c757d] font-medium">
-                  {selectedDayInfo.dateStr} &bull; {new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                <p className="text-xs text-slate-500 font-medium">
+                  {selectedDayInfo.dateStr} • {new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               {selectedDayInfo.holiday && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#1b4332] text-white border border-[#081c15] flex items-center gap-1.5 shadow-2xs">
-                  <Star className="w-3.5 h-3.5 fill-[#95d5b2] text-[#95d5b2]" />
+                <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs">
+                  <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                   <span>Holiday: {selectedDayInfo.holiday}</span>
                 </span>
               )}
 
               {selectedDayInfo.isWeekend && !selectedDayInfo.holiday && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] shadow-2xs flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#6c757d]" />
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
                   <span>Weekend Off</span>
                 </span>
               )}
 
               {selectedDayInfo.attendance && !selectedDayInfo.holiday && !selectedDayInfo.isWeekend && (
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${selectedDayInfo.attendance.status === 'Present'
-                    ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                    : selectedDayInfo.attendance.status === 'Late'
-                      ? 'bg-[#e9ecef] text-[#343a40] border-[#adb5bd]'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
+                    selectedDayInfo.attendance.status === 'Present'
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      : selectedDayInfo.attendance.status === 'Late'
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-rose-100 text-rose-900 border-rose-300'
+                  }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Attendance: {selectedDayInfo.attendance.status}</span>
                 </span>
               )}
@@ -1200,29 +1090,23 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           {/* 4 Detail Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 text-xs">
             {/* Shift Timing */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Shift Schedule</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.holiday || selectedDayInfo.isWeekend
-                  ? 'Off Duty'
-                  : `${scheduleConfig.shiftStartTime || '09:00 AM'} – ${scheduleConfig.shiftEndTime || '06:00 PM'}`}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Shift Schedule</span>
+              <span className="font-extrabold text-slate-900 text-sm mt-1 block">
+                {selectedDayInfo.holiday || selectedDayInfo.isWeekend ? 'Off Duty' : '09:00 AM – 06:00 PM'}
               </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holiday
-                  ? 'Corporate Public Holiday'
-                  : selectedDayInfo.isWeekend
-                    ? 'Official Weekend Weekly Rest'
-                    : 'Standard Corporate Shift'}
+              <span className="text-[11px] text-slate-500 mt-0.5 block">
+                {selectedDayInfo.holiday ? 'Corporate Public Holiday' : selectedDayInfo.isWeekend ? 'Weekend Weekly Rest' : 'Standard Corporate Shift (8h net)'}
               </span>
             </div>
 
             {/* Punch In & Punch Out */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Attendance Punch</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.attendance?.checkIn || '--'} &rarr; {selectedDayInfo.attendance?.checkOut || '--'}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Attendance Punch</span>
+              <span className="font-extrabold text-slate-900 text-sm mt-1 block">
+                {selectedDayInfo.attendance?.checkIn || '--'} → {selectedDayInfo.attendance?.checkOut || '--'}
               </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
+              <span className="text-[11px] text-slate-500 mt-0.5 block">
                 {selectedDayInfo.attendance?.workingHours
                   ? `${selectedDayInfo.attendance.workingHours} Hours logged`
                   : 'No attendance punch logged'}
@@ -1230,93 +1114,26 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             </div>
 
             {/* Day Classification */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Classification</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Classification</span>
+              <span className="font-extrabold text-slate-900 text-sm mt-1 block">
                 {selectedDayInfo.holiday ? selectedDayInfo.holiday : selectedDayInfo.isWeekend ? 'Weekend Off' : 'Regular Work Day'}
               </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holidayObj?.description ||
-                  (selectedDayInfo.isWeekend
-                    ? `${new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })} corporate weekend off`
-                    : 'Scheduled operational business day')}
+              <span className="text-[11px] text-slate-500 mt-0.5 block">
+                {selectedDayInfo.holidayObj?.description || (selectedDayInfo.isWeekend ? 'Saturday / Sunday corporate weekend' : 'Scheduled operational business day')}
               </span>
             </div>
 
             {/* Work Mode */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Location / Presence</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                Corporate Office Desk
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block tracking-wider">Location / Presence</span>
+              <span className="font-extrabold text-slate-900 text-sm mt-1 block">
+                {selectedDayInfo.attendance?.isWFH ? 'Remote Work (WFH)' : 'Corporate Office Desk'}
               </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
+              <span className="text-[11px] text-slate-500 mt-0.5 block">
                 Attendance &amp; presence verified
               </span>
             </div>
-          </div>
-
-          {/* Employees On Leave in Selected Day */}
-          <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#212529] flex items-center gap-2">
-                <CalendarOff className="w-4 h-4 text-[#2d6a4f]" />
-                <span>Employees on Leave ({selectedDayInfo.leaves?.length || 0})</span>
-              </span>
-              {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  {selectedDayInfo.leaves.length} on leave
-                </span>
-              )}
-            </div>
-
-            {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
-                {selectedDayInfo.leaves.map((lv: LeaveRequest, lIdx: number) => {
-                  const empName = resolveLeaveEmployeeName(lv);
-                  const deptName = resolveLeaveDepartment(lv);
-                  const isApproved = lv.status === 'Approved';
-                  const isOwn = isOwnLeave(lv);
-
-                  return (
-                    <div
-                      key={lv.id || lIdx}
-                      className="p-2.5 rounded-xl bg-white border border-[#dee2e6] hover:border-[#95d5b2] transition-all flex items-center justify-between gap-2 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-[#1b4332] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                          {empName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 leading-tight">
-                          <p className="text-xs font-bold text-[#212529] truncate flex items-center gap-1">
-                            <span>{empName}</span>
-                            {isOwn && <span className="text-[10px] font-semibold text-[#2d6a4f]">(You)</span>}
-                          </p>
-                          <p className="text-[10px] text-[#6c757d] truncate">
-                            {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
-                            {lv.isHalfDay && ' (Half Day)'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 border ${
-                          isApproved
-                            ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        {lv.status}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 py-2 text-xs text-[#6c757d]">
-                <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
-                <span>No employees on leave on this date.</span>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1325,21 +1142,21 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 2: AGENDA / SCHEDULE CHRONOLOGICAL LIST
           ========================================================================= */}
       {viewMode === 'agenda' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#e9ecef]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-base font-extrabold text-[#212529]">
+              <h3 className="text-base font-extrabold text-slate-900">
                 Monthly Schedule &amp; Event Timeline ({agendaEvents.length})
               </h3>
-              <p className="text-xs text-[#6c757d]">
+              <p className="text-xs text-slate-500">
                 Chronological list of official corporate holidays and weekend schedule for {monthNames[month]} {year}.
               </p>
             </div>
           </div>
 
           {agendaEvents.length === 0 ? (
-            <div className="text-center py-12 text-[#6c757d]">
-              <CalendarDays className="w-12 h-12 mx-auto text-[#ced4da] mb-2" />
+            <div className="text-center py-12 text-slate-400">
+              <CalendarDays className="w-12 h-12 mx-auto text-slate-300 mb-2" />
               <p className="text-sm font-semibold">No holidays or weekend events for this month.</p>
             </div>
           ) : (
@@ -1348,51 +1165,42 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 <div
                   key={evt.dateStr}
                   onClick={() => setSelectedDay(evt.day)}
-                  className="p-4 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/25 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                  className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-emerald-50/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${evt.holiday
-                        ? 'bg-[#1b4332] text-white'
-                        : evt.isWeekend
-                          ? 'bg-[#e9ecef] text-[#343a40] border border-[#ced4da]'
-                          : 'bg-[#2d6a4f] text-white'
-                        }`}
-                    >
-                      <span className="text-[10px] font-semibold uppercase leading-none">{monthNames[month].slice(0, 3)}</span>
-                      <span className="text-base font-semibold leading-none mt-0.5">{evt.day}</span>
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-950 text-white flex flex-col items-center justify-center shrink-0">
+                      <span className="text-xs font-bold leading-none">{monthNames[month].slice(0, 3)}</span>
+                      <span className="text-base font-black leading-none mt-0.5">{evt.day}</span>
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-[#212529] flex items-center gap-1.5">
-                        {evt.holiday ? (
-                          <><Star className="w-3.5 h-3.5 text-[#2d6a4f] fill-[#2d6a4f] shrink-0" /><span>{evt.holiday}</span></>
-                        ) : evt.isWeekend ? (
-                          <><CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" /><span>Weekend ({new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })})</span></>
-                        ) : (
-                          <><Briefcase className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" /><span>Work Shift: {evt.attendance?.status || 'Scheduled'}</span></>
-                        )}
+                      <h4 className="text-sm font-bold text-slate-900">
+                        {evt.holiday
+                          ? `🌟 ${evt.holiday}`
+                          : evt.isWeekend
+                          ? `🗓️ Weekend (${new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })})`
+                          : `💼 Work Shift: ${evt.attendance?.status || 'Scheduled'}`}
                       </h4>
-                      <p className="text-xs text-[#6c757d] mt-0.5">
-                        {evt.dateStr} &bull; {new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {evt.dateStr} • {new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
                     {evt.holiday && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#1b4332] text-white">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                         Official Holiday
                       </span>
                     )}
                     {evt.isWeekend && !evt.holiday && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-[#495057] border border-[#ced4da]">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                         Weekend Off
                       </span>
                     )}
                     {evt.attendance && !evt.holiday && !evt.isWeekend && (
-                      <div className="text-xs text-[#495057] bg-white border border-[#dee2e6] px-3 py-1.5 rounded-xl font-medium">
-                        Punch: <span className="font-bold text-[#1b4332]">{evt.attendance.checkIn} &rarr; {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
+                      <div className="text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-medium">
+                        Punch: <span className="font-bold text-slate-900">{evt.attendance.checkIn} → {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
                       </div>
                     )}
                   </div>
@@ -1407,50 +1215,38 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           VIEW MODE 3: CORPORATE HOLIDAYS DIRECTORY
           ========================================================================= */}
       {viewMode === 'holidays' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-base font-extrabold text-[#212529] flex items-center gap-2">
-                <Star className="w-5 h-5 text-[#2d6a4f] fill-[#2d6a4f]" />
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                 <span>Official Corporate Holidays Roster ({filteredHolidays.length})</span>
               </h3>
-              <p className="text-xs text-[#6c757d] mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Gazetted and floating company holidays recognized across all branches.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-2.5" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Search holiday..."
                   value={holidaySearchQuery}
                   onChange={(e) => setHolidaySearchQuery(e.target.value)}
-                  className="pl-9 pr-3.5 py-1.5 rounded-xl border border-[#dee2e6] text-xs bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-hidden"
+                  className="pl-9 pr-3.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
 
               {portalMode !== 'employee' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleOpenWeekendModal}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#dee2e6] text-[#212529] hover:text-[#1b4332] text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Configure Corporate Weekend Policy"
-                  >
-                    <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                    <span>Weekend Rules</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddHolidayOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Holiday</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => setIsAddHolidayOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-xs font-bold hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Holiday</span>
+                </button>
               )}
             </div>
           </div>
@@ -1473,43 +1269,41 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               return (
                 <div
                   key={holidayId || `${h.name}-${h.date}`}
-                  className="p-4 rounded-xl bg-white border border-[#dee2e6] hover:border-[#74c69d] hover:shadow-xs transition-all flex items-start justify-between gap-3"
+                  className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-emerald-300 hover:shadow-xs transition-all flex items-start justify-between gap-3"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[10px] font-semibold uppercase text-[#2d6a4f] leading-none">{mName || 'DAY'}</span>
-                      <span className="text-base font-semibold leading-none mt-0.5">{dNum || '--'}</span>
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-300 text-amber-900 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[10px] font-black uppercase text-amber-700 leading-none">{mName || 'DAY'}</span>
+                      <span className="text-base font-black leading-none mt-0.5">{dNum || '--'}</span>
                     </div>
 
                     <div>
-                      <h4 className="font-extrabold text-sm text-[#212529] leading-snug">{h.name}</h4>
-                      <p className="text-xs text-[#6c757d] mt-0.5 font-medium">
-                        {h.date} &bull; {h.dayOfWeek || 'Weekday'}
+                      <h4 className="font-extrabold text-sm text-slate-900 leading-snug">{h.name}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                        {h.date} • {h.dayOfWeek || 'Weekday'}
                       </p>
-                      <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2]">
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                         {h.type || 'Public'} Holiday
                       </span>
                       {h.description && (
-                        <p className="text-[11px] text-[#6c757d] mt-1 leading-relaxed">
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                           {h.description}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  {portalMode !== 'employee' && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingHoliday({ id: holidayId, name: h.name });
-                      }}
-                      className="p-1.5 rounded-xl text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete Holiday"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingHoliday({ id: holidayId, name: h.name });
+                    }}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                    title="Delete Holiday"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               );
             })}
@@ -1521,6 +1315,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           MODAL: ADD HOLIDAY
           ========================================================================= */}
       {mounted && isAddHolidayOpen && typeof document !== 'undefined' && createPortal(
+<<<<<<< HEAD
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
@@ -1544,12 +1339,34 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <p className="text-xs text-slate-500 truncate mt-0.5">
                     Corporate schedule roster synchronization
                   </p>
+=======
+        <div onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-[#062d1f] to-[#0a422e] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-xl bg-white/10 text-amber-400">
+                  <Star className="w-4 h-4 fill-amber-400" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Add Company Holiday</h3>
+                  <p className="text-[11px] text-[#a7f3d0]">Corporate schedule roster synchronization</p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddHolidayOpen(false)}
+<<<<<<< HEAD
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+=======
+                className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1557,25 +1374,38 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
             <form onSubmit={handleCreateHoliday} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
               <div>
+<<<<<<< HEAD
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Holiday Name *</label>
+=======
+                <label className="block font-bold text-slate-700 mb-1.5">Holiday Name *</label>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <input
                   type="text"
                   required
                   placeholder="e.g., Diwali / Deepawali Festival"
                   value={holidayName}
                   onChange={(e) => setHolidayName(e.target.value)}
+<<<<<<< HEAD
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
+=======
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
+<<<<<<< HEAD
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Calendar Date *</label>
+=======
+                  <label className="block font-bold text-slate-700 mb-1.5">Calendar Date *</label>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   <input
                     type="date"
                     required
                     value={holidayDate}
                     onChange={(e) => setHolidayDate(e.target.value)}
+<<<<<<< HEAD
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                   />
                 </div>
@@ -1585,6 +1415,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                     value={holidayType}
                     onChange={(e) => setHolidayType(e.target.value as any)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
+=======
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 text-slate-900 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">Holiday Classification</label>
+                  <select
+                    value={holidayType}
+                    onChange={(e) => setHolidayType(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   >
                     <option value="Public">Public / Gazetted</option>
                     <option value="Optional">Optional / Floating</option>
@@ -1594,12 +1435,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               </div>
 
               <div>
+<<<<<<< HEAD
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description / Remarks</label>
+=======
+                <label className="block font-bold text-slate-700 mb-1.5">Description / Remarks</label>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <input
                   type="text"
                   placeholder="e.g., Annual Festival of Lights Celebration"
                   value={holidayDescription}
                   onChange={(e) => setHolidayDescription(e.target.value)}
+<<<<<<< HEAD
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
                 />
               </div>
@@ -1609,12 +1455,27 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   type="button"
                   onClick={() => setIsAddHolidayOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
+=======
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddHolidayOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+<<<<<<< HEAD
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+=======
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold shadow-md shadow-emerald-500/20 active:scale-95"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Add Holiday
                 </button>
@@ -1671,6 +1532,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         </div>,
         document.body
       )}
+<<<<<<< HEAD
 
       {/* =========================================================================
           MODAL: CONFIGURE CORPORATE WEEKEND POLICY
@@ -2411,6 +2273,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
           </div>,
           document.body
         )}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     </div>
   );
 };

@@ -1,11 +1,20 @@
 'use client';
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, AlertCircle, CalendarDays, ChevronDown, Check, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { LeaveType, LeaveRequest, LeaveDaySession, LeaveDayBreakdown } from '../../types/hrms';
+=======
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, AlertCircle } from 'lucide-react';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { LeaveType } from '../../types/hrms';
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 import { useModalOverlay } from '../../lib/useModalOverlay';
 
 interface LeaveModalProps {
@@ -23,6 +32,7 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
+<<<<<<< HEAD
 const getDatesInRange = (startStr: string, endStr: string): string[] => {
   if (!startStr || !endStr || endStr < startStr) return startStr ? [startStr] : [];
   const [sy, sm, sd] = startStr.split('-').map(Number);
@@ -242,6 +252,9 @@ const ThemedDatePicker: React.FC<ThemedDatePickerProps> = ({
 };
 
 export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh, availableLeaveTypes }) => {
+=======
+export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefresh }) => {
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const { user } = useAuth();
   const { emitLeaveApplied, showToast } = useSocket();
   const [leaveType, setLeaveType] = useState<LeaveType>(
@@ -250,11 +263,15 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [isHalfDay, setIsHalfDay] = useState(false);
+<<<<<<< HEAD
   const [daySessions, setDaySessions] = useState<Record<string, LeaveDaySession>>({});
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+<<<<<<< HEAD
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false);
   const [backendLeaveTypes, setBackendLeaveTypes] = useState<Array<{ id: string; name: string }>>(availableLeaveTypes || []);
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
@@ -369,6 +386,21 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
       active = false;
     };
   }, [isOpen, availableLeaveTypes, user?.companyId]);
+=======
+
+  useEffect(() => {
+    if (isOpen) {
+      const today = getTodayDate();
+      setStartDate(today);
+      setEndDate(today);
+      setLeaveType('Casual Leave');
+      setIsHalfDay(false);
+      setReason('');
+      setFieldErrors({});
+      setError('');
+    }
+  }, [isOpen]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   const clearFieldError = (f: string) => {
     setFieldErrors((prev) => {
@@ -450,6 +482,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         '';
 
       const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
+<<<<<<< HEAD
       const firstHalfDayEntry = dayBreakdown.find((d) => d.session !== 'FULL_DAY');
       const hasAnyHalfDay = Boolean(firstHalfDayEntry);
 
@@ -464,6 +497,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         };
       });
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       const leavePayload = {
         userId: targetUserId,
         employeeId: user.employeeId || targetUserId,
@@ -472,6 +507,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
         leaveType,
         startDate,
         endDate,
+<<<<<<< HEAD
         daysCount: totalDaysCount,
         isHalfDay: hasAnyHalfDay,
         ...(hasAnyHalfDay && firstHalfDayEntry && firstHalfDayEntry.session !== 'FULL_DAY'
@@ -479,6 +515,9 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
           : {}),
         dayBreakdown,
         days: formattedDays,
+=======
+        isHalfDay: Boolean(isHalfDay),
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         reason: reason.trim(),
       };
 
@@ -567,6 +606,7 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                   : 'border-slate-300 text-slate-800 hover:border-[#2d6a4f]/60'
               }`}
             >
+<<<<<<< HEAD
               <span className={`truncate font-medium ${!leaveType ? 'text-slate-400' : 'text-slate-800'}`}>
                 {leaveTypesLoading && backendLeaveTypes.length === 0
                   ? 'Loading company leave types...'
@@ -629,6 +669,16 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 {fieldErrors.leaveType}
               </span>
             )}
+=======
+              <option value="Casual Leave">Casual Leave (Balance: 10 days)</option>
+              <option value="Sick Leave">Sick Leave (Balance: 9 days)</option>
+              <option value="Paid Leave">Paid / Annual Leave (Balance: 12 days)</option>
+              <option value="Comp Off">Compensatory Off</option>
+              <option value="Unpaid Leave">Unpaid Leave</option>
+              <option value="Maternity Leave">Maternity Leave</option>
+              <option value="Paternity Leave">Paternity Leave</option>
+            </select>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -660,14 +710,24 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               <ThemedDatePicker
                 id="leave-end-date"
                 value={endDate}
+<<<<<<< HEAD
                 minDate={startDate}
                 onChange={handleEndDateChange}
                 hasError={Boolean(fieldErrors.endDate)}
                 align="right"
+=======
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 transition-all ${fieldErrors.endDate
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                  }`}
+                required
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               />
             </div>
           </div>
 
+<<<<<<< HEAD
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -762,6 +822,25 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
             <div className="flex items-center justify-between mb-1.5">
               <label htmlFor="leave-reason-textarea" className="text-xs font-bold text-slate-800">
                 Reason
+=======
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="halfDay"
+              checked={isHalfDay}
+              onChange={(e) => setIsHalfDay(e.target.checked)}
+              className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="halfDay" className="text-xs text-slate-600 font-medium cursor-pointer">
+              Half Day Leave (Morning or Afternoon Session)
+            </label>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">
+                Reason for Leave <span className="text-red-500">*</span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               </label>
               {fieldErrors.reason && (
                 <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
@@ -778,10 +857,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
                 setReason(e.target.value);
                 clearFieldError('reason');
               }}
+<<<<<<< HEAD
               placeholder="Short context for your manager"
               className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all ${fieldErrors.reason
                 ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                 : 'border-slate-300'
+=======
+              placeholder="Please provide details for the team coverage and emergency contact..."
+              className={`w-full px-3 py-2 text-xs rounded-xl border bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all ${fieldErrors.reason
+                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                  : 'border-slate-200'
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 }`}
               required
             />
@@ -792,11 +878,17 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose, onRefre
               id="btn-submit-leave"
               type="submit"
               disabled={loading}
+<<<<<<< HEAD
               className="w-full py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-semibold text-sm shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               {loading
                 ? 'Submitting...'
                 : `Submit (${totalDaysCount} ${totalDaysCount === 1 ? 'Day' : 'Days'})`}
+=======
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? 'Submitting...' : 'Submit Application'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             </button>
           </div>
         </form>

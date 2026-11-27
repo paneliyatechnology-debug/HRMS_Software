@@ -76,8 +76,6 @@ export interface User {
   employeeId?: string;
   employeeCode?: string;
   phone?: string;
-  gender?: string | null;
-  address?: string | null;
   departmentName?: string;
   designationTitle?: string;
   avatarUrl?: string;
@@ -87,6 +85,7 @@ export interface User {
   companyName?: string;
   resigned?: boolean;
   workStatus?: string;
+<<<<<<< HEAD
   permissions?: { key: string; label: string }[];
   industryModules?: string[];
   companyProfile?: {
@@ -102,6 +101,8 @@ export interface User {
     address: string | null;
     status: string;
   } | null;
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 }
 
 export interface Department {

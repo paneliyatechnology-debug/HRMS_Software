@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "dev:https": "next dev -H 0.0.0.0 --experimental-https",
-    "https-proxy": "node https-proxy.mjs",
     "mobile": "npx localtunnel --port 3000 --subdomain paneliya-hrms",
     "tunnel": "npx localtunnel --port 3000",
     "build": "next build",
@@ -13,7 +11,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.21.1",
     "lucide-react": "^1.59.0",
     "next": "16.4.6",

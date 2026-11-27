@@ -20,7 +20,10 @@ import {
 } from 'lucide-react';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 import { CustomSelect } from '../common/CustomSelect';
+<<<<<<< HEAD
 import { api } from '../../lib/api';
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
 interface BookDemoModalProps {
   isOpen: boolean;
@@ -136,6 +139,7 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
     setIsSubmitting(true);
 
     try {
+<<<<<<< HEAD
       // Direct integration with backend API: POST /support
       const supportPayload = {
         kind: 'Demo',
@@ -176,6 +180,31 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
         preferredDate,
         preferredTimeSlot,
       });
+=======
+      const res = await fetch('/api/book-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          workEmail,
+          phoneNumber,
+          companyName,
+          companySize,
+          preferredDate,
+          preferredTimeSlot,
+          interestedModules: selectedModules,
+          notes,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit demo request.');
+      }
+
+      setSuccessData(data.details);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } catch (err: any) {
       setErrorMessage(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -187,6 +216,7 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
     <div
       role="dialog"
       aria-modal="true"
+<<<<<<< HEAD
       className="fixed inset-0 z-[100] bg-white/45 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
     >
       <div className="relative w-full max-w-xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
@@ -208,10 +238,22 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
             type="button"
             onClick={handleReset}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+=======
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
+    >
+      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto animate-in zoom-in-95 duration-200">
+        {/* Top Header Banner */}
+        <div className="bg-gradient-to-r from-[#1b4332] via-[#2d6a4f] to-[#1b4332] px-6 py-5 text-white relative">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="absolute top-4 right-4 p-2 rounded-xl text-emerald-100 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
+<<<<<<< HEAD
         </div>
 
         {/* Content Body */}
@@ -220,6 +262,26 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
             /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                SUCCESS CONFIRMATION SCREEN
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=======
+
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-[#d8f3dc] text-[11px] font-bold border border-emerald-400/20 mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#d8f3dc]" />
+            <span>Interactive 1-on-1 Walkthrough</span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight">Book a Personalized Demo</h2>
+          <p className="text-xs sm:text-sm text-emerald-100/90 mt-1 max-w-md font-medium">
+            See how MyOwn HRMS automates your attendance, payroll, and workforce in a 20-minute tailored session.
+          </p>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-5 sm:p-6 max-h-[78vh] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+          {successData ? (
+            /* ══════════════════════════════════════════════════════════════
+               SUCCESS CONFIRMATION SCREEN
+            ══════════════════════════════════════════════════════════════ */
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             <div className="py-6 text-center space-y-4 animate-in fade-in duration-200">
               <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-[#1b4332] mx-auto flex items-center justify-center shadow-inner">
                 <CheckCircle2 className="w-10 h-10 text-[#2d6a4f]" />
@@ -271,16 +333,26 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                 <button
                   type="button"
                   onClick={handleReset}
+<<<<<<< HEAD
                   className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+=======
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Close &amp; Return to Home
                 </button>
               </div>
             </div>
           ) : (
+<<<<<<< HEAD
             /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                BOOK DEMO INPUT FORM
             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=======
+            /* ══════════════════════════════════════════════════════════════
+               BOOK DEMO INPUT FORM
+            ══════════════════════════════════════════════════════════════ */
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               {errorMessage && (
                 <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 font-semibold text-xs animate-in fade-in">
@@ -452,16 +524,28 @@ export const BookDemoModal: React.FC<BookDemoModalProps> = ({ isOpen, onClose })
                 <button
                   type="submit"
                   disabled={isSubmitting}
+<<<<<<< HEAD
                   className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-emerald-100" />
+=======
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] hover:from-[#2d6a4f] hover:to-[#1b4332] text-white font-bold text-xs shadow-md hover:shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#d8f3dc]" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       <span>Reserving Your Demo Slot...</span>
                     </>
                   ) : (
                     <>
+<<<<<<< HEAD
                       <CalendarDays className="w-4 h-4 text-emerald-100" />
+=======
+                      <CalendarDays className="w-4 h-4 text-[#d8f3dc]" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       <span>Confirm &amp; Schedule Live Demo</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>

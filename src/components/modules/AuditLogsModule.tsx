@@ -54,7 +54,7 @@ export const AuditLogsModule: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-600 font-bold text-xs flex items-center gap-1.5">
+          <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4" /> SOC 2 / GDPR Compliant
           </span>
         </div>
@@ -69,12 +69,12 @@ export const AuditLogsModule: React.FC = () => {
               placeholder="Search audit trail..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                 title="Clear"
               >
                 <X className="w-3.5 h-3.5" />
@@ -87,9 +87,9 @@ export const AuditLogsModule: React.FC = () => {
               <button
                 key={m}
                 onClick={() => setModuleFilter(m)}
-                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer ${
                   moduleFilter === m
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -148,7 +148,7 @@ export const AuditLogsModule: React.FC = () => {
                       {log.userRole}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-blue-600 font-sans font-semibold">
+                  <td className="py-3.5 px-4 text-emerald-700 font-sans font-semibold">
                     {log.module}
                   </td>
                   <td className="py-3.5 px-4 font-bold text-slate-800">

@@ -323,7 +323,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           showToast?.({ type: 'warning', title: 'No Data', message: 'No attendance records available to export.' });
           return;
         }
-        csvContent = 'Date,Employee ID,Employee Name,Clock In,Clock Out,Break Mins,Working Hours,Status\n';
+        csvContent = 'Date,Employee ID,Employee Name,Check In,Check Out,Break Mins,Working Hours,Status\n';
         localAttendance.forEach((a) => {
           csvContent += `"${a.date || ''}","${a.employeeId || ''}","${a.employeeName || ''}","${a.checkIn || ''}","${a.checkOut || ''}",${a.breakDurationMinutes || 0},${a.workingHours || 0},"${a.status || ''}"\n`;
         });
@@ -569,6 +569,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const hoveredMonth = hoveredMonthIdx !== null ? dynMonths[hoveredMonthIdx] : null;
 
   return (
+<<<<<<< HEAD
     <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Right Action Bar */}
       <div className="flex items-center justify-end gap-2">
@@ -607,8 +608,39 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
             </span>
             <span className="text-slate-400 font-medium">{localDepartments.length} Depts</span>
           </div>
+=======
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            Executive Analytics &amp; Reports
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Real company intelligence for {company?.companyName || company?.name || 'Selected Company'}
+          </p>
         </div>
 
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExport}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{loading ? 'Exporting...' : `Export ${reportType.toUpperCase()} CSV`}</span>
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
+        </div>
+      </div>
+
+<<<<<<< HEAD
         {/* Card 2: Attendance Rate */}
         <div className="rounded-2xl bg-white border border-[#dee2e6] shadow-2xs overflow-hidden flex flex-col justify-between">
           <div className="p-5 pb-4">
@@ -819,6 +851,95 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               </div>
             </div>
           )}
+=======
+      {/* KPI Cards: 100% Genuine Scoped Data */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Headcount</span>
+            <Users className="w-4 h-4 text-emerald-600" />
+          </div>
+          <p className="text-2xl font-black text-slate-900 mt-2">
+            {totalHeadcount} Active
+          </p>
+          <span className="text-[11px] text-slate-400 font-medium mt-1 block">
+            {localEmployees.length} Total Registered
+          </span>
+        </div>
+
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Attendance Rate</span>
+            <Percent className="w-4 h-4 text-emerald-600" />
+          </div>
+          <p className="text-2xl font-black text-slate-900 mt-2">
+            {attendanceRateDisplay}
+          </p>
+          <span className="text-[11px] text-slate-400 font-medium mt-1 block">
+            {localAttendance.length > 0 ? `${localAttendance.length} Shifts Recorded` : 'No attendance records'}
+          </span>
+        </div>
+
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Monthly Payroll</span>
+            <DollarSign className="w-4 h-4 text-purple-600" />
+          </div>
+          <p className="text-2xl font-black text-slate-900 mt-2">
+            {payrollDisplay}
+          </p>
+          <span className="text-[11px] text-slate-400 font-medium mt-1 block">
+            {localPayroll.length > 0 ? `${localPayroll.length} Disbursed Slips` : 'No payroll records'}
+          </span>
+        </div>
+
+        <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Compliance Status</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          </div>
+          <p className="text-2xl font-black text-emerald-600 mt-2">
+            {complianceStatus}
+          </p>
+          <span className="text-[11px] text-slate-400 font-medium mt-1 block">
+            Verified Company Records
+          </span>
+        </div>
+      </div>
+
+      {/* Report Types Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold">
+        {[
+          { id: 'attendance', label: `Attendance Records (${localAttendance.length})` },
+          { id: 'employees', label: `Department Headcount (${localEmployees.length})` },
+          { id: 'leaves', label: `Leave Requests (${localLeaves.length})` },
+          { id: 'payroll', label: `Payroll Compensation (${localPayroll.length})` },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setReportType(t.id as any)}
+            className={`px-4 py-2 rounded-xl whitespace-nowrap transition cursor-pointer ${
+              reportType === t.id
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-100 hover:bg-slate-50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Report Table Container */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-emerald-600" />
+            {reportType.toUpperCase()} Statistical Breakdown
+          </h3>
+          <span className="text-xs text-slate-400">
+            {company?.companyName || company?.name || 'Company'} • Verified Live Data
+          </span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         </div>
 
         {/* Department Mix Pie Chart */}
@@ -877,6 +998,36 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                     {departmentMix.segments[hoveredDeptIdx].name}: {departmentMix.segments[hoveredDeptIdx].count} (
                     {departmentMix.segments[hoveredDeptIdx].pct.toFixed(0)}%)
                   </div>
+<<<<<<< HEAD
+=======
+                ) : (
+                  <table className="w-full text-left text-xs min-w-[700px]">
+                    <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
+                      <tr>
+                        <th className="py-3 px-4">Department</th>
+                        <th className="py-3 px-4">Headcount</th>
+                        <th className="py-3 px-4">Present Ratio</th>
+                        <th className="py-3 px-4">Monthly Cost</th>
+                        <th className="py-3 px-4">Annual Budget</th>
+                        <th className="py-3 px-4">Turnover %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {departmentRows.map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3.5 px-4 font-bold text-slate-900">
+                            {row.dept} <span className="text-[10px] text-slate-400 font-mono">({row.code})</span>
+                          </td>
+                          <td className="py-3.5 px-4 font-semibold text-emerald-700">{row.count} Staff</td>
+                          <td className="py-3.5 px-4 font-semibold text-emerald-600">{row.ratio}</td>
+                          <td className="py-3.5 px-4 font-bold text-slate-700">{row.cost}</td>
+                          <td className="py-3.5 px-4 text-slate-400">{row.budget}</td>
+                          <td className="py-3.5 px-4 text-slate-400">{row.turn}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 )}
               </div>
 
@@ -1022,6 +1173,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
               )
             )}
 
+<<<<<<< HEAD
             {activeReport === 'directory' && (
               localEmployees.length === 0 ? (
                 <div className="py-10 text-center text-xs text-slate-500">No employee records available.</div>
@@ -1050,6 +1202,27 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
                             {emp.status}
                           </span>
                         </td>
+=======
+            {/* VIEW 2: Attendance Records */}
+            {reportType === 'attendance' && (
+              <>
+                {localAttendance.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500">
+                    <p className="text-xs font-semibold text-slate-600">No data available for the selected period.</p>
+                    <p className="text-[11px] text-slate-400 mt-1">No punch records have been recorded for this company yet.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs min-w-[700px]">
+                    <thead className="bg-slate-50 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-100">
+                      <tr>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Employee</th>
+                        <th className="py-3 px-4">Check In</th>
+                        <th className="py-3 px-4">Check Out</th>
+                        <th className="py-3 px-4">Break Duration</th>
+                        <th className="py-3 px-4">Worked Hours</th>
+                        <th className="py-3 px-4">Status</th>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </tr>
                     ))}
                   </tbody>

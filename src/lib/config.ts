@@ -26,6 +26,7 @@ function readLiveEnv(): { apiUrl?: string; socketUrl?: string } | null {
 }
 
 export function getApiBaseUrl(): string {
+<<<<<<< HEAD
   // In the browser, route requests through frontend reverse proxy (/hrms-api) to maintain same-origin cookies and prevent 401 CORS issues.
   // Next.js rewrites in next.config.ts automatically and dynamically forward /hrms-api to the backend IP configured in .env (NEXT_PUBLIC_API_URL).
   if (typeof window !== 'undefined') {
@@ -33,6 +34,18 @@ export function getApiBaseUrl(): string {
   }
 
   // Server-side / fallback
+=======
+  // 1. Direct synchronous server injection from physical .env file on every request (Priority 1)
+  if (typeof window !== 'undefined' && (window as any).__HRMS_ENV__?.apiUrl) {
+    let clean = cleanUrl((window as any).__HRMS_ENV__.apiUrl);
+    if (clean) {
+      if (!clean.endsWith('/api')) clean = `${clean}/api`;
+      return clean;
+    }
+  }
+
+  // 2. Client-side / Build-time process.env from .env (Priority 2)
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const envUrl =
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) ||
@@ -43,7 +56,12 @@ export function getApiBaseUrl(): string {
     return cleanEnv.endsWith('/api') ? cleanEnv : `${cleanEnv}/api`;
   }
 
+<<<<<<< HEAD
   return 'http://192.168.1.103:4000/api';
+=======
+  // 3. Fallback only if no environment variable is provided in .env
+  return 'http://localhost:4000/api';
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 }
 
 export function getSocketBaseUrl(): string {

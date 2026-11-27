@@ -265,61 +265,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [scrolledPageTitle, setScrolledPageTitle] = useState('');
-  const mainScrollRef = useRef<HTMLElement>(null);
-
-  const handleScrollToTop = useCallback(() => {
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, []);
-
-  // Listen to main scroll container to trigger header live clock <-> page title morph
-  useEffect(() => {
-    const mainEl = mainScrollRef.current;
-    if (!mainEl) return;
-
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const scrollTop = mainEl.scrollTop;
-          const nextScrolled = scrollTop > 35;
-          setIsScrolled(nextScrolled);
-
-          if (nextScrolled) {
-            const headingEl = mainEl.querySelector('h1, .hrms-page-title');
-            if (headingEl) {
-              const text = headingEl.textContent?.trim();
-              if (text) {
-                setScrolledPageTitle(text);
-              }
-            }
-          }
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    mainEl.addEventListener('scroll', handleScroll, { passive: true });
-    // Run once on initial layout or change
-    handleScroll();
-
-    return () => {
-      mainEl.removeEventListener('scroll', handleScroll);
-    };
-  }, [activeModule, subTab]);
-
-  // Reset scroll and header title on page / sub-tab navigation
-  useEffect(() => {
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTop = 0;
-    }
-    setIsScrolled(false);
-    setScrolledPageTitle('');
-  }, [activeModule, subTab]);
 
   // Synchronize route with activeModule and support backward-compatible query redirection
   useEffect(() => {
@@ -412,6 +357,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   // Strict role guard: prevent employees from accessing admin-only views or portal
   useEffect(() => {
+<<<<<<< HEAD
     const resigned = Boolean(user?.resigned);
     if (resigned) {
       if (portalMode !== 'employee') {
@@ -435,6 +381,36 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   }, [portalMode, activeModule, user, setPortalMode]);
 
+=======
+    const isAdmin = isUserAdminRole(user?.role);
+    if (!isAdmin && portalMode === 'admin') {
+      setPortalMode('employee');
+      return;
+    }
+
+    if (portalMode === 'employee') {
+      const allowedInEmployee = [
+        'dashboard',
+        'calendar',
+        'attendance',
+        'leaves',
+        'payslips',
+        'resignations',
+        'organization',
+        'documents',
+        'announcements',
+        'chat',
+        'settings',
+        'profile',
+      ];
+      if (!allowedInEmployee.includes(activeModule)) {
+        navigateToModule('dashboard');
+      }
+    }
+  }, [portalMode, activeModule, user?.role, setPortalMode]);
+
+  // Chat unread count synchronization
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   useEffect(() => {
     const openClock = () => setClockModalOpen(true);
     window.addEventListener('hrms_open_clock_modal', openClock);
@@ -499,10 +475,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     const seenEmpIds = new Set<string>();
     const safe = Array.isArray(rawEmps)
       ? rawEmps.filter((emp) => {
-        if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
-        seenEmpIds.add(emp.id);
-        return true;
-      })
+          if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
+          seenEmpIds.add(emp.id);
+          return true;
+        })
       : [];
 
     if (!activeCompanyId) return safe;
@@ -522,10 +498,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }, [activeCompanyId, activeCompanyCode]);
 
   const scopeLeaves = useCallback((rawLeaves: LeaveRequest[], scopedEmps: Employee[]): LeaveRequest[] => {
-    if (!Array.isArray(rawLeaves)) return [];
-    if (scopedEmps.length === 0) return rawLeaves;
     const scopedEmpIds = new Set(scopedEmps.map((e) => e.id));
-    return rawLeaves
+    return (Array.isArray(rawLeaves) ? rawLeaves : [])
       .filter(
         (l) =>
           scopedEmpIds.has(l.employeeId) ||
@@ -604,7 +578,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
       .then((c) => {
         if (isMounted && c) setCurrentCompany(c);
       })
-      .catch(() => { });
+      .catch(() => {});
     return () => {
       isMounted = false;
     };
@@ -717,6 +691,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         setLiveEmployees(scopedEmps);
         setDepartments(Array.isArray(departmentsData) ? departmentsData : Array.isArray((departmentsData as any)?.data) ? (departmentsData as any).data : []);
       } else if (targetModule === 'calendar') {
+<<<<<<< HEAD
         if (portalMode !== 'admin') {
           const leavesData = await api.getLeaves().catch(() => []);
           const ownLeaves = Array.isArray(leavesData) ? leavesData : [];
@@ -725,23 +700,24 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         } else {
         const needEmployees = employeesRef.current.length === 0;
         const [attendanceData, leavesData, employeesData] = await Promise.all([
+=======
+        const [attendanceData, leavesData] = await Promise.all([
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           api.getAttendance().catch(() => []),
           api.getLeaves().catch(() => []),
-          needEmployees ? api.getEmployees().catch(() => []) : Promise.resolve(employeesRef.current),
         ]);
-        if (needEmployees && Array.isArray(employeesData) && employeesData.length > 0) {
-          const scopedEmps = scopeEmployees(employeesData);
-          setEmployees(scopedEmps);
-          setLiveEmployees(scopedEmps);
-        }
-        const activeEmps = employeesRef.current.length > 0 ? employeesRef.current : (Array.isArray(employeesData) ? scopeEmployees(employeesData) : []);
-        const scopedAtt = scopeAttendance(attendanceData, activeEmps);
+        const scopedAtt = scopeAttendance(attendanceData, employeesRef.current);
         setAttendance(scopedAtt);
+<<<<<<< HEAD
         setLiveAttendanceRecords(scopedAtt);
         const scopedLvs = scopeLeaves(leavesData, activeEmps);
         setLeaves(scopedLvs);
         setLiveLeaves(scopedLvs);
         }
+=======
+        const scopedLvs = scopeLeaves(leavesData, employeesRef.current);
+        setLeaves(scopedLvs);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       } else if (targetModule === 'chat' || targetModule === 'announcements') {
         const role = String(user?.role || '').toUpperCase();
         const canListUsers = ['ADMIN', 'HR', 'MANAGER', 'SUPER_ADMIN', 'HR_ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN'].includes(role);
@@ -924,6 +900,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     }
   };
 
+<<<<<<< HEAD
   const myProfileEmployee = React.useMemo<Employee | null>(() => {
     if (!user) return null;
     const myEmp = employees.find(
@@ -973,9 +950,60 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
     };
   }, [employees, user, currentCompany]);
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const handleOpenMyProfile = () => {
-    navigateToModule('profile');
+    const myEmp = employees.find((e) =>
+      (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
+      (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
+      ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
+      (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
+    );
+    if (myEmp) {
+      setSelectedEmployee(myEmp);
+    } else if (user) {
+      setSelectedEmployee({
+        id: user.employeeId || user.id || 'emp-self',
+        employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
+        firstName: user.firstName || 'Employee',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: (user as any)?.phone || '',
+        avatarUrl: user.avatarUrl || '',
+        gender: 'Other',
+        dateOfBirth: '1995-01-01',
+        address: '',
+        emergencyContact: { name: '', relationship: '', phone: '' },
+        joiningDate: '2026-01-01',
+        employmentType: 'Full-time',
+        status: 'Active',
+        departmentId: (user as any)?.departmentId || 'dept-1',
+        departmentName: (user as any)?.departmentName || 'General',
+        designationId: (user as any)?.designationId || 'des-1',
+        designationTitle: (user as any)?.designationTitle || 'Staff',
+        reportingManagerId: '',
+        reportingManagerName: '—',
+        workLocationId: 'loc-1',
+        workLocationName: 'Corporate HQ',
+        shift: 'General Shift (09:00 AM – 06:00 PM)',
+        bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+        taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+        education: [],
+        previousExperience: [],
+        skills: [],
+        salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
+      });
+    }
   };
+
+  // Open profile modal if visiting /profile
+  useEffect(() => {
+    if (activeModule === 'profile') {
+      handleOpenMyProfile();
+    }
+  }, [activeModule]);
 
   // Redirect to login if user is not authenticated (performed inside useEffect to avoid updating Router during render)
   useEffect(() => {
@@ -986,6 +1014,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (!mounted || isLoading || !isAuthenticated) {
     return (
+<<<<<<< HEAD
       <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
         <BouncingDotsLoader size="lg" />
         {!mounted || isLoading ? (
@@ -993,12 +1022,19 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         ) : (
           <span className="text-xs font-semibold text-slate-700">Redirecting to login...</span>
         )}
+=======
+      <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <span className="text-xs font-semibold text-slate-700">
+          {isLoading ? 'Loading Paneliya HRMS...' : 'Redirecting to login...'}
+        </span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       </div>
     );
   }
 
   return (
-    <div className="hrms-app-shell h-screen w-full bg-[#e9ecef] text-[#212529] flex font-sans antialiased overflow-hidden relative">
+    <div className="h-screen w-full bg-slate-50 text-slate-900 flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar
@@ -1012,8 +1048,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
         pendingLeavesCount={pendingLeavesCount}
         unreadChatCount={unreadChatCount}
         company={currentCompany}
+<<<<<<< HEAD
         employees={employees}
         onOpenProfile={handleOpenMyProfile}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       />
 
       {/* Right Content Area */}
@@ -1032,18 +1071,12 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
           onSelectEmployee={setSelectedEmployee}
           employees={employees}
           portalMode={portalMode}
-          activeModule={activeModule}
-          activeSubTab={subTab}
-          isAddEmployeeModalOpen={addEmployeeModalOpen}
-          isLeaveModalOpen={leaveModalOpen}
           pendingLeavesCount={pendingLeavesCount}
           unreadChatCount={unreadChatCount}
           company={currentCompany}
-          isScrolled={isScrolled}
-          pageTitle={scrolledPageTitle}
-          onScrollToTop={handleScrollToTop}
         />
 
+<<<<<<< HEAD
         <main
           ref={mainScrollRef}
           className={`flex-1 w-full [scrollbar-width:thin] bg-transparent relative z-10 ${activeModule === 'chat' || activeModule === 'announcements'
@@ -1069,6 +1102,11 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
               }`}
           >
             {(activeModule === 'dashboard' || !isModuleAllowedForUser(activeModule, user)) && (
+=======
+        <main className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full [scrollbar-width:thin] bg-transparent relative z-10">
+          <div key={activeModule} className="max-w-[1700px] mx-auto animate-module-fade-in">
+            {activeModule === 'dashboard' && (
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               <DashboardView
                 loading={dashboardLoading}
                 stats={stats}
@@ -1129,7 +1167,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                   navigateToModule('chat');
                 }}
                 portalMode={portalMode}
+<<<<<<< HEAD
                 loading={Boolean(moduleLoading['employees'] || employees.length === 0)}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               />
             )}
 
@@ -1141,13 +1182,16 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                   portalMode === 'admin'
                     ? 'today'
                     : subTab === 'summary' || subTab === 'roster' || subTab === 'holidays'
-                      ? (subTab as any)
-                      : 'today'
+                    ? (subTab as any)
+                    : 'today'
                 }
                 onOpenPunchModal={() => setClockModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+<<<<<<< HEAD
                 loading={Boolean(moduleLoading['attendance'] || (portalMode === 'admin' && employees.length === 0))}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               />
             )}
 
@@ -1158,7 +1202,10 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 onOpenApplyModal={() => setLeaveModalOpen(true)}
                 onRefresh={loadData}
                 portalMode={portalMode}
+<<<<<<< HEAD
                 loading={Boolean(moduleLoading['leaves'] || (leaves.length === 0 && moduleLoading['leaves'] !== false))}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               />
             )}
 
@@ -1180,9 +1227,6 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 candidates={candidates}
                 departments={departments}
                 onRefresh={loadData}
-                onImportCandidates={(newCands) => {
-                  setCandidates((prev) => [...prev, ...newCands]);
-                }}
               />
             )}
 
@@ -1257,6 +1301,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
               <NotificationsModule onNavigateModule={navigateToModule} />
             )}
             {activeModule === 'audit-logs' && <AuditLogsModule />}
+<<<<<<< HEAD
             {activeModule === 'profile' && (
               <div className="space-y-5 w-full">
                 <EmployeeProfileModal
@@ -1267,6 +1312,8 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
                 />
               </div>
             )}
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
           </div>
         </main>

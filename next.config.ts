@@ -27,18 +27,18 @@ const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.103:40
 const backendApiUrl = backendBase.endsWith('/api') ? backendBase : `${backendBase}/api`;
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@vladmandic/face-api'],
   async rewrites() {
     return [
       {
         source: '/hrms-api/:path*',
-        destination: `${backendApiUrl}/:path*`,
+        destination: 'http://127.0.0.1:4000/api/:path*',
       },
     ];
   },
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",
+    "192.168.1.105",
     "192.168.1.108",
     "192.168.1.*",
     "192.168.*.*",
@@ -52,6 +52,7 @@ const nextConfig: NextConfig = {
     ...localIps,
   ],
   turbopack: {
+    root: __dirname,
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

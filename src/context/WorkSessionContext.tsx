@@ -46,6 +46,7 @@ export interface WorkSessionContextType {
   currentBreak: any | null;
   lastCompletedSession: any | null;
   todaySummary: any | null;
+  todaySessions: any[];
   serverTime: string | null;
   attendanceLogic: any | null;
   punches: any[];
@@ -226,6 +227,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [currentBreak, setCurrentBreak] = useState<any | null>(null);
   const [lastCompletedSession, setLastCompletedSession] = useState<any | null>(null);
   const [todaySummary, setTodaySummary] = useState<any | null>(null);
+  const [todaySessions, setTodaySessions] = useState<any[]>([]);
   const [serverTime, setServerTime] = useState<string | null>(null);
   const [attendanceLogic, setAttendanceLogic] = useState<any | null>(null);
   const [punches, setPunches] = useState<any[]>([]);
@@ -264,6 +266,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     statusRef.current = status;
   }, [status]);
 
+<<<<<<< HEAD
   /**
    * Master Clock Painter: Executes each second to render real-time UI without drift
    */
@@ -563,18 +566,28 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     tick();
   }, [tick]);
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   /**
    * Authoritative backend status synchronizer
    */
   const refresh = useCallback(async () => {
     if (isFetchingRef.current) return;
+<<<<<<< HEAD
     const role = String(user?.role || '').toUpperCase();
     if (role === 'SUPER_ADMIN' && !(user as any)?.companyId) {
+=======
+    // Admins viewing in admin portal mode do not have personal shift tracking console
+    const rawRole = (user?.role || '').trim().toUpperCase();
+    const isStrictAdmin = (rawRole === 'SUPER_ADMIN' || rawRole === 'ADMIN' || rawRole === 'HR' || rawRole === 'HR_ADMIN' || rawRole === 'COMPANY_ADMIN') && portalMode === 'admin';
+    if (isStrictAdmin) {
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       setInitialLoading(false);
       return;
     }
     isFetchingRef.current = true;
     try {
+<<<<<<< HEAD
       const data: any = await api.getAttendanceLogic();
       if (data?.logic) {
         applyAttendanceLogic(data);
@@ -582,6 +595,222 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       punchBlockRef.current = null;
       setPunchBlockMessage(null);
+=======
+      const data: any = await api.getWorkStatus();
+      if (!data) return;
+
+      setServerTime(data.serverTime || null);
+      syncServerClock(data.serverTime);
+      setActiveSession(data.activeSession || null);
+      setCurrentBreak(data.currentBreak || null);
+      setLastCompletedSession(data.lastCompletedSession || null);
+      setTodaySummary(data.todaySummary || null);
+      setTodaySessions(Array.isArray(data.todaySessions) ? data.todaySessions : []);
+
+      const hasActive = Boolean(
+        data.hasActiveSession ||
+          (data.activeSession && data.activeSession.status !== 'COMPLETED')
+      );
+      const isOnBrk = Boolean(
+        data.isOnBreak ||
+          data.activeSession?.isOnBreak ||
+          data.activeSession?.status === 'ON_BREAK'
+      );
+      const isDone =
+        !hasActive &&
+        Boolean(
+          data.lastCompletedSession ||
+            (data.todaySummary && data.todaySummary.totalSessionsToday > 0)
+        );
+
+      let resolved: WorkPunchStatus = 'not_started';
+      if (hasActive) {
+        resolved = isOnBrk ? 'on_break' : 'working';
+      } else if (isDone) {
+        resolved = 'completed';
+      } else {
+        resolved = 'not_started';
+      }
+
+      setStatus(resolved);
+      statusRef.current = resolved;
+      anchorTimeRef.current = Date.now();
+
+      // Build authoritative live clock whenever an active session is in progress
+      let activeClock = data.clock || null;
+      if (!activeClock && hasActive && data.activeSession) {
+        const sessionStartTime =
+          data.activeSession.startTime ||
+          data.activeSession.startedAt ||
+          data.activeSession.createdAt ||
+          data.activeSession.checkIn;
+
+        if (sessionStartTime) {
+          let sessionClosedBreakSeconds = 0;
+          if (Array.isArray(data.activeSession.breaks)) {
+            data.activeSession.breaks.forEach((b: any) => {
+              if (b.resumeBreak && b.startBreak) {
+                sessionClosedBreakSeconds += Math.max(
+                  0,
+                  Math.floor((new Date(b.resumeBreak).getTime() - new Date(b.startBreak).getTime()) / 1000)
+                );
+              } else if (b.endTime && b.startTime) {
+                sessionClosedBreakSeconds += Math.max(
+                  0,
+                  Math.floor((new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 1000)
+                );
+              } else if (typeof b.durationSeconds === 'number') {
+                sessionClosedBreakSeconds += b.durationSeconds;
+              } else if (typeof b.duration === 'number') {
+                sessionClosedBreakSeconds += b.duration;
+              }
+            });
+          }
+          if (sessionClosedBreakSeconds === 0) {
+            sessionClosedBreakSeconds =
+              Number(data.activeSession.totalBreakSeconds) ||
+              Number(data.totalBreakSeconds) ||
+              0;
+          }
+
+          const totalSessions = Number(data.todaySummary?.totalSessionsToday) || 0;
+          const priorWork =
+            totalSessions > 1 && data.lastCompletedSession
+              ? Number(data.lastCompletedSession.durationSeconds) || 0
+              : 0;
+          const priorBreak =
+            totalSessions > 1 && data.lastCompletedSession
+              ? Number(data.lastCompletedSession.totalBreakSeconds) || 0
+              : 0;
+
+          const openBreakStartTime = isOnBrk
+            ? data.currentBreak?.startTime ||
+              data.currentBreak?.startBreak ||
+              data.activeSession.currentBreak?.startTime ||
+              data.activeSession.openBreakStartTime ||
+              data.activeSession.lastBreakTimestamp ||
+              data.serverTime ||
+              new Date().toISOString()
+            : null;
+
+          activeClock = {
+            isLive: true,
+            sessionStartTime,
+            isOnBreak: isOnBrk,
+            openBreakStartTime,
+            completedWorkSeconds: priorWork,
+            completedBreakSeconds: priorBreak,
+            sessionClosedBreakSeconds,
+          };
+        }
+      }
+
+      clockRef.current = activeClock;
+      if (activeClock && publishClock(activeClock)) {
+        // Authoritative live clock synchronized seamlessly from backend start timestamp
+      } else if (resolved === 'working') {
+        let fallbackWorked = 0;
+        if (data.activeSession?.startTime || data.activeSession?.startedAt) {
+          const sMs = new Date(data.activeSession.startTime || data.activeSession.startedAt).getTime();
+          if (!Number.isNaN(sMs) && sMs > 0) {
+            fallbackWorked = Math.max(0, Math.floor((Date.now() - sMs) / 1000));
+          }
+        }
+        if (fallbackWorked === 0) {
+          fallbackWorked =
+            Number(data.activeSession?.elapsedSeconds) ||
+            Number(data.activeSession?.durationSeconds) ||
+            Number(data.todaySummary?.totalSecondsWorked) ||
+            0;
+        }
+
+        const fallbackBreak =
+          Number(data.totalBreakSeconds) ||
+          Number(data.activeSession?.totalBreakSeconds) ||
+          Number(data.todaySummary?.totalBreakSecondsToday) ||
+          0;
+
+        baseWorkedRef.current = fallbackWorked;
+        baseBreakRef.current = fallbackBreak;
+        setElapsedSeconds(fallbackWorked);
+        setBreakSeconds(fallbackBreak);
+        setLiveWorkedHMS(formatSecondsToHMS(fallbackWorked));
+        setLiveBreakWords(formatSecondsToWords(fallbackBreak));
+        setLiveBreakHMS(formatSecondsToHMS(fallbackBreak));
+      } else if (resolved === 'on_break') {
+        let fallbackWorked = 0;
+        if (data.activeSession?.startTime || data.activeSession?.startedAt) {
+          const sMs = new Date(data.activeSession.startTime || data.activeSession.startedAt).getTime();
+          const bMs = data.currentBreak?.startTime ? new Date(data.currentBreak.startTime).getTime() : Date.now();
+          if (!Number.isNaN(sMs) && sMs > 0) {
+            fallbackWorked = Math.max(0, Math.floor((bMs - sMs) / 1000));
+          }
+        }
+        if (fallbackWorked === 0) {
+          fallbackWorked =
+            Number(data.activeSession?.elapsedSeconds) ||
+            Number(data.activeSession?.durationSeconds) ||
+            0;
+        }
+
+        const fallbackBreak =
+          Number(data.currentBreak?.elapsedSeconds) ||
+          Number(data.totalBreakSeconds) ||
+          Number(data.activeSession?.totalBreakSeconds) ||
+          0;
+
+        baseWorkedRef.current = fallbackWorked;
+        baseBreakRef.current = fallbackBreak;
+        setElapsedSeconds(fallbackWorked);
+        setBreakSeconds(fallbackBreak);
+        setLiveWorkedHMS(formatSecondsToHMS(fallbackWorked));
+        setLiveBreakWords(formatSecondsToWords(fallbackBreak));
+        setLiveBreakHMS(formatSecondsToHMS(fallbackBreak));
+      } else if (resolved === 'completed') {
+        const finalSecs =
+          Number(data.lastCompletedSession?.durationSeconds) ||
+          Number(data.todaySummary?.totalSecondsWorked) ||
+          0;
+        const totalBrk =
+          Number(data.todaySummary?.totalBreakSecondsToday) ||
+          Number(data.lastCompletedSession?.totalBreakSeconds) ||
+          0;
+        baseWorkedRef.current = finalSecs;
+        baseBreakRef.current = totalBrk;
+        setElapsedSeconds(finalSecs);
+        setBreakSeconds(totalBrk);
+        setLiveWorkedHMS(formatSecondsToHMS(finalSecs));
+        setLiveBreakWords(formatSecondsToWords(totalBrk));
+        setLiveBreakHMS(formatSecondsToHMS(totalBrk));
+      } else {
+        baseWorkedRef.current = 0;
+        baseBreakRef.current = 0;
+        setElapsedSeconds(0);
+        setBreakSeconds(0);
+        setLiveWorkedHMS('00:00:00');
+        setLiveBreakWords('0s');
+        setLiveBreakHMS('00:00:00');
+      }
+
+      // Synchronize into local attendance memory for tables & history consistency
+      if (data.activeSession) {
+        const rec = parseWorkSessionToRecord({
+          ...data.activeSession,
+          todaySummary: data.todaySummary,
+          formattedTotalBreak: data.formattedTotalBreak || data.todaySummary?.totalBreakFormatted,
+          totalBreakSeconds: data.totalBreakSeconds ?? data.todaySummary?.totalBreakSecondsToday,
+        });
+        if (rec) updateLocalRecordFromBackend({ ...rec, ...(activeClock ? { clock: activeClock } : (data.clock || {})) });
+      } else if (data.lastCompletedSession) {
+        const rec = parseWorkSessionToRecord({
+          ...data.lastCompletedSession,
+          todaySummary: data.todaySummary,
+          formattedTotalBreak: data.todaySummary?.totalBreakFormatted || data.formattedTotalBreak,
+          totalBreakSeconds: data.todaySummary?.totalBreakSecondsToday ?? data.totalBreakSeconds,
+        });
+        if (rec) updateLocalRecordFromBackend(rec);
+      }
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } catch (err) {
       console.warn('[WorkSessionContext] Error fetching work status:', err);
     } finally {
@@ -636,6 +865,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   /**
    * Action 1: Check In (Start Work / Clock In Again)
    */
+<<<<<<< HEAD
   const checkIn = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
       if (statusRef.current === 'completed') {
@@ -766,6 +996,61 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     },
     [user, refresh, showToast, tick]
   );
+=======
+  const checkIn = useCallback(async (): Promise<boolean> => {
+    setActionLoading(true);
+    try {
+      const res = await api.startWork({});
+
+      // Fast optimistic UI update
+      setStatus('working');
+      statusRef.current = 'working';
+      baseWorkedRef.current = 0;
+      baseBreakRef.current = 0;
+      anchorTimeRef.current = Date.now();
+      setElapsedSeconds(0);
+      setLiveWorkedHMS('00:00:00');
+      setLiveBreakWords('0s');
+
+      // Sync backend state
+      await refresh();
+
+      // Update local memory record for today's logs
+      const empId = user?.employeeId || user?.id || '';
+      if (empId) {
+        performCheckIn({
+          id: empId,
+          firstName: user?.firstName || 'Employee',
+          lastName: user?.lastName || '',
+          employeeCode: (user as any)?.employeeCode || '',
+          departmentName: (user as any)?.departmentName || 'General Staff',
+          companyId: user?.companyId,
+          remarks: 'Work shift start',
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_work_status_updated'));
+      window.dispatchEvent(new CustomEvent('hrms_attendance_updated'));
+
+      showToast({
+        title: 'Shift Started',
+        message: res?.message || 'Clock-in successful. Your work timer is now running!',
+        type: 'success',
+      });
+      return true;
+    } catch (err: any) {
+      console.error('[WorkSessionContext] Check-in error:', err);
+      showToast({
+        title: 'Clock-In Failed',
+        message: err.message || 'Could not start shift. Please try again.',
+        type: 'error',
+      });
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
+  }, [user, refresh, showToast]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   /**
    * Action 2: Take Break
@@ -908,11 +1193,35 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   /**
    * Action 4: Check Out (End Day)
    */
+<<<<<<< HEAD
   const checkOut = useCallback(
     async (options?: { workMode?: 'Office' | 'Work From Home' | string; note?: string }): Promise<boolean> => {
       if (['EMPLOYEE', 'HR', 'MANAGER'].includes(String(user?.role || '').toUpperCase())) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('hrms_open_clock_modal'));
         return false;
+=======
+  const checkOut = useCallback(async (): Promise<boolean> => {
+    if (statusRef.current === 'on_break') {
+      showToast({
+        title: 'Clock-Out Blocked',
+        message: 'Cannot clock out while break is active. Please click "Resume Work" first.',
+        type: 'warning',
+      });
+      return false;
+    }
+    setActionLoading(true);
+    try {
+      const res = await api.stopWork({});
+
+      setStatus('completed');
+      statusRef.current = 'completed';
+
+      await refresh();
+
+      const empId = user?.employeeId || user?.id || '';
+      if (empId) {
+        performCheckOut(empId, { remarks: 'Shift clock-out' });
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       }
       if (statusRef.current === 'on_break') {
         showToast({
@@ -1027,6 +1336,7 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         currentBreak,
         lastCompletedSession,
         todaySummary,
+        todaySessions,
         serverTime,
         attendanceLogic,
         punches,

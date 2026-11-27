@@ -798,11 +798,19 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           return (
             <div className="space-y-4">
+<<<<<<< HEAD
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase text-slate-400">System Role</span>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
+=======
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400">System Access Role</span>
+                    <div className="flex items-center gap-2 mt-1">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 ${roleDef.badgeClass}`}>
                         <Shield className="w-3.5 h-3.5" />
                         <span>{roleDef.label}</span>
@@ -810,6 +818,18 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <span className="text-xs text-slate-600 font-medium">{roleDef.description}</span>
                     </div>
                   </div>
+<<<<<<< HEAD
+=======
+                  {portalMode === 'admin' && !isCurrentUser && (
+                    <button
+                      type="button"
+                      onClick={() => setRoleModalOpen(true)}
+                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-2xs transition cursor-pointer"
+                    >
+                      Change Role
+                    </button>
+                  )}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </div>
 
                 {employmentFields.map((field) => (

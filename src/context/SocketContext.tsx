@@ -515,6 +515,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     )
       ? 'company-admin'
       : (user?.employeeId || currentUserId || undefined);
+<<<<<<< HEAD
 
     const pushNotice = (notice: AppNotice) => {
       if (!notice?.id || !notice.title) return;
@@ -582,6 +583,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     s.on('team_chat_typing', (payload: any) => {
       window.dispatchEvent(new CustomEvent('hrms_team_chat_typing', { detail: payload }));
     });
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
     s.on('chat_message_received', (incomingMessage: any) => {
       receiveIncomingSocketMessage(incomingMessage, viewerId || undefined);

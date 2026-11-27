@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Menu,
@@ -11,12 +11,13 @@ import {
   LogOut,
   Clock,
   Calendar,
-  CalendarCheck,
   UserPlus,
   Building2,
   MessageSquare,
   AlertTriangle,
+  Search,
   Smartphone,
+<<<<<<< HEAD
   Receipt,
   Lock,
   Home,
@@ -32,6 +33,8 @@ import {
   ShieldCheck,
   FileText,
   Layers,
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -64,16 +67,15 @@ interface HeaderProps {
   onSelectEmployee?: (emp: any) => void;
   employees?: any[];
   portalMode?: 'employee' | 'admin';
+<<<<<<< HEAD
   activeModule?: string;
   isAddEmployeeModalOpen?: boolean;
   isLeaveModalOpen?: boolean;
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   pendingLeavesCount?: number;
   unreadChatCount?: number;
   company?: any;
-  isScrolled?: boolean;
-  pageTitle?: string;
-  activeSubTab?: string;
-  onScrollToTop?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -89,16 +91,9 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectEmployee,
   employees = [],
   portalMode = 'admin',
-  activeModule = '',
-  isAddEmployeeModalOpen = false,
-  isLeaveModalOpen = false,
   pendingLeavesCount = 0,
   unreadChatCount = 0,
   company,
-  isScrolled = false,
-  pageTitle = '',
-  activeSubTab = '',
-  onScrollToTop,
 }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -218,6 +213,7 @@ export const Header: React.FC<HeaderProps> = ({
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
 
+<<<<<<< HEAD
   // Dynamic Clock In / Clock Out Status & Actions from unified Work Session Context
   const { status: punchStatus, checkIn, checkOut, actionLoading, punchBlockMessage } = useWorkSession();
   const clockClosed = Boolean(punchBlockMessage) && punchStatus !== 'working' && punchStatus !== 'on_break';
@@ -234,6 +230,10 @@ export const Header: React.FC<HeaderProps> = ({
       checkIn();
     }
   };
+=======
+  // Dynamic Check In / Check Out Status from unified Work Session Context
+  const { status: punchStatus } = useWorkSession();
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   const displayCompanyName = (
     companyInfo.name ||
@@ -249,6 +249,7 @@ export const Header: React.FC<HeaderProps> = ({
     employees
   );
 
+<<<<<<< HEAD
   const isDashboard = !activeModule || activeModule === 'dashboard';
 
   // Resolve page heading and icon for the animated morphing header slot
@@ -404,11 +405,21 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onOpenSidebar}
           className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-[10px] text-[#343a40] hover:text-[#212529] hover:bg-[#f8f9fa] lg:hidden transition-colors cursor-pointer shrink-0 active:scale-95"
+=======
+  return (
+    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-xs">
+      {/* Left: Mobile Toggle & Brand Logo */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+        <button
+          onClick={onOpenSidebar}
+          className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 lg:hidden transition-colors cursor-pointer shrink-0"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           title="Toggle navigation drawer"
           aria-label="Toggle navigation drawer"
         >
           <Menu className="w-5 h-5" />
         </button>
+<<<<<<< HEAD
         {!isDashboard && (
           <button
             type="button"
@@ -422,6 +433,10 @@ export const Header: React.FC<HeaderProps> = ({
         )}
         <div className={`flex items-center gap-2 lg:hidden min-w-0 transition-all duration-300 ${(!isDashboard || isScrolled) ? 'max-w-[32px]' : 'max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none'}`}>
           <div className={`w-7 h-7 rounded-[8px] bg-white border border-slate-200 flex items-center justify-center font-black text-slate-800 text-xs shadow-xs shrink-0 overflow-hidden ${companyLogo ? '' : 'p-0.5'}`}>
+=======
+        <div className="flex items-center gap-2 lg:hidden min-w-0 max-w-[130px] min-[400px]:max-w-[180px] sm:max-w-none">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs shadow-xs shrink-0 overflow-hidden">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             {companyLogo ? (
               <img
                 src={companyLogo}
@@ -432,6 +447,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] font-bold text-slate-700">{companyInitial}</span>
             )}
           </div>
+<<<<<<< HEAD
           <div className={`min-w-0 ${(!isDashboard || isScrolled) ? 'hidden' : 'hidden min-[340px]:block'}`}>
             {!displayCompanyName || /^(my\s*own\s*hrms|my\s*organization)$/i.test(displayCompanyName.trim()) ? (
               <img src="/brand-name.png" alt="myown hrms" className="h-3.5 w-auto object-contain" />
@@ -690,6 +706,70 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold flex items-center justify-center">
                 {unreadNoticesCount > 9 ? '9+' : unreadNoticesCount}
               </span>
+=======
+          <div className="min-w-0 hidden min-[340px]:block">
+            <span className="font-bold text-xs text-slate-900 tracking-tight block truncate leading-tight">
+              {displayCompanyName}
+            </span>
+            <span className="text-[9px] text-emerald-600 font-medium block leading-none opacity-90 truncate">
+              by MyOwnHRMS
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Center: Live Digital Clock Widget */}
+      <div className="hidden md:flex items-center justify-center px-2 min-w-0">
+        <LiveClock onClick={portalMode !== 'admin' ? onOpenClockModal : undefined} />
+      </div>
+
+      {/* Right: Actions, Role Pill, Notifications, Profile */}
+      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+        {/* Sleek Global Search Button (Opens Search Modal on click or Ctrl+K) */}
+        {onOpenSearchModal && (
+          <button
+            id="btn-header-search"
+            onClick={onOpenSearchModal}
+            className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-100 border border-slate-200/60 transition-all shadow-2xs group cursor-pointer shrink-0"
+            title="Search HRMS modules, staff & records (Ctrl+K)"
+          >
+            <Search className="w-4 h-4 text-emerald-600 group-hover:scale-105 transition-transform shrink-0" />
+            <span className="hidden sm:inline text-xs font-medium text-slate-500 group-hover:text-slate-900">Search...</span>
+            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
+              ⌘K
+            </kbd>
+          </button>
+        )}
+
+        {/* Quick Dynamic Check In / Check Out Button (Employees only) */}
+        {portalMode !== 'admin' && (
+          <button
+            id="btn-header-punch-toggle"
+            onClick={onOpenClockModal}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 border ${
+              punchStatus === 'working' || punchStatus === 'on_break'
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+            }`}
+            title={
+              punchStatus === 'working' || punchStatus === 'on_break'
+                ? 'Currently checked in. Click to Check Out'
+                : punchStatus === 'completed'
+                ? 'Previous session checked out. Click to Check In again'
+                : 'Click to Check In for today'
+            }
+          >
+            {punchStatus === 'working' || punchStatus === 'on_break' ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                <span className="hidden min-[480px]:inline">Check Out</span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden min-[480px]:inline">Check In</span>
+              </>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             )}
           </button>
           {notificationsOpen && (
@@ -728,13 +808,27 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         )}
 
+        {/* Work Status Pill */}
+        <div
+          className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium shadow-2xs shrink-0"
+          title="Current Work Availability Status"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="truncate max-w-[130px]">{workStatus}</span>
+        </div>
+
+        {/* Role Pill */}
+        <div className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-semibold shrink-0">
+          {portalMode === 'admin' ? 'Admin' : 'Employee'}
+        </div>
+
         {/* User Profile Dropdown */}
         <div ref={profileMenuRef} className="relative shrink-0">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 p-1 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2 py-1 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer shrink-0 border border-transparent hover:border-slate-200"
           >
-            <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#d8f3dc] text-[#1b4332] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#95d5b2] overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200 overflow-hidden">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -746,20 +840,25 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
-              <span className="text-xs font-semibold text-[#212529] leading-tight block truncate">
+              <span className="text-xs font-bold text-slate-900 leading-tight block truncate">
                 {user.firstName || 'User'} {user.lastName || ''}
               </span>
+<<<<<<< HEAD
               <span className="text-[10px] text-[#343a40] leading-none block truncate">
                 {user.role ? (user.role === 'ADMIN' ? 'Administrator' : user.role === 'HR' ? 'HR Manager' : user.role === 'MANAGER' ? 'Manager' : user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Employee') : (portalMode === 'admin' ? 'Administrator' : 'Employee')}
+=======
+              <span className="text-[10px] text-slate-500 leading-none block truncate mt-0.5">
+                {portalMode === 'admin' ? 'Administrator' : 'Employee'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#343a40] shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-[13px] bg-white border border-[#e9ecef] shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3.5 py-2.5 border-b border-[#f8f9fa] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dee2e6] overflow-hidden">
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200 overflow-hidden">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -767,12 +866,15 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#212529] truncate">
+                  <p className="text-xs font-bold text-[#0d271d] truncate">
                     {user.firstName || 'User'} {user.lastName || ''}
                   </p>
-                  <p className="text-[11px] text-[#343a40] truncate">
+                  <p className="text-[11px] text-[#4e6a5d] truncate">
                     {user.email || ''}
                   </p>
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] text-[10px] font-bold">
+                    {workStatus}
+                  </span>
                 </div>
               </div>
 
@@ -782,9 +884,9 @@ export const Header: React.FC<HeaderProps> = ({
                     setProfileMenuOpen(false);
                     onOpenProfile();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <User className="w-3.5 h-3.5 text-[#343a40]" />
+                  <User className="w-3.5 h-3.5 text-[#4e6a5d]" />
                   My Profile
                 </button>
               )}
@@ -795,14 +897,27 @@ export const Header: React.FC<HeaderProps> = ({
                     setProfileMenuOpen(false);
                     onNavigateSettings();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#212529] hover:bg-[#f8f9fa] flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5 text-[#343a40]" />
+                  <Settings className="w-3.5 h-3.5 text-[#4e6a5d]" />
                   Settings
                 </button>
               )}
 
-              <div className="border-t border-[#f8f9fa] my-1" />
+              {onOpenMobileModal && (
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    onOpenMobileModal();
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#0d271d] hover:bg-[#ecfdf5] flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                  Mobile & Multi-Device
+                </button>
+              )}
+
+              <div className="border-t border-[#edf6f0] my-1" />
 
               <button
                 onClick={() => {

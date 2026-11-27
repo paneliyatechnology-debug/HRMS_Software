@@ -46,6 +46,8 @@ import {
   validatePhone,
   validateGstin,
   validateName,
+  validatePassword,
+  validatePasswordMatch,
   validateLoginIdentifier,
   cleanPhoneNumber,
   checkDuplicateEmailOrPhone,
@@ -83,6 +85,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const [transitionStage, setTransitionStage] = useState<'idle' | 'leaving' | 'entering'>('idle');
   const [transitionDirection, setTransitionDirection] = useState<'to-signup' | 'to-login'>('to-signup');
 
+<<<<<<< HEAD
   // Forgot Password Modal State
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -124,6 +127,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     }
   };
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const handleSwitchToSignup = () => {
     if (isTransitioning || viewMode === 'signup') return;
     setIsTransitioning(true);
@@ -131,6 +136,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setTransitionStage('leaving');
 
     setTimeout(() => {
+<<<<<<< HEAD
     clearAllSignupFields();
     setViewMode('signup');
     setErrorMessage(null);
@@ -138,6 +144,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
       window.history.pushState(null, '', '/register');
     }
+=======
+      clearAllSignupFields();
+      setViewMode('signup');
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/register') {
+        window.history.pushState(null, '', '/register');
+      }
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       setTransitionStage('entering');
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -155,6 +170,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setTransitionStage('leaving');
 
     setTimeout(() => {
+<<<<<<< HEAD
     clearAllSignupFields();
     clearLoginFields();
     setViewMode('login');
@@ -163,6 +179,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.history.pushState(null, '', '/login');
     }
+=======
+      clearAllSignupFields();
+      clearLoginFields();
+      setViewMode('login');
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.history.pushState(null, '', '/login');
+      }
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       setTransitionStage('entering');
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -175,6 +201,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
   useEffect(() => {
     const handlePopState = () => {
+<<<<<<< HEAD
     if (typeof window !== 'undefined') {
       if (window.location.pathname === '/register') {
         setViewMode('signup');
@@ -182,6 +209,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
         setViewMode('login');
       }
     }
+=======
+      if (typeof window !== 'undefined') {
+        if (window.location.pathname === '/register') {
+          setViewMode('signup');
+        } else if (window.location.pathname === '/login') {
+          setViewMode('login');
+        }
+      }
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -205,6 +241,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   const [ownerLastName, setOwnerLastName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+  const [ownerConfirmPassword, setOwnerConfirmPassword] = useState('');
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
+  const [showOwnerConfirmPassword, setShowOwnerConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -223,6 +263,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   // Anti-autofill state for login & password fields so browser never auto-detects or pre-fills them
   const [loginIdentifierReadOnly, setLoginIdentifierReadOnly] = useState(true);
   const [loginPasswordReadOnly, setLoginPasswordReadOnly] = useState(true);
+  const [passwordReadOnly, setPasswordReadOnly] = useState(true);
+  const [confirmPasswordReadOnly, setConfirmPasswordReadOnly] = useState(true);
 
   const clearLoginFields = () => {
     setIdentifier('');
@@ -243,7 +285,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     setOwnerLastName('');
     setOwnerEmail('');
     setOwnerPhone('');
+    setOwnerPassword('');
+    setOwnerConfirmPassword('');
     setFieldErrors({});
+    setPasswordReadOnly(true);
+    setConfirmPasswordReadOnly(true);
   };
 
   useEffect(() => {
@@ -267,6 +313,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
   useEffect(() => {
     if (viewMode === 'signup') {
       clearAllSignupFields();
+<<<<<<< HEAD
+=======
+      const t1 = setTimeout(() => {
+        setOwnerPassword('');
+        setOwnerConfirmPassword('');
+      }, 50);
+      const t2 = setTimeout(() => {
+        setOwnerPassword('');
+        setOwnerConfirmPassword('');
+      }, 150);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     }
   }, [viewMode]);
 
@@ -379,6 +440,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
     const phoneCheck = validatePhone(ownerPhone, true);
     if (!phoneCheck.isValid) {
       errors.ownerPhone = phoneCheck.error || 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
+<<<<<<< HEAD
+=======
+    }
+
+    // 6. Password validation
+    const passCheck = validatePassword(ownerPassword, 6);
+    if (!passCheck.isValid) {
+      errors.ownerPassword = passCheck.error || 'Password must be at least 6 characters long.';
+    }
+
+    // 7. Password Match validation
+    const matchCheck = validatePasswordMatch(ownerPassword, ownerConfirmPassword);
+    if (!matchCheck.isValid) {
+      errors.ownerConfirmPassword = matchCheck.error || 'Passwords do not match. Please verify your password.';
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     }
 
     if (Object.keys(errors).length > 0) {
@@ -424,6 +500,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
         officialEmail: ownerEmail.trim().toLowerCase(),
         phone: phoneCheck.cleanPhone || ownerPhone.trim(),
         mobileNumber: phoneCheck.cleanPhone || ownerPhone.trim(),
+        password: ownerPassword,
+        confirmPassword: ownerConfirmPassword || ownerPassword,
       });
 
       if (!res.success) {
@@ -489,6 +567,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
           /* ========================================================== */
           /* 2-COLUMN SPLIT SCREEN LOGIN LAYOUT                         */
           /* ========================================================== */
+<<<<<<< HEAD
           <div className={`w-full max-w-[980px] bg-white rounded-3xl border border-slate-200/90 shadow-[0_24px_64px_-16px_rgba(15,23,42,0.12),0_2px_8px_rgba(15,23,42,0.04)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[560px] transition-all duration-300 ease-out will-change-transform ${loginAnimationClass}`}>
             {/* ========================================================== */}
             {/* LEFT COLUMN: REFINED ARCHITECTURAL BRAND PANEL (lg:col-5)  */}
@@ -506,10 +585,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     Workforce &amp; Operations in Sync.
                   </h2>
                   <p className="text-xs text-emerald-100/75 leading-relaxed font-normal">
+=======
+          <div className={`w-full max-w-5xl bg-white rounded-3xl border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(5,150,105,0.08),0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[580px] transition-all duration-300 ease-out will-change-transform ${loginAnimationClass}`}>
+            {/* ========================================================== */}
+            {/* LEFT COLUMN: VISUAL ARTWORK & ANIMATED SHOWCASE (lg:col-5) */}
+            {/* ========================================================== */}
+            <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-8 sm:p-10 bg-gradient-to-br from-[#1b4332] via-[#2d6a4f] to-[#143728] text-white relative overflow-hidden select-none">
+              {/* Background ambient mesh and animated glowing orbs */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+              <div className="absolute -top-14 -left-14 w-64 h-64 bg-emerald-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '4s' }} />
+              <div className="absolute -bottom-14 -right-14 w-64 h-64 bg-teal-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s', animationDelay: '1.5s' }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-emerald-300/10 rounded-full blur-2xl animate-ping pointer-events-none" style={{ animationDuration: '7s' }} />
+
+              {/* Top Badge with Live Radar Pulse */}
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-[#d8f3dc] border border-white/20 backdrop-blur-xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </span>
+                  <span>Unified Workforce Platform</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-200/80 bg-black/20 px-2 py-0.5 rounded-md border border-white/10">
+                  SYS_ONLINE
+                </span>
+              </div>
+
+              {/* Middle Showcase Graphic: Animated Enterprise Workspace Illustration */}
+              <div className="relative z-10 my-auto py-2 flex flex-col justify-center space-y-4">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-white leading-tight">
+                    Workforce &amp; Operations in Sync.
+                  </h2>
+                  <p className="text-xs text-emerald-100/80 leading-relaxed font-medium mt-1">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     Smart shift tracking, leave approvals, automated statutory payroll, and team self-service.
                   </p>
                 </div>
 
+<<<<<<< HEAD
                 <div className="space-y-3 pt-4 border-t border-white/10">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -539,17 +653,170 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                       <p className="text-xs font-semibold text-white">Role-Based Team Portals</p>
                       <p className="text-[11px] text-emerald-100/70 mt-0.5">Dedicated workspaces for Admin, HR &amp; Staff</p>
                     </div>
+=======
+                {/* Animated Workspace & Dashboard Vector Illustration */}
+                <div className="relative my-2 py-3 flex items-center justify-center">
+                  <div className="relative w-full max-w-[320px] aspect-[4/3] flex items-center justify-center">
+                    {/* Floating Ambient Glowing Halo */}
+                    <div
+                      className="absolute inset-0 bg-gradient-to-tr from-emerald-400/20 via-teal-300/10 to-transparent rounded-full blur-2xl animate-pulse pointer-events-none"
+                      style={{ animationDuration: '4s' }}
+                    />
+
+                    {/* SVG Workspace & Team Illustration */}
+                    <svg
+                      viewBox="0 0 400 300"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-full h-full drop-shadow-2xl animate-float-subtle"
+                    >
+                      {/* Base Platform / Desk Glow */}
+                      <ellipse cx="200" cy="265" rx="150" ry="18" fill="rgba(0,0,0,0.22)" />
+
+                      {/* Central Modern Monitor / Tablet Device */}
+                      <rect
+                        x="70"
+                        y="45"
+                        width="260"
+                        height="175"
+                        rx="16"
+                        fill="#0d2818"
+                        stroke="#52b788"
+                        strokeWidth="2"
+                        strokeOpacity="0.4"
+                      />
+
+                      {/* Device Top Bar */}
+                      <rect x="70" y="45" width="260" height="24" rx="16" fill="#1b4332" />
+                      <circle cx="92" cy="57" r="4" fill="#ef4444" opacity="0.8" />
+                      <circle cx="106" cy="57" r="4" fill="#f59e0b" opacity="0.8" />
+                      <circle cx="120" cy="57" r="4" fill="#10b981" opacity="0.8" />
+                      <rect x="145" y="52" width="110" height="10" rx="5" fill="rgba(255,255,255,0.15)" />
+
+                      {/* Dashboard Screen Content - Stat Card 1: Attendance Growth */}
+                      <rect
+                        x="88"
+                        y="82"
+                        width="105"
+                        height="58"
+                        rx="8"
+                        fill="#163e2d"
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth="1"
+                      />
+                      <rect x="98" y="92" width="40" height="6" rx="3" fill="#95d5b2" />
+                      {/* Mini Bar Chart with varied heights */}
+                      <rect x="98" y="112" width="8" height="18" rx="2" fill="#52b788" opacity="0.6" />
+                      <rect x="112" y="106" width="8" height="24" rx="2" fill="#52b788" opacity="0.8" />
+                      <rect x="126" y="116" width="8" height="14" rx="2" fill="#52b788" opacity="0.5" />
+                      <rect x="140" y="102" width="8" height="28" rx="2" fill="#74c69d" />
+                      <rect x="154" y="98" width="8" height="32" rx="2" fill="#b7e4c7" />
+                      <rect x="168" y="108" width="8" height="22" rx="2" fill="#52b788" opacity="0.7" />
+
+                      {/* Dashboard Screen Content - Stat Card 2: Team Members Donut / Circle */}
+                      <rect
+                        x="207"
+                        y="82"
+                        width="105"
+                        height="58"
+                        rx="8"
+                        fill="#163e2d"
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth="1"
+                      />
+                      <rect x="217" y="92" width="45" height="6" rx="3" fill="#95d5b2" />
+                      <circle cx="275" cy="118" r="16" stroke="#2d6a4f" strokeWidth="5" fill="none" />
+                      <circle
+                        cx="275"
+                        cy="118"
+                        r="16"
+                        stroke="#74c69d"
+                        strokeWidth="5"
+                        strokeDasharray="60 100"
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="275" cy="118" r="5" fill="#d8f3dc" />
+
+                      {/* Live Activity Row on Dashboard */}
+                      <rect x="88" y="152" width="224" height="22" rx="6" fill="#123824" />
+                      <circle cx="102" cy="163" r="5" fill="#52b788" />
+                      <rect x="114" y="160" width="75" height="6" rx="3" fill="rgba(255,255,255,0.5)" />
+                      <rect x="245" y="158" width="55" height="10" rx="5" fill="#2d6a4f" />
+                      <rect x="252" y="161" width="40" height="4" rx="2" fill="#b7e4c7" />
+
+                      <rect x="88" y="180" width="224" height="22" rx="6" fill="#123824" />
+                      <circle cx="102" cy="191" r="5" fill="#74c69d" />
+                      <rect x="114" y="188" width="90" height="6" rx="3" fill="rgba(255,255,255,0.4)" />
+                      <rect x="255" y="186" width="45" height="10" rx="5" fill="#1b4332" />
+                      <rect x="260" y="189" width="35" height="4" rx="2" fill="#95d5b2" />
+
+                      {/* Device Stand */}
+                      <path d="M175 220 L165 255 L235 255 L225 220 Z" fill="#1b4332" opacity="0.9" />
+                      <rect x="150" y="254" width="100" height="6" rx="3" fill="#2d6a4f" />
+                    </svg>
+
+                    {/* Floating Card 1 (Top Right) */}
+                    <div
+                      className="absolute -top-2 -right-3 sm:-right-4 bg-white/15 border border-white/25 backdrop-blur-md rounded-2xl p-2.5 shadow-lg flex items-center gap-2 text-white animate-float-subtle pointer-events-none"
+                      style={{ animationDuration: '3.5s' }}
+                    >
+                      <div className="w-7 h-7 rounded-xl bg-emerald-500/30 border border-emerald-400/40 flex items-center justify-center text-emerald-200">
+                        <CheckCircle2 className="w-4 h-4 text-[#d8f3dc]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold leading-tight">Payroll &amp; Leaves</p>
+                        <p className="text-[9px] text-emerald-200/70">Synced in real-time</p>
+                      </div>
+                    </div>
+
+                    {/* Floating Card 2 (Bottom Left) */}
+                    <div
+                      className="absolute -bottom-1 -left-3 sm:-left-4 bg-white/15 border border-white/25 backdrop-blur-md rounded-2xl p-2.5 shadow-lg flex items-center gap-2 text-white pointer-events-none"
+                      style={{ animation: 'floatSubtle 4.5s ease-in-out infinite 1s' }}
+                    >
+                      <div className="w-7 h-7 rounded-xl bg-teal-500/30 border border-teal-400/40 flex items-center justify-center text-teal-200">
+                        <Users className="w-4 h-4 text-[#d8f3dc]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold leading-tight">Team Operations</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                          <span className="text-[9px] font-semibold text-emerald-200">Active Workspace</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Highlight Badges */}
+                <div className="grid grid-cols-2 gap-2 pt-1 text-center">
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs">
+                    <p className="text-[11px] font-bold text-white">Statutory Ready</p>
+                    <p className="text-[9px] text-emerald-200/70">PF, ESIC, PT &amp; TDS</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs">
+                    <p className="text-[11px] font-bold text-white">Cloud Multi-Tenant</p>
+                    <p className="text-[9px] text-emerald-200/70">Strict Data Privacy</p>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   </div>
                 </div>
               </div>
 
+<<<<<<< HEAD
               <div className="relative z-10 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-emerald-100/75">
                 <ShieldCheck className="w-4 h-4 text-[#95d5b2] shrink-0" />
+=======
+              {/* Bottom Security Footer */}
+              <div className="relative z-10 pt-3.5 border-t border-white/15 flex items-center gap-2 text-[11px] text-emerald-200/80">
+                <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <span>Multi-Tenant Data Isolation &amp; Role-Based Security</span>
               </div>
             </div>
 
             {/* ========================================================== */}
+<<<<<<< HEAD
             {/* RIGHT COLUMN: CLEAN LOGIN FORM (lg:col-span-7)             */}
             {/* ========================================================== */}
             <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white">
@@ -562,10 +829,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     <div>
                       <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain mb-0.5" />
                       <span className="text-[10px] font-semibold text-[#2d6a4f] uppercase tracking-wider block">
+=======
+            {/* RIGHT COLUMN: LOGIN FORM (lg:col-span-7)                   */}
+            {/* ========================================================== */}
+            <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between">
+              <div>
+                {/* Brand Header Inside Card */}
+                <div className="mb-7">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center shadow-xs">
+                      <Building2 className="w-6 h-6 text-[#d8f3dc]" />
+                    </div>
+                    <div>
+                      <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
+                        MyOwn HRMS
+                      </span>
+                      <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                         Workforce Portal
                       </span>
                     </div>
                   </div>
+<<<<<<< HEAD
                   <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                     Sign in to your workspace
                   </h1>
@@ -573,6 +858,234 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     Enter your work email, mobile number, or employee code.
                   </p>
                 </div>
+=======
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                    Sign In to Workspace
+                  </h1>
+                  <p className="text-xs font-medium text-slate-500 mt-1">
+                    Enter your work email, mobile number or employee code.
+                  </p>
+                </div>
+
+                {/* Feedback Alerts */}
+                {errorMessage && (
+                  <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {/* Login Form */}
+                <form
+                  onSubmit={handleLoginSubmit}
+                  className="space-y-4"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
+                >
+                  {/* Trap inputs to absorb browser autofill and auto-detection */}
+                  <div style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }}>
+                    <input type="text" name="fake_user_trap_login" tabIndex={-1} autoComplete="off" />
+                    <input type="password" name="fake_pwd_trap_login" tabIndex={-1} autoComplete="new-password" />
+                  </div>
+
+                  {/* Identifier Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="input-login-identifier" className="text-xs font-bold text-slate-700">
+                        Work Email, Mobile or Employee Code
+                      </label>
+                      {fieldErrors.identifier && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.identifier}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="input-login-identifier"
+                        name="paneliya_fld_usr_noautofill"
+                        type="text"
+                        required
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-form-type="other"
+                        readOnly={loginIdentifierReadOnly}
+                        onFocus={() => setLoginIdentifierReadOnly(false)}
+                        value={identifier}
+                        onChange={(e) => {
+                          setIdentifier(e.target.value);
+                          clearFieldError('identifier');
+                        }}
+                        placeholder="Enter email, mobile number or employee code"
+                        className={`w-full h-12 pl-11 pr-4 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
+                          fieldErrors.identifier
+                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="input-login-password" className="text-xs font-bold text-slate-700">
+                        Password
+                      </label>
+                      {fieldErrors.password && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {fieldErrors.password}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center absolute left-1 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="input-login-password"
+                        name="paneliya_fld_pwd_noautofill"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-form-type="other"
+                        readOnly={loginPasswordReadOnly}
+                        onFocus={() => setLoginPasswordReadOnly(false)}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          clearFieldError('password');
+                        }}
+                        placeholder="••••••••"
+                        className={`w-full h-12 pl-11 pr-11 rounded-xl border text-sm text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${
+                          fieldErrors.password
+                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                        }`}
+                      />
+                      <button
+                        id="btn-toggle-login-password"
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="flex justify-end mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => router.push('/set-password')}
+                        className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 hover:underline cursor-pointer"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    id="btn-submit-login"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 mt-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-700/20 hover:shadow-xl hover:shadow-emerald-700/30 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 group whitespace-nowrap shrink-0"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Signing In to Workspace...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign In to Workspace</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Bottom Switcher: Register Company */}
+              <div className="pt-6 mt-6 border-t border-slate-100 text-center sm:text-left">
+                <p className="text-xs text-slate-500 font-medium">
+                  Are you a Company Owner?{' '}
+                  <button
+                    id="link-switch-to-signup"
+                    type="button"
+                    onClick={handleSwitchToSignup}
+                    disabled={isTransitioning}
+                    className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline px-1 py-0.5 rounded transition-colors cursor-pointer inline-flex items-center gap-1 group disabled:opacity-50"
+                  >
+                    <span>Register Your Company Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ========================================================== */
+          /* SIGNUP & PENDING APPROVAL CONTAINER                        */
+          /* ========================================================== */
+          <div className={`w-full ${viewMode === 'signup' ? 'max-w-2xl' : 'max-w-lg'} transition-all duration-300 ease-out will-change-transform ${signupAnimationClass}`}>
+            {/* Luxury Card */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-slate-200/80 shadow-[0_20px_60px_-15px_rgba(5,150,105,0.08),0_1px_3px_rgba(0,0,0,0.05)] p-6 sm:p-9">
+              {/* Internal Brand Header Row */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 mb-6 pb-5 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white flex items-center justify-center shadow-xs">
+                    <Building2 className="w-6 h-6 text-[#d8f3dc]" />
+                  </div>
+                  <div>
+                    <span className="text-base font-black text-slate-900 tracking-tight block leading-tight">
+                      MyOwn HRMS
+                    </span>
+                    <span className="text-[10px] font-bold text-[#2d6a4f] uppercase tracking-wider block">
+                      {viewMode === 'signup' ? 'Company Workspace Setup' : 'Registration Status'}
+                    </span>
+                  </div>
+                </div>
+                {viewMode === 'signup' && (
+                  <button
+                    id="btn-back-to-login-sides"
+                    type="button"
+                    onClick={handleSwitchToLogin}
+                    disabled={isTransitioning}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline transition-all cursor-pointer shrink-0 flex items-center gap-1.5 active:scale-95 disabled:opacity-50 group py-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                    <span>Back to Sign In</span>
+                  </button>
+                )}
+              </div>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
             {/* Feedback Alerts */}
             {errorMessage && (
@@ -589,6 +1102,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               </div>
             )}
 
+<<<<<<< HEAD
                 {/* Login Form */}
               <form
                 onSubmit={handleLoginSubmit}
@@ -807,6 +1321,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
               </div>
             )}
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
             {viewMode === 'registration_pending' ? (
               /* ========================================================== */
               /* PENDING APPROVAL CONFIRMATION VIEW                         */
@@ -1187,11 +1703,104 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
                     </div>
                   </div>
 
+<<<<<<< HEAD
                   <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-xs text-emerald-900 flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-bold text-emerald-950">Secure Automated Provisioning</p>
                       <p className="text-[11px] text-emerald-800/90 mt-0.5">Your official account login password will be securely generated and sent directly to your registered email address.</p>
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700">
+                          Owner Password <span className="text-red-500">*</span>
+                        </label>
+                        {fieldErrors.ownerPassword && (
+                          <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            {fieldErrors.ownerPassword}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          id="input-owner-password"
+                          name="company_owner_new_registration_password"
+                          type={showOwnerPassword ? 'text' : 'password'}
+                          required
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          data-form-type="other"
+                          readOnly={passwordReadOnly}
+                          onFocus={() => setPasswordReadOnly(false)}
+                          value={ownerPassword}
+                          onChange={(e) => {
+                            setOwnerPassword(e.target.value);
+                            clearFieldError('ownerPassword');
+                          }}
+                          placeholder="Min 6 characters"
+                          className={`w-full h-11 pl-9 pr-10 rounded-xl border text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${fieldErrors.ownerPassword
+                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                            }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOwnerPassword(!showOwnerPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          {showOwnerPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700">
+                          Confirm Password <span className="text-red-500">*</span>
+                        </label>
+                        {fieldErrors.ownerConfirmPassword && (
+                          <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1 animate-in fade-in">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            {fieldErrors.ownerConfirmPassword}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          id="input-owner-confirm-password"
+                          name="company_owner_new_registration_confirm_password"
+                          type={showOwnerConfirmPassword ? 'text' : 'password'}
+                          required
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          data-form-type="other"
+                          readOnly={confirmPasswordReadOnly}
+                          onFocus={() => setConfirmPasswordReadOnly(false)}
+                          value={ownerConfirmPassword}
+                          onChange={(e) => {
+                            setOwnerConfirmPassword(e.target.value);
+                            clearFieldError('ownerConfirmPassword');
+                          }}
+                          placeholder="Repeat password"
+                          className={`w-full h-11 pl-9 pr-10 rounded-xl border text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none transition-all ${fieldErrors.ownerConfirmPassword
+                            ? 'border-rose-400 ring-4 ring-rose-500/10 bg-rose-50/20'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+                            }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOwnerConfirmPassword(!showOwnerConfirmPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          {showOwnerConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     </div>
                   </div>
                 </div>
@@ -1239,7 +1848,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBackToHome, initialMode 
 
           {/* Security & Trust Badges */}
           
+<<<<<<< HEAD
             </div>
+=======
+        </div>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       )}
     </main>
 

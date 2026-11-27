@@ -81,12 +81,12 @@ export const OfflineScreen: React.FC = () => {
   if (justRestored) {
     return (
       <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-6 duration-300">
-        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#ced4da] border-[3px] border-black shadow-[5px_5px_0px_0px_#000] text-black">
-          <div className="w-8 h-8 rounded-xl bg-black text-[#ced4da] flex items-center justify-center font-black">
+        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#00F0B5] border-[3px] border-black shadow-[5px_5px_0px_0px_#000] text-black">
+          <div className="w-8 h-8 rounded-xl bg-black text-[#00F0B5] flex items-center justify-center font-black">
             <CheckCircle2 className="w-5 h-5 stroke-[3]" />
           </div>
           <div>
-            <p className="text-xs font-black uppercase tracking-wider">Back Online!</p>
+            <p className="text-xs font-black uppercase tracking-wider">Back Online! 🚀</p>
             <p className="text-[11px] font-bold text-slate-900">Your connection is restored and live data is syncing.</p>
           </div>
         </div>
@@ -100,110 +100,77 @@ export const OfflineScreen: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#f8f9fa] flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto selection:bg-[#ced4da] selection:text-black">
-      {/* Top Neo-Brutalist Ticker Warning */}
-      <div className="w-full absolute top-0 left-0 bg-[#dc2626] border-b-[3px] border-black py-2.5 px-4 overflow-hidden">
-        <div className="flex items-center justify-center gap-4 text-xs font-black uppercase tracking-widest text-black text-center">
-          <span className="inline-flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> NETWORK DISCONNECTED</span>
-          <span className="hidden sm:inline">|</span>
-          <span className="hidden sm:inline">LOCAL CACHE &amp; ATTENDANCE SAFE</span>
-          <span className="hidden sm:inline">|</span>
-          <span>AUTO-RECONNECT ACTIVE</span>
-        </div>
-      </div>
-
-      {/* Main Neo-Brutalist Window Box */}
-      <div className="relative max-w-xl w-full rounded-3xl bg-white border-4 border-black shadow-[10px_10px_0px_0px_#000] p-6 sm:p-10 my-8">
-        {/* Retro Window Control Bar */}
-        <div className="flex items-center justify-between pb-5 border-b-2 border-black mb-6">
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-full bg-[#dc2626] border-2 border-black" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#ced4da] border-2 border-black" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#ced4da] border-2 border-black" />
-            <span className="ml-2 text-xs font-mono font-black text-black bg-[#f8f9fa] px-2.5 py-0.5 rounded border border-black">
-              status: offline_0x0
-            </span>
-          </div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-black bg-[#ced4da] px-2.5 py-1 rounded-md border-2 border-black">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-            NO SIGNAL
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto selection:bg-emerald-600 selection:text-white">
+      {/* Enterprise Card */}
+      <div className="relative max-w-md w-full rounded-3xl bg-white border border-slate-200/90 shadow-2xl p-6 sm:p-8 my-auto animate-in fade-in zoom-in-95">
+        {/* Status Badge */}
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            Network Disconnected
+          </span>
+          <span className="text-[11px] font-mono text-slate-400">
+            status: offline
           </span>
         </div>
 
-        {/* Center Graphic Icon Box */}
-        <div className="flex justify-center mb-6">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-2xl bg-[#ced4da] border-[3px] border-black flex items-center justify-center text-black shadow-[5px_5px_0px_0px_#000] -rotate-2">
-              <WifiOff className="w-10 h-10 stroke-[2.5]" />
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-[#dc2626] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_0px_#000] rotate-6">
-              <Zap className="w-4 h-4 stroke-[3] text-black" />
-            </div>
-          </div>
+        {/* Center Graphic */}
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 mx-auto mb-4 shadow-xs">
+          <WifiOff className="w-7 h-7" />
         </div>
 
-        {/* Big Brutalist Heading */}
+        {/* Heading */}
         <div className="text-center">
-          <div className="inline-block bg-[#dc2626] text-white border-2 border-black px-3 py-1 font-black uppercase text-xs tracking-wider shadow-[3px_3px_0px_0px_#000] -rotate-1 mb-3">
-            YOU ARE CURRENTLY OFFLINE
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-black tracking-tight leading-tight">
-            Internet Connection Lost!
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            Connection Lost
           </h1>
-          <p className="text-sm font-semibold text-slate-700 mt-3 leading-relaxed max-w-md mx-auto">
-            Looks like your Wi-Fi or mobile data took a break. Don&apos;t worry — your biometric punches and cached work are safely preserved locally!
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            Your device appears to be offline. Your biometric shift records and attendance states are safely preserved.
           </p>
         </div>
 
-        {/* Feature Safeguards Checklist */}
-        <div className="mt-8 space-y-3">
-          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#f8f9fa] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
-            <div className="w-9 h-9 rounded-xl bg-[#ced4da] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
-              <HardDriveDownload className="w-4 h-4 stroke-[2.5]" />
+        {/* Safeguards Checklist */}
+        <div className="mt-5 space-y-2.5">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <HardDriveDownload className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <p className="text-xs font-black text-black">Offline Punches Queued</p>
-              <p className="text-[11px] font-bold text-slate-600">Attendance clock-ins are saved on device &amp; will auto-sync.</p>
+              <p className="text-xs font-bold text-slate-800">Offline Punches Queued</p>
+              <p className="text-[11px] text-slate-500">Attendance clock-ins are saved on device &amp; will auto-sync.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-[#f8f9fa] border-2 border-black shadow-[3px_3px_0px_0px_#000]">
-            <div className="w-9 h-9 rounded-xl bg-[#ced4da] border-2 border-black text-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
-              <Activity className="w-4 h-4 stroke-[2.5]" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Activity className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <p className="text-xs font-black text-black">Automatic Recovery</p>
-              <p className="text-[11px] font-bold text-slate-600">The app will automatically re-open as soon as your internet returns.</p>
+              <p className="text-xs font-bold text-slate-800">Automatic Recovery</p>
+              <p className="text-[11px] text-slate-500">The app will automatically reconnect as soon as signal returns.</p>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
+        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <button
             onClick={handleRetry}
             disabled={isReconnecting}
-            className="flex-1 py-3.5 px-6 rounded-2xl bg-[#ced4da] hover:bg-[#ced4da] text-black font-black text-xs uppercase tracking-wider border-[3px] border-black shadow-[5px_5px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+            className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
           >
-            <RefreshCw className={`w-4 h-4 stroke-[2.5] ${isReconnecting ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isReconnecting ? 'animate-spin' : ''}`} />
             <span>{isReconnecting ? 'Testing Connection...' : 'Retry Connection'}</span>
           </button>
 
           <button
             onClick={() => setDismissedTemporarily(true)}
-            className="py-3.5 px-6 rounded-2xl bg-white hover:bg-slate-50 text-black font-black text-xs uppercase tracking-wider border-[3px] border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>View Cached App</span>
-            <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </div>
-
-      {/* Bottom Footer Note */}
-      <div className="text-center text-[11px] font-black uppercase tracking-wider text-black">
-        <span className="bg-[#f8f9fa] px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
-          My Own HRMS • Enterprise Offline Resilience Engine
-        </span>
       </div>
     </div>
   );

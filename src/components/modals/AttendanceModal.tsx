@@ -16,7 +16,6 @@ import {
   Sparkles,
   Check,
   Lock,
-  Home,
 } from 'lucide-react';
 import { useAuth, isUserAdminRole } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -441,6 +440,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     // 1. Enforce Admin Shift Time Early Lockout
     const currentShift = verifyShiftTimeWindow(undefined, userCompanyId, currentEmpId);
     if (currentShift.enforceActive && currentShift.isEarly) {
+<<<<<<< HEAD
       notifyPunchError('Clock in blocked', currentShift.reason || `Clock-in is locked before ${currentShift.allowedStart}.`);
       return;
     }
@@ -468,13 +468,20 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       setPunchNotice(null);
       setCapturedPhoto(null);
       setSelfieMode('check_in');
+=======
+      alert(currentShift.reason || `Check-in is locked before ${currentShift.allowedStart}.`);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       return;
     }
 
     setLoading(true);
     try {
       const fullRemarks = remarks || 'Morning shift clock-in';
+<<<<<<< HEAD
       const res = await api.startWork({ workMode: 'Office', note: fullRemarks });
+=======
+      const res = await api.startWork({});
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -491,17 +498,22 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
+<<<<<<< HEAD
       notifyPunchError('Clock in failed', err.message || 'Clock-in failed');
+=======
+      alert(err.message || 'Check-in failed');
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 1: Direct Clock Out (Selfie/Photo feature temporarily disabled per user request)
+  // Step 1: Direct Check Out (Selfie/Photo feature temporarily disabled per user request)
   const handleInitiateCheckOut = async () => {
     requestCameraNow();
     const locationRequest = rawRole === 'EMPLOYEE' && !isWFH ? getCurrentGPSLocation().catch(() => null) : null;
     if (punchState.status === 'on_break') {
+<<<<<<< HEAD
       notifyPunchError('Clock out blocked', 'Cannot clock out while on break. Please click Resume Work first.');
       return;
     }
@@ -528,12 +540,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       setPunchNotice(null);
       setCapturedPhoto(null);
       setSelfieMode('check_out');
+=======
+      alert('Cannot check out while on break. Please click "Resume Work" first.');
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       return;
     }
     setLoading(true);
     try {
       const fullRemarks = remarks && remarks !== 'Morning shift clock-in' ? remarks : 'Evening clock-out';
+<<<<<<< HEAD
       const res = await api.stopWork({ workMode: 'Office', note: fullRemarks });
+=======
+      const res = await api.stopWork({});
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
       if (res && res.record) {
         updateLocalRecordFromBackend(res.record);
       } else {
@@ -545,7 +564,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onRefresh();
       handleModalClose();
     } catch (err: any) {
+<<<<<<< HEAD
       notifyPunchError('Clock out failed', err.message || 'Clock-out failed');
+=======
+      alert(err.message || 'Check-out failed');
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } finally {
       setLoading(false);
     }
@@ -558,7 +581,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
 
     // Accent emerald / purple line
-    ctx.fillStyle = isWFH ? '#adb5bd' : '#adb5bd';
+    ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
     ctx.fillRect(0, height - bannerHeight, width, 4);
 
     // Texts
@@ -567,7 +590,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       timeStyle: 'medium',
     });
     const officeName = isWFH
-      ? 'Work From Home (Remote Punch)'
+      ? '🏡 Work From Home (Remote Punch)'
       : 'Paneliya Technology Office';
     const coordsStr = `Identity & Presence Verified • ${officeName}`;
 
@@ -576,29 +599,41 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(officeName, 14, height - 78);
+    ctx.fillText(`📍 ${officeName}`, 14, height - 78);
 
-    ctx.fillStyle = isWFH ? '#dee2e6' : '#dee2e6';
+    ctx.fillStyle = isWFH ? '#c084fc' : '#6ee7b7';
     ctx.font = '11px monospace';
     ctx.fillText(coordsStr, 14, height - 58);
 
-    ctx.fillStyle = '#f8f9fa';
+    ctx.fillStyle = '#fde047';
     ctx.font = 'bold 11px monospace';
-    ctx.fillText(devStr, 14, height - 38);
+    ctx.fillText(`💻 ${devStr}`, 14, height - 38);
 
-    ctx.fillStyle = '#dee2e6';
+    ctx.fillStyle = '#cbd5e1';
     ctx.font = '10px sans-serif';
-    ctx.fillText(`${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
+    ctx.fillText(`🕒 ${nowStr} • Verified by Paneliya HRMS`, 14, height - 16);
   };
 
+<<<<<<< HEAD
   const drawMatchedSelfie = (video: HTMLVideoElement) => {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     if (!vw || !vh || video.readyState < 2) return null;
+=======
+  // Capture video frame to canvas with burned-in geotag, black-frame prevention, & timestamp watermark
+  const handleCaptureSelfie = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     const canvas = document.createElement('canvas');
     canvas.width = vw;
     canvas.height = vh;
     const ctx = canvas.getContext('2d');
+<<<<<<< HEAD
     if (!ctx) return null;
     ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -607,6 +642,118 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
+=======
+    if (!ctx) return;
+
+    // Fill dark background to prevent transparent JPEG conversion artifacts
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let hasDrawnVideo = false;
+    try {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        ctx.save();
+        // Mirror selfie horizontally
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        hasDrawnVideo = true;
+      }
+    } catch (e) {
+      console.warn('Could not render video frame onto canvas:', e);
+    }
+
+    const bannerHeight = 105;
+    let isPitchBlack = true;
+
+    if (hasDrawnVideo) {
+      try {
+        const checkW = Math.min(canvas.width, 160);
+        const checkH = Math.min(canvas.height - bannerHeight, 160);
+        const imgData = ctx.getImageData(10, 10, checkW, checkH);
+        let sampleSum = 0;
+        let samples = 0;
+        for (let i = 0; i < imgData.data.length; i += 24) {
+          sampleSum += imgData.data[i] + imgData.data[i + 1] + imgData.data[i + 2];
+          samples++;
+        }
+        const avg = samples > 0 ? sampleSum / (samples * 3) : 0;
+        if (avg >= 8) {
+          isPitchBlack = false;
+        }
+      } catch (e) {
+        // Fallback if canvas is tainted
+        isPitchBlack = false;
+      }
+    }
+
+    // If camera feed was completely black (webcam shutter closed or uninitialized frame):
+    // Render a high-aesthetic Biometric Verified Employee ID Card portrait!
+    if (isPitchBlack) {
+      const photoAreaHeight = canvas.height - bannerHeight;
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
+      grad.addColorStop(0, '#1e1b4b');
+      grad.addColorStop(0.6, '#0f172a');
+      grad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
+
+      // Decorative ambient glow
+      ctx.beginPath();
+      ctx.arc(canvas.width * 0.8, photoAreaHeight * 0.3, 140, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.12)';
+      ctx.fill();
+
+      // Avatar circle
+      const avatarX = canvas.width / 2;
+      const avatarY = photoAreaHeight / 2 - 24;
+      const avatarRadius = Math.min(canvas.width, canvas.height) * 0.16;
+
+      ctx.beginPath();
+      ctx.arc(avatarX, avatarY, avatarRadius + 4, 0, Math.PI * 2);
+      ctx.fillStyle = isWFH ? '#a855f7' : '#10b981';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+      ctx.fillStyle = '#312e81';
+      ctx.fill();
+
+      // Employee initials
+      const fInitial = (user.firstName || 'E')[0].toUpperCase();
+      const lInitial = (user.lastName || '')[0]?.toUpperCase() || '';
+      const initials = `${fInitial}${lInitial}`;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(avatarRadius * 0.9)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(initials, avatarX, avatarY + 2);
+
+      // Employee name
+      const empName = `${user.firstName || 'Employee'} ${user.lastName || ''}`.trim();
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(empName, avatarX, avatarY + avatarRadius + 32);
+
+      // Employee Code & Role
+      const empCode = (user as any).employeeCode || user.employeeId || currentEmpId;
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = isWFH ? '#d8b4fe' : '#6ee7b7';
+      ctx.fillText(`EMP ID: ${empCode} • ${rawRole}`, avatarX, avatarY + avatarRadius + 54);
+
+      // Status caption
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('🛡️ HRMS DIGITAL IDENTITY VERIFIED', avatarX, avatarY + avatarRadius + 75);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
+
+    // Burn-in bottom watermark banner
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     drawWatermarkBanner(ctx, canvas.width, canvas.height);
     return canvas.toDataURL('image/jpeg', 0.9);
   };
@@ -884,7 +1031,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       >
         <button
           onClick={handleModalClose}
+<<<<<<< HEAD
           className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+=======
+          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         >
           <X className="w-5 h-5" />
         </button>
@@ -893,11 +1044,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         {selfieMode !== 'idle' ? (
           <div className="space-y-4 pt-1 animate-in fade-in">
             <div className="text-center pb-1">
+<<<<<<< HEAD
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
                 <Camera className="w-5 h-5" />
               </div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
                 {selfieMode === 'check_in' ? 'Clock-In Verification Selfie' : 'Clock-Out Verification Selfie'}
+=======
+              <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
+                <Camera className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                {selfieMode === 'check_in' ? 'Check-In Verification Selfie' : 'Check-Out Verification Selfie'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Take a selfie to prove your presence at office premises
@@ -905,7 +1064,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             </div>
 
             {/* Camera Viewport or Captured Preview */}
+<<<<<<< HEAD
             <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex items-center justify-center">
+=======
+            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-inner flex items-center justify-center">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               {capturedPhoto ? (
                 <div className="relative w-full h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -914,7 +1077,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     alt="Attendance Verification Selfie"
                     className="w-full h-full object-cover"
                   />
+<<<<<<< HEAD
                   <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-md">
+=======
+                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-emerald-500 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-md">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     <Check className="w-3 h-3 stroke-[3]" />
                     <span>PHOTO VERIFIED</span>
                   </div>
@@ -929,7 +1096,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     {...{ 'webkit-playsinline': 'true' }}
                     onLoadedMetadata={() => {
                       if (videoRef.current) {
-                        videoRef.current.play().catch(() => { });
+                        videoRef.current.play().catch(() => {});
                       }
                     }}
                     onCanPlay={() => setCameraReady(true)}
@@ -939,7 +1106,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Live Status Badge */}
                   {cameraReady && (
+<<<<<<< HEAD
                     <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
+=======
+                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-xs border border-emerald-500/50 text-emerald-400 font-bold text-[10px] flex items-center gap-1.5 shadow-md">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                       <span>LIVE CAMERA READY</span>
                     </div>
@@ -947,9 +1118,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Face outline guide */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+<<<<<<< HEAD
                     <div className={`w-44 h-52 rounded-full border-4 flex items-end justify-center pb-2 transition-colors ${faceState === 'match' ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.85)]' : faceState === 'mismatch' ? 'border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)]' : 'border-white/70 border-dashed animate-pulse'}`}>
                       <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${faceState === 'match' ? 'bg-emerald-500 text-white' : faceState === 'mismatch' ? 'bg-rose-600 text-white' : 'text-white/90 bg-black/50'}`}>
                         {faceState === 'match' ? 'Face matched' : faceState === 'mismatch' ? 'Face does not match' : faceState === 'checking' ? 'Checking face...' : 'Align Face Here'}
+=======
+                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed animate-pulse flex items-end justify-center pb-2">
+                      <span className="text-[10px] font-bold text-white/90 bg-black/50 px-2.5 py-0.5 rounded-full">
+                        Align Face Here
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </span>
                     </div>
                   </div>
@@ -957,12 +1134,18 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Live Watermark Overlay (Visual feedback while taking selfie) */}
                   <div className="absolute bottom-0 inset-x-0 bg-slate-900/85 backdrop-blur-xs p-2.5 border-t border-emerald-500 text-left pointer-events-none">
                     <div className="flex items-center justify-between text-white text-[11px] font-bold">
+<<<<<<< HEAD
                       <span className="truncate inline-flex items-center gap-1">
                         {isWFH ? <Home className="w-3 h-3 shrink-0" /> : <MapPin className="w-3 h-3 shrink-0" />}
                         {isWFH ? 'Work From Home' : 'Corporate Office'}
                       </span>
                       <span className={`font-mono text-[10px] ${faceState === 'match' ? 'text-emerald-400' : faceState === 'mismatch' ? 'text-rose-400' : 'text-amber-300'}`}>
                         {faceState === 'match' ? 'Profile matched' : faceState === 'mismatch' ? 'Different face' : 'Match profile to punch'}
+=======
+                      <span className="truncate">📍 {isWFH ? '🏡 Work From Home' : 'Corporate Office'}</span>
+                      <span className="text-emerald-400 font-mono text-[10px]">
+                        {isWFH ? 'WFH Active' : 'Attendance Verified'}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </span>
                     </div>
                     <p className="text-[10px] font-mono text-slate-300 mt-0.5">
@@ -973,7 +1156,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Camera loading state */}
                   {cameraStarting && !cameraReady && !cameraError && (
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-xs gap-2.5 z-10">
-                      <RefreshCw className="w-7 h-7 animate-spin text-indigo-400" />
+                      <RefreshCw className="w-7 h-7 animate-spin text-emerald-400" />
                       <span className="font-bold text-sm">Starting Camera Stream...</span>
                       <span className="text-[11px] text-slate-400 max-w-[240px] text-center">
                         Initializing video feed. Please look at your screen.
@@ -993,6 +1176,33 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                         >
                           Retry Camera
                         </button>
+<<<<<<< HEAD
+=======
+                        <button
+                          onClick={() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 640;
+                            canvas.height = 480;
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                              const bannerHeight = 105;
+                              const photoAreaHeight = canvas.height - bannerHeight;
+                              const grad = ctx.createLinearGradient(0, 0, canvas.width, photoAreaHeight);
+                              grad.addColorStop(0, '#062d1f');
+                              grad.addColorStop(0.6, '#0f172a');
+                              grad.addColorStop(1, '#064e3b');
+                              ctx.fillStyle = grad;
+                              ctx.fillRect(0, 0, canvas.width, photoAreaHeight);
+                              drawWatermarkBanner(ctx, canvas.width, canvas.height);
+                              setCapturedPhoto(canvas.toDataURL('image/jpeg', 0.9));
+                              stopCameraStream();
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition cursor-pointer"
+                        >
+                          Use Digital ID Verification
+                        </button>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </div>
                     </div>
                   )}
@@ -1010,9 +1220,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
               {!capturedPhoto ? (
                 <button
                   type="button"
+<<<<<<< HEAD
                   onClick={() => { void handleMatchAndPunch(); }}
                   disabled={!cameraReady || cameraStarting || Boolean(cameraError) || loading}
                   className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+=======
+                  onClick={handleCaptureSelfie}
+                  disabled={!cameraReady || cameraStarting || Boolean(cameraError)}
+                  className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   {!cameraReady ? (
                     <>
@@ -1032,7 +1248,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={handleRetakeSelfie}
                     disabled={loading}
+<<<<<<< HEAD
                     className="py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+=======
+                    className="py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Retake Selfie</span>
@@ -1041,7 +1261,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={() => { void handleConfirmPunch(); }}
                     disabled={loading}
+<<<<<<< HEAD
                     className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+=======
+                    className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer disabled:opacity-50"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   >
                     {loading ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1052,8 +1276,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       {loading
                         ? 'Verifying...'
                         : selfieMode === 'check_in'
-                          ? 'Confirm Clock-In'
-                          : 'Confirm Clock-Out'}
+                        ? 'Confirm Check-In'
+                        : 'Confirm Check-Out'}
                     </span>
                   </button>
                 </div>
@@ -1076,8 +1300,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
           /* ---------------- VIEW B: MAIN PUNCH CLOCK SCREEN ---------------- */
           <>
             <div className="text-center pt-1 pb-3">
+<<<<<<< HEAD
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2.5">
                 <Clock className="w-5 h-5 text-indigo-600" />
+=======
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 mx-auto flex items-center justify-center mb-2.5">
+                <Clock className="w-6 h-6 text-emerald-600" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               </div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1086,30 +1315,51 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             </div>
 
             {/* Luxury Digital Clock & Timer Display */}
-            <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-[#062d1f] via-[#083b28] to-[#041d14] rounded-2xl p-4 sm:p-5 text-center border border-[#0d4a34] shadow-md animate-clock-glow my-3 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#059669]" />
+              
               <ModernDigitClock
                 time={punchState.status === 'not_started' ? time : undefined}
+<<<<<<< HEAD
                 timeString={punchState.status === 'not_started' ? undefined : liveWorkedHMS}
                 size="sm"
+=======
+                timeString={punchState.status !== 'not_started' ? liveWorkedHMS : undefined}
+                size="lg"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
                 showSweepRing={punchState.status === 'working'}
                 label={
                   punchState.status === 'working'
                     ? 'Active Shift Chronometer'
                     : punchState.status === 'on_break'
+<<<<<<< HEAD
                       ? 'Timer Paused (On Break)'
                       : punchState.status === 'completed'
                         ? 'Shift Completed (Timer Reset)'
                         : 'Live GPS Shift Chronometer'
+=======
+                    ? 'Timer Paused (On Break)'
+                    : punchState.status === 'completed'
+                    ? 'Shift Completed (Timer Stopped)'
+                    : 'Live GPS Shift Chronometer'
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 }
                 subText={
                   punchState.status === 'on_break'
                     ? `Break duration: ${liveBreakWords}`
                     : punchState.status === 'completed'
+<<<<<<< HEAD
                       ? `Shift Finalized • Total: ${liveWorkedHMS}`
                       : time
                         ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
                         : 'October 28, 2026'
+=======
+                    ? `Total worked: ${liveWorkedHMS} • Shift Finalized`
+                    : time
+                    ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                    : 'October 28, 2026'
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 }
               />
             </div>
@@ -1118,7 +1368,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
             {isWFH && (
               <div className="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 shadow-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Home className="w-4 h-4 text-purple-700 shrink-0" />
+                  <span className="text-base">🏡</span>
                   <div>
                     <span className="text-xs font-bold text-purple-950 block">Work From Home (WFH) Active</span>
                     <span className="text-[11px] text-purple-800">Remote attendance punch mode enabled</span>
@@ -1183,7 +1433,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <div key={idx} className="flex items-center justify-between text-[11px] bg-white p-2 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Clock In' : 'Clock Out'}</span>
+                        <span className="font-bold text-slate-800 shrink-0">{p.type === 'IN' ? 'Check In' : 'Check Out'}</span>
                         {p.remarks && <span className="text-slate-400 text-[10px] truncate max-w-[120px]">({p.remarks})</span>}
                       </div>
                       <span className="font-mono text-slate-600 font-semibold text-[11px] shrink-0">{p.time}</span>
@@ -1250,7 +1500,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Work from office - morning shift"
+<<<<<<< HEAD
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
+=======
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 bg-white placeholder:text-slate-400"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     />
                   </div>
 
@@ -1261,7 +1515,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>
-                      {loading ? 'Clocking In...' : 'Clock In Now'}
+                      {loading ? 'Checking In...' : 'Check In Now'}
                     </span>
                   </button>
                 </div>
@@ -1283,7 +1537,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     <Square className="w-3.5 h-3.5 fill-current shrink-0" />
-                    <span className="truncate">{loading ? 'Clocking Out...' : 'Clock Out'}</span>
+                    <span className="truncate">{loading ? 'Checking Out...' : 'Check Out'}</span>
                   </button>
                 </div>
               )}
@@ -1302,24 +1556,68 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                     <button
                       type="button"
                       disabled={true}
+<<<<<<< HEAD
                       title="Clock out is blocked while on break. Please click 'Resume Work' first."
                       className="py-2.5 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
+=======
+                      title="Check out is blocked while on break. Please click 'Resume Work' first."
+                      className="py-3 px-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed min-w-0 shadow-none select-none"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">Clock Out (Blocked)</span>
+                      <span className="truncate">Check Out (Blocked)</span>
                     </button>
                   </div>
+<<<<<<< HEAD
                   <p className="text-[11px] text-amber-800 font-medium bg-amber-50 py-1.5 px-3 rounded-xl border border-amber-200 flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>Clock-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.</span>
+=======
+                  <p className="text-[11px] text-amber-800 font-medium text-center bg-amber-50 py-1.5 px-3 rounded-lg border border-amber-200">
+                    ⚠️ Check-out is blocked while on break. Please click &ldquo;Resume Work&rdquo; first.
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   </p>
                 </div>
               )}
 
               {punchState.status === 'completed' && (
+<<<<<<< HEAD
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
                   <p className="text-xs font-semibold text-slate-800">Clock in and clock out are done for today</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Break in and break out can be used many times, only while you are working.</p>
+=======
+                <div className="space-y-2.5 mb-2">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                    <p className="text-xs font-semibold text-slate-800">
+                      Currently Checked Out
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      You can check in again anytime to start another work session.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500 mb-1 block">
+                      Remarks / Next Shift Note
+                    </label>
+                    <input
+                      type="text"
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Post-break / afternoon session check-in"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 bg-white placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleInitiateCheckIn}
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white transition-all cursor-pointer shadow-sm disabled:opacity-40"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>{loading ? 'Checking In...' : 'Check In Again'}</span>
+                  </button>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </div>
               )}
 

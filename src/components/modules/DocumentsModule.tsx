@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+<<<<<<< HEAD
 import { useCompanyLive } from '../../lib/useCompanyLive';
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 import {
   FileText,
   Download,
@@ -14,14 +17,20 @@ import {
   FileCheck,
   AlertCircle,
   Eye,
+<<<<<<< HEAD
   Trash2,
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   Building2,
   Crown,
   Mail,
   Phone,
   MapPin,
   UserCheck,
+<<<<<<< HEAD
   RotateCcw,
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
@@ -85,15 +94,21 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
   const { showToast } = useSocket();
 
   useEffect(() => {
+<<<<<<< HEAD
     if (portalMode === 'employee' && !user?.id && !myEmpId) {
       return;
     }
     loadData();
   }, [portalMode, myEmpId, user?.id]);
+=======
+    loadData();
+  }, [portalMode, myEmpId]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
   const loadData = async () => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const [docs, emps] = await Promise.all([
         api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
         portalMode === 'admin' ? api.getEmployees().catch(() => []) : Promise.resolve([]),
@@ -110,15 +125,56 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
       }
     } catch (err) {
       console.error('[DocumentsModule] load error:', err);
+=======
+      const [docs, emps, settings, myComp] = await Promise.all([
+        api.getDocuments(portalMode === 'employee' ? myEmpId : undefined),
+        api.getEmployees(),
+        api.getSettings().catch(() => null),
+        api.getMyCompany().catch(() => null),
+      ]);
+      setDocuments(Array.isArray(docs) ? docs : []);
+      setEmployees(Array.isArray(emps) ? emps : []);
+      if (myComp) {
+        setCompanySettings((prev) => ({
+          ...prev,
+          name: myComp.name || prev.name,
+          tagline: myComp.industry || prev.tagline,
+          taxId: myComp.gstin || myComp.taxId || prev.taxId,
+          supportEmail: myComp.email || prev.supportEmail,
+          phone: myComp.phone || prev.phone,
+          address: myComp.address || prev.address,
+        }));
+      } else if (settings?.company) {
+        setCompanySettings((prev) => ({
+          ...prev,
+          name: settings.company.name || prev.name,
+          tagline: settings.company.tagline || prev.tagline,
+          taxId: settings.company.taxId || prev.taxId,
+          supportEmail: settings.company.supportEmail || prev.supportEmail,
+          phone: settings.company.phone || prev.phone,
+          address: settings.company.address || prev.address,
+        }));
+      }
+      if (portalMode === 'employee') {
+        setSelectedEmployeeId(myEmpId);
+      } else if (emps.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(emps[0].id);
+      }
+    } catch (err) {
+      console.error(err);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } finally {
       setLoading(false);
     }
   };
 
+<<<<<<< HEAD
   useCompanyLive(['documents', 'employees'], () => {
     void loadData();
   });
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
@@ -129,6 +185,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
     setUploading(true);
     try {
       const formData = new FormData();
+<<<<<<< HEAD
       formData.append('title', (docTitle || selectedFile.name).trim());
       formData.append('userId', selectedEmployeeId || (portalMode === 'employee' ? myEmpId : '') || '');
       formData.append('companyId', user?.companyId || '');
@@ -147,6 +204,15 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           setDocuments((prev) => [created, ...prev]);
         }
       }
+=======
+      formData.append('file', selectedFile);
+      formData.append('title', docTitle || selectedFile.name);
+      formData.append('category', docCategory);
+      formData.append('employeeId', selectedEmployeeId);
+
+      const created = await api.uploadDocumentFile(formData);
+      setDocuments((prev) => [created, ...prev]);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 
       showToast({
         title: 'Document Uploaded',
@@ -182,6 +248,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
     }
   };
 
+<<<<<<< HEAD
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
     try {
@@ -226,10 +293,24 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
       (doc.uploadedByName || '').toLowerCase().includes(docQ) ||
       (doc.companyName || '').toLowerCase().includes(docQ);
 
+=======
+  const docQ = searchTerm.trim().toLowerCase();
+  const filtered = documents.filter((doc) => {
+    if (portalMode === 'employee' && doc.employeeId && doc.employeeId !== myEmpId) {
+      return false;
+    }
+    const matchesCat = category === 'ALL' || (doc.category || '').toLowerCase() === category.toLowerCase();
+    const matchesSearch =
+      !docQ ||
+      (doc.title || '').toLowerCase().includes(docQ) ||
+      (doc.employeeName || '').toLowerCase().includes(docQ) ||
+      (doc.category || '').toLowerCase().includes(docQ);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     return matchesCat && matchesSearch;
   });
 
   return (
+<<<<<<< HEAD
     <div className="space-y-5 w-full animate-in fade-in select-none">
       {/* Top Action */}
       <div className="flex items-center justify-between gap-4">
@@ -243,13 +324,43 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
         >
           <UploadCloud className="w-3.5 h-3.5" />
           <span>Add Document</span>
+=======
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in select-none">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              Document Compliance & Vault
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-semibold flex items-center gap-1 border border-emerald-100">
+              <Shield className="w-3.5 h-3.5" /> 256-bit Encrypted
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Secure employee documentation, tax filings, identity records, and HR verification audits
+          </p>
+        </div>
+
+        <button
+          onClick={() => setIsUploadOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs shadow-sm shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+        >
+          <UploadCloud className="w-3.5 h-3.5" />
+          <span>Upload Document</span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         </button>
       </div>
 
       {/* EMPLOYEE VIEW: Official Company Details & Owner Information Card */}
       {portalMode === 'employee' && (
+<<<<<<< HEAD
         <div className="bg-gradient-to-br from-slate-900 via-[#212529] to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
           <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+=======
+        <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-emerald-950 text-white rounded-2xl p-6 shadow-xl border border-emerald-500/20 relative overflow-hidden">
+          <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           <div className="absolute right-4 top-4 opacity-5 pointer-events-none">
             <Building2 className="w-32 h-32 text-white" />
           </div>
@@ -257,7 +368,11 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           <div className="relative z-10 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
+<<<<<<< HEAD
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">
+=======
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   <Building2 className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -269,7 +384,11 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                       <CheckCircle className="w-3 h-3 text-emerald-400" /> Verified Employer
                     </span>
                   </div>
+<<<<<<< HEAD
                   <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+=======
+                  <p className="text-xs text-emerald-200/80 font-medium mt-0.5">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     {companySettings.tagline}
                   </p>
                 </div>
@@ -277,7 +396,11 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-lg bg-white/10 text-xs font-semibold text-slate-200 border border-white/10 backdrop-blur-xs flex items-center gap-1.5">
+<<<<<<< HEAD
                   <Shield className="w-3.5 h-3.5 text-indigo-400" />
+=======
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                   Tax ID: {companySettings.taxId}
                 </span>
               </div>
@@ -294,13 +417,22 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                   {companySettings.ownerName}
                 </p>
                 <span className="text-[10px] text-slate-300 block">{companySettings.ownerRole}</span>
+<<<<<<< HEAD
                 <span className="text-[10px] text-indigo-300 font-mono">{companySettings.ownerEmail}</span>
+=======
+                <span className="text-[10px] text-emerald-300 font-mono">{companySettings.ownerEmail}</span>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
               </div>
 
               {/* Registered Address */}
               <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+<<<<<<< HEAD
                 <span className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
                   <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Registered Headquarters
+=======
+                <span className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Registered Headquarters
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </span>
                 <p className="font-semibold text-white truncate" title={companySettings.address}>
                   {companySettings.address}
@@ -310,8 +442,13 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
               {/* Official Contact */}
               <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+<<<<<<< HEAD
                 <span className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
                   <Mail className="w-3.5 h-3.5 text-indigo-400" /> HR & Helpdesk Contact
+=======
+                <span className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                  <Mail className="w-3.5 h-3.5 text-emerald-400" /> HR & Helpdesk Contact
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 </span>
                 <p className="font-semibold text-white truncate">
                   {companySettings.supportEmail}
@@ -348,9 +485,15 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
+<<<<<<< HEAD
                 className={`px-3 py-1 rounded-full font-semibold text-xs transition ${
                   category === cat
                     ? 'bg-blue-50 text-blue-600 font-bold'
+=======
+                className={`px-3 py-1 rounded-full font-semibold text-xs transition cursor-pointer ${
+                  category === cat
+                    ? 'bg-emerald-50 text-emerald-700 font-bold'
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                     : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -380,6 +523,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* Mobile Card View (< md) */}
         <div className="md:hidden divide-y divide-slate-100">
           {filtered.length === 0 ? (
@@ -454,13 +598,22 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
 
         {/* Documents Table (>= md) */}
         <div className="hidden md:block overflow-x-auto">
+=======
+        {/* Documents Table */}
+        <div className="overflow-x-auto">
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-semibold">
                 <th className="py-2.5 px-3">Document Title</th>
                 <th className="py-2.5 px-3">Employee</th>
+<<<<<<< HEAD
                 <th className="py-2.5 px-3">Uploaded By</th>
                 <th className="py-2.5 px-3">Format</th>
+=======
+                <th className="py-2.5 px-3">Category</th>
+                <th className="py-2.5 px-3">File Size</th>
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 <th className="py-2.5 px-3">Upload Date</th>
                 <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
@@ -470,6 +623,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+<<<<<<< HEAD
                     {documents.length === 0 ? (
                       <div className="flex flex-col items-center justify-center gap-2.5 py-4 max-w-sm mx-auto">
                         <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 shadow-2xs">
@@ -551,6 +705,53 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                       >
                         {(doc.verificationStatus === 'Verified' || doc.verificationStatus === 'Active') && <CheckCircle className="w-3 h-3" />}
                         {doc.verificationStatus || 'Verified'}
+=======
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <FileText className="w-8 h-8 text-slate-300" />
+                      <p className="font-bold text-slate-700">No documents found</p>
+                      <p className="text-[11px] text-slate-400">No compliance files uploaded matching your criteria.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-slate-50/70 transition">
+                    <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="block leading-tight">{doc.title}</span>
+                        <span className="text-[10px] font-normal text-slate-400 font-mono">
+                          {doc.id}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 font-medium text-slate-700">
+                      {doc.employeeName}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                        {doc.category}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">
+                      {doc.fileSize}
+                    </td>
+                    <td className="py-3 px-3 text-slate-400">{doc.uploadDate}</td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`px-2 py-0.5 rounded-full font-semibold text-[10px] flex items-center gap-1 w-fit ${
+                          doc.verificationStatus === 'Verified'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : doc.verificationStatus === 'Pending'
+                            ? 'bg-amber-50 text-amber-600'
+                            : 'bg-rose-50 text-rose-600'
+                        }`}
+                      >
+                        {doc.verificationStatus === 'Verified' && <CheckCircle className="w-3 h-3" />}
+                        {doc.verificationStatus}
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
@@ -558,6 +759,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                         <a
                           href={doc.fileUrl}
                           target="_blank"
+<<<<<<< HEAD
                           rel="noopener noreferrer"
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                           title="View Document"
@@ -587,6 +789,16 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                         {portalMode === 'admin' && doc.verificationStatus === 'Pending' && (
                           <button
                             type="button"
+=======
+                          rel="noreferrer"
+                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                          title="View / Download"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                        {portalMode === 'admin' && doc.verificationStatus === 'Pending' && (
+                          <button
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                             onClick={() => handleVerify(doc.id, 'Verified')}
                             className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[10px]"
                           >
@@ -609,6 +821,7 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsUploadOpen(false);
           }}
+<<<<<<< HEAD
           className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
@@ -737,13 +950,137 @@ export const DocumentsModule: React.FC<DocumentsModuleProps> = ({
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+=======
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in cursor-pointer overflow-y-auto"
+        >
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-100 shadow-2xl relative cursor-default my-auto max-h-[92vh] overflow-y-auto">
+            <button
+              onClick={() => setIsUploadOpen(false)}
+              className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <UploadCloud className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Upload Compliance Document
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Select file (PDF, Word, Images up to 10MB)
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleFileUpload} className="space-y-4 mt-5">
+              {portalMode === 'admin' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Employee
+                  </label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                  >
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Document Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Passport Copy or W-4 Form"
+                  value={docTitle}
+                  onChange={(e) => setDocTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Document Category
+                </label>
+                <select
+                  value={docCategory}
+                  onChange={(e) => setDocCategory(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900"
+                >
+                  <option value="Identity">Identity Document (Passport, National ID)</option>
+                  <option value="Tax">Tax Exemption / W-4 Form</option>
+                  <option value="Offer Letter">Signed Offer & Employment Agreement</option>
+                  <option value="Education">Degree & Academic Certificates</option>
+                  <option value="Medical">Medical Clearance & Health Insurance</option>
+                  <option value="Other">Other Miscellaneous Document</option>
+                </select>
+              </div>
+
+              {/* File Dropzone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 transition"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setSelectedFile(e.target.files[0]);
+                      if (!docTitle) setDocTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
+                    }
+                  }}
+                />
+                <FileCheck className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                {selectedFile ? (
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">
+                      {selectedFile.name}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {(selectedFile.size / 1024).toFixed(1)} KB — Click to change file
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="font-bold text-xs text-slate-800 block">
+                      Click to choose file or drag and drop
+                    </span>
+                    <span className="text-[10px] text-slate-400">PDF, DOC, PNG, JPG up to 10MB</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-500 hover:bg-slate-100"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !selectedFile}
+<<<<<<< HEAD
                   className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer disabled:opacity-50"
+=======
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 disabled:opacity-50 transition cursor-pointer"
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
                 >
                   {uploading ? 'Uploading to Server...' : 'Confirm Upload'}
                 </button>

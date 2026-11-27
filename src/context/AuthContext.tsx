@@ -7,8 +7,11 @@ import { findOrganizationByEmail } from '../lib/companyService';
 import { purgeLocalBusinessData } from '../lib/storageCleanup';
 import { getCookie, setCookie, removeCookie, purgeAuthLocalStorage } from '../lib/cookies';
 
+<<<<<<< HEAD
 export type PortalMode = 'admin' | 'employee';
 
+=======
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 export const isUserAdminRole = (role?: string): boolean => {
   if (!role) return false;
   const normalized = role.trim().toUpperCase();
@@ -22,6 +25,7 @@ export const isUserAdminRole = (role?: string): boolean => {
   );
 };
 
+<<<<<<< HEAD
 export const isHrRole = (role?: string): boolean => {
   if (!role) return false;
   const normalized = role.trim().toUpperCase();
@@ -45,6 +49,12 @@ export function portalFromPermissions(permissions?: { key: string }[]): PortalMo
   return null;
 }
 
+=======
+export const determinePortalMode = (role?: string): 'admin' | 'employee' => {
+  return isUserAdminRole(role) ? 'admin' : 'employee';
+};
+
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
 const emptyUser: User = {
   id: '',
   email: '',
@@ -71,8 +81,8 @@ export const DEMO_USERS: DemoUserAccount[] = [];
 interface AuthContextType {
   user: User;
   role: Role;
-  portalMode: PortalMode;
-  setPortalMode: (mode: PortalMode) => void;
+  portalMode: 'admin' | 'employee';
+  setPortalMode: (mode: 'admin' | 'employee') => void;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (identifier: string, password?: string) => Promise<{ success: boolean; message?: string; role?: string; notInOrganization?: boolean }>;
@@ -106,7 +116,7 @@ interface AuthContextType {
     officialEmail?: string;
     phone: string;
     mobileNumber?: string;
-    password?: string;
+    password: string;
     confirmPassword?: string;
   }) => Promise<{ success: boolean; message?: string; user?: any; company?: any }>;
   switchRole: (newRole: Role) => void;
@@ -119,6 +129,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+<<<<<<< HEAD
   const [user, setUser] = useState<User>(() => {
     if (typeof window !== 'undefined') {
       const cachedUserStr = getCookie('hrms_auth_user');
@@ -132,6 +143,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return emptyUser;
   });
   const [portalMode, setPortalModeState] = useState<PortalMode>(() => {
+=======
+  const [user, setUser] = useState<User>(emptyUser);
+  const [portalMode, setPortalModeState] = useState<'admin' | 'employee'>(() => {
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     if (typeof window !== 'undefined') {
       const savedMode = getCookie('hrms_portal_mode');
       if (savedMode === 'admin' || savedMode === 'employee') return savedMode;
@@ -239,11 +254,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
     }
 
+    const token = typeof window !== 'undefined'
+      ? (getCookie('hrms_auth_token') || getCookie('bearerToken'))
+      : null;
     const storedAuth = typeof window !== 'undefined' ? getCookie('hrms_is_authenticated') : null;
-    const cachedUserStr = typeof window !== 'undefined' ? getCookie('hrms_auth_user') : null;
 
-    if (storedAuth === 'true' && cachedUserStr) {
+    if (token && token.startsWith('demo_token_')) {
       try {
+<<<<<<< HEAD
         const cachedUser = JSON.parse(cachedUserStr);
         if (cachedUser?.id) {
           const allowedPortal = portalFromPermissions(cachedUser.permissions) || 'employee';
@@ -282,13 +300,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .catch(() => {});
         }
       } catch {}
+=======
+        removeCookie('hrms_auth_token');
+        removeCookie('bearerToken');
+        removeCookie('hrms_is_authenticated');
+        removeCookie('hrms_auth_user');
+        removeCookie('hrms_current_role');
+        removeCookie('hrms_portal_mode');
+        purgeAuthLocalStorage();
+      } catch (_) {}
+    }
+
+    if (storedAuth === 'true' && token && !token.startsWith('demo_token_')) {
+      // Immediate session hydration from cookies to prevent screen flashes on refresh
+      const cachedUserStr = getCookie('hrms_auth_user');
+      const cachedPortal = getCookie('hrms_portal_mode');
+      if (cachedUserStr) {
+        try {
+          const cachedUser = JSON.parse(cachedUserStr);
+          if (cachedUser && cachedUser.id) {
+            setUser(cachedUser);
+            setIsAuthenticated(true);
+            if (cachedPortal === 'admin' || cachedPortal === 'employee') {
+              setPortalModeState(cachedPortal);
+            }
+          }
+        } catch {}
+      }
+
+      const safetyTimer = setTimeout(() => {
+        setIsLoading(false);
+      }, 3000);
+
+      api.getMe(token)
+        .then(async (meUser) => {
+          if (meUser && meUser.id) {
+            const enriched = await enrichUserData(meUser);
+            setUser(enriched);
+            setIsAuthenticated(true);
+            const userRole = enriched.role || 'EMPLOYEE';
+            const allowedPortal = determinePortalMode(userRole);
+            setPortalModeState(allowedPortal);
+            setCookie('hrms_auth_user', JSON.stringify(enriched));
+            setCookie('hrms_current_role', userRole);
+            setCookie('hrms_portal_mode', allowedPortal);
+            purgeAuthLocalStorage();
+          } else {
+            throw new Error('User not found');
+          }
+        })
+        .catch(() => {
+          setUser(emptyUser);
+          setIsAuthenticated(false);
+          removeCookie('hrms_is_authenticated');
+          removeCookie('hrms_auth_token');
+          removeCookie('bearerToken');
+          removeCookie('hrms_auth_user');
+          removeCookie('hrms_current_role');
+          removeCookie('hrms_portal_mode');
+          purgeAuthLocalStorage();
+        })
+        .finally(() => {
+          clearTimeout(safetyTimer);
+          setIsLoading(false);
+        });
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     } else {
       setUser(emptyUser);
       setIsAuthenticated(false);
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     const onSessionExpired = () => {
       setIsAuthenticated(false);
@@ -315,6 +399,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const next = mode === allowed ? mode : allowed;
     setPortalModeState(next);
     setCookie('hrms_portal_mode', next);
+=======
+  const setPortalMode = (mode: 'admin' | 'employee') => {
+    if (mode === 'admin' && !isUserAdminRole(user?.role)) {
+      console.warn('Access denied: Employee accounts cannot access Admin portal.');
+      setPortalModeState('employee');
+      setCookie('hrms_portal_mode', 'employee');
+      purgeAuthLocalStorage();
+      return;
+    }
+    setPortalModeState(mode);
+    setCookie('hrms_portal_mode', mode);
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
     purgeAuthLocalStorage();
   };
 
@@ -342,6 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.login(identifier.trim(), password);
       if (res && res.user) {
+<<<<<<< HEAD
         const token = res.token || res.accessToken || res.data?.token || res.data?.accessToken;
         if (token) {
           setCookie('hrms_auth_token', token);
@@ -367,6 +464,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           companyProfile,
           companyId: profile?.user?.companyId || res.user.companyId || org.companyId || '',
           companyName: companyProfile?.name || profile?.user?.companyName || res.user.companyName || org.companyName || '',
+=======
+        const userRole = res.user.role || org.role || 'EMPLOYEE';
+        const targetPortal = determinePortalMode(userRole);
+        const enriched = await enrichUserData({
+          ...res.user,
+          companyId: res.user.companyId || org.companyId || '',
+          companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
+>>>>>>> 7c080ad1dede1b604c527aa55a4f8f7e27459b35
         });
 
         setUser(enriched);
@@ -416,12 +521,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           companyId: res.user.companyId || org.companyId || '',
           companyName: res.user.companyName || org.companyName || (res.user.companyId ? 'My Organization' : ''),
         });
-        const targetPortal = determinePortalMode(userRole);
         setUser(enriched);
-        setPortalModeState(targetPortal);
+        setPortalModeState('admin');
         setIsAuthenticated(true);
         setCookie('hrms_is_authenticated', 'true');
-        setCookie('hrms_portal_mode', targetPortal);
+        setCookie('hrms_portal_mode', 'admin');
         setCookie('hrms_current_role', userRole);
         setCookie('hrms_auth_user', JSON.stringify(enriched));
         purgeAuthLocalStorage();
@@ -539,32 +643,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     officialEmail?: string;
     phone: string;
     mobileNumber?: string;
-    password?: string;
+    password: string;
     confirmPassword?: string;
   }): Promise<{ success: boolean; message?: string; user?: any; company?: any }> => {
     try {
-      const res = await api.registerCompany({
-        companyName: data.companyName.trim(),
-        email: (data.officialEmail || data.email).trim().toLowerCase(),
-        phone: (data.mobileNumber || data.phone || '').trim(),
-        gstNumber: (data.gstNumber || data.gstin || '').trim(),
-        industrySector: (data.industrySector || data.industry || '').trim(),
-        state: (data.state || '').trim(),
-        city: (data.city || '').trim(),
-        address: (data.address || data.officeAddress || '').trim(),
-        firstName: data.firstName.trim(),
-        lastName: data.lastName.trim(),
-      });
+      // 1. Submit company registration request to /api/companies/register
+      const res = await api.registerCompany(data);
 
-      if (!res?.company) {
-        return { success: false, message: 'Company registration failed. Please try again.' };
+      const createdCompany = res?.company || {};
+      const companyId = createdCompany.id || res?.requestId || `cmp-${Date.now()}`;
+      const companyCode = createdCompany.companyCode || 'CMP-000001';
+      const companyName = createdCompany.name || createdCompany.companyName || data.companyLegalName || data.companyName.trim();
+
+      if (res?.user) {
+        const enriched = await enrichUserData({
+          ...res.user,
+          role: 'ADMIN',
+          companyId,
+          companyCode,
+          companyName,
+        });
+
+        setUser(enriched);
+        setPortalModeState('admin');
+        setIsAuthenticated(true);
+        setCookie('hrms_is_authenticated', 'true');
+        setCookie('hrms_portal_mode', 'admin');
+        setCookie('hrms_current_role', 'ADMIN');
+        setCookie('hrms_auth_user', JSON.stringify(enriched));
+        purgeAuthLocalStorage();
+
+        window.dispatchEvent(new Event('hrms_companies_updated'));
+        window.dispatchEvent(new Event('hrms_employees_updated'));
+
+        return { success: true, message: res.message, user: enriched, company: createdCompany };
       }
 
+      window.dispatchEvent(new Event('hrms_companies_updated'));
       return {
         success: true,
-        message: res.message || 'Company registered. The login password was sent to the company email.',
-        user: res.admin,
-        company: res.company,
+        message: res.message || 'Company registration request submitted successfully!',
+        company: createdCompany,
       };
     } catch (err: any) {
       return {
@@ -595,10 +714,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const logout = async () => {
-    try {
-      await api.logout();
-    } catch {}
+  const logout = () => {
     setIsAuthenticated(false);
     setUser(emptyUser);
     removeCookie('hrms_is_authenticated');
