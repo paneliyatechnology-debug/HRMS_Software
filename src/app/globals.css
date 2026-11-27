@@ -1320,6 +1320,41 @@ textarea {
   animation: pulseGlowRing 2.5s infinite;
 }
 
+@keyframes launchArrowNudge {
+  0%,
+  100% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+.group:hover .animate-launch-arrow {
+  animation: launchArrowNudge 0.8s ease-in-out infinite;
+}
+
+@keyframes btnArrowGlide {
+  0% {
+    left: 12px;
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    left: calc(100% - 28px);
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-btn-arrow-glide {
+  animation: btnArrowGlide 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* 8. Remove dark gray backdrop effect behind popups / modals across the entire website */
 .fixed.inset-0.z-50,
 .fixed.inset-0.z-\[50\],

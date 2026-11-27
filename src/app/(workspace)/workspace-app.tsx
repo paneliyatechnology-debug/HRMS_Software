@@ -143,12 +143,15 @@ export function WorkspaceApp() {
         'calendar',
         'attendance',
         'leaves',
+        'tasks',
         'payslips',
         'resignations',
         'organization',
         'documents',
         'announcements',
         'chat',
+        'notifications',
+        'profile',
         'settings',
       ];
       if (!allowedInEmployee.includes(activeModule)) {
@@ -194,6 +197,8 @@ export function WorkspaceApp() {
         return;
       }
       const canReadCompanyLists = ['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN', 'HR', 'MANAGER'].includes(role);
+      const hasPayroll = isSuperAdmin || planGate.features.includes('payroll');
+      const hasRecruitment = isSuperAdmin || planGate.features.includes('recruitment');
       const [
         statsData,
         employeesData,
@@ -212,9 +217,9 @@ export function WorkspaceApp() {
         canReadCompanyLists ? api.getDesignations().catch(() => []) : Promise.resolve([]),
         !isSuperAdmin ? api.getLeaves().catch(() => []) : Promise.resolve([]),
         !isSuperAdmin ? api.getAttendance().catch(() => []) : Promise.resolve([]),
-        !isSuperAdmin ? api.getPayroll().catch(() => []) : Promise.resolve([]),
-        canReadCompanyLists ? api.getJobs().catch(() => []) : Promise.resolve([]),
-        canReadCompanyLists ? api.getCandidates().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin && hasPayroll ? api.getPayroll().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists && hasRecruitment ? api.getJobs().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists && hasRecruitment ? api.getCandidates().catch(() => []) : Promise.resolve([]),
         canReadCompanyLists ? api.getAssets().catch(() => []) : Promise.resolve([]),
       ]);
 
@@ -352,7 +357,12 @@ export function WorkspaceApp() {
       setSelectedEmployee(null);
     };
     window.addEventListener('hrms_auth_logout', handleLogout);
-    return () => window.removeEventListener('hrms_auth_logout', handleLogout);
+    const handleOpenClock = () => setClockModalOpen(true);
+    window.addEventListener('hrms_open_clock_modal', handleOpenClock);
+    return () => {
+      window.removeEventListener('hrms_auth_logout', handleLogout);
+      window.removeEventListener('hrms_open_clock_modal', handleOpenClock);
+    };
   }, []);
 
   const [mounted, setMounted] = useState(false);
@@ -587,7 +597,12 @@ export function WorkspaceApp() {
             )}
 
             {(activeModule === 'payroll' || activeModule === 'payslips') && (
-              portalMode === 'employee' ? (
+              !planGate.features.includes('payroll') && currentRole !== 'SUPER_ADMIN' ? (
+                <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center max-w-md mx-auto mt-10 space-y-2">
+                  <h3 className="text-base font-bold text-slate-900">Payroll &amp; Payslips Not Included</h3>
+                  <p className="text-xs text-slate-500">Your current plan does not include Payroll &amp; Payslips. Upgrade your plan in Settings to unlock it.</p>
+                </div>
+              ) : portalMode === 'employee' ? (
                 <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
               ) : (
                 <PayrollModule
@@ -598,11 +613,18 @@ export function WorkspaceApp() {
             )}
 
             {activeModule === 'recruitment' && (
-              <RecruitmentModule
-                jobs={jobs}
-                candidates={candidates}
-                onRefresh={loadData}
-              />
+              !planGate.features.includes('recruitment') && currentRole !== 'SUPER_ADMIN' ? (
+                <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center max-w-md mx-auto mt-10 space-y-2">
+                  <h3 className="text-base font-bold text-slate-900">Recruitment &amp; Hiring Not Included</h3>
+                  <p className="text-xs text-slate-500">Your current plan does not include Recruitment &amp; Hiring. Upgrade your plan in Settings to unlock it.</p>
+                </div>
+              ) : (
+                <RecruitmentModule
+                  jobs={jobs}
+                  candidates={candidates}
+                  onRefresh={loadData}
+                />
+              )
             )}
 
             {activeModule === 'performance' && (

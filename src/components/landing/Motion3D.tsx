@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Lock } from 'lucide-react';
 
 /**
@@ -85,6 +86,11 @@ export const Reveal3D: React.FC<{
       setVisible(true);
       return;
     }
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight + 40 && rect.bottom > -40) {
+      setVisible(true);
+      return;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -92,7 +98,7 @@ export const Reveal3D: React.FC<{
           observer.disconnect();
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -24px 0px' }
+      { threshold: 0.05, rootMargin: '40px 0px 40px 0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -140,6 +146,67 @@ export const Ambient3DScene: React.FC = () => (
 );
 
 /**
+ * Launch Company Workspace / Register Workspace CTA button with animated hover arrow
+ * and an inside-button left-to-right arrow glide transition to /register.
+ */
+export const LaunchWorkspaceButton: React.FC<{
+  label?: string;
+  className?: string;
+  iconClassName?: string;
+  trailClassName?: string;
+  leadingIcon?: React.ReactNode;
+}> = ({
+  label = 'Launch Company Workspace',
+  className = 'w-full sm:w-auto h-12 px-6 rounded-2xl bg-white hover:bg-[#d8f3dc] text-[#1b4332] font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer',
+  iconClassName = 'w-4 h-4 text-[#1b4332]',
+  trailClassName = 'bg-gradient-to-r from-transparent to-[#1b4332]',
+  leadingIcon,
+}) => {
+  const router = useRouter();
+  const [launching, setLaunching] = useState(false);
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    if (launching) return;
+    setLaunching(true);
+    setTimeout(() => {
+      router.push('/register');
+    }, 440);
+  };
+
+  return (
+    <Link
+      href="/register"
+      onClick={handleClick}
+      className={`group relative overflow-hidden ${className}`}
+    >
+      <span
+        className={`inline-flex items-center justify-center gap-2 transition-all duration-200 ${
+          launching ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+        }`}
+      >
+        {leadingIcon}
+        <span>{label}</span>
+        <ArrowRight className={`${iconClassName} animate-launch-arrow transition-transform duration-200`} />
+      </span>
+
+      {launching && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center pointer-events-none"
+        >
+          <span className="absolute top-1/2 -translate-y-1/2 flex items-center animate-btn-arrow-glide">
+            <span className={`w-10 h-0.5 rounded-full -mr-1.5 opacity-75 ${trailClassName}`} />
+            <ArrowRight className={`${iconClassName} stroke-[2.5]`} />
+          </span>
+        </span>
+      )}
+    </Link>
+  );
+};
+
+/**
  * Shared 3D Bottom CTA Banner for landing & sub-pages.
  */
 export const BottomCta3D: React.FC<{
@@ -164,13 +231,7 @@ export const BottomCta3D: React.FC<{
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">{title}</h2>
         <p className="text-xs sm:text-sm text-[#d8f3dc] max-w-xl mx-auto leading-relaxed">{subtitle}</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <Link
-            href="/register"
-            className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-white hover:bg-[#d8f3dc] text-[#1b4332] font-bold text-xs sm:text-sm shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>{primaryLabel}</span>
-            <ArrowRight className="w-4 h-4 text-[#1b4332]" />
-          </Link>
+          <LaunchWorkspaceButton label={primaryLabel} />
           <Link
             href="/login"
             onClick={onOpenLogin}

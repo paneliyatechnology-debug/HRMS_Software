@@ -17,13 +17,10 @@ import { useModalOverlay } from '../../lib/useModalOverlay';
 
 const PLAN_FEATURE_OPTIONS = [
   { key: 'face_clock', label: 'Face Clock Kiosk' },
-  { key: 'attendance', label: 'Attendance & Shifts' },
-  { key: 'leaves', label: 'Leave Management' },
+  { key: 'face_selfie', label: 'Selfie Face Verification' },
   { key: 'payroll', label: 'Payroll & Payslips' },
-  { key: 'recruitment', label: 'Recruitment & Hiring' },
-  { key: 'team_chat', label: 'Team Chat & Notices' },
   { key: 'geofence', label: 'Office Geofence' },
-  { key: 'tasks', label: 'Tasks & Projects' },
+  { key: 'recruitment', label: 'Recruitment & Hiring' },
 ] as const;
 
 const ALL_FEATURE_KEYS = PLAN_FEATURE_OPTIONS.map((f) => f.key);

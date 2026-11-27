@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronDown, ArrowRight, Lock, Sparkles } from 'lucide-react';
 import { LandingNav } from '../../components/landing/LandingNav';
 import { LandingFooter } from '../../components/landing/LandingFooter';
-import { Tilt3D, Reveal3D, Ambient3DScene, BottomCta3D } from '../../components/landing/Motion3D';
+import { Reveal3D, Ambient3DScene, BottomCta3D, LaunchWorkspaceButton } from '../../components/landing/Motion3D';
 
 export default function FAQPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -83,41 +83,38 @@ export default function FAQPage() {
       {/* New 2-Column 3D FAQ Layout */}
       <section className="py-12 sm:py-16 bg-white border-y border-slate-200/80">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Sticky 3D Category Sidebar + Quick Launch Card */}
-          <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-5">
-            <Tilt3D intensity={6} glare>
-              <div className="p-5 rounded-3xl bg-[#f8f9fa] border border-slate-200/90 shadow-[0_12px_28px_-10px_rgba(15,23,42,0.08)] space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-2">
-                  Filter Topics
-                </p>
-                {[
-                  { id: 'all', label: 'All Questions' },
-                  { id: 'security', label: 'Security & Privacy' },
-                  { id: 'attendance', label: 'Attendance & Leaves' },
-                  { id: 'payroll', label: 'Payroll & Compliance' },
-                  { id: 'setup', label: 'Setup & Onboarding' },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.id as any);
-                      setOpenFaq(0);
-                    }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      selectedCategory === cat.id
-                        ? 'bg-[#1b4332] text-white shadow-sm'
-                        : 'bg-white hover:bg-emerald-50/40 text-slate-600 border border-slate-200/80'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </Tilt3D>
+          {/* Left Sticky Category Sidebar + Quick Launch Card */}
+          <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-5 relative z-10">
+            <div className="p-5 rounded-3xl bg-gradient-to-br from-[#f3faf5] to-white border border-[#95d5b2]/80 shadow-[0_12px_28px_-10px_rgba(27,67,50,0.12)] space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#2d6a4f] px-2 mb-2">
+                Filter Topics
+              </p>
+              {[
+                { id: 'all', label: 'All Questions' },
+                { id: 'security', label: 'Security & Privacy' },
+                { id: 'attendance', label: 'Attendance & Leaves' },
+                { id: 'payroll', label: 'Payroll & Compliance' },
+                { id: 'setup', label: 'Setup & Onboarding' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(cat.id as any);
+                    setOpenFaq(0);
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedCategory === cat.id
+                      ? 'bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] text-white shadow-sm'
+                      : 'bg-white hover:bg-emerald-50/60 text-slate-700 border border-slate-200/80 hover:border-[#95d5b2]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
-            <Tilt3D intensity={7} glare>
-              <div className="p-6 rounded-3xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-[0_18px_38px_-12px_rgba(27,67,50,0.4)] space-y-3">
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-[0_18px_38px_-12px_rgba(27,67,50,0.4)] space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-[#d8f3dc]" />
                 </div>
@@ -126,13 +123,11 @@ export default function FAQPage() {
                   Get your company workspace set up today. Enjoy seamless shift tracking, instant leave approvals, and automated payroll calculations.
                 </p>
                 <div className="pt-1 flex flex-col gap-2">
-                  <Link
-                    href="/register"
-                    className="h-10 px-4 rounded-xl bg-white hover:bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center gap-1.5 transition"
-                  >
-                    <span>Register Company Workspace</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <LaunchWorkspaceButton
+                    label="Register Company Workspace"
+                    className="h-10 px-4 rounded-xl bg-white hover:bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+                    iconClassName="w-3.5 h-3.5 text-[#1b4332]"
+                  />
                   <Link
                     href="/login"
                     className="h-10 px-4 rounded-xl bg-emerald-950/50 hover:bg-emerald-950 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-1.5 transition"
@@ -142,35 +137,60 @@ export default function FAQPage() {
                   </Link>
                 </div>
               </div>
-            </Tilt3D>
-          </div>
+            </div>
 
           {/* Right 3D Accordion Cards */}
           <div className="lg:col-span-8 space-y-3.5">
             {filteredFaqs.map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
-                <Reveal3D key={`${selectedCategory}-${idx}`} delayMs={idx * 45}>
-                  <div className="rounded-2xl bg-[#f8f9fa] border border-slate-200/90 overflow-hidden shadow-[0_6px_18px_-8px_rgba(15,23,42,0.08)] transition-all hover:border-[#95d5b2]">
-                    <button
-                      type="button"
-                      onClick={() => setOpenFaq(isOpen ? null : idx)}
-                      className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-3 font-bold text-xs sm:text-sm text-slate-900 hover:text-[#2d6a4f] transition-colors cursor-pointer"
-                    >
-                      <span>{faq.q}</span>
-                      <ChevronDown
-                        className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180 text-[#2d6a4f]' : ''
+                <div
+                  key={`${selectedCategory}-${faq.q}`}
+                  className={`rounded-2xl border overflow-hidden transition-all duration-300 animate-in fade-in ${
+                    isOpen
+                      ? 'bg-gradient-to-br from-[#eef7f1] via-white to-[#d8f3dc]/40 border-[#52b788] shadow-[0_16px_34px_-12px_rgba(27,67,50,0.18)]'
+                      : 'bg-white border-slate-200/90 hover:border-[#95d5b2] hover:bg-emerald-50/20 shadow-[0_6px_18px_-8px_rgba(15,23,42,0.07)]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`w-7 h-7 rounded-xl text-[11px] font-black flex items-center justify-center shrink-0 transition-colors duration-200 ${
+                          isOpen
+                            ? 'bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] text-white shadow-xs'
+                            : 'bg-[#d8f3dc]/80 text-[#1b4332]'
                         }`}
-                      />
-                    </button>
-                    {isOpen && (
-                      <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-xs text-slate-600 leading-relaxed border-t border-slate-200/60 pt-3 animate-in fade-in duration-200">
+                      >
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
+                      <span
+                        className={`font-bold text-xs sm:text-sm transition-colors ${
+                          isOpen ? 'text-[#1b4332]' : 'text-slate-900'
+                        }`}
+                      >
+                        {faq.q}
+                      </span>
+                    </div>
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 ${
+                        isOpen ? 'bg-[#1b4332] text-white rotate-180' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-1 animate-in fade-in duration-200">
+                      <div className="ml-10 pl-3.5 border-l-2 border-[#2d6a4f]/60 text-xs sm:text-sm text-slate-600 leading-relaxed">
                         {faq.a}
                       </div>
-                    )}
-                  </div>
-                </Reveal3D>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
