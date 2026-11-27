@@ -99,7 +99,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const [groupPanel, setGroupPanel] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
-  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string }>>([]);
+  const [chatPeople, setChatPeople] = useState<Array<{ userId: string; name: string; role: string; avatarUrl?: string; avatar?: string; profilePhoto?: string; photoUrl?: string; image?: string }>>([]);
+  const [staffAvatarMap, setStaffAvatarMap] = useState<Record<string, string>>({});
+  const [brokenAvatarUrls, setBrokenAvatarUrls] = useState<Record<string, boolean>>({});
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string>('');
@@ -215,22 +217,34 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   const roleLabel = (role: string) => (
     role === 'ADMIN' ? 'Admin' : role === 'HR' ? 'HR' : role === 'MANAGER' ? 'Manager' : 'Employee'
   );
-  const toDirectConversation = (person: { userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }): ChatConversation => ({
-    id: `direct-${person.userId}`,
-    type: 'direct',
-    title: person.name,
-    participantIds: [person.userId, myStaffId],
-    participantNames: {
-      [person.userId]: person.name,
-      [myStaffId]: currentUserName,
-    },
-    participantDesignations: { [person.userId]: roleLabel(person.role) },
-    participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
-    lastMessage: person.lastMessage || '',
-    lastMessageTimestamp: person.lastMessageAt || undefined,
-    unreadCount: {},
-    updatedAt: person.lastMessageAt || new Date().toISOString(),
-  });
+  const toDirectConversation = (person: { userId: string; name: string; role: string; avatarUrl?: string; avatar?: string; profilePhoto?: string; photoUrl?: string; image?: string; user?: { avatarUrl?: string }; employee?: { avatarUrl?: string }; lastMessage?: string; lastMessageAt?: string }): ChatConversation => {
+    const rawAvatar =
+      person.avatarUrl ||
+      person.avatar ||
+      person.profilePhoto ||
+      person.photoUrl ||
+      person.image ||
+      person.user?.avatarUrl ||
+      person.employee?.avatarUrl ||
+      '';
+    return {
+      id: `direct-${person.userId}`,
+      type: 'direct',
+      title: person.name,
+      participantIds: [person.userId, myStaffId],
+      participantNames: {
+        [person.userId]: person.name,
+        [myStaffId]: currentUserName,
+      },
+      participantAvatars: rawAvatar ? { [person.userId]: rawAvatar } : undefined,
+      participantDesignations: { [person.userId]: roleLabel(person.role) },
+      participantRoles: { [person.userId]: person.role === 'EMPLOYEE' ? 'employee' : 'admin' },
+      lastMessage: person.lastMessage || '',
+      lastMessageTimestamp: person.lastMessageAt || undefined,
+      unreadCount: {},
+      updatedAt: person.lastMessageAt || new Date().toISOString(),
+    };
+  };
   const groupIdOf = (conversationId: string) => (
     conversationId.startsWith('group-') ? conversationId.slice('group-'.length) : ''
   );
@@ -251,11 +265,35 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   useEffect(() => {
     let cancelled = false;
     if (!myStaffId) return;
-    const loadChats = () => Promise.all([api.listDirectChats(), api.listChatGroups()])
-      .then(([peopleRes, groupRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }]) => {
+    const loadChats = () => Promise.all([
+      api.listDirectChats(),
+      api.listChatGroups(),
+      api.listStaffThreads().catch(() => null),
+    ])
+      .then(([peopleRes, groupRes, staffRes]: [{ data?: Array<{ userId: string; name: string; role: string; lastMessage?: string; lastMessageAt?: string }> }, { data?: Array<{ id: string; name: string; memberCount?: number; lastMessage?: string; lastMessageAt?: string }> }, any]) => {
         if (cancelled) return;
         const people = Array.isArray(peopleRes?.data) ? peopleRes.data : [];
         const groups = Array.isArray(groupRes?.data) ? groupRes.data : [];
+        const staffList = Array.isArray(staffRes)
+          ? staffRes
+          : Array.isArray(staffRes?.staff)
+            ? staffRes.staff
+            : Array.isArray(staffRes?.data)
+              ? staffRes.data
+              : [];
+        const nextAvatarMap: Record<string, string> = {};
+        for (const s of staffList) {
+          const url = s?.avatarUrl || s?.avatar || s?.profilePhoto || s?.photoUrl || s?.user?.avatarUrl || s?.employee?.avatarUrl;
+          if (!url) continue;
+          const ids = [s?.userId, s?.user?.id, s?.employeeId, s?.employee?.id, s?.id].filter(Boolean);
+          for (const id of ids) nextAvatarMap[String(id)] = String(url);
+          const sName = String(
+            s?.name ||
+            `${s?.firstName || s?.user?.firstName || ''} ${s?.lastName || s?.user?.lastName || ''}`
+          ).trim().toLowerCase();
+          if (sName) nextAvatarMap[sName] = String(url);
+        }
+        setStaffAvatarMap(nextAvatarMap);
         setChatPeople(people);
         setConversations([...groups.map(toGroupConversation), ...people.map(toDirectConversation)]);
       })
@@ -524,6 +562,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         email: 'helpdesk@paneliya.com',
         designation: 'Paneliya Workforce Channel',
         initials: 'GS',
+        avatarUrl: undefined as string | undefined,
       };
     }
 
@@ -541,6 +580,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
 
     if (isDirectWithAdmin) {
       const adminName = conv.participantNames?.[ADMIN_USER_ID] || ADMIN_NAME || 'HR Administration';
+      const cleanAdminName = adminName.replace(/\s*\(Admin\)\s*$/i, '').trim().toLowerCase();
+      const adminEmp = employees.find(
+        (e) =>
+          e.id === ADMIN_USER_ID ||
+          (e as any).userId === ADMIN_USER_ID ||
+          `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() === cleanAdminName
+      );
       return {
         id: ADMIN_USER_ID,
         name: adminName.includes('(Admin)') ? adminName : `${adminName} (Admin)`,
@@ -549,6 +595,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         email: conv.participantEmails?.[ADMIN_USER_ID] || 'hr@paneliya.com',
         designation: 'Company HR & Management',
         initials: 'HR',
+        avatarUrl:
+          conv.participantAvatars?.[ADMIN_USER_ID] ||
+          staffAvatarMap[ADMIN_USER_ID] ||
+          (cleanAdminName ? staffAvatarMap[cleanAdminName] : undefined) ||
+          adminEmp?.avatarUrl ||
+          (adminEmp as any)?.avatar,
       };
     }
 
@@ -558,19 +610,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       targetId = conv.participantIds?.find((id) => id !== currentUserId) || conv.participantIds?.[0] || '';
     }
 
+    const rawConvName = (
+      (targetId && conv.participantNames?.[targetId]) ||
+      conv.title ||
+      ''
+    ).trim().toLowerCase();
+
     // Match with actual employee from directory
     const matchedEmp = employees.find(
       (e) =>
         e.id === targetId ||
+        (e as any).userId === targetId ||
         e.employeeCode === targetId ||
-        (conv.id && conv.id.endsWith(e.id))
+        (conv.id && conv.id.endsWith(e.id)) ||
+        (rawConvName && `${e.firstName || ''} ${e.lastName || ''}`.trim().toLowerCase() === rawConvName)
     );
+
+    const matchedPerson = chatPeople.find((p) => p.userId === targetId);
 
     let name = '';
     let role = 'Staff Member';
     let code = 'EMP';
     let email = '';
     let designation = 'Staff Member';
+    const avatarUrl: string | undefined =
+      (targetId ? conv.participantAvatars?.[targetId] : undefined) ||
+      (targetId ? staffAvatarMap[targetId] : undefined) ||
+      (rawConvName ? staffAvatarMap[rawConvName] : undefined) ||
+      matchedPerson?.avatarUrl ||
+      matchedPerson?.avatar ||
+      matchedPerson?.profilePhoto ||
+      matchedPerson?.photoUrl ||
+      matchedPerson?.image ||
+      matchedEmp?.avatarUrl ||
+      (matchedEmp as any)?.avatar;
 
     if (matchedEmp) {
       name = `${matchedEmp.firstName || ''} ${matchedEmp.lastName || ''}`.trim();
@@ -602,7 +675,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         .slice(0, 2)
         .toUpperCase() || 'ST';
 
-    return { id: targetId || conv.id, name, role, code, email, designation, initials };
+    return { id: targetId || conv.id, name, role, code, email, designation, initials, avatarUrl };
   };
 
   const sendTeamText = async (text: string) => {
@@ -891,7 +964,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
   };
 
   const handleClearActiveConversation = () => {
-    if (teamMode) return;
     if (!activeConversation) return;
     setCustomConfirmAction({
       title: 'Clear Conversation?',
@@ -899,6 +971,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
       onConfirm: () => {
         clearConversationMessages(activeConversation.id);
         setMessages([]);
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id
+              ? { ...c, lastMessage: '', lastMessageTimestamp: undefined }
+              : c,
+          ),
+        );
         loadConversations();
         setCustomConfirmAction(null);
       },
@@ -974,8 +1053,44 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         ? 'bg-[#1b4332] text-white'
         : 'bg-[#e9ecef] text-[#343a40]';
 
+  const renderUserAvatar = (
+    info: { name: string; initials: string; role: string; avatarUrl?: string },
+    conv: ChatConversation,
+    sizeClass = 'w-11 h-11',
+    extraClass = '',
+  ) => {
+    const kind = conv.type === 'broadcast' ? 'broadcast' : info.role === 'Admin' ? 'admin' : 'staff';
+    const canShowPhoto =
+      Boolean(info.avatarUrl) &&
+      !brokenAvatarUrls[info.avatarUrl!] &&
+      conv.type !== 'broadcast' &&
+      !conv.id.startsWith('group-');
+
+    return (
+      <div className="relative shrink-0">
+        {canShowPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={info.avatarUrl}
+            alt={info.name}
+            onError={() =>
+              setBrokenAvatarUrls((prev) => ({ ...prev, [info.avatarUrl!]: true }))
+            }
+            className={`${sizeClass} rounded-full object-cover border border-[#dee2e6] bg-[#f8f9fa] ${extraClass}`}
+          />
+        ) : (
+          <div
+            className={`${sizeClass} rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(kind)} ${extraClass}`}
+          >
+            {conv.type === 'broadcast' ? 'All' : info.initials}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col flex-1 h-[calc(100dvh-136px)] md:h-[calc(100dvh-100px)] min-h-[480px] w-full gap-3">
+    <div className="flex flex-col h-[calc(100dvh-155px)] sm:h-[calc(100dvh-118px)] min-h-[460px] w-full gap-3">
       <div className="bg-[#f8f9fa] rounded-2xl border border-[#ced4da] shadow-sm flex flex-1 h-full min-h-0 w-full overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
@@ -1117,15 +1232,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                     }`}
                 >
                   {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-xs ${avatarClass(
-                        conv.type === 'broadcast' ? 'broadcast' : other.role === 'Admin' ? 'admin' : 'staff',
-                      )}`}
-                    >
-                      {conv.type === 'broadcast' ? 'All' : other.initials}
-                    </div>
-                  </div>
+                  {renderUserAvatar(other, conv, 'w-11 h-11')}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
@@ -1191,15 +1298,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </button>
 
                 {/* Avatar */}
-                <div className="relative shrink-0">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs border border-[#95d5b2]/60 ${avatarClass(
-                      activeConversation.type === 'broadcast' ? 'broadcast' : activeOtherInfo.role === 'Admin' ? 'admin' : 'staff',
-                    )}`}
-                  >
-                    {activeConversation.type === 'broadcast' ? 'All' : activeOtherInfo.initials}
-                  </div>
-                </div>
+                {renderUserAvatar(activeOtherInfo, activeConversation, 'w-10 h-10', 'border border-[#95d5b2]/60')}
 
                 <div className="min-w-0">
                   <h3 className="text-[15px] font-semibold text-[#212529] truncate">{activeOtherInfo.name}</h3>
@@ -1209,7 +1308,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                 </div>
               </div>
 
-              {(activeConversation.id.startsWith('group-') || !teamMode) && (
               <div className="relative shrink-0">
                 <button
                   type="button"
@@ -1301,8 +1399,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                             Delete group
                           </button>
                         )}
+                        <button
+                          type="button"
+                          id="btn-clear-group-chat"
+                          onClick={() => {
+                            setHeaderMenu(null);
+                            handleClearActiveConversation();
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] text-rose-700 hover:bg-rose-50 cursor-pointer"
+                        >
+                          Clear chat
+                        </button>
                       </>
-                    ) : !teamMode ? (
+                    ) : (
                       <button
                         type="button"
                         id="btn-clear-conversation-chat"
@@ -1314,11 +1423,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       >
                         Clear chat
                       </button>
-                    ) : null}
+                    )}
                   </div>
                 )}
               </div>
-              )}
             </div>
 
             {groupPanel && activeConversation.id.startsWith('group-') && (
@@ -1479,14 +1587,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
                       <div className="relative group/bubble max-w-[85%] sm:max-w-md md:max-w-lg">
                         {/* Hover action menu for Edit & Delete */}
                         {canManage && !isEditingThis && (
-                          <div className={`absolute top-1 z-10 ${isMe ? 'left-1' : 'right-1'}`}>
+                          <div
+                            className={`absolute top-1.5 z-10 transition-opacity ${
+                              messageMenuId === msg.id
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100'
+                            } ${isMe ? '-left-7' : '-right-7'}`}
+                          >
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setMessageMenuId((open) => (open === msg.id ? null : msg.id));
                               }}
-                              className={`p-1 rounded-full cursor-pointer ${isMe ? 'text-white/80 hover:bg-white/15' : 'text-[#6c757d] hover:bg-[#f8f9fa]'}`}
+                              className="p-1 rounded-full cursor-pointer text-[#6c757d] hover:text-[#212529] hover:bg-white/90 transition-colors"
                               title="Message menu"
                             >
                               <MoreVertical className="w-3.5 h-3.5" />
