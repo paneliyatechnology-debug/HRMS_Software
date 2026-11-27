@@ -83,7 +83,7 @@ const SocketContext = createContext<SocketContextType>({
 });
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { isAuthenticated, user, role } = useAuth();
+  const { isAuthenticated, user, role, planStatus } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -113,7 +113,8 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
+    const roleUpper = String(user?.role || '').toUpperCase();
+    if (!isAuthenticated || !user?.id || (roleUpper !== 'SUPER_ADMIN' && (!planStatus.checked || !planStatus.premium))) {
       setNotices([]);
       return;
     }
@@ -130,7 +131,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return () => {
       live = false;
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user?.role, planStatus.checked, planStatus.premium]);
 
   const showToast = (item: Omit<ToastItem, 'id' | 'timestamp'>) => {
     const id = `toast-${Date.now()}-${Math.random()}`;

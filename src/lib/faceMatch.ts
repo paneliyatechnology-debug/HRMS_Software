@@ -89,7 +89,47 @@ async function descriptorOf(faceapi: FaceApi, source: HTMLImageElement | HTMLCan
   const faces = await faceapi.detectAllFaces(source, options).withFaceLandmarks().withFaceDescriptors();
   const clear = faces.filter((face) => face.detection.score >= 0.55);
   if (clear.length !== 1) throw new Error('No face found. Use a clear, front-facing photo.');
-  return clear[0].descriptor;
+  const found = clear[0];
+  const box = found.detection.box;
+  if (box.width < 56 || box.height < 56) {
+    throw new Error('Face is too small in the photo. Use a closer front-facing photo.');
+  }
+  const yaw = headYaw(found.landmarks.positions);
+  if (yaw != null && Math.abs(yaw) > 0.28) {
+    throw new Error('Look straight at the camera in your profile photo.');
+  }
+  // Validate enrollment brightness/contrast on an offscreen canvas
+  try {
+    const c = document.createElement('canvas');
+    const w = Math.max(1, Math.round(box.width));
+    const h = Math.max(1, Math.round(box.height));
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      ctx.drawImage(source, box.x, box.y, box.width, box.height, 0, 0, w, h);
+      const px = ctx.getImageData(0, 0, w, h).data;
+      let sum = 0;
+      let sumSq = 0;
+      let count = 0;
+      for (let i = 0; i < px.length; i += 16) {
+        const luma = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+        sum += luma;
+        sumSq += luma * luma;
+        count += 1;
+      }
+      if (count > 0) {
+        const mean = sum / count;
+        const stdDev = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
+        if (mean < 28 || mean > 238 || stdDev < 15) {
+          throw new Error('Photo lighting or clarity is too poor. Use a clear, well-lit photo.');
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Photo lighting')) throw err;
+  }
+  return found.descriptor;
 }
 
 function unitFace(values: number[]) {
@@ -187,6 +227,25 @@ function headYaw(positions: Array<{ x: number; y: number }> | undefined) {
   if (!span || span < 10) return null;
   const eyeMidX = (leftEye.x + rightEye.x) / 2;
   const ratio = (nose.x - eyeMidX) / span;
+  return Number.isFinite(ratio) ? ratio : null;
+}
+
+function mouthOpen(positions: Array<{ x: number; y: number }> | undefined) {
+  if (!positions || positions.length < 68) return null;
+  const v = Math.hypot(positions[62].x - positions[66].x, positions[62].y - positions[66].y);
+  const h = Math.hypot(positions[60].x - positions[64].x, positions[60].y - positions[64].y) || 1;
+  const ratio = v / h;
+  return Number.isFinite(ratio) ? ratio : null;
+}
+
+function noseVerticalRatio(positions: Array<{ x: number; y: number }> | undefined) {
+  if (!positions || positions.length < 46) return null;
+  const eyeMidY = (positions[36].y + positions[45].y) / 2;
+  const chinY = positions[8]?.y;
+  if (chinY == null) return null;
+  const faceH = Math.abs(chinY - eyeMidY);
+  if (!faceH || faceH < 10) return null;
+  const ratio = (positions[30].y - eyeMidY) / faceH;
   return Number.isFinite(ratio) ? ratio : null;
 }
 
@@ -316,8 +375,9 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 });
+  // Fast Tiny landmarks for tracking/liveness frames; Full 68-point landmarks for descriptor generation (matches enrollment!).
   const faces = withDescriptor
-    ? await faceapi.detectAllFaces(canvas, options).withFaceLandmarks(true).withFaceDescriptors()
+    ? await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors()
     : await faceapi.detectAllFaces(canvas, options).withFaceLandmarks(true);
   const clear = faces.filter((face) => face.detection.score >= 0.35);
   if (!clear.length) return null;
@@ -330,12 +390,13 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
   const inv = 1 / scale;
   const rawDescriptor = 'descriptor' in closest ? (closest as { descriptor: Float32Array }).descriptor : null;
 
-  // Fast passive anti-photo check (<0.5ms):
-  // 1) Face crop texture/glare (stdDev & mean luma) + cool screen-backlight check
-  // 2) High-frequency screen moire check on cheek/forehead region
-  // 3) Phone/card rectangular bezel/edge check just outside the face box
-  let textureOk = true;
-  let bezelDetected = false;
+  // Soft presentation-attack metrics (<0.5ms) for layered liveness evaluation
+  let meanLuma = 120;
+  let stdDev = 35;
+  let sharpness = 12;
+  let coolCast = false;
+  let moireSuspect = false;
+  let bezelSuspect = false;
   try {
     const sx = Math.max(0, Math.floor(box.x));
     const sy = Math.max(0, Math.floor(box.y));
@@ -359,14 +420,12 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
       count += 1;
     }
     if (count > 0) {
-      const mean = sum / count;
-      const stdDev = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
-      const coolScreenCast = sumB > sumR * 1.03;
-      textureOk = stdDev >= 22 && mean >= 35 && mean <= 225 && !coolScreenCast;
+      meanLuma = sum / count;
+      stdDev = Math.sqrt(Math.max(0, sumSq / count - meanLuma * meanLuma));
+      coolCast = sumB > sumR * 1.06;
     }
 
-    // Check high-frequency pixel grid / moire on central face strip
-    if (textureOk && sw >= 24 && sh >= 24) {
+    if (sw >= 24 && sh >= 24) {
       const mx = sx + Math.floor(sw * 0.25);
       const my = sy + Math.floor(sh * 0.22);
       const mw = Math.max(12, Math.floor(sw * 0.5));
@@ -385,12 +444,12 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
         lfDiff += Math.abs(l0 - l4);
         steps += 1;
       }
-      if (steps > 0 && hfDiff / steps > 11 && hfDiff > lfDiff * 1.15) {
-        textureOk = false;
+      if (steps > 0) {
+        sharpness = lfDiff / steps;
+        moireSuspect = hfDiff / steps > 12 && hfDiff > lfDiff * 1.18;
       }
     }
 
-    // Check for sharp straight phone-bezel / photo-card edges just left/right of the face
     const padX = Math.max(6, Math.floor(sw * 0.35));
     const lx = Math.max(0, sx - padX);
     const rx = Math.min(canvas.width - 2, sx + sw + Math.floor(padX * 0.6));
@@ -406,22 +465,35 @@ export async function scanKioskFace(video: HTMLVideoElement, withDescriptor = tr
         const l0 = strip[idx] * 0.299 + strip[idx + 1] * 0.587 + strip[idx + 2] * 0.114;
         const l1 = strip[idx + 4] * 0.299 + strip[idx + 5] * 0.587 + strip[idx + 6] * 0.114;
         const l2 = strip[idx + 8] * 0.299 + strip[idx + 9] * 0.587 + strip[idx + 10] * 0.114;
-        if (Math.abs(l0 - l2) > 42) sharpRows += 1;
-        if (l1 < 35) darkBezelRows += 1;
+        if (Math.abs(l0 - l2) > 45) sharpRows += 1;
+        if (l1 < 30) darkBezelRows += 1;
       }
       const sampled = Math.max(1, Math.ceil(midH / 2));
-      return sharpRows / sampled > 0.55 || darkBezelRows / sampled > 0.75;
+      return sharpRows / sampled > 0.6 || darkBezelRows / sampled > 0.8;
     };
-    bezelDetected = checkVerticalEdge(lx) && checkVerticalEdge(rx);
+    bezelSuspect = checkVerticalEdge(lx) && checkVerticalEdge(rx);
   } catch {
-    textureOk = true;
-    bezelDetected = false;
+    // Keep safe defaults
   }
 
   return {
     descriptor: rawDescriptor ? Array.from(rawDescriptor) : null,
     score: closest.detection.score,
-    textureOk: textureOk && !bezelDetected,
+    textureOk: stdDev >= 16 && meanLuma >= 28 && meanLuma <= 235,
+    liveness: {
+      score: closest.detection.score,
+      box: { x: box.x * inv, y: box.y * inv, width: box.width * inv, height: box.height * inv },
+      eye: eyeOpen(closest.landmarks.positions),
+      yaw: headYaw(closest.landmarks.positions),
+      mouth: mouthOpen(closest.landmarks.positions),
+      noseRatio: noseVerticalRatio(closest.landmarks.positions),
+      meanLuma,
+      stdDev,
+      sharpness,
+      coolCast,
+      moireSuspect,
+      bezelSuspect,
+    },
     eye: eyeOpen(closest.landmarks.positions),
     eyes: eyePair(closest.landmarks.positions),
     yaw: headYaw(closest.landmarks.positions),

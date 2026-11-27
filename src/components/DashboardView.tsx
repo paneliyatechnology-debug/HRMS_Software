@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Employee, LeaveRequest, AttendanceRecord } from '../types/hrms';
+import { Employee, LeaveRequest, AttendanceRecord, Announcement } from '../types/hrms';
 import { api } from '../lib/api';
 import { useCompanyLive } from '../lib/useCompanyLive';
 import {
@@ -505,15 +505,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [holidays]);
 
   // Leave processing state for admin
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending');
+  const pendingLeaves = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending');
   const [processingLeaveId, setProcessingLeaveId] = useState<string | null>(null);
-  const [dashboardLeaveRowView, setDashboardLeaveRowView] = useState<Record<string, boolean>>({});
-  const toggleDashboardLeaveRowView = (id: string) => {
-    setDashboardLeaveRowView((prev) => ({
-      ...prev,
-      [id]: prev[id] !== undefined ? !prev[id] : false,
-    }));
-  };
   const [checkOutModalOpen, setCheckOutModalOpen] = useState(false);
   const [approveModalData, setApproveModalData] = useState<{
     id: string;
@@ -757,9 +750,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     await handleCheckOutAction();
   };
 
-  // Admin stats computation
+  const [leaveDaysLeft, setLeaveDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getAnnouncements().then((list) => {
+      if (!cancelled) setAnnouncements(Array.isArray(list) ? list.slice(0, 3) : []);
+    }).catch(() => {
+      if (!cancelled) setAnnouncements([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.companyId, employees.length]);
+
+  useEffect(() => {
+    if (portalMode === 'admin') return;
+    const employeeId = currentEmp.id;
+    if (!employeeId || employeeId === 'emp-self') {
+      setLeaveDaysLeft(null);
+      return;
+    }
+    let cancelled = false;
+    api.getLeaveBalances(employeeId).then((balance) => {
+      if (cancelled || !balance) return;
+      const remaining =
+        (balance.casualLeave?.remaining || 0) +
+        (balance.sickLeave?.remaining || 0) +
+        (balance.paidLeave?.remaining || 0);
+      setLeaveDaysLeft(remaining);
+    }).catch(() => {
+      if (!cancelled) setLeaveDaysLeft(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [portalMode, currentEmp.id]);
+
   const todayDate = getTodayDateString();
-  const todayRecords = allAttendance.filter((a) => a.date === todayDate);
+  const teamIds = new Set(employees.map((emp) => emp.id));
+  const isPresent = (record: AttendanceRecord) => {
+    const status = String(record.status || '').toLowerCase();
+    return Boolean(record.checkIn) || status === 'present' || status === 'late' || status === 'half day';
+  };
+  const weekBars = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const presentIds = new Set(
+      attendance
+        .filter((record) => String(record.date || '').slice(0, 10) === iso && teamIds.has(record.employeeId) && isPresent(record))
+        .map((record) => record.employeeId),
+    );
+    const count = presentIds.size;
+    const rate = employees.length === 0 ? 0 : Math.round((count / employees.length) * 100);
+    return {
+      day: index === 6 ? 'Today' : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      val: rate,
+      count: `${count} Present`,
+      isToday: index === 6,
+    };
+  });
+  const todayRecords = attendance.filter(
+    (record) => String(record.date || '').slice(0, 10) === todayDate && teamIds.has(record.employeeId) && isPresent(record),
+  );
   const activeWorkingCount = todayRecords.filter((a) => !a.isCompleted && !a.isOnBreak).length;
   const onBreakCount = todayRecords.filter((a) => !a.isCompleted && a.isOnBreak).length;
   const completedTodayCount = todayRecords.filter((a) => a.isCompleted).length;
@@ -1384,76 +1439,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   No leave requests currently pending review.
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="divide-y divide-slate-100">
                   {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
                     const isProcessing = processingLeaveId === leave.id;
-                    const isDetailed = dashboardLeaveRowView[leave.id] !== false;
                     return (
                       <div
                         key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
-                        className="item flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                       >
-                        <div className="space-y-1">
+                        <div className="space-y-0.5 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <strong className="text-xs text-[#343a40]">
                               {leave.employeeName}
                             </strong>
-                            <span className="tag orange">
+                            <span className="tag orange text-[11px]">
                               {leave.leaveType}
                             </span>
-                            <span className="text-xs text-[#6c757d] font-mono">
+                            <span className="text-[11px] text-[#6c757d]">
                               {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
                             </span>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="text-[11px] font-semibold text-amber-700">
                               Pending
                             </span>
                           </div>
-                          {isDetailed && (
-                            <p className="text-xs text-[#6c757d]">
+                          {leave.reason && (
+                            <p className="text-[11px] text-[#6c757d] truncate max-w-md">
                               Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
-                          </p>
+                            </p>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                           {canApproveRejectLeave(user) && (
                             <>
                               <button
                                 onClick={() => handleDashboardOpenApproveModal(leave)}
                                 disabled={isProcessing}
-                                className="btn-primary text-xs py-1.5 px-3"
+                                className="btn-primary !text-[11px] !py-1 !px-2.5 !rounded-lg"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
                                 disabled={isProcessing}
-                                className="btn-danger text-xs py-1.5 px-3"
+                                className="btn-danger !text-[11px] !py-1 !px-2.5 !rounded-lg"
                               >
                                 Reject
                               </button>
                             </>
                           )}
-                          {/* Static Eye/EyeOff View Mode Toggle (Placed at the last) */}
-                          <button
-                            type="button"
-                            onClick={() => toggleDashboardLeaveRowView(leave.id)}
-                            aria-label={isDetailed ? 'Compact View' : 'Detailed View'}
-                            className={`group relative p-1.5 rounded-lg border transition-all cursor-pointer ${
-                              isDetailed
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                            }`}
-                          >
-                            {isDetailed ? (
-                              <Eye className="w-3.5 h-3.5 stroke-[2.2]" />
-                            ) : (
-                              <EyeOff className="w-3.5 h-3.5 stroke-[2.2]" />
-                            )}
-                            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-30">
-                              {isDetailed ? 'Compact View' : 'Detailed View'}
-                            </span>
-                          </button>
                         </div>
                       </div>
                     );

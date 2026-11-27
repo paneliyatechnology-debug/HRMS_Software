@@ -7,6 +7,7 @@ import {
   Check,
   CreditCard,
   Lock,
+  LogOut,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +19,9 @@ interface UpgradePlanModalProps {
   onClose: () => void;
   companyId?: string;
   onPlanUpdated?: () => void;
+  mandatory?: boolean;
+  expired?: boolean;
+  onLogout?: () => void;
 }
 
 // Helper to dynamically load Razorpay Checkout script
@@ -38,18 +42,33 @@ const loadRazorpayScript = (): Promise<boolean> => {
   });
 };
 
+const PLAN_FEATURE_LABELS: Record<string, string> = {
+  face_clock: 'Face Clock Kiosk',
+  attendance: 'Attendance & Shifts',
+  leaves: 'Leave Management',
+  payroll: 'Payroll & Payslips',
+  recruitment: 'Recruitment & Hiring',
+  team_chat: 'Team Chat & Notices',
+  geofence: 'Office Geofence',
+  tasks: 'Tasks & Projects',
+};
+
 type LivePlan = {
   id: string;
   name: string;
   price: number;
   durationMonths: number;
   description?: string | null;
+  features?: string[];
 };
 
 export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   isOpen,
   onClose,
   onPlanUpdated,
+  mandatory = false,
+  expired = false,
+  onLogout,
 }) => {
   const { user } = useAuth();
   const { showToast } = useSocket();
@@ -86,7 +105,7 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
     };
   }, [isOpen]);
 
-  useModalOverlay({ isOpen, onClose });
+  useModalOverlay({ isOpen, onClose: mandatory ? undefined : onClose, closeOnEscape: !mandatory });
 
   if (!isOpen) return null;
 
@@ -204,9 +223,9 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
   return (
     <div
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (!mandatory && e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-3 sm:p-5"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-5"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -214,17 +233,42 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Razorpay test mode</p>
-            <h2 className="mt-1 text-lg font-bold text-slate-900">Choose a plan</h2>
-            <p className="mt-1 text-xs text-slate-500">Pay with UPI, cards, or net banking. The plan turns on after payment is confirmed.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+              {mandatory ? (expired ? 'Plan Expired' : 'Plan Required') : 'Razorpay test mode'}
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">
+              {mandatory
+                ? expired
+                  ? 'Your company plan has expired'
+                  : 'Purchase a plan to continue'
+                : 'Choose a plan'}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {mandatory
+                ? 'Select and purchase a plan below to unlock your company workspace. You can only logout until a plan is active.'
+                : 'Pay with UPI, cards, or net banking. The plan turns on after payment is confirmed.'}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {mandatory ? (
+            onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 cursor-pointer"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Logout
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
@@ -255,8 +299,28 @@ export const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
                     )}
                   </div>
                   <p className="mt-2 line-clamp-2 min-h-10 text-sm text-slate-500">{plan.description || 'Company plan'}</p>
-                  <p className="mt-4 text-3xl font-bold text-slate-900">₹{price.toLocaleString('en-IN')}</p>
+                  <div className="mt-4 flex items-baseline justify-between gap-2">
+                    <p className="text-3xl font-bold text-slate-900">₹{price.toLocaleString('en-IN')}</p>
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                      {months} Month{months === 1 ? '' : 's'}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs font-medium text-slate-500">Valid for {months} month{months === 1 ? '' : 's'}</p>
+                  {Array.isArray(plan.features) && plan.features.length > 0 && (
+                    <div className="mt-4 flex-1 border-t border-slate-100 pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Included Features
+                      </p>
+                      <ul className="space-y-1.5">
+                        {plan.features.map((featKey) => (
+                          <li key={featKey} className="flex items-center gap-2 text-xs text-slate-700">
+                            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                            <span>{PLAN_FEATURE_LABELS[featKey] || featKey}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <button
                     type="button"
                     disabled={isUpgradingThis || isCurrent}

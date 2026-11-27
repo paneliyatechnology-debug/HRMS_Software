@@ -42,6 +42,14 @@ import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 
+function readableInitials(firstName?: string | null, lastName?: string | null, email?: string | null) {
+  const f = String(firstName || '').trim();
+  const l = String(lastName || '').trim();
+  if (f || l) return `${f[0] || ''}${l[0] || ''}`.toUpperCase() || 'U';
+  const e = String(email || '').trim();
+  return e ? e[0].toUpperCase() : 'U';
+}
+
 interface HeaderProps {
   onOpenSidebar: () => void;
   onOpenClockModal: () => void;
@@ -77,7 +85,6 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateSettings,
   onOpenChat,
   onOpenSearchModal,
-  onOpenMobileModal,
   onNavigateModule,
   onSelectEmployee,
   employees = [],
@@ -735,7 +742,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <>{user.firstName?.[0] || 'U'}{user.lastName?.[0] || ''}</>
+                <>{readableInitials(user.firstName, user.lastName, user.email)}</>
               )}
             </div>
             <div className="hidden md:block text-left min-w-0 max-w-[110px] lg:max-w-[140px]">
@@ -756,7 +763,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <>{user.firstName?.[0] || 'U'}{user.lastName?.[0] || ''}</>
+                    <>{readableInitials(user.firstName, user.lastName, user.email)}</>
                   )}
                 </div>
                 <div className="min-w-0">

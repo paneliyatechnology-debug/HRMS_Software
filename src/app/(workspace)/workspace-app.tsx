@@ -1,0 +1,727 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { AlertTriangle, LogOut } from 'lucide-react';
+import { Sidebar } from '../../components/Sidebar';
+import { Header } from '../../components/Header';
+import { DashboardView } from '../../components/DashboardView';
+import { CalendarModule } from '../../components/modules/CalendarModule';
+import { EmployeesModule } from '../../components/modules/EmployeesModule';
+import { AttendanceModule } from '../../components/modules/AttendanceModule';
+import { LeaveModule } from '../../components/modules/LeaveModule';
+import { PayrollModule } from '../../components/modules/PayrollModule';
+import { EmployeePayslipsModule } from '../../components/modules/EmployeePayslipsModule';
+import { RecruitmentModule } from '../../components/modules/RecruitmentModule';
+import { PerformanceModule } from '../../components/modules/PerformanceModule';
+import { OrganizationModule } from '../../components/modules/OrganizationModule';
+import { TrainingModule } from '../../components/modules/TrainingModule';
+import { DocumentsModule } from '../../components/modules/DocumentsModule';
+import { AssetsModule } from '../../components/modules/AssetsModule';
+import { ResignationsModule } from '../../components/modules/ResignationsModule';
+import { AnnouncementsModule } from '../../components/modules/AnnouncementsModule';
+import { ChatModule } from '../../components/modules/ChatModule';
+import { ReportsModule } from '../../components/modules/ReportsModule';
+import { AuditLogsModule } from '../../components/modules/AuditLogsModule';
+import { SettingsModule } from '../../components/modules/SettingsModule';
+import { CompaniesModule } from '../../components/modules/CompaniesModule';
+import { PlansModule } from '../../components/modules/PlansModule';
+import { OrdersModule } from '../../components/modules/OrdersModule';
+import { SupportModule } from '../../components/modules/SupportModule';
+import { TasksModule } from '../../components/modules/TasksModule';
+import { ProfileModule } from '../../components/modules/ProfileModule';
+import { NotificationsModule } from '../../components/modules/NotificationsModule';
+import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
+import { moduleFromPath, pathForModule } from '../../lib/appRoutes';
+
+import { AttendanceModal } from '../../components/modals/AttendanceModal';
+import { LeaveModal } from '../../components/modals/LeaveModal';
+import { EmployeeDrawer } from '../../components/modals/EmployeeDrawer';
+import { EmployeeProfileModal } from '../../components/modals/EmployeeProfileModal';
+import { GlobalSearchModal } from '../../components/modals/GlobalSearchModal';
+import { UpgradePlanModal } from '../../components/modals/UpgradePlanModal';
+import { LandingPage } from '../../components/landing/LandingPage';
+import { MobileBottomNav } from '../../components/common/MobileBottomNav';
+import { WavyBackground } from '../../components/common/WavyBackground';
+import { BouncingDotsLoader } from '../../components/common/BouncingDotsLoader';
+import { checkEmployeePunchEligibility } from '../../lib/attendanceService';
+import { useAuth, isUserAdminRole } from '../../context/AuthContext';
+import { isModuleAllowedForUser } from '../../lib/rolePermissions';
+import { useSocket } from '../../context/SocketContext';
+import { api } from '../../lib/api';
+import {
+  Employee,
+  Department,
+  Designation,
+  Location,
+  LeaveRequest,
+  AttendanceRecord,
+  PayrollRecord,
+  JobOpening,
+  Candidate,
+  CompanyAsset,
+} from '../../types/hrms';
+
+export function WorkspaceApp() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isAuthenticated, isLoading, portalMode, setPortalMode, logout, planStatus: planGate, refreshPlanStatus: refreshPlanGate } = useAuth();
+  const activeModule = moduleFromPath(pathname);
+  const [subTab, setSubTab] = useState<string>('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Backward compatibility: If an old URL such as /?module=attendance is accessed, redirect to clean path /attendance
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('login') === 'true' || window.location.hash === '#login') {
+      router.push('/login');
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === 'undefined') return;
+    const initMod = localStorage.getItem('hrms_initial_module');
+    if (initMod) {
+      localStorage.removeItem('hrms_initial_module');
+      const nextPath = pathForModule(initMod);
+      if (pathname !== nextPath) router.replace(nextPath);
+      return;
+    }
+    const segment = pathname.split('/').filter(Boolean)[0] || '';
+    if (!segment || pathname === '/') {
+      router.replace('/dashboard');
+      return;
+    }
+    if (segment !== activeModule) {
+      router.replace(pathForModule(activeModule));
+    }
+  }, [isAuthenticated, pathname, activeModule, router]);
+
+  // Data state
+  const [stats, setStats] = useState<any>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
+  const [jobs, setJobs] = useState<JobOpening[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [assets, setAssets] = useState<CompanyAsset[]>([]);
+
+  // Modals state
+  const [clockModalOpen, setClockModalOpen] = useState(false);
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [addEmployeeModalOpen, setAddEmployeeModalOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  // Chat integration state
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+  const [targetChatEmployeeId, setTargetChatEmployeeId] = useState<string | null>(null);
+
+  const pendingLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'pending').length;
+
+  // Strict role guard: prevent unauthorized modules (e.g. Super Admin on /leaves, or Employee on admin views)
+  useEffect(() => {
+    const isAdmin = isUserAdminRole(user?.role);
+    if (!isAdmin && portalMode === 'admin') {
+      setPortalMode('employee');
+      return;
+    }
+
+    if (user && activeModule !== 'dashboard' && !isModuleAllowedForUser(activeModule, user)) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    if (portalMode === 'employee') {
+      const allowedInEmployee = [
+        'dashboard',
+        'calendar',
+        'attendance',
+        'leaves',
+        'payslips',
+        'resignations',
+        'organization',
+        'documents',
+        'announcements',
+        'chat',
+        'settings',
+      ];
+      if (!allowedInEmployee.includes(activeModule)) {
+        router.replace('/dashboard');
+      }
+    }
+  }, [portalMode, activeModule, user?.role, setPortalMode, router]);
+
+  const { showToast } = useSocket();
+
+  // Chat unread count synchronization
+  useEffect(() => {
+    if (isAuthenticated) {
+      const currentUserId = portalMode === 'admin' ? ADMIN_USER_ID : user?.employeeId || user?.id || '';
+      const updateChatUnread = () => {
+        setUnreadChatCount(getTotalUnreadChatCount(currentUserId));
+      };
+      updateChatUnread();
+      window.addEventListener('hrms_chat_updated', updateChatUnread);
+      return () => {
+        window.removeEventListener('hrms_chat_updated', updateChatUnread);
+      };
+    }
+  }, [isAuthenticated, portalMode, user]);
+
+  // Global keyboard shortcut for Global Search (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchModalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const role = String(user?.role || '').toUpperCase();
+      const isSuperAdmin = role === 'SUPER_ADMIN';
+      if (!isSuperAdmin && (!planGate.checked || !planGate.premium)) {
+        return;
+      }
+      const canReadCompanyLists = ['ADMIN', 'COMPANY_ADMIN', 'ORG_ADMIN', 'HR', 'MANAGER'].includes(role);
+      const [
+        statsData,
+        employeesData,
+        departmentsData,
+        designationsData,
+        leavesData,
+        attendanceData,
+        payrollData,
+        jobsData,
+        candidatesData,
+        assetsData,
+      ] = await Promise.all([
+        api.getDashboardStats().catch(() => null),
+        canReadCompanyLists ? api.getEmployees().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getDepartments().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getDesignations().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin ? api.getLeaves().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin ? api.getAttendance().catch(() => []) : Promise.resolve([]),
+        !isSuperAdmin ? api.getPayroll().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getJobs().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getCandidates().catch(() => []) : Promise.resolve([]),
+        canReadCompanyLists ? api.getAssets().catch(() => []) : Promise.resolve([]),
+      ]);
+
+      const seenEmpIds = new Set<string>();
+      const safeEmployees = Array.isArray(employeesData)
+        ? employeesData.filter((emp) => {
+          if (!emp || !emp.id || seenEmpIds.has(emp.id)) return false;
+          seenEmpIds.add(emp.id);
+          return true;
+        })
+        : [];
+
+      // Multi-Tenant Isolation: Scope data to the logged-in company
+      const activeCompanyId =
+        user?.companyId ||
+        (typeof window !== 'undefined' ? localStorage.getItem('hrms_company_id') : null) ||
+        'comp-paneliya';
+
+      let scopedEmployees: Employee[] = [];
+      if (activeCompanyId === 'comp-paneliya' || activeCompanyId === 'cmp-1') {
+        scopedEmployees = safeEmployees.filter(
+          (e) => !e.companyId || e.companyId === 'comp-paneliya' || e.companyId === 'cmp-1'
+        );
+      } else {
+        scopedEmployees = safeEmployees.filter(
+          (e) =>
+            e.companyId === activeCompanyId ||
+            (e as any).companyCode === activeCompanyId ||
+            (user?.companyCode && (e as any).companyCode === user.companyCode)
+        );
+      }
+      setEmployees(scopedEmployees);
+
+      // Scope Leaves to this company only
+      const scopedEmpIds = new Set(scopedEmployees.map((e) => e.id));
+      if (user?.employeeId) scopedEmpIds.add(user.employeeId);
+      if (user?.id) scopedEmpIds.add(user.id);
+
+      const rawLeaves = Array.isArray(leavesData) ? leavesData : [];
+      const scopedLeaves = rawLeaves.filter((l) => {
+        if (scopedEmpIds.has(l.employeeId)) return true;
+        if ((l as any).companyId && (l as any).companyId === activeCompanyId) return true;
+        if (user?.companyCode && (l as any).companyCode === user.companyCode) return true;
+        if (user?.email && (l as any).employeeEmail?.toLowerCase() === user.email.toLowerCase()) return true;
+        if (activeCompanyId === 'comp-paneliya' && (!(l as any).companyId || (l as any).companyId === 'cmp-1')) return true;
+        return false;
+      });
+      setLeaves(scopedLeaves);
+
+      // Scope Attendance to this company only
+      const rawAttendance = Array.isArray(attendanceData) ? attendanceData : [];
+      const scopedAttendance = rawAttendance.filter(
+        (a) => scopedEmpIds.has(a.employeeId) || ((a as any).companyId && (a as any).companyId === activeCompanyId)
+      );
+      setAttendance(scopedAttendance);
+
+      // Scope Payroll to this company only
+      const rawPayroll = Array.isArray(payrollData) ? payrollData : [];
+      const scopedPayroll = rawPayroll.filter(
+        (p) => scopedEmpIds.has(p.employeeId) || ((p as any).companyId && (p as any).companyId === activeCompanyId)
+      );
+      setPayroll(scopedPayroll);
+
+      // Dynamic Company-Scoped Dashboard Stats
+      if (activeCompanyId !== 'comp-paneliya') {
+        const anyStats = statsData as any;
+        setStats({
+          totalEmployees: scopedEmployees.length,
+          onLeave: scopedLeaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length,
+          pendingLeaves: scopedLeaves.filter((l) => (l.status || '').toLowerCase() === 'pending').length,
+          attendanceRate: scopedEmployees.length > 0 ? (anyStats?.attendanceRate || 0) : 0,
+          totalHours: scopedEmployees.length > 0 ? (anyStats?.totalHours || 0) : 0,
+          overtimeHours: 0,
+          lateArrivals: 0,
+          earlyDepartures: 0,
+        });
+      } else if (statsData) {
+        setStats(statsData);
+      }
+
+      setDepartments(Array.isArray(departmentsData) ? departmentsData : []);
+      setDesignations(Array.isArray(designationsData) ? designationsData : []);
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
+      setCandidates(Array.isArray(candidatesData) ? candidatesData : []);
+      setAssets(Array.isArray(assetsData) ? assetsData : []);
+    } catch (err) {
+      console.warn('API sync warning (using real data fallback):', err);
+    }
+  };
+
+  useEffect(() => {
+    const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+    if (isAuthenticated && (isSuperAdmin || (planGate.checked && planGate.premium))) {
+      loadData();
+      const pollInterval = setInterval(() => {
+        loadData();
+      }, 10000);
+      const handleUpdate = () => loadData();
+      window.addEventListener('hrms_employees_updated', handleUpdate);
+      window.addEventListener('hrms_announcements_updated', handleUpdate);
+      window.addEventListener('hrms_leaves_updated', handleUpdate);
+      return () => {
+        clearInterval(pollInterval);
+        window.removeEventListener('hrms_employees_updated', handleUpdate);
+        window.removeEventListener('hrms_announcements_updated', handleUpdate);
+        window.removeEventListener('hrms_leaves_updated', handleUpdate);
+      };
+    } else if (!isAuthenticated) {
+      setEmployees([]);
+      setDepartments([]);
+      setDesignations([]);
+      setLocations([]);
+      setLeaves([]);
+      setAttendance([]);
+      setPayroll([]);
+      setJobs([]);
+      setCandidates([]);
+      setAssets([]);
+      setSelectedEmployee(null);
+    }
+  }, [isAuthenticated, user?.employeeId, user?.id, user?.role, planGate.checked, planGate.premium]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setEmployees([]);
+      setDepartments([]);
+      setDesignations([]);
+      setLocations([]);
+      setLeaves([]);
+      setAttendance([]);
+      setPayroll([]);
+      setJobs([]);
+      setCandidates([]);
+      setAssets([]);
+      setSelectedEmployee(null);
+    };
+    window.addEventListener('hrms_auth_logout', handleLogout);
+    return () => window.removeEventListener('hrms_auth_logout', handleLogout);
+  }, []);
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || (isLoading && isAuthenticated)) {
+    return (
+      <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+        <BouncingDotsLoader size="lg" />
+        <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LandingPage onOpenLogin={() => router.push('/login')} />;
+  }
+
+  const currentRole = String(user?.role || '').toUpperCase();
+  if (user && currentRole !== 'SUPER_ADMIN') {
+    if (!planGate.checked) {
+      return (
+        <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+          <BouncingDotsLoader size="lg" />
+          <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
+        </div>
+      );
+    }
+
+    if (!planGate.premium) {
+      if (currentRole === 'ADMIN' || currentRole === 'HR') {
+        return (
+          <div className="h-screen w-full bg-[#f2f9f5] relative">
+            <WavyBackground />
+            <UpgradePlanModal
+              isOpen={true}
+              mandatory={true}
+              expired={planGate.expired}
+              onClose={() => undefined}
+              onLogout={logout}
+              onPlanUpdated={() => {
+                void refreshPlanGate();
+              }}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div className="h-screen w-full bg-[#f2f9f5] relative flex items-center justify-center p-4">
+          <WavyBackground />
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">
+                {planGate.expired ? 'Your Plan Is Expired' : 'No Active Plan'}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Your plan is expired. Please contact HR and Admin.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-700 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  const navigateToModule = (mod: string) => {
+    const nextPath = pathForModule(mod);
+    if (pathname !== nextPath) router.push(nextPath);
+  };
+
+  return (
+    <div className="h-screen w-full bg-[#f2f9f5] text-[#0d271d] flex font-sans antialiased overflow-hidden relative">
+      {/* Random Wavy Line Luxury Background Layer */}
+      <WavyBackground />
+
+      {/* Left Sidebar (Full height from top to bottom) */}
+      <Sidebar
+        activeModule={activeModule}
+        setActiveModule={navigateToModule}
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+        onSelectSubTab={setSubTab}
+        portalMode={portalMode}
+        pendingLeavesCount={pendingLeavesCount}
+        unreadChatCount={unreadChatCount}
+      />
+
+      {/* Right Content Area: Header on top, Scrollable main below */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Top Navbar */}
+        <Header
+          onOpenSidebar={() => setSidebarOpen(true)}
+          onOpenClockModal={() => setClockModalOpen(true)}
+          onOpenLeaveModal={() => setLeaveModalOpen(true)}
+          onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+          onOpenProfile={() => {
+            const myEmp = employees.find((e) =>
+              (user?.employeeId && (e.id === user.employeeId || (e as any)._id === user.employeeId)) ||
+              (user?.id && (e.id === user.id || (e as any)._id === user.id)) ||
+              ((user as any)?.employeeCode && e.employeeCode === (user as any).employeeCode) ||
+              (user?.email && e.email?.toLowerCase() === user.email.toLowerCase())
+            );
+            if (myEmp) {
+              setSelectedEmployee(myEmp);
+            } else if (user) {
+              setSelectedEmployee({
+                id: user.employeeId || user.id || 'emp-self',
+                employeeCode: (user as any)?.employeeCode || 'EMP-SELF',
+                firstName: user.firstName || 'Employee',
+                lastName: user.lastName || '',
+                email: user.email || '',
+                phone: (user as any)?.phone || '',
+                avatarUrl: user.avatarUrl || '',
+                gender: 'Other',
+                dateOfBirth: '1995-01-01',
+                address: '',
+                emergencyContact: { name: '', relationship: '', phone: '' },
+                joiningDate: '2026-01-01',
+                employmentType: 'Full-time',
+                status: 'Active',
+                departmentId: (user as any)?.departmentId || 'dept-1',
+                departmentName: (user as any)?.departmentName || 'General',
+                designationId: (user as any)?.designationId || 'des-1',
+                designationTitle: (user as any)?.designationTitle || 'Staff',
+                reportingManagerId: '',
+                reportingManagerName: '—',
+                workLocationId: 'loc-1',
+                workLocationName: 'Corporate HQ',
+                shift: 'General Shift (09:00 AM – 06:00 PM)',
+                bankDetails: { bankName: '', accountNumber: '', ifscOrRouting: '', accountHolderName: '' },
+                taxInformation: { taxId: '', panOrSsn: '', taxRegime: 'New Regime' },
+                education: [],
+                previousExperience: [],
+                skills: [],
+                salary: { basic: 0, hra: 0, allowances: 0, bonus: 0, pf: 0, tax: 0, professionalTax: 0, gross: 0, net: 0 },
+                createdAt: '2026-01-01',
+                updatedAt: '2026-01-01',
+              });
+            }
+          }}
+          onNavigateSettings={() => navigateToModule('settings')}
+          onOpenChat={() => navigateToModule('chat')}
+          onOpenSearchModal={() => setSearchModalOpen(true)}
+          onNavigateModule={navigateToModule}
+          onSelectEmployee={setSelectedEmployee}
+          employees={employees}
+          portalMode={portalMode}
+          pendingLeavesCount={pendingLeavesCount}
+          unreadChatCount={unreadChatCount}
+        />
+
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full min-w-0 [scrollbar-width:thin] bg-transparent relative z-10">
+          <div key={activeModule} className="max-w-[1700px] mx-auto animate-module-fade-in">
+            {activeModule === 'dashboard' && (
+              <DashboardView
+                stats={stats}
+                employees={employees}
+                leaves={leaves}
+                attendance={attendance}
+                onNavigateModule={navigateToModule}
+                onOpenClockModal={() => setClockModalOpen(true)}
+                onOpenLeaveModal={() => setLeaveModalOpen(true)}
+                onOpenAddEmployeeModal={() => setAddEmployeeModalOpen(true)}
+                onSelectEmployee={setSelectedEmployee}
+                onRefreshData={loadData}
+                onOpenChatWithEmployee={(empId) => {
+                  setTargetChatEmployeeId(empId);
+                  navigateToModule('chat');
+                }}
+                portalMode={portalMode}
+              />
+            )}
+
+            {activeModule === 'calendar' && (
+              <CalendarModule
+                attendance={attendance}
+                leaves={leaves}
+                onOpenLeaveModal={() => setLeaveModalOpen(true)}
+                onOpenClockModal={() => setClockModalOpen(true)}
+                portalMode={portalMode}
+              />
+            )}
+
+            {activeModule === 'employees' && (
+              <EmployeesModule
+                employees={employees}
+                departments={departments}
+                onSelectEmployee={setSelectedEmployee}
+                onOpenAddModal={() => setAddEmployeeModalOpen(true)}
+                onRefresh={loadData}
+                onOpenChatWithEmployee={(empId) => {
+                  setTargetChatEmployeeId(empId);
+                  navigateToModule('chat');
+                }}
+                portalMode={portalMode}
+              />
+            )}
+
+            {activeModule === 'attendance' && (
+              <AttendanceModule
+                records={attendance}
+                employees={employees}
+                initialTab={(subTab as any) || (portalMode === 'employee' ? 'today' : 'summary')}
+                onOpenPunchModal={() => setClockModalOpen(true)}
+                onRefresh={loadData}
+                portalMode={portalMode}
+              />
+            )}
+
+            {activeModule === 'leaves' && (
+              <LeaveModule
+                leaves={leaves}
+                onOpenApplyModal={() => setLeaveModalOpen(true)}
+                onRefresh={loadData}
+                portalMode={portalMode}
+              />
+            )}
+
+            {(activeModule === 'payroll' || activeModule === 'payslips') && (
+              portalMode === 'employee' ? (
+                <EmployeePayslipsModule employees={employees} onRefresh={loadData} />
+              ) : (
+                <PayrollModule
+                  payrollRecords={payroll}
+                  onRefresh={loadData}
+                />
+              )
+            )}
+
+            {activeModule === 'recruitment' && (
+              <RecruitmentModule
+                jobs={jobs}
+                candidates={candidates}
+                onRefresh={loadData}
+              />
+            )}
+
+            {activeModule === 'performance' && (
+              <PerformanceModule
+                reviews={[]}
+                onRefresh={loadData}
+              />
+            )}
+
+            {activeModule === 'organization' && (
+              <OrganizationModule
+                departments={departments}
+                designations={designations}
+                locations={locations}
+                initialTab={(subTab as any) || 'about'}
+                onRefresh={loadData}
+                portalMode={portalMode}
+                employees={employees}
+              />
+            )}
+
+            {activeModule === 'training' && (
+              <TrainingModule
+                programs={[]}
+                onRefresh={loadData}
+              />
+            )}
+
+            {activeModule === 'documents' && (
+              <DocumentsModule
+                portalMode={portalMode}
+                currentEmployeeId={user?.employeeId || user?.id}
+              />
+            )}
+            {activeModule === 'assets' && <AssetsModule />}
+            {activeModule === 'resignations' && <ResignationsModule portalMode={portalMode} />}
+            {activeModule === 'announcements' && (
+              <AnnouncementsModule employees={employees} portalMode={portalMode} />
+            )}
+            {activeModule === 'chat' && (
+              <ChatModule
+                employees={employees}
+                initialEmployeeId={targetChatEmployeeId}
+                onClearInitialEmployee={() => setTargetChatEmployeeId(null)}
+                portalMode={portalMode}
+              />
+            )}
+            {activeModule === 'reports' && <ReportsModule />}
+            {activeModule === 'audit-logs' && <AuditLogsModule />}
+            {activeModule === 'settings' && <SettingsModule portalMode={portalMode} />}
+            {activeModule === 'companies' && <CompaniesModule />}
+            {activeModule === 'plans' && <PlansModule />}
+            {activeModule === 'orders' && <OrdersModule />}
+            {activeModule === 'support' && <SupportModule />}
+            {activeModule === 'tasks' && (
+              <TasksModule
+                employees={employees}
+                departments={departments}
+                portalMode={portalMode}
+              />
+            )}
+            {activeModule === 'profile' && <ProfileModule />}
+            {activeModule === 'notifications' && (
+              <NotificationsModule onNavigateModule={navigateToModule} />
+            )}
+          </div>
+        </main>
+
+        {/* Mobile App Bottom Navigation Bar */}
+        <MobileBottomNav
+          activeModule={activeModule}
+          setActiveModule={navigateToModule}
+          onOpenClockModal={() => setClockModalOpen(true)}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          portalMode={portalMode}
+          pendingLeavesCount={pendingLeavesCount}
+          unreadChatCount={unreadChatCount}
+          punchStatus={checkEmployeePunchEligibility(user?.employeeId || user?.id || '')?.status}
+        />
+      </div>
+
+      {/* Global Modals & Drawers */}
+      <AttendanceModal
+        isOpen={clockModalOpen}
+        onClose={() => setClockModalOpen(false)}
+        onRefresh={loadData}
+      />
+
+      <LeaveModal
+        isOpen={leaveModalOpen}
+        onClose={() => setLeaveModalOpen(false)}
+        onRefresh={loadData}
+      />
+
+      <EmployeeDrawer
+        isOpen={addEmployeeModalOpen}
+        onClose={() => setAddEmployeeModalOpen(false)}
+        onRefresh={loadData}
+        departments={departments}
+        designations={designations}
+        employees={employees}
+      />
+
+      <EmployeeProfileModal
+        employee={selectedEmployee}
+        isOpen={Boolean(selectedEmployee)}
+        onClose={() => setSelectedEmployee(null)}
+        onRefresh={loadData}
+      />
+
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        employees={employees}
+        onSelectEmployee={setSelectedEmployee}
+        onNavigateModule={navigateToModule}
+        portalMode={portalMode}
+      />
+
+    </div>
+  );
+}

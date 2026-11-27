@@ -315,9 +315,13 @@ export interface LeaveDayBreakdown {
 export interface LeaveRequest {
   id: string;
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
+  employeeEmail?: string;
   employeeAvatar?: string;
   departmentName: string;
+  companyId?: string;
+  companyCode?: string;
   leaveType: LeaveType;
   startDate: string;
   endDate: string;

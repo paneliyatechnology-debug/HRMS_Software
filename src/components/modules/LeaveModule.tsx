@@ -50,6 +50,72 @@ interface LeaveModuleProps {
   loading?: boolean;
 }
 
+const formatLeaveDate = (dateStr?: string): string => {
+  if (!dateStr) return '--';
+  const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return dateStr;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+};
+
+const getLeaveDayDetails = (leave: LeaveRequest): Array<{ date: string; label: string; isHalf: boolean }> => {
+  if (Array.isArray(leave.days) && leave.days.length > 0) {
+    return leave.days.map((d) => {
+      const portion = d.portion || 'Full Day';
+      const pLower = portion.toLowerCase();
+      const isHalf = pLower.includes('half') || pLower.includes('first') || pLower.includes('second');
+      return {
+        date: formatLeaveDate(d.date),
+        label: portion,
+        isHalf,
+      };
+    });
+  }
+  if (Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.length > 0) {
+    return leave.dayBreakdown.map((d) => {
+      const isHalf = d.session !== 'FULL_DAY';
+      const label =
+        d.session === 'FIRST_HALF'
+          ? 'First Half'
+          : d.session === 'SECOND_HALF'
+            ? 'Second Half'
+            : 'Full Day';
+      return {
+        date: formatLeaveDate(d.date),
+        label,
+        isHalf,
+      };
+    });
+  }
+  const items: Array<{ date: string; label: string; isHalf: boolean }> = [];
+  if (leave.startDate) {
+    const [sy, sm, sd] = String(leave.startDate).split('-').map(Number);
+    const [ey, em, ed] = String(leave.endDate || leave.startDate).split('-').map(Number);
+    if (sy && sm && sd && ey && em && ed) {
+      const cur = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+      let guard = 0;
+      while (cur <= end && guard < 60) {
+        const yyyy = cur.getFullYear();
+        const mm = String(cur.getMonth() + 1).padStart(2, '0');
+        const dd = String(cur.getDate()).padStart(2, '0');
+        const isSingleHalf = Boolean(leave.isHalfDay && leave.startDate === leave.endDate);
+        items.push({
+          date: `${dd}-${mm}-${yyyy}`,
+          label: isSingleHalf
+            ? leave.halfDaySession === 'SECOND_HALF'
+              ? 'Second Half'
+              : 'First Half'
+            : 'Full Day',
+          isHalf: isSingleHalf,
+        });
+        cur.setDate(cur.getDate() + 1);
+        guard += 1;
+      }
+    }
+  }
+  return items;
+};
+
 export const LeaveModule: React.FC<LeaveModuleProps> = ({
   leaves,
   leaveTypes: initialLeaveTypes,
@@ -74,8 +140,59 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'>('All');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
+  const [avatarByEmployee, setAvatarByEmployee] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getEmployees()
+      .then((emps) => {
+        if (!active || !Array.isArray(emps)) return;
+        const map: Record<string, string> = {};
+        emps.forEach((emp: any) => {
+          const pic = emp?.avatarUrl || emp?.profileImage || emp?.avatar;
+          if (!pic) return;
+          if (emp.id) map[String(emp.id)] = pic;
+          if (emp.userId) map[String(emp.userId)] = pic;
+          if (emp.employeeCode) map[String(emp.employeeCode).toLowerCase()] = pic;
+          if (emp.email) map[String(emp.email).toLowerCase()] = pic;
+          const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toLowerCase();
+          if (fullName) map[fullName] = pic;
+        });
+        setAvatarByEmployee(map);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getLeaveAvatar = (leave: LeaveRequest): string | undefined => {
+    const anyLeave = leave as any;
+    const direct = anyLeave.avatarUrl || anyLeave.employeeAvatar || anyLeave.user?.avatarUrl;
+    if (direct) return direct;
+    if (leave.employeeId && avatarByEmployee[String(leave.employeeId)]) {
+      return avatarByEmployee[String(leave.employeeId)];
+    }
+    if (anyLeave.userId && avatarByEmployee[String(anyLeave.userId)]) {
+      return avatarByEmployee[String(anyLeave.userId)];
+    }
+    const nameKey = (leave.employeeName || '').trim().toLowerCase();
+    if (nameKey && avatarByEmployee[nameKey]) {
+      return avatarByEmployee[nameKey];
+    }
+    if (portalMode === 'employee' && user?.avatarUrl) {
+      return user.avatarUrl;
+    }
+    return undefined;
+  };
+
+  const toggleExpandRow = (id: string) => {
+    setExpandedLeaveId((prev) => (prev === id ? null : id));
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -517,63 +634,12 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
   };
 
   return (
-    <div className="space-y-5 w-full select-none">
-      {/* Top Action Bar for Admin/HR */}
-      {portalMode === 'admin' && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">Staff Leave Requests</h2>
-            <p className="text-xs text-slate-500">Manage employee leave applications and configured company leave types.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setIsLeaveTypesModalOpen(true);
-                loadLeaveTypes();
-              }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
-            >
-              <List className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Leave Types</span>
-            </button>
-            {!adminHasNoLeave && (
-            <button
-              onClick={onOpenApplyModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Apply Leave</span>
-            </button>
-            )}
-          </div>
-        </div>
-      )}
-
+    <div className="space-y-4 w-full select-none md:h-[calc(100vh-115px)] md:flex md:flex-col md:overflow-hidden">
       {/* ========================================================================= */}
       {/* EMPLOYEE PORTAL VIEW: PERSONAL LEAVE BALANCES */}
       {/* ========================================================================= */}
       {portalMode === 'employee' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-end gap-2.5 pb-2 border-b border-slate-200">
-            <button
-              onClick={() => {
-                setIsLeaveTypesModalOpen(true);
-                loadLeaveTypes();
-              }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
-            >
-              <List className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Leave Types</span>
-            </button>
-            <button
-              onClick={onOpenApplyModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Apply for Leave</span>
-            </button>
-          </div>
-
+        <div className="space-y-4 shrink-0">
           {/* Error State */}
           {quotaError && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-3">
@@ -601,75 +667,93 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             </div>
           )}
 
-          {/* Dynamic 4 Leave Balance & Consumption Cards */}
+          {/* Dynamic Leave Balance & Consumption Cards (Compact) */}
           {quotaLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[0, 1, 2, 3].map((idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3 animate-pulse"
+                  className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2 animate-pulse"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="h-3.5 w-24 bg-slate-200 rounded" />
-                    <div className="h-4 w-14 bg-slate-100 rounded-full" />
+                    <div className="h-3 w-20 bg-slate-200 rounded" />
+                    <div className="h-3.5 w-12 bg-slate-100 rounded-full" />
                   </div>
-                  <div className="h-8 w-28 bg-slate-200 rounded" />
                   <div className="flex items-center justify-between">
+                    <div className="h-6 w-16 bg-slate-200 rounded" />
                     <div className="h-3 w-14 bg-slate-100 rounded" />
-                    <div className="h-3 w-16 bg-slate-100 rounded" />
                   </div>
-                  <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <div className="h-2.5 w-full bg-slate-100 rounded-full" />
-                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full" />
                 </div>
               ))}
             </div>
           ) : dynamicLeaveCards.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {dynamicLeaveCards.map((card: any) => (
                 <div
                   key={card.id}
-                  className={`p-4 rounded-2xl bg-white border-2 ${card.theme.border} shadow-sm hover:shadow-md transition-all flex flex-col justify-between`}
+                  className={`p-3 rounded-2xl bg-white border ${card.theme.border} shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between gap-2`}
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-2">
-                      <span className={`text-[11px] font-black uppercase ${card.theme.title} tracking-wider flex items-center gap-1.5 truncate`}>
-                        <span className={`w-2 h-2 rounded-full ${card.theme.dot} shrink-0`} />
-                        <span className="truncate">{card.name}</span>
-                      </span>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${card.theme.badge} shrink-0`}>
-                        {card.badge}
-                      </span>
-                    </div>
-
-                    {/* Prominent Taken/Total */}
-                    <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-3xl font-semibold tracking-tight text-slate-800">{card.taken}</span>
-                      <span className="text-2xl font-semibold text-slate-400">/{card.quota}</span>
-                      <span className={`text-xs font-semibold ${card.theme.usedTag} ml-1.5`}>Used</span>
-                    </div>
-
-                    <div className="mt-2 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-rose-600">{card.taken} Used</span>
-                      <span className="font-bold text-emerald-600">{card.available} Available</span>
-                    </div>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className={`text-[11px] font-extrabold uppercase ${card.theme.title} tracking-wide flex items-center gap-1.5 truncate`}>
+                      <span className={`w-2 h-2 rounded-full ${card.theme.dot} shrink-0`} />
+                      <span className="truncate">{card.name}</span>
+                    </span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${card.theme.badge} shrink-0`}>
+                      {card.badge}
+                    </span>
                   </div>
 
-                  <div className="mt-3 pt-2.5 border-t border-slate-100">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                      <span>{card.taken}/{card.quota} Days Used</span>
-                      <span className="text-emerald-700 font-extrabold">{card.available} Remaining</span>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="text-xl font-bold tracking-tight text-slate-800">{card.taken}</span>
+                      <span className="text-sm font-semibold text-slate-400">/{card.quota}</span>
+                      <span className={`text-[10px] font-semibold ${card.theme.usedTag} ml-1`}>Used</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
-                      <div
-                        className={`${card.theme.progressBar} h-2 rounded-full transition-all duration-500`}
-                        style={{ width: `${getUsagePercent(card.taken, card.quota)}%` }}
-                      />
-                    </div>
+                    <span className="text-[11px] font-bold text-emerald-600 whitespace-nowrap">
+                      {card.available} Available
+                    </span>
+                  </div>
+
+                  <div>
+                    {(() => {
+                      const approvedPct =
+                        card.quota > 0
+                          ? getUsagePercent(card.taken, card.quota)
+                          : card.taken > 0
+                            ? card.pending > 0
+                              ? 50
+                              : 100
+                            : 0;
+                      const pendingPct =
+                        card.pending > 0
+                          ? card.quota > 0
+                            ? Math.min(Math.max(0, 100 - approvedPct), Math.max(8, getUsagePercent(card.pending, card.quota)))
+                            : card.taken > 0
+                              ? 50
+                              : 100
+                          : 0;
+                      return (
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
+                          {approvedPct > 0 && (
+                            <div
+                              className="bg-emerald-600 h-1.5 transition-all duration-500"
+                              style={{ width: `${approvedPct}%` }}
+                            />
+                          )}
+                          {pendingPct > 0 && (
+                            <div
+                              className="bg-amber-400 h-1.5 transition-all duration-500"
+                              style={{ width: `${pendingPct}%` }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
                     {card.pending > 0 && (
-                      <p className="text-[10px] font-bold text-amber-600 mt-1.5 flex items-center gap-1">
+                      <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
                         <Clock className="w-3 h-3 shrink-0" />
-                        <span>{card.pending} {card.pending === 1 ? 'day' : 'days'} pending review</span>
+                        <span>{card.pending} {card.pending === 1 ? 'day' : 'days'} pending</span>
                       </p>
                     )}
                   </div>
@@ -727,6 +811,18 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
 
         {/* Search & Actions */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {portalMode === 'admin' && (
+            <button
+              onClick={() => {
+                setIsLeaveTypesModalOpen(true);
+                loadLeaveTypes();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+            >
+              <List className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Leave Types</span>
+            </button>
+          )}
           <div className="relative flex-1 min-w-[180px] sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -755,14 +851,24 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Export</span>
           </button>
+
+          {(portalMode === 'employee' || (portalMode === 'admin' && !adminHasNoLeave)) && (
+            <button
+              onClick={onOpenApplyModal}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>{portalMode === 'employee' ? 'Apply for Leave' : 'Apply Leave'}</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ========================================================================= */}
       {/* LEAVES TABLE */}
       {/* ========================================================================= */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden md:flex-1 md:min-h-0 md:flex md:flex-col">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium shrink-0">
           <span>
             {portalMode === 'admin' ? 'All Employee Leave Records' : 'My Leave Applications'} (
             {displayedLeaves.length})
@@ -838,12 +944,17 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
           ) : (
             paginatedLeaves.map((leave) => {
               const isProcessing = processingId === leave.id;
+              const avatarUrl = getLeaveAvatar(leave);
               return (
                 <div key={leave.id} className="p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                        {leave.employeeName?.[0] || 'E'}
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0 overflow-hidden">
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt={leave.employeeName || 'Employee'} className="w-full h-full object-cover" />
+                        ) : (
+                          leave.employeeName?.[0] || 'E'
+                        )}
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-slate-900 truncate">{leave.employeeName}</p>
@@ -874,7 +985,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                     <div>
                       <span className="text-[10px] text-slate-400 font-medium block">Dates</span>
                       <span className="font-semibold text-slate-800 text-[11px]">
-                        {leave.startDate} {leave.endDate !== leave.startDate ? `→ ${leave.endDate}` : ''}
+                        {formatLeaveDate(leave.startDate)} {leave.endDate !== leave.startDate ? `→ ${formatLeaveDate(leave.endDate)}` : ''}
                       </span>
                     </div>
                     <div>
@@ -904,7 +1015,7 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase tracking-wider block">
-                        {leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}
+                        Reason
                       </span>
                       <p className="font-semibold">&ldquo;{leave.response || leave.comments}&rdquo;</p>
                     </div>
@@ -952,14 +1063,15 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
         </div>
 
         {/* Desktop Table View (>= md) */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto [scrollbar-width:thin]">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <thead className="sticky top-0 z-10 bg-slate-50">
+              <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-700">
                 <th className="py-3 px-4 font-bold">EMPLOYEE</th>
                 <th className="py-3 px-4 font-bold">DEPARTMENT</th>
-                <th className="py-3 px-4 font-bold">LEAVE DATES</th>
-                <th className="py-3 px-4 font-bold">DURATION</th>
+                <th className="py-3 px-4 font-bold">START DATE</th>
+                <th className="py-3 px-4 font-bold">END DATE</th>
+                <th className="py-3 px-4 font-bold">DAY</th>
                 <th className="py-3 px-4 font-bold">TYPE</th>
                 <th className="py-3 px-4 font-bold">STATUS</th>
                 <th className="py-3 px-4 font-bold">REASON</th>
@@ -971,9 +1083,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
             <tbody className="divide-y divide-slate-100 text-xs">
               {loading && leaves.length === 0 ? (
                 Array.from({ length: 6 }).map((_, idx) => (
-                  <tr key={`skel-lv-d-${idx}`} className="animate-pulse">
+                  <tr key={`skel-lv-d-${idx}`} className="animate-pulse !bg-white hover:!bg-white">
                     <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-200 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-20 h-3.5 bg-slate-100 rounded" /></td>
+                    <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-24 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-12 h-3.5 bg-slate-100 rounded" /></td>
                     <td className="py-3.5 px-4"><div className="w-16 h-5 bg-slate-100 rounded-full" /></td>
@@ -983,10 +1096,10 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                   </tr>
                 ))
               ) : displayedLeaves.length === 0 ? (
-                <tr>
+                <tr className="!bg-white hover:!bg-white">
                   <td
-                    colSpan={8}
-                    className="py-14 text-center text-slate-500 font-medium"
+                    colSpan={9}
+                    className="py-14 text-center text-slate-500 font-medium !bg-white hover:!bg-white"
                   >
                     {leaves.length === 0 ? (
                       <div className="max-w-sm mx-auto space-y-3">
@@ -1039,103 +1152,49 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
               ) : (
                 paginatedLeaves.map((leave) => {
                   const isProcessing = processingId === leave.id;
+                  const isExpanded = expandedLeaveId === leave.id;
+                  const dayDetails = getLeaveDayDetails(leave);
+                  const avatarUrl = getLeaveAvatar(leave);
                   return (
-                    <tr key={leave.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-900">
+                    <React.Fragment key={leave.id}>
+                    <tr
+                      onClick={() => toggleExpandRow(leave.id)}
+                      className={`transition-colors cursor-pointer ${
+                        isExpanded ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <td className="py-3 px-4 font-normal text-slate-800">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 shrink-0">
-                            {leave.employeeName?.[0] || 'E'}
+                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-medium text-slate-700 ring-1 ring-slate-200 shrink-0 overflow-hidden">
+                            {avatarUrl ? (
+                              <img src={avatarUrl} alt={leave.employeeName || 'Employee'} className="w-full h-full object-cover" />
+                            ) : (
+                              leave.employeeName?.[0] || 'E'
+                            )}
                           </div>
                           <span>{leave.employeeName}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 font-medium">
+                      <td className="py-3 px-4 font-normal text-slate-700">
                         {leave.departmentName || '--'}
                       </td>
-                      <td className="py-3 px-4 text-slate-700">
-                        <div className="font-semibold text-slate-900">
-                          {leave.startDate}{' '}
-                          {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}
-                        </div>
-                        <>
-                            {Array.isArray(leave.days) && leave.days.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {leave.days.map((d, idx) => {
-                                  const portion = d.portion || 'Full Day';
-                                  const pLower = portion.toLowerCase();
-                                  const isHalf = pLower.includes('half') || pLower.includes('first') || pLower.includes('second');
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className={`text-[11px] font-semibold ${
-                                        isHalf
-                                          ? 'text-amber-700'
-                                          : 'text-emerald-700'
-                                      }`}
-                                      title={`${d.date}: ${portion}`}
-                                    >
-                                      {leave.days && leave.days.length > 1 ? `${d.date}: ` : ''}{portion}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : Array.isArray(leave.dayBreakdown) && leave.dayBreakdown.some((d) => d.session !== 'FULL_DAY') ? (
-                              <div className="flex flex-wrap gap-1.5 mt-0.5">
-                                {leave.dayBreakdown.map((d, idx) => {
-                                  const isHalf = d.session !== 'FULL_DAY';
-                                  const label = d.session === 'FIRST_HALF' ? 'First Half' : d.session === 'SECOND_HALF' ? 'Second Half' : 'Full Day';
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className={`text-[11px] font-semibold ${
-                                        isHalf
-                                          ? 'text-amber-700'
-                                          : 'text-emerald-700'
-                                      }`}
-                                    >
-                                      {leave.dayBreakdown && leave.dayBreakdown.length > 1 ? `${d.date}: ` : ''}{label}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : leave.isHalfDay ? (
-                              <span className="inline-block mt-0.5 text-[11px] font-semibold text-amber-700">
-                                {leave.halfDaySession === 'SECOND_HALF' ? 'Second Half' : 'First Half'}
-                              </span>
-                            ) : (
-                              <span className="inline-block mt-0.5 text-[11px] font-semibold text-emerald-700">
-                                Full Day
-                              </span>
-                            )}
-                          </>
+                      <td className="py-3 px-4 font-normal text-slate-700 whitespace-nowrap">
+                        {formatLeaveDate(leave.startDate)}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">
-                        <div className="flex flex-col items-start gap-0.5">
-                          <span className="font-bold text-slate-900 text-xs">
-                            {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
-                          </span>
-                          {leave.isHalfDay ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">
-                                <Sun className="w-3 h-3 text-amber-600 shrink-0" />
-                                <span>
-                                  {leave.daysCount === 0.5
-                                    ? (leave.halfDaySession === 'SECOND_HALF' ? 'Half Day (2nd)' : 'Half Day (1st)')
-                                    : 'Includes Half Day'}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                                Full Day
-                              </span>
-                            )}
-                        </div>
+                      <td className="py-3 px-4 font-normal text-slate-700 whitespace-nowrap">
+                        {formatLeaveDate(leave.endDate)}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-700">
+                      <td className="py-3 px-4 font-normal text-slate-700">
+                        <span>
+                          {leave.daysCount} {leave.daysCount === 1 ? 'Day' : 'Days'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-normal text-slate-700">
                         {leave.leaveType}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 font-normal">
                         <span
-                          className={`inline-flex items-center gap-1 text-[11px] font-extrabold ${leave.status === 'Approved'
+                          className={`inline-flex items-center gap-1 text-xs font-normal ${leave.status === 'Approved'
                             ? 'text-emerald-700'
                             : leave.status === 'Pending'
                               ? 'text-amber-700'
@@ -1144,40 +1203,37 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                                 : 'text-rose-700'
                             }`}
                         >
-                          {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[3]" />}
-                          {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2.5]" />}
-                          {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[3]" />}
+                          {leave.status === 'Approved' && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          {leave.status === 'Pending' && <Clock className="w-3 h-3 stroke-[2]" />}
+                          {leave.status === 'Rejected' && <X className="w-3 h-3 stroke-[2.5]" />}
                           <span>{leave.status}</span>
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs">
+                      <td className="py-3 px-4 font-normal text-slate-700 max-w-xs">
                         {portalMode === 'admin' ? (
                           <div className="truncate" title={`Employee Reason: ${leave.reason || '--'}`}>
-                            <span className="text-slate-800 font-medium text-xs">{leave.reason || '--'}</span>
+                            <span className="text-slate-700 font-normal text-xs">{leave.reason || '--'}</span>
                           </div>
                         ) : (leave.response || leave.comments) ? (
                           <div
-                            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                            className={`truncate text-xs font-normal ${
                               leave.status === 'Rejected'
                                 ? 'text-rose-700'
                                 : leave.status === 'Cancelled'
                                   ? 'text-slate-600'
                                   : 'text-emerald-700'
                             }`}
-                            title={`${leave.status === 'Rejected' ? 'Rejection Reason' : leave.status === 'Cancelled' ? 'Cancel reason' : 'Admin Response'}: ${leave.response || leave.comments}`}
+                            title={leave.response || leave.comments}
                           >
-                            <span className="font-bold shrink-0">
-                              {leave.status === 'Rejected' ? 'Reject Reason:' : leave.status === 'Cancelled' ? 'Cancel reason:' : 'Admin Note:'}
-                            </span>
-                            <span className="truncate max-w-[180px]">{leave.response || leave.comments}</span>
+                            {leave.response || leave.comments}
                           </div>
                         ) : (
-                          <span className="text-slate-400 font-medium text-xs">--</span>
+                          <span className="text-slate-400 font-normal text-xs">--</span>
                         )}
                       </td>
 
                       {/* Action Column */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           {portalMode === 'employee' && (leave.status === 'Pending' || leave.status === 'Approved') && leave.endDate >= todayKey && (
                             <button
@@ -1217,6 +1273,39 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
                         </div>
                       </td>
                     </tr>
+                    <tr className={isExpanded ? 'bg-slate-50/80' : 'border-0'}>
+                      <td colSpan={9} className="p-0 border-0">
+                        <div
+                          className={`grid transition-all duration-200 ease-out ${
+                            isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/70">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                {dayDetails.map((d, idx) => (
+                                  <div
+                                    key={`${leave.id}-day-${idx}`}
+                                    className="px-3 py-2 rounded-xl bg-white border border-slate-200/90 flex flex-col gap-0.5"
+                                  >
+                                    <span className="text-[11px] font-bold text-slate-800">{d.date}</span>
+                                    <span
+                                      className={`text-[11px] font-semibold flex items-center gap-1 ${
+                                        d.isHalf ? 'text-amber-700' : 'text-emerald-700'
+                                      }`}
+                                    >
+                                      {d.isHalf && <Sun className="w-3 h-3 text-amber-600 shrink-0" />}
+                                      <span>{d.label}</span>
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    </React.Fragment>
                   );
                 })
               )}
