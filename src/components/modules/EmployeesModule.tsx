@@ -570,7 +570,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             {emp.firstName} {emp.lastName}
                           </span>
                           {isCurrentUser && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                               You
                             </span>
                           )}
@@ -790,8 +790,8 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             {emp.firstName} {emp.lastName}
                           </span>
                           {isCurrentUser && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                              It's you
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              You
                             </span>
                           )}
                         </div>

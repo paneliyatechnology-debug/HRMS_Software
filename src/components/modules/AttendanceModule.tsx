@@ -2180,8 +2180,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   {emp.firstName?.[0] || 'E'}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-bold text-xs text-slate-900 truncate">
-                                    {emp.firstName} {emp.lastName}
+                                  <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                                    <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                    {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        You
+                                      </span>
+                                    )}
                                   </p>
                                   <p className="text-[10px] text-slate-400 font-mono">
                                     {emp.employeeCode} • {emp.departmentName || 'General'}
@@ -2365,6 +2370,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                     <div>
                                       <p className="font-semibold text-slate-900 flex items-center gap-1.5">
                                         <span>{emp.firstName} {emp.lastName}</span>
+                                        {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            You
+                                          </span>
+                                        )}
                                         {isWfhActive && (
                                           <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                                             WFH
@@ -2684,8 +2694,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-bold text-xs text-slate-900 truncate">
-                                  {emp.firstName} {emp.lastName}
+                                <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                                  <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                  {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      You
+                                    </span>
+                                  )}
                                 </p>
                                 <p className="text-[10px] text-slate-400 font-mono">
                                   {emp.employeeCode || emp.id} • {emp.departmentName || 'Staff'}
@@ -2870,6 +2885,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                                   <div>
                                     <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
                                       <span>{emp.firstName} {emp.lastName}</span>
+                                      {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                          You
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
                                       <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
@@ -3075,6 +3095,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             <span className="truncate max-w-[140px]">
                               {emp.firstName} {emp.lastName}
                             </span>
+                            {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                              <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                You
+                              </span>
+                            )}
                           </td>
 
                           {daysInMonth.map(({ day }) => {
@@ -3552,7 +3577,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 >
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode} - {emp.departmentName})
+                      {emp.firstName} {emp.lastName}{(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) ? ' (You)' : ''} ({emp.employeeCode} - {emp.departmentName})
                     </option>
                   ))}
                 </select>

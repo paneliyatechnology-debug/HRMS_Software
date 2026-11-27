@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Role } from '../types/hrms';
 import { api } from '../lib/api';
 import { findOrganizationByEmail } from '../lib/companyService';
@@ -114,6 +114,8 @@ interface AuthContextType {
   hasPermission: (action: string) => boolean;
   allUsers: User[];
   logout: () => void;
+  planStatus: { checked: boolean; premium: boolean; expired: boolean };
+  refreshPlanStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -154,6 +156,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return true;
   });
+  const [planStatus, setPlanStatus] = useState<{ checked: boolean; premium: boolean; expired: boolean }>({
+    checked: false,
+    premium: false,
+    expired: false,
+  });
+
+  const refreshPlanStatus = useCallback(async () => {
+    const roleUpper = String(user?.role || '').toUpperCase();
+    if (!isAuthenticated || !user?.id) {
+      setPlanStatus({ checked: false, premium: false, expired: false });
+      return;
+    }
+    if (roleUpper === 'SUPER_ADMIN') {
+      setPlanStatus({ checked: true, premium: true, expired: false });
+      return;
+    }
+    try {
+      const res = await api.getCompanyFeatures();
+      const data = res?.data || res;
+      setPlanStatus({
+        checked: true,
+        premium: Boolean(data?.premium),
+        expired: Boolean(data?.expired),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      if (msg.includes('plan') || msg.includes('expired')) {
+        setPlanStatus({
+          checked: true,
+          premium: false,
+          expired: msg.includes('expired'),
+        });
+        return;
+      }
+      console.error('Failed to check company plan status:', err);
+    }
+  }, [isAuthenticated, user?.id, user?.role]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    void refreshPlanStatus();
+    const onFocus = () => {
+      void refreshPlanStatus();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isLoading, refreshPlanStatus]);
 
   const enrichUserData = async (baseUser: any) => {
     if (!baseUser) return baseUser;
@@ -656,6 +705,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasPermission,
         allUsers: [],
         logout,
+        planStatus,
+        refreshPlanStatus,
       }}
     >
       {children}
