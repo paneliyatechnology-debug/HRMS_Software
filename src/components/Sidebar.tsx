@@ -345,13 +345,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         key={itemKey}
         id={`nav-item-${itemKey}`}
         onClick={() => handleNav(id, subTab)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[13px] transition-colors duration-150 cursor-pointer group active:scale-[0.99] ${isActive
-          ? 'bg-[#1b4332] text-white font-bold shadow-xs'
+        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-[10px] text-[12.5px] sm:text-[13px] transition-colors duration-150 cursor-pointer group active:scale-[0.99] ${isActive
+          ? 'bg-[#075B3D] text-white font-bold shadow-xs'
           : 'text-[#495057] hover:bg-slate-100/90 hover:text-[#1b4332] font-medium'
           }`}
       >
-        <div className="flex items-center gap-2.5">
-          <span className={`w-5 flex justify-center transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-4.5 flex justify-center shrink-0 transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#6c757d] group-hover:text-[#2d6a4f]'}`}>
             {icon}
           </span>
           <span className="truncate">{label}</span>
@@ -373,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="sidebar"
-        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 lg:z-[110] h-screen lg:h-full w-[280px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[245px]'
+        className={`fixed lg:relative top-0 left-0 bottom-0 z-50 lg:z-[110] h-screen lg:h-full w-[260px] max-w-[85vw] ${isCollapsed ? 'lg:w-[68px]' : 'lg:w-[214px]'
           } bg-white text-[#212529] flex flex-col shrink-0 select-none transition-all duration-200 ease-in-out border-r border-[#e9ecef] shadow-xs ${isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
           }`}
       >
@@ -453,9 +453,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation list */}
         <div
-          className={`flex-1 overflow-y-auto ${effectiveCollapsed ? 'px-2' : 'px-2.5'
-            } py-3 space-y-4 text-sm [scrollbar-width:thin] pb-24 lg:pb-6`}
+          className={`flex-1 overflow-y-auto flex flex-col justify-between ${effectiveCollapsed ? 'px-2' : 'px-2.5'
+            } py-3 text-sm [scrollbar-width:thin] pb-24 lg:pb-3`}
         >
+          <div className="space-y-4">
           {/* Main workspace section */}
           <div className="space-y-0.5">
             {!effectiveCollapsed && (
@@ -734,6 +735,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {navItem('announcements', 'Notice Board', <Award className="w-4 h-4" />)}
               {renderProfileNavItem()}
               {portalMode === 'admin' && navItem('settings', 'Settings', <Settings className="w-4 h-4" />)}
+            </div>
+          )}
+          </div>
+
+          {/* Bottom Sidebar Workplace Growth Illustration Card */}
+          {!effectiveCollapsed && !resigned && (
+            <div className="mt-4 pt-1 shrink-0">
+              <div className="relative rounded-[14px] bg-gradient-to-br from-[#e7f5ec] via-[#eef9f2] to-[#d4eedc] border border-[#cde8d6] p-3.5 overflow-hidden shadow-2xs">
+                <div className="relative z-10 max-w-[122px]">
+                  <p className="text-[13px] font-bold text-[#17221D] leading-tight tracking-tight">
+                    Together
+                    <br />
+                    We Grow
+                  </p>
+                  <p className="text-[10px] font-medium text-[#4b6357] leading-snug mt-1.5">
+                    Building a better workplace together.
+                  </p>
+                </div>
+
+                {/* Corporate Growth & Teamwork SVG Illustration */}
+                <svg
+                  viewBox="0 0 110 88"
+                  className="pointer-events-none select-none absolute -right-1 -bottom-1 w-[86px] h-[72px]"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle cx="80" cy="24" r="14" fill="#fde68a" fillOpacity="0.45" />
+                  <path d="M8 88C24 62 48 56 68 62C84 67 96 58 110 46V88H8Z" fill="#78caa0" fillOpacity="0.45" />
+                  <path d="M26 88C46 66 72 64 110 54V88H26Z" fill="#176b4d" fillOpacity="0.88" />
+                  <path d="M74 68V35" stroke="#154c1a" strokeWidth="2.4" strokeLinecap="round" />
+                  <path d="M74 44C63 44 57 35 62 27C69 27 74 35 74 44Z" fill="#2d6a4f" />
+                  <path d="M74 39C85 38 92 29 88 21C80 22 74 30 74 39Z" fill="#f59e0b" fillOpacity="0.9" />
+                  <path d="M74 52C65 52 60 46 63 40C69 40 74 45 74 52Z" fill="#52b788" />
+                  <circle cx="48" cy="40" r="2.2" fill="#43ae7d" fillOpacity="0.65" />
+                  <circle cx="94" cy="44" r="1.8" fill="#176b4d" fillOpacity="0.5" />
+                </svg>
+              </div>
             </div>
           )}
         </div>

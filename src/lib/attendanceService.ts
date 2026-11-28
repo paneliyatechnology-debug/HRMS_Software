@@ -448,6 +448,11 @@ export function getLiveActiveSeconds(record: AttendanceRecord): number {
   }
 
   // 3. If Checked In & working: Timer CALCULATING LIVE & TICKING
+  if (Array.isArray((record as any).punches) && (record as any).punches.length > 0) {
+    const fromPunches = calculateBreakAndWorkedSecondsFromPunches(record).workSeconds;
+    if (fromPunches > 0) return fromPunches;
+  }
+
   if (record.checkIn && record.checkIn !== '—') {
     const inTs = parseTimeStringToTimestamp(record.checkIn, record.date, record.createdAt);
     if (inTs > 0) {

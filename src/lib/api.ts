@@ -827,8 +827,9 @@ async function listHolidays() {
           ? data.data
           : [];
     return rawList.map(backendHolidayToFrontend);
-  } catch {
-    return [];
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Holidays could not be loaded.');
   }
 }
 

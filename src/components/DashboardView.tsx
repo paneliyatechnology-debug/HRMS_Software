@@ -964,7 +964,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const approvedLeavesCount = leaves.filter((l) => (l.status || '').toLowerCase() === 'approved').length;
 
   return (
-    <div className="space-y-5 w-full overflow-x-clip">
+    <div className="space-y-4 w-full overflow-x-clip">
       {/* Welcome & Section Head (Admin Only) */}
       {officeDashboard && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
@@ -1004,19 +1004,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         const empFullName = formatDisplayName(user.firstName, user.lastName) || user.email || '';
         const compName = companyNameApi || user.companyName || currentEmp.companyName || '';
         return (
-          <div className="relative rounded-3xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+          <div
+            className="relative rounded-[24px] border border-[#CFE4D7] overflow-hidden shadow-[0_2px_12px_rgba(16,56,36,0.04)] min-h-[142px] sm:min-h-[156px] flex items-start"
+            style={{
+              background: 'linear-gradient(108deg, #EAF4EE 0%, #E2F2E7 40%, #D8EFE1 72%, #CCEBD8 100%)',
+            }}
+          >
+            {/* Soft Flowing Mint Curves Behind Building */}
+            <svg
+              viewBox="0 0 800 180"
+              preserveAspectRatio="none"
+              className="hidden sm:block absolute inset-0 w-full h-full pointer-events-none select-none"
+              aria-hidden="true"
+            >
+              <path
+                d="M340 180 C460 95, 560 35, 800 0 L800 180 Z"
+                fill="#D2EEDC"
+                fillOpacity="0.55"
+              />
+              <path
+                d="M450 180 C540 110, 640 50, 800 35 L800 180 Z"
+                fill="#BCE5CC"
+                fillOpacity="0.45"
+              />
+            </svg>
             <div
-              className="absolute inset-0 pointer-events-none"
+              className="hidden sm:block absolute inset-y-0 right-0 w-[42%] max-w-[440px] pointer-events-none select-none overflow-hidden"
               style={{
-                background:
-                  'linear-gradient(105deg, rgba(255,255,255,1) 42%, rgba(216,243,220,0.6) 75%, rgba(45,106,79,0.22) 100%)',
-              }}
-            />
-            <div
-              className="hidden sm:block absolute inset-y-0 right-0 w-[44%] max-w-[460px] pointer-events-none select-none overflow-hidden"
-              style={{
-                WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.92) 30%, transparent 98%)',
-                maskImage: 'linear-gradient(to left, rgba(0,0,0,0.92) 30%, transparent 98%)',
+                WebkitMaskImage:
+                  'linear-gradient(to left, rgba(0,0,0,0.95) 42%, rgba(0,0,0,0.45) 75%, transparent 100%)',
+                maskImage:
+                  'linear-gradient(to left, rgba(0,0,0,0.95) 42%, rgba(0,0,0,0.45) 75%, transparent 100%)',
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1027,13 +1045,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="w-full h-full object-cover object-center opacity-85"
               />
             </div>
-            <div className="relative px-5 py-5 sm:px-7 sm:py-6">
-              <h1 className="text-xl sm:text-[26px] font-extrabold tracking-tight text-slate-900 leading-tight">
+            <div className="relative z-10 max-w-full sm:max-w-[62%] px-6 pt-5 pb-12 sm:px-8 sm:pt-6 sm:pb-16">
+              <h1 className="text-xl sm:text-[25px] font-extrabold tracking-tight text-[#17251F] leading-snug break-words">
                 {empFullName ? `${greetWord}, ${empFullName}!` : `${greetWord}!`} <span aria-hidden="true">👋</span>
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              <p className="text-xs sm:text-[13.5px] text-[#55695E] mt-1 leading-relaxed">
                 {compName ? (
-                  <>Here&apos;s what&apos;s happening at <span className="font-semibold text-[#1b4332]">{compName}</span> today.</>
+                  <>Here&apos;s what&apos;s happening at <span className="font-semibold text-[#17251F]">{compName}</span> today.</>
                 ) : (
                   <>Here&apos;s what&apos;s happening today.</>
                 )}
@@ -1860,7 +1878,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         /* ============================================================== */
         /* EMPLOYEE SELF-SERVICE VIEW (HIGH-CLARITY & SIMPLE)             */
         /* ============================================================== */
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* â•â•â• EMPLOYEE STAT CARDS â•â•â• */}
           {(() => {
             const myLeaves = leaves.filter((l) => {
@@ -1989,11 +2007,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             if (loading) {
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 animate-pulse">
+                <div className="-mt-6 sm:-mt-8 px-2.5 sm:px-4 relative z-20 grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3 animate-pulse">
                   {[0, 1, 2, 3, 4].map((idx) => (
-                    <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 p-4 h-24 flex items-center gap-3">
+                    <div key={idx} className="bg-white rounded-[16px] border border-[#E4EDE7] px-3.5 py-2.5 min-h-[84px] sm:min-h-[90px] flex items-center gap-2.5">
                       <div className="w-10 h-10 rounded-full bg-slate-200/70 shrink-0" />
-                      <div className="space-y-2 flex-1">
+                      <div className="space-y-2 flex-1 min-w-0">
                         <div className="h-2.5 w-20 bg-slate-200/70 rounded" />
                         <div className="h-5 w-16 bg-slate-200 rounded" />
                       </div>
@@ -2004,31 +2022,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }
 
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              <div className="-mt-8 sm:-mt-10 px-3 sm:px-5 relative z-20 grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3 items-stretch">
                 {isModuleAllowedForUser('attendance', user) && (
                   <div
                     onClick={() => onNavigateModule('attendance')}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                    className="group bg-white rounded-[16px] sm:rounded-[18px] border border-[#d6ece0] shadow-[0_2px_10px_rgba(16,56,36,0.05)] px-3.5 py-2.5 sm:py-3 min-h-[86px] sm:min-h-[94px] hover:border-[#a6d8bc] hover:shadow-md transition-all cursor-pointer flex items-center gap-2.5 h-full min-w-0"
                   >
-                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
-                      <CalendarCheck className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                      <CalendarCheck className="w-[18px] h-[18px]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-medium text-slate-500 truncate">Today&apos;s Attendance</p>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-[#5c6b63] leading-tight">Today&apos;s Attendance</p>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#9fb0a6] group-hover:text-[#087A50] transition shrink-0 mt-0.5" />
                       </div>
                       {workSessionLoading ? (
-                        <div className="h-6 w-24 bg-slate-100 rounded animate-pulse mt-1" />
+                        <div className="h-5 w-24 bg-slate-100 rounded animate-pulse mt-1" />
                       ) : (
                         <>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="text-lg font-extrabold text-slate-900 leading-tight">{attendanceHeadline}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${attendanceStatusPill.cls}`}>
+                            <span className="text-[16px] sm:text-[17px] font-extrabold text-[#17251F] leading-tight">
+                              {attendanceHeadline}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${
+                              currentStatus === 'working' || currentStatus === 'completed'
+                                ? 'bg-[#E8F5EC] text-[#087A50] border-[#bde4cc]'
+                                : attendanceStatusPill.cls
+                            }`}>
                               {attendanceStatusPill.label}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                          <p className="text-[11px] text-[#64736B] mt-0.5 leading-snug break-words">
                             {checkInLabel ? `Check In: ${checkInLabel}` : 'Not clocked in yet'}
                           </p>
                         </>
@@ -2040,20 +2064,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {isModuleAllowedForUser('attendance', user) && (
                   <div
                     onClick={() => onNavigateModule('attendance')}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                    className="group bg-white rounded-[16px] sm:rounded-[18px] border border-[#d6ece0] shadow-[0_2px_10px_rgba(16,56,36,0.05)] px-3.5 py-2.5 sm:py-3 min-h-[86px] sm:min-h-[94px] hover:border-[#a6d8bc] hover:shadow-md transition-all cursor-pointer flex items-center gap-2.5 h-full min-w-0"
                   >
-                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
-                      <Clock className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                      <Clock className="w-[18px] h-[18px]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-medium text-slate-500 truncate">Work Hours</p>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-[#5c6b63] leading-tight">Work Hours</p>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#9fb0a6] group-hover:text-[#087A50] transition shrink-0 mt-0.5" />
                       </div>
-                      <p className="text-lg font-extrabold text-slate-900 leading-tight mt-0.5 tabular-nums">
+                      <p className="text-[17px] sm:text-[18px] font-extrabold text-[#17251F] leading-tight mt-0.5 tabular-nums">
                         {workSessionLoading ? '...' : workHoursText}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      <p className="text-[11px] text-[#64736B] mt-0.5 leading-snug break-words">
                         {shiftTargetHours !== null ? `Target: ${shiftTargetHours}h` : 'Shift target not set'}
                       </p>
                     </div>
@@ -2063,32 +2087,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {isModuleAllowedForUser('leaves', user) && (
                   <div
                     onClick={() => onNavigateModule('leaves')}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                    className="group bg-white rounded-[16px] sm:rounded-[18px] border border-[#d6ece0] shadow-[0_2px_10px_rgba(16,56,36,0.05)] px-3.5 py-2.5 sm:py-3 min-h-[86px] sm:min-h-[94px] hover:border-[#a6d8bc] hover:shadow-md transition-all cursor-pointer flex items-center gap-2.5 h-full min-w-0"
                   >
-                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
-                      <Umbrella className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
+                        <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
+                        <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35z" />
+                        <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
+                      </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-medium text-slate-500 truncate">Leave Balance</p>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-[#5c6b63] leading-tight">Leave Balance</p>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#9fb0a6] group-hover:text-[#087A50] transition shrink-0 mt-0.5" />
                       </div>
-                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${leaveQuotaError ? 'text-rose-600' : 'text-slate-900'}`}>
+                      <p className={`text-[17px] sm:text-[18px] font-extrabold leading-tight mt-0.5 tabular-nums ${leaveQuotaError ? 'text-[#EF4444]' : 'text-[#17251F]'}`}>
                         {leaveQuotaLoading
                           ? '...'
                           : leaveQuotaError
-                            ? 'Error'
+                            ? 'Unavailable'
                             : !hasLeaveBackendData
-                              ? '—'
+                              ? 'Not set'
                               : `${empLeftDays} Days`}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                        {leaveQuotaError
-                          ? leaveQuotaError
-                          : !leaveQuotaLoading && !hasLeaveBackendData
+                      {leaveQuotaError ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLiveTick((t) => t + 1);
+                          }}
+                          className="text-[11px] text-[#087A50] font-semibold hover:underline mt-0.5 cursor-pointer"
+                        >
+                          Retry &rarr;
+                        </button>
+                      ) : (
+                        <p className="text-[11px] text-[#64736B] mt-0.5 leading-snug break-words">
+                          {!leaveQuotaLoading && !hasLeaveBackendData
                             ? 'Quota not configured'
                             : 'This Year'}
-                      </p>
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2096,22 +2136,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {isModuleAllowedForUser('tasks', user) && (
                   <div
                     onClick={() => onNavigateModule('tasks')}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                    className="group bg-white rounded-[16px] sm:rounded-[18px] border border-[#d6ece0] shadow-[0_2px_10px_rgba(16,56,36,0.05)] px-3.5 py-2.5 sm:py-3 min-h-[86px] sm:min-h-[94px] hover:border-[#a6d8bc] hover:shadow-md transition-all cursor-pointer flex items-center gap-2.5 h-full min-w-0"
                   >
-                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
-                      <ListChecks className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                      <ListChecks className="w-[18px] h-[18px]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-medium text-slate-500 truncate">Pending Tasks</p>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-[#5c6b63] leading-tight">Pending Tasks</p>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#9fb0a6] group-hover:text-[#087A50] transition shrink-0 mt-0.5" />
                       </div>
-                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${empTasksError ? 'text-rose-600' : 'text-slate-900'}`}>
-                        {empTasksLoading ? '...' : empTasksError ? 'Error' : pendingTasksCount}
+                      <p className={`text-[17px] sm:text-[18px] font-extrabold leading-tight mt-0.5 tabular-nums ${empTasksError ? 'text-[#EF4444]' : 'text-[#17251F]'}`}>
+                        {empTasksLoading ? '...' : empTasksError ? 'Unavailable' : pendingTasksCount}
                       </p>
-                      <p className="text-[11px] text-[#1b4332] font-semibold mt-0.5 truncate">
-                        {empTasksError ? 'Unable to load' : 'View Tasks \u2192'}
-                      </p>
+                      {empTasksError ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLiveTick((t) => t + 1);
+                          }}
+                          className="text-[11px] text-[#087A50] font-semibold hover:underline mt-0.5 cursor-pointer"
+                        >
+                          Retry &rarr;
+                        </button>
+                      ) : (
+                        <p className="text-[11px] text-[#087A50] font-semibold mt-0.5 leading-snug">
+                          View Tasks &rarr;
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2119,34 +2172,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {isModuleAllowedForUser('payslips', user) && (
                   <div
                     onClick={() => onNavigateModule('payslips')}
-                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                    className="group min-[420px]:col-span-2 md:col-span-1 bg-white rounded-[16px] sm:rounded-[18px] border border-[#d6ece0] shadow-[0_2px_10px_rgba(16,56,36,0.05)] px-3.5 py-2.5 sm:py-3 min-h-[86px] sm:min-h-[94px] hover:border-[#a6d8bc] hover:shadow-md transition-all cursor-pointer flex items-center gap-2.5 h-full min-w-0"
                   >
-                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                      <FileText className="w-[18px] h-[18px]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-medium text-slate-500 truncate">
-                          Payslip{latestPayslipPeriod ? ` (${latestPayslipPeriod})` : ''}
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-[11px] font-medium text-[#5c6b63] leading-tight">
+                          {latestPayslipPeriod ? `Payslip (${latestPayslipPeriod})` : 'Payslip'}
                         </p>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-[#9fb0a6] group-hover:text-[#087A50] transition shrink-0 mt-0.5" />
                       </div>
-                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${empPayslipsError ? 'text-rose-600' : 'text-slate-900'}`}>
-                        {empPayslipsLoading
-                          ? '...'
-                          : empPayslipsError
-                            ? 'Error'
-                            : latestPayslipAmount !== null
-                              ? `₹${latestPayslipAmount.toLocaleString()}`
-                              : '—'}
-                      </p>
-                      <p className="text-[11px] text-[#1b4332] font-semibold mt-0.5 truncate">
-                        {empPayslipsError
-                          ? 'Unable to load'
-                          : !empPayslipsLoading && !latestPayslip
-                            ? 'No payslip generated'
-                            : 'View Payslip \u2192'}
-                      </p>
+                      {empPayslipsLoading ? (
+                        <div className="h-5 w-20 bg-slate-100 rounded animate-pulse mt-1" />
+                      ) : empPayslipsError ? (
+                        <>
+                          <p className="text-[15px] font-extrabold text-[#EF4444] leading-tight mt-0.5">
+                            Unavailable
+                          </p>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLiveTick((t) => t + 1);
+                            }}
+                            className="text-[11px] text-[#087A50] font-semibold hover:underline mt-0.5 cursor-pointer"
+                          >
+                            Retry &rarr;
+                          </button>
+                        </>
+                      ) : latestPayslipAmount !== null ? (
+                        <>
+                          <p className="text-[17px] sm:text-[18px] font-extrabold text-[#17251F] leading-tight mt-0.5 tabular-nums">
+                            ₹{latestPayslipAmount.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-[#087A50] font-semibold mt-0.5 leading-snug">
+                            View Payslip &rarr;
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[15px] font-bold text-[#17251F] leading-tight mt-0.5">
+                            No Payslip Available
+                          </p>
+                          <p className="text-[11px] text-[#64736B] font-medium mt-0.5 leading-snug">
+                            No record generated yet
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2155,7 +2229,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           })()}
 
           {/* â•â•â• EMPLOYEE PANELS GRID â•â•â• */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
             {/* Row 1 Left: Attendance Today */}
             {isModuleAllowedForUser('attendance', user) && (() => {
               const todayRec = myAllAttendance.find(
@@ -2275,41 +2349,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               );
 
               return (
-                <div className="lg:col-span-6 flex flex-col">
-                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
-                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                <div className="lg:col-span-5 flex flex-col min-w-0">
+                  <div className="bg-white rounded-[18px] border border-[#E4EDE7] shadow-[0_4px_16px_rgba(16,56,36,0.06)] p-4 sm:p-5 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#eef3ef]">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#DDF3E5] text-[#087A4B] flex items-center justify-center shrink-0">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h4l3-7 4 14 3-7h4" />
                           </svg>
                         </span>
-                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                        <h3 className="text-[15px] font-bold text-[#17221D] tracking-tight leading-snug">
                           Attendance Today
                         </h3>
                       </div>
                       <button
                         type="button"
                         onClick={() => onNavigateModule('attendance')}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1 px-3.5 py-1 rounded-full border border-[#dce8e0] bg-[#f5faf7] hover:bg-[#e5f4eb] hover:border-[#b7dec7] hover:text-[#075B3D] text-[11px] font-semibold text-[#2d3b34] transition-colors cursor-pointer shrink-0"
                       >
                         <span>View Details</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="py-5 grid grid-cols-1 sm:grid-cols-12 gap-5 items-center flex-1">
+                    {workSessionLoading ? (
+                      <div className="py-5 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1 animate-pulse">
+                        <div className="sm:col-span-5 flex flex-col items-center justify-center">
+                          <div className="w-26 h-26 rounded-full bg-slate-100" />
+                          <div className="h-4 w-20 bg-slate-100 rounded mt-2.5" />
+                        </div>
+                        <div className="sm:col-span-7 space-y-3.5 pl-4">
+                          <div className="h-8 w-36 bg-slate-100 rounded-lg" />
+                          <div className="h-8 w-40 bg-slate-100 rounded-lg" />
+                          <div className="h-8 w-32 bg-slate-100 rounded-lg" />
+                        </div>
+                      </div>
+                    ) : (
+                    <div className="py-2.5 sm:py-3 grid grid-cols-1 sm:grid-cols-12 gap-3.5 sm:gap-4 items-center flex-1">
                       {/* Left Circular Ring & Current Status */}
-                      <div className="sm:col-span-5 flex flex-col items-center justify-center text-center">
-                        <div className="relative w-28 h-28 flex items-center justify-center">
-                          <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                      <div className="sm:col-span-5 flex flex-col items-center justify-center text-center min-w-0">
+                        <div className="relative w-[108px] h-[108px] flex items-center justify-center">
+                          <svg className="w-[108px] h-[108px] -rotate-90" viewBox="0 0 100 100">
                             <circle
                               cx="50"
                               cy="50"
                               r={ringRadius}
                               fill="none"
-                              stroke="#e2e8f0"
-                              strokeWidth="7"
+                              stroke="#e5ede8"
+                              strokeWidth="7.5"
                             />
                             <circle
                               cx="50"
@@ -2320,10 +2407,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 currentStatus === 'on_break'
                                   ? '#d97706'
                                   : isCheckedIn
-                                    ? '#16a34a'
+                                    ? '#159653'
                                     : '#cbd5e1'
                               }
-                              strokeWidth="7"
+                              strokeWidth="7.5"
                               strokeLinecap="round"
                               strokeDasharray={ringCirc}
                               strokeDashoffset={isCheckedIn && progressPct === 0 ? ringCirc * 0.85 : ringOffset}
@@ -2334,12 +2421,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             className={`absolute w-12 h-12 rounded-full flex items-center justify-center shadow-2xs ${currentStatus === 'on_break'
                               ? 'bg-amber-600 text-white'
                               : isCheckedIn
-                                ? 'bg-[#15803d] text-white'
-                                : 'bg-slate-100 text-slate-400'
+                                ? 'bg-[#087A4B] text-white'
+                                : 'bg-[#f1f5f3] text-[#94a3b8]'
                               }`}
                           >
                             {isCheckedIn ? (
-                              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.7}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             ) : (
@@ -2348,31 +2435,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
                         </div>
 
-                        <p className="text-[15px] font-bold text-slate-900 mt-2.5 leading-tight">
+                        <p className="text-[14px] font-bold text-[#17221D] mt-2 leading-tight">
                           {statusHeading}
                         </p>
-                        <p className="text-xs text-slate-500 mt-0.5">{statusSubtext}</p>
+                        <p className="text-[11px] text-[#64736B] mt-0.5 leading-snug">{statusSubtext}</p>
                       </div>
 
                       {/* Right Vertical Timeline */}
-                      <div className="sm:col-span-7 relative pl-7 space-y-5">
+                      <div className="sm:col-span-7 relative pl-8 space-y-3.5 min-w-0">
                         <div
-                          className="absolute left-[11px] top-3 bottom-3 w-[1.5px] bg-slate-200"
+                          className="absolute left-[11px] top-3 bottom-4 w-[1.5px] bg-[#dde6df]"
                           aria-hidden="true"
                         />
 
                         {/* Check In */}
                         <div className="relative flex flex-col">
                           <span
-                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${checkInStr ? 'bg-[#15803d] text-white' : 'bg-slate-200 text-slate-500'
+                            className={`absolute -left-8 top-0 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${checkInStr ? 'bg-[#087A4B] text-white' : 'bg-[#eef3f0] text-[#64736B]'
                               }`}
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.7}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span>
-                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Check In</span>
-                          <span className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                          <span className="text-[13px] font-bold text-[#17221D] leading-tight">Check In</span>
+                          <span className="text-[11.5px] text-[#64736B] mt-0.5 tabular-nums break-words">
                             {checkInStr || 'Not clocked in yet'}
                           </span>
                         </div>
@@ -2380,15 +2467,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {/* Break */}
                         <div className="relative flex flex-col">
                           <span
-                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'on_break'
+                            className={`absolute -left-8 top-0 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'on_break'
                               ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                              : 'bg-slate-200 text-slate-500'
+                              : 'bg-[#eef3f0] text-[#4b5c53]'
                               }`}
                           >
                             <Clock className="w-3.5 h-3.5" />
                           </span>
-                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Break</span>
-                          <span className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                          <span className="text-[13px] font-bold text-[#17221D] leading-tight">Break</span>
+                          <span className="text-[11.5px] text-[#64736B] mt-0.5 tabular-nums break-words">
                             {breakDisplay}
                           </span>
                         </div>
@@ -2396,16 +2483,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {/* Check Out */}
                         <div className="relative flex flex-col">
                           <span
-                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'completed'
-                              ? 'bg-[#15803d] text-white'
-                              : 'bg-slate-200 text-slate-400'
+                            className={`absolute -left-8 top-0 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'completed'
+                              ? 'bg-[#087A4B] text-white'
+                              : 'bg-[#eef3f0] text-[#17221D]'
                               }`}
                           >
                             <span className="w-2 h-2 rounded-full bg-current" />
                           </span>
-                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Check Out</span>
+                          <span className="text-[13px] font-bold text-[#17221D] leading-tight">Check Out</span>
                           <span
-                            className={`text-xs mt-0.5 tabular-nums ${checkOutStr === 'Pending' ? 'text-amber-600 font-medium' : 'text-slate-500'
+                            className={`text-[11.5px] mt-0.5 tabular-nums break-words ${checkOutStr === 'Pending' ? 'text-[#64736B] font-medium' : 'text-[#64736B]'
                               }`}
                           >
                             {checkOutStr}
@@ -2413,30 +2500,84 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                       </div>
                     </div>
+                    )}
 
                     {/* Subtle quick punch footer when user has punch permission */}
                     {canUserPunch(user) && currentStatus !== 'completed' && (() => {
                       const isActiveShift = currentStatus === 'working' || currentStatus === 'on_break';
+                      const isOnBreak = currentStatus === 'on_break';
                       return (
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                          <span className="text-slate-500">
-                            {isActiveShift
-                              ? `Live timer: ${liveWorkedHMS}`
-                              : 'Tap Clock In to start recording work hours.'}
+                        <div className="pt-3 border-t border-[#eef3ef] flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="inline-flex items-center gap-2 text-[#5c6b63] font-medium tabular-nums">
+                            {isActiveShift && (
+                              <span
+                                className={`w-2 h-2 rounded-full animate-pulse shrink-0 ${
+                                  isOnBreak ? 'bg-amber-500' : 'bg-[#159653]'
+                                }`}
+                              />
+                            )}
+                            <span>
+                              {isOnBreak
+                                ? `On break: ${liveBreakHMS}`
+                                : isActiveShift
+                                  ? `Live timer: ${liveWorkedHMS}`
+                                  : 'Tap Clock In to start recording work hours.'}
+                            </span>
                           </span>
                           {isActiveShift ? (
-                            <button
-                              type="button"
-                              onClick={() => setCheckOutModalOpen(true)}
-                              className="px-3 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold transition cursor-pointer shrink-0"
-                            >
-                              Clock Out
-                            </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                id="btn-dashboard-break-toggle"
+                                type="button"
+                                disabled={actionLoading}
+                                onClick={() => {
+                                  if (isOnBreak) {
+                                    void handleResumeWorkAction();
+                                  } else {
+                                    void handleTakeBreakAction();
+                                  }
+                                }}
+                                className={`px-3.5 py-1.5 rounded-full border text-[11.5px] font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${
+                                  isOnBreak
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
+                                    : 'bg-white hover:bg-[#f4f9f6] text-[#17221D] border-[#d6e2da] hover:border-[#b7dec7] shadow-2xs'
+                                }`}
+                                title={
+                                  isOnBreak
+                                    ? 'End break and resume work timer'
+                                    : 'Pause work timer and start break'
+                                }
+                              >
+                                {actionLoading
+                                  ? isOnBreak
+                                    ? 'Breaking Out...'
+                                    : 'Breaking In...'
+                                  : isOnBreak
+                                    ? 'Break Out'
+                                    : 'Break In'}
+                              </button>
+                              <button
+                                id="btn-dashboard-clock-out"
+                                type="button"
+                                disabled={actionLoading || isOnBreak}
+                                onClick={() => setCheckOutModalOpen(true)}
+                                className="px-4 py-1.5 rounded-full bg-[#075B3D] hover:bg-[#05452e] text-white border border-[#075B3D] shadow-2xs text-[11.5px] font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                title={
+                                  isOnBreak
+                                    ? 'Break Out first before clocking out'
+                                    : 'Clock Out'
+                                }
+                              >
+                                Clock Out
+                              </button>
+                            </div>
                           ) : (
                             <button
+                              id="btn-dashboard-clock-in"
                               type="button"
+                              disabled={actionLoading}
                               onClick={onOpenClockModal}
-                              className="px-3 py-1 rounded-lg bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-semibold transition cursor-pointer shrink-0"
+                              className="px-4 py-1.5 rounded-full bg-[#075B3D] hover:bg-[#05452e] text-white text-[11.5px] font-semibold shadow-2xs transition cursor-pointer disabled:opacity-50 shrink-0"
                             >
                               Clock In
                             </button>
@@ -2450,7 +2591,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             })()}
 
             {/* Row 1 Right: Upcoming Calendar */}
-            <div className="lg:col-span-6 flex flex-col">
+            <div className="lg:col-span-7 flex flex-col min-w-0">
               {(() => {
                 const todayObj = new Date();
                 const todayWeekday = todayObj.toLocaleDateString('en-US', { weekday: 'short' });
@@ -2486,55 +2627,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     : 'Enjoy your day!';
 
                 return (
-                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
-                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                  <div className="bg-white rounded-[18px] border border-[#E4EDE7] shadow-[0_4px_16px_rgba(16,56,36,0.06)] p-4 sm:p-5 flex flex-col justify-between h-full min-w-0">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#eef3ef]">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#DDF3E5] text-[#087A4B] flex items-center justify-center shrink-0">
                           <Calendar className="w-4 h-4" />
                         </span>
-                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                        <h3 className="text-[15px] font-bold text-[#17221D] tracking-tight leading-snug">
                           Upcoming Calendar
                         </h3>
                       </div>
                       <button
                         type="button"
                         onClick={() => onNavigateModule('calendar')}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1 px-3.5 py-1 rounded-full border border-[#dce8e0] bg-[#f5faf7] hover:bg-[#e5f4eb] hover:border-[#b7dec7] hover:text-[#075B3D] text-[11px] font-semibold text-[#2d3b34] transition-colors cursor-pointer shrink-0"
                       >
                         <span>View Calendar</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="mt-4 space-y-4 flex-1 flex flex-col justify-between">
+                    <div className="mt-3 space-y-3 flex-1 flex flex-col justify-between">
                       {/* Today highlight box */}
-                      <div className="relative rounded-xl bg-gradient-to-r from-slate-50 via-[#edf7f0]/80 to-[#d8f3dc]/60 border border-slate-200/70 p-3.5 flex items-center justify-between gap-3 overflow-hidden">
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="w-14 h-16 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex flex-col items-center justify-center shrink-0">
-                            <span className="text-[10px] font-semibold text-slate-500 leading-none">
+                      <div className="relative rounded-2xl bg-gradient-to-r from-[#f8fbf9] via-[#edf8f1] to-[#d5efe0] border border-[#dce8e0] px-3.5 py-2.5 sm:py-3 flex items-center justify-between gap-3 overflow-hidden">
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1 relative z-10">
+                          <div className="w-13 h-15 rounded-2xl bg-white border border-[#e3ece6] shadow-2xs flex flex-col items-center justify-center shrink-0">
+                            <span className="text-[10px] font-semibold text-[#5c6b63] leading-none">
                               {todayWeekday}
                             </span>
-                            <span className="text-xl font-extrabold text-slate-900 leading-tight mt-0.5 tabular-nums">
+                            <span className="text-[21px] font-extrabold text-[#17221D] leading-tight mt-0.5 tabular-nums">
                               {todayDayNum}
                             </span>
-                            <span className="text-[10px] font-semibold text-slate-500 leading-none">
+                            <span className="text-[10px] font-semibold text-[#5c6b63] leading-none">
                               {todayMonthShort}
                             </span>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-900 truncate">{todayBannerTitle}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 truncate">{todayBannerSub}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[15px] font-bold text-[#17221D] leading-snug break-words">{todayBannerTitle}</p>
+                            <p className="text-xs text-[#64736B] mt-0.5 leading-snug break-words">{todayBannerSub}</p>
                           </div>
                         </div>
 
-                        <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-xl bg-white/80 border border-emerald-200/60 text-[#2d6a4f] shrink-0 shadow-2xs">
-                          <CalendarCheck className="w-6 h-6" />
-                        </div>
+                        {/* Soft Mint Calendar & Trees Landscape SVG anchored cleanly */}
+                        <svg
+                          viewBox="0 0 140 84"
+                          className="hidden sm:block -mr-3.5 -mb-3 w-[124px] h-[78px] shrink-0 select-none pointer-events-none"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <path d="M6 84C38 58 72 56 140 42V84H6Z" fill="#9bd7b3" fillOpacity="0.48" />
+                          <rect x="38" y="14" width="66" height="54" rx="9" fill="#ffffff" stroke="#cde4d5" strokeWidth="1.5" />
+                          <path d="M38 23C38 18.029 42.029 14 47 14H95C99.971 14 104 18.029 104 23V28H38V23Z" fill="#087A50" />
+                          <rect x="50" y="9" width="4" height="9" rx="2" fill="#065f3d" />
+                          <rect x="88" y="9" width="4" height="9" rx="2" fill="#065f3d" />
+                          <rect x="47" y="35" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <rect x="60" y="35" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <rect x="73" y="35" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <rect x="86" y="35" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <rect x="47" y="46" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <rect x="60" y="46" width="9" height="7" rx="2" fill="#159653" />
+                          <rect x="73" y="46" width="9" height="7" rx="2" fill="#dcebe2" />
+                          <circle cx="90.5" cy="49.5" r="4.5" fill="#f59e0b" fillOpacity="0.9" />
+                          <ellipse cx="22" cy="59" rx="7" ry="12" fill="#2d6a4f" fillOpacity="0.72" />
+                          <rect x="21" y="67" width="2" height="11" fill="#176B4D" />
+                          <ellipse cx="118" cy="56" rx="8" ry="13" fill="#43ae7d" fillOpacity="0.78" />
+                          <rect x="117" y="65" width="2" height="11" fill="#176B4D" />
+                        </svg>
                       </div>
 
                       {/* Upcoming Holidays list */}
                       <div>
-                        <p className="text-xs font-bold text-slate-800 mb-2">Upcoming Holidays</p>
+                        <p className="text-[12.5px] font-bold text-[#17221D] mb-2">Upcoming Holidays</p>
                         {holidaysLoading ? (
                           <div className="space-y-2 animate-pulse">
                             {[0, 1].map((idx) => (
@@ -2542,11 +2705,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             ))}
                           </div>
                         ) : holidaysError ? (
-                          <div className="py-4 px-3 rounded-xl bg-rose-50/70 border border-rose-200 text-center text-xs text-rose-700">
-                            {holidaysError}
+                          <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 flex items-center justify-between gap-3">
+                            <span>{holidaysError}</span>
+                            <button
+                              type="button"
+                              onClick={() => setLiveTick((t) => t + 1)}
+                              className="px-2.5 py-1 rounded-full bg-white border border-rose-200 text-rose-700 font-semibold hover:bg-rose-50 cursor-pointer shrink-0"
+                            >
+                              Retry
+                            </button>
                           </div>
                         ) : upcomingHolidays.length === 0 ? (
-                          <div className="py-4 px-3 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                          <div className="py-4 px-3 rounded-xl bg-[#f7faf8] border border-[#e6efe9] text-center text-xs text-[#64736B]">
                             No upcoming holidays scheduled.
                           </div>
                         ) : (
@@ -2583,19 +2753,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               return (
                                 <div
                                   key={h.id || `${h.name}-${h.date}`}
-                                  className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 transition-colors"
+                                  className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 rounded-xl bg-[#f8fbf9] border border-[#e7efe9] hover:border-[#b7dec7] transition-colors"
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <span className="w-8 h-8 rounded-lg bg-emerald-50 text-[#1b4332] border border-emerald-100 flex items-center justify-center shrink-0">
-                                      <Calendar className="w-4 h-4" />
+                                  <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+                                    <span className="w-8 h-8 rounded-lg bg-[#E6F5EC] text-[#087A4B] flex items-center justify-center shrink-0">
+                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2L6.5 10h3.1L5 16.5h4.2L8 20h3v2h2v-2h3l-1.2-3.5H19L14.4 10h3.1L12 2z" />
+                                      </svg>
                                     </span>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-bold text-slate-900 truncate">{h.name}</p>
-                                      <p className="text-[11px] text-slate-500 truncate">{dateLabel}</p>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[12.5px] font-bold text-[#17221D] leading-snug break-words">{h.name}</p>
+                                      <p className="text-[11px] text-[#64736B] mt-0.5 leading-snug break-words">{dateLabel}</p>
                                     </div>
                                   </div>
                                   {daysPill && (
-                                    <span className="px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/80 text-[#1b4332] text-[10px] font-semibold shrink-0">
+                                    <span className="px-3 py-1 rounded-full bg-[#DDF3E5] text-[#087A4B] border border-[#c6e8d2] text-[10.5px] font-semibold shrink-0 whitespace-nowrap self-center">
                                       {daysPill}
                                     </span>
                                   )}
@@ -2625,90 +2797,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               const totalCount = empTasks.length;
 
               return (
-                <div className="lg:col-span-6 flex flex-col">
-                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
-                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                <div className="lg:col-span-6 flex flex-col min-w-0">
+                  <div className="bg-white rounded-[18px] border border-[#E4EDE7] shadow-[0_4px_16px_rgba(16,56,36,0.06)] p-4 sm:p-5 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#eef3ef]">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
-                          <ListChecks className="w-4 h-4" />
+                        <span className="w-7 h-7 rounded-lg bg-[#087A4B] text-white flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
                         </span>
-                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                        <h3 className="text-[15px] font-bold text-[#17221D] tracking-tight leading-snug">
                           Task Summary
                         </h3>
                       </div>
                       <button
                         type="button"
                         onClick={() => onNavigateModule('tasks')}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1 px-3.5 py-1 rounded-full border border-[#dce8e0] bg-[#f5faf7] hover:bg-[#e5f4eb] hover:border-[#b7dec7] hover:text-[#075B3D] text-[11px] font-semibold text-[#2d3b34] transition-colors cursor-pointer shrink-0"
                       >
                         <span>View All Tasks</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="mt-4 flex-1 flex flex-col justify-center">
+                    <div className="mt-3 flex-1 flex flex-col justify-center">
                       {empTasksLoading ? (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-pulse">
                           {[0, 1, 2, 3].map((idx) => (
-                            <div key={idx} className="h-24 rounded-xl bg-slate-100" />
+                            <div key={idx} className="h-20 rounded-xl bg-slate-100" />
                           ))}
                         </div>
                       ) : empTasksError ? (
-                        <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 text-center">
-                          {empTasksError}
+                        <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 flex items-center justify-between gap-3">
+                          <span>{empTasksError}</span>
+                          <button
+                            type="button"
+                            onClick={() => setLiveTick((t) => t + 1)}
+                            className="px-2.5 py-1 rounded-full bg-white border border-rose-200 text-rose-700 font-semibold hover:bg-rose-50 cursor-pointer shrink-0"
+                          >
+                            Retry
+                          </button>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                           <button
                             type="button"
                             onClick={() => onNavigateModule('tasks')}
-                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-rose-200 hover:bg-rose-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                            className="p-3 rounded-xl bg-[#fef6f6] border border-[#f9e4e4] hover:border-[#f3c6c6] hover:bg-[#fdeeee] transition-all text-center flex flex-col items-center justify-center cursor-pointer min-w-0"
                           >
-                            <span className="w-7 h-7 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-1.5">
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <span className="w-7 h-7 rounded-full bg-[#fde2e2] text-[#e11d48] flex items-center justify-center mb-1.5 shrink-0">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="12" r="9" opacity="0.22" />
+                                <path d="M12 7.5a1 1 0 011 1v4.2a1 1 0 11-2 0V8.5a1 1 0 011-1zm0 8.5a1.15 1.15 0 110 2.3 1.15 1.15 0 010-2.3z" />
                               </svg>
                             </span>
-                            <span className="text-[11px] font-medium text-slate-500">High Priority</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{highCount}</span>
+                            <span className="text-[11px] font-medium text-[#5c6b63] leading-snug">High Priority</span>
+                            <span className="text-[22px] font-extrabold text-[#17221D] mt-0.5 tabular-nums leading-tight">{highCount}</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => onNavigateModule('tasks')}
-                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-amber-200 hover:bg-amber-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                            className="p-3 rounded-xl bg-[#fffaf0] border border-[#faeccc] hover:border-[#f2d699] hover:bg-[#fef5e4] transition-all text-center flex flex-col items-center justify-center cursor-pointer min-w-0"
                           >
-                            <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+                            <span className="w-7 h-7 rounded-full bg-[#fef0c7] text-[#d97706] flex items-center justify-center mb-1.5 shrink-0">
                               <Clock className="w-3.5 h-3.5" />
                             </span>
-                            <span className="text-[11px] font-medium text-slate-500">Medium Priority</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{mediumCount}</span>
+                            <span className="text-[11px] font-medium text-[#5c6b63] leading-snug">Medium Priority</span>
+                            <span className="text-[22px] font-extrabold text-[#17221D] mt-0.5 tabular-nums leading-tight">{mediumCount}</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => onNavigateModule('tasks')}
-                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                            className="p-3 rounded-xl bg-[#f4fbf6] border border-[#d9f0e1] hover:border-[#b7e2c7] hover:bg-[#eaf7ef] transition-all text-center flex flex-col items-center justify-center cursor-pointer min-w-0"
                           >
-                            <span className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5">
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <span className="w-7 h-7 rounded-full bg-[#d7f3e2] text-[#15803d] flex items-center justify-center mb-1.5 shrink-0">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.7}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             </span>
-                            <span className="text-[11px] font-medium text-slate-500">Low Priority</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{lowCount}</span>
+                            <span className="text-[11px] font-medium text-[#5c6b63] leading-snug">Low Priority</span>
+                            <span className="text-[22px] font-extrabold text-[#17221D] mt-0.5 tabular-nums leading-tight">{lowCount}</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => onNavigateModule('tasks')}
-                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                            className="p-3 rounded-xl bg-[#f4f8fe] border border-[#dfebfb] hover:border-[#bfd6f7] hover:bg-[#ebf3fe] transition-all text-center flex flex-col items-center justify-center cursor-pointer min-w-0"
                           >
-                            <span className="w-7 h-7 rounded-full bg-emerald-50 text-[#1b4332] border border-emerald-200/70 flex items-center justify-center mb-1.5">
+                            <span className="w-7 h-7 rounded-full bg-[#dbeafe] text-[#2563eb] flex items-center justify-center mb-1.5 shrink-0">
                               <ListChecks className="w-3.5 h-3.5" />
                             </span>
-                            <span className="text-[11px] font-medium text-slate-500">Total Tasks</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{totalCount}</span>
+                            <span className="text-[11px] font-medium text-[#5c6b63] leading-snug">Total Tasks</span>
+                            <span className="text-[22px] font-extrabold text-[#17221D] mt-0.5 tabular-nums leading-tight">{totalCount}</span>
                           </button>
                         </div>
                       )}
@@ -2719,30 +2901,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             })()}
 
             {/* Row 2 Right: Announcements */}
-            <div className="lg:col-span-6 flex flex-col">
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
-                <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+            <div className="lg:col-span-6 flex flex-col min-w-0">
+              <div className="bg-white rounded-[18px] border border-[#E4EDE7] shadow-[0_3px_12px_rgba(20,60,40,0.06)] p-4 sm:p-5 flex flex-col justify-between h-full">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#eef3ef]">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-[#DDF3E5] text-[#087A4B] flex items-center justify-center shrink-0">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                       </svg>
                     </span>
-                    <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                    <h3 className="text-[15px] font-bold text-[#17221D] tracking-tight leading-snug">
                       Announcements
                     </h3>
                   </div>
                   <button
                     type="button"
                     onClick={() => onNavigateModule('announcements')}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1 px-3.5 py-1 rounded-full border border-[#dce8e0] bg-[#f5faf7] hover:bg-[#e5f4eb] hover:border-[#b7dec7] hover:text-[#075B3D] text-[11px] font-semibold text-[#2d3b34] transition-colors cursor-pointer shrink-0"
                   >
                     <span>View All</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
 
-                <div className="mt-4 flex-1 flex flex-col justify-center">
+                <div className="mt-3 flex-1 flex flex-col justify-center">
                   {announcementsLoading ? (
                     <div className="space-y-2.5 animate-pulse">
                       {[0, 1].map((idx) => (
@@ -2750,11 +2932,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       ))}
                     </div>
                   ) : announcementsError ? (
-                    <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 text-center">
-                      {announcementsError}
+                    <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 flex items-center justify-between gap-3">
+                      <span>{announcementsError}</span>
+                      <button
+                        type="button"
+                        onClick={() => setLiveTick((t) => t + 1)}
+                        className="px-2.5 py-1 rounded-full bg-white border border-rose-200 text-rose-700 font-semibold hover:bg-rose-50 cursor-pointer shrink-0"
+                      >
+                        Retry
+                      </button>
                     </div>
                   ) : announcements.length === 0 ? (
-                    <div className="py-6 px-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                    <div className="py-6 px-4 rounded-xl bg-[#f7faf8] border border-[#e6efe9] text-center text-xs text-[#64736B]">
                       No announcements posted yet.
                     </div>
                   ) : (
@@ -2777,39 +2966,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             key={item.id || `${item.title}-${idx}`}
                             type="button"
                             onClick={() => onNavigateModule('announcements')}
-                            className={`w-full text-left flex items-start justify-between gap-3 p-3 rounded-xl border transition-all cursor-pointer ${idx === 0
-                              ? 'bg-[#edf7f0]/75 border-emerald-200/70 hover:border-emerald-300'
-                              : 'bg-slate-50/70 border-slate-100 hover:border-slate-200'
+                            className={`w-full text-left flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 p-3 rounded-xl border transition-all cursor-pointer ${idx === 0
+                              ? 'bg-[#ebf7ef] border-[#cfead8] hover:border-[#9fd5b4]'
+                              : 'bg-[#f8fbf9] border-[#e7efe9] hover:border-[#cddfd3]'
                               }`}
                           >
-                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                               <span
-                                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${idx === 0
-                                  ? 'bg-[#d8f3dc] text-[#1b4332]'
-                                  : 'bg-white border border-slate-200 text-slate-500'
+                                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${idx === 0
+                                  ? 'bg-[#c7e9d3] text-[#087A4B]'
+                                  : 'bg-white border border-[#dce6df] text-[#1f2937]'
                                   }`}
                               >
                                 {idx === 0 ? (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.5 8.5v7a3.5 3.5 0 000-7zM4 10a2 2 0 012-2h3.6l5.9-3.6A1 1 0 0117 5.25v13.5a1 1 0 01-1.5.85L9.6 16H9v3a1 1 0 11-2 0v-3H6a2 2 0 01-2-2v-4z" />
                                   </svg>
                                 ) : (
                                   <FileText className="w-4 h-4" />
                                 )}
                               </span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-900 truncate">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[12.5px] font-bold text-[#17221D] leading-snug break-words">
                                   {item.title || 'Company Announcement'}
                                 </p>
                                 {messageText && (
-                                  <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
+                                  <p className="text-[11px] text-[#5c6b63] mt-0.5 leading-snug line-clamp-2 break-words">
                                     {messageText}
                                   </p>
                                 )}
                               </div>
                             </div>
                             {dateStr && (
-                              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200/80 text-[10px] font-medium text-slate-600 shrink-0 whitespace-nowrap">
+                              <span className="px-2.5 py-1 rounded-full bg-white border border-[#dce6df] text-[10.5px] font-semibold text-[#334139] shrink-0 whitespace-nowrap">
                                 {dateStr}
                               </span>
                             )}

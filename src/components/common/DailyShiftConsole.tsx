@@ -97,33 +97,18 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
   // Ultra-compact banner layout for dashboard header without unwanted vertical height or gaps
   if (variant === 'banner') {
     return (
-      <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-xs px-4 py-3 sm:px-5 sm:py-3 ${className}`}>
+      <div className={`bg-white rounded-[20px] border border-[#d6ece0] shadow-sm px-5 py-4 ${className}`}>
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4">
           {/* Left: Status Icon, Title & Dynamic Subtitle */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${status === 'working'
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : status === 'on_break'
-                    ? 'bg-amber-50 text-amber-700'
-                    : status === 'completed'
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-emerald-50 text-emerald-700'
-                }`}
-            >
-              {status === 'on_break' ? (
-                <Coffee className="w-4 h-4" />
-              ) : status === 'completed' ? (
-                <Check className="w-4 h-4 stroke-[2.5]" />
-              ) : (
-                <Clock className="w-4 h-4" />
-              )}
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-[#E8F5EC] text-[#087A50]">
+              <Clock className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900 leading-tight">
+              <h3 className="text-[15px] sm:text-base font-bold text-[#17251F] leading-tight">
                 Daily Shift Clock
               </h3>
-              <p className="text-xs text-slate-500 truncate mt-0.5">
+              <p className="text-xs text-[#5c6b63] truncate mt-0.5 font-medium">
                 {status === 'working'
                   ? `In at ${formatTimeStr(activeSession?.startTime) || 'Recently'} • Target: 9.0h`
                   : status === 'on_break'
@@ -136,45 +121,26 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
           </div>
 
           {/* Center: Dual Timers in sleek compact badges */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
             {/* Work Timer Badge */}
-            <div
-              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${status === 'working'
-                  ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-                  : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}
-            >
-              <div className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Work</span>
-              </div>
-              <span className="font-mono font-bold text-sm text-slate-900">
+            <div className="px-4 py-2 rounded-full border flex items-center gap-2 bg-[#E8F5EC] border-[#bde4cc] text-[#087A50]">
+              <Play className="w-3.5 h-3.5 fill-[#087A50] text-[#087A50] shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-[#087A50]">WORK</span>
+              <span className="font-mono font-bold text-sm text-[#17251F]">
                 {status === 'completed'
                   ? '00:00:00'
                   : liveWorkedHMS || '00:00:00'}
               </span>
               {status === 'working' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              )}
-              {status === 'completed' && (
-                <span className="text-[10px] text-slate-400 font-medium">
-                  ({todaySummary?.totalDurationFormatted || totalWorkedHMS || '00:00:00'})
-                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#087A50] animate-pulse" />
               )}
             </div>
 
             {/* Break Timer Badge */}
-            <div
-              className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${status === 'on_break'
-                  ? 'bg-amber-50/80 border-amber-300 text-amber-950'
-                  : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}
-            >
-              <div className="flex items-center gap-1">
-                <Coffee className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Break</span>
-              </div>
-              <span className="font-mono font-bold text-sm text-slate-900">
+            <div className="px-4 py-2 rounded-full border flex items-center gap-2 bg-slate-50/90 border-slate-200/90 text-slate-700">
+              <Coffee className="w-3.5 h-3.5 text-[#5c6b63] shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-[#5c6b63]">BREAK</span>
+              <span className="font-mono font-bold text-sm text-[#17251F]">
                 {status === 'completed'
                   ? '00:00:00'
                   : liveBreakHMS || '00:00:00'}
@@ -182,25 +148,17 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
               {status === 'on_break' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               )}
-              {status === 'completed' && (
-                <span className="text-[10px] text-slate-400 font-medium">
-                  ({todaySummary?.totalBreakFormatted || totalBreakHMS || '00:00:00'})
-                </span>
-              )}
             </div>
           </div>
 
           {/* Right: Compact Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             {status === 'not_started' && (
               <button
                 id="btn-shift-check-in-banner"
                 onClick={() => checkIn()}
                 disabled={actionLoading}
-                className={`px-3.5 py-2 rounded-xl active:scale-95 font-bold text-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap ${!shiftCheck.isAllowed
-                    ? 'bg-rose-700 hover:bg-rose-800 text-white'
-                    : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white'
-                  }`}
+                className="px-5 py-2.5 rounded-xl bg-[#087A50] hover:bg-[#066140] text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs whitespace-nowrap"
               >
                 <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                 <span>{actionLoading ? 'Starting...' : 'Clock In Now'}</span>
@@ -213,18 +171,18 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   id="btn-shift-take-break-banner"
                   onClick={() => takeBreak()}
                   disabled={actionLoading}
-                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#E8F5EC] text-[#087A50] font-semibold text-xs border border-[#087A50] transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
                 >
-                  <Coffee className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <Coffee className="w-4 h-4 text-[#087A50] shrink-0" />
                   <span>{actionLoading ? 'Pausing...' : 'Take Break'}</span>
                 </button>
                 <button
                   id="btn-shift-check-out-banner"
                   onClick={() => checkOut()}
                   disabled={actionLoading}
-                  className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-300 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#FEE2E2] hover:bg-[#FCDADA] text-[#DC2626] font-bold text-xs border border-[#FCA5A5] transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
                 >
-                  <Square className="w-3.5 h-3.5 fill-current text-rose-600 shrink-0" />
+                  <Square className="w-3.5 h-3.5 fill-current text-[#DC2626] shrink-0" />
                   <span>{actionLoading ? 'Clocking out...' : 'Clock Out'}</span>
                 </button>
               </>
@@ -236,7 +194,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   id="btn-shift-resume-work-banner"
                   onClick={() => resumeWork()}
                   disabled={actionLoading}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-[#087A50] hover:bg-[#066140] text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                   <span>{actionLoading ? 'Resuming...' : 'Resume Work'}</span>
@@ -245,7 +203,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                   id="btn-shift-check-out-disabled-banner"
                   disabled={true}
                   title="Clock-out is blocked during break. Please resume work first."
-                  className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                  className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
                 >
                   <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>Clock Out</span>
@@ -254,7 +212,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
             )}
 
             {status === 'completed' && (
-              <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs">
+              <span className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs border border-slate-200">
                 Clocked out for today
               </span>
             )}

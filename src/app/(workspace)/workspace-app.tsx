@@ -529,7 +529,7 @@ export function WorkspaceApp() {
           unreadChatCount={unreadChatCount}
         />
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 w-full min-w-0 [scrollbar-width:thin] bg-transparent relative z-10">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-5 lg:px-6 py-4 sm:py-5 pb-28 sm:pb-6 w-full min-w-0 [scrollbar-width:thin] bg-transparent relative z-10">
           <div key={activeModule} className="max-w-[1700px] mx-auto animate-module-fade-in">
             {activeModule === 'dashboard' && (
               <DashboardView

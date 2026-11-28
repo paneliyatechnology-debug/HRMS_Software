@@ -5,6 +5,8 @@ import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import {
   Calendar as CalendarIcon,
+  CalendarCheck,
+  BarChart2,
   Plus,
   Download,
   Star,
@@ -14,6 +16,7 @@ import {
   Plane,
   Home,
   ChevronDown,
+  ChevronUp,
   Clock,
   User,
   List,
@@ -51,6 +54,7 @@ import {
   getTodayRecordForEmployee,
   getLiveActiveSeconds,
   getLiveBreakSeconds,
+  parseBreakTimeToSeconds,
   formatSecondsToWords,
   formatSecondsToHMS,
   getTodayDateString,
@@ -107,6 +111,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     liveWorkedHMS: sessionWorkedHMS,
     liveBreakWords: sessionBreakWords,
     liveBreakHMS: sessionBreakHMS,
+    elapsedSeconds: sessionElapsedSeconds,
+    breakSeconds: sessionBreakSeconds,
+    totalWorkedSeconds: sessionTotalWorkedSeconds,
+    totalBreakSeconds: sessionTotalBreakSeconds,
     totalWorkedHMS,
     totalBreakHMS,
     activeSession,
@@ -246,6 +254,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [detailEmpStatusData, setDetailEmpStatusData] = useState<any | null>(null);
   const [expandedPunchId, setExpandedPunchId] = useState<string | null>(null);
   const [expandedAdminEmpId, setExpandedAdminEmpId] = useState<string | null>(null);
+  const [selectedRecordKey, setSelectedRecordKey] = useState<string | null>(null);
+  const [isPunchLogsExpanded, setIsPunchLogsExpanded] = useState(false);
 
   const hasLoadedDataRef = useRef(false);
   useEffect(() => {
@@ -1301,6 +1311,129 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     return '00:00:00';
   };
 
+  const parseColonTimeToSeconds = (str?: string): number => {
+    if (!str || typeof str !== 'string') return 0;
+    const parts = str.trim().split(':').map(Number);
+    if (parts.some((n) => isNaN(n))) return 0;
+    if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return 0;
+  };
+
+  const formatSecondsToHhMm = (secs: number): string => {
+    if (!secs || isNaN(secs) || secs < 0) return '00h 00m';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+  };
+
+  const getRecordBreakSeconds = (rec: AttendanceRecord): number => {
+    const mine = isMyAttendanceRecord(rec);
+    const isToday = rec.date === getTodayDateString();
+    if (mine && isToday) {
+      if (typeof sessionTotalBreakSeconds === 'number' && sessionTotalBreakSeconds > 0) {
+        return sessionTotalBreakSeconds;
+      }
+      if (typeof sessionBreakSeconds === 'number' && sessionBreakSeconds > 0) {
+        return sessionBreakSeconds;
+      }
+      if (totalBreakHMS && totalBreakHMS !== '00:00:00') {
+        const parsed = parseColonTimeToSeconds(totalBreakHMS);
+        if (parsed > 0) return parsed;
+      }
+      if (sessionBreakHMS && sessionBreakHMS !== '00:00:00') {
+        const parsed = parseColonTimeToSeconds(sessionBreakHMS);
+        if (parsed > 0) return parsed;
+      }
+      if (rec.formattedTotalBreak) {
+        const parsed = parseBreakTimeToSeconds(rec.formattedTotalBreak);
+        if (parsed > 0) return parsed;
+      }
+      if (rec.breakSeconds && rec.breakSeconds > 0) {
+        return rec.breakSeconds;
+      }
+      const live = getLiveBreakSeconds(rec);
+      if (live > 0) return live;
+    }
+    if (rec.breakSeconds && rec.breakSeconds > 0) {
+      return rec.breakSeconds;
+    }
+    if (rec.breakDurationMinutes && rec.breakDurationMinutes > 0) {
+      return rec.breakDurationMinutes * 60;
+    }
+    if (rec.formattedTotalBreak) {
+      const parsed = parseBreakTimeToSeconds(rec.formattedTotalBreak);
+      if (parsed > 0) return parsed;
+    }
+    const fromPunches = secondsFromPunches(rec).breakSeconds;
+    if (fromPunches > 0) return fromPunches;
+    return 0;
+  };
+
+  const getRecordBreakHhMm = (rec: AttendanceRecord) => {
+    const secs = getRecordBreakSeconds(rec);
+    return formatSecondsToHhMm(secs);
+  };
+
+  const getRecordWorkedSeconds = (rec: AttendanceRecord): number => {
+    const mine = isMyAttendanceRecord(rec);
+    const isToday = rec.date === getTodayDateString();
+    if (mine && isToday) {
+      if (typeof sessionTotalWorkedSeconds === 'number' && sessionTotalWorkedSeconds > 0) {
+        return sessionTotalWorkedSeconds;
+      }
+      if (typeof sessionElapsedSeconds === 'number' && sessionElapsedSeconds > 0) {
+        return sessionElapsedSeconds;
+      }
+      if (sessionWorkedHMS && sessionWorkedHMS !== '00:00:00') {
+        const parsed = parseColonTimeToSeconds(sessionWorkedHMS);
+        if (parsed > 0) return parsed;
+      }
+      if (totalWorkedHMS && totalWorkedHMS !== '00:00:00') {
+        const parsed = parseColonTimeToSeconds(totalWorkedHMS);
+        if (parsed > 0) return parsed;
+      }
+      const durFmt = (rec as any).durationFormatted;
+      if (durFmt && durFmt !== '00:00:00') {
+        const parsed = parseColonTimeToSeconds(durFmt);
+        if (parsed > 0) return parsed;
+      }
+      if (rec.activeSeconds && rec.activeSeconds > 0) {
+        return rec.activeSeconds;
+      }
+      const live = getLiveActiveSeconds(rec);
+      if (live > 0) return live;
+    }
+    if (rec.activeSeconds && rec.activeSeconds > 0) {
+      return rec.activeSeconds;
+    }
+    const pastDurFmt = (rec as any).durationFormatted;
+    if (pastDurFmt && pastDurFmt !== '00:00:00') {
+      const parsed = parseColonTimeToSeconds(pastDurFmt);
+      if (parsed > 0) return parsed;
+    }
+    if (rec.workingHours && rec.workingHours > 0) {
+      return Math.round(rec.workingHours * 3600);
+    }
+    if (rec.checkIn && rec.checkOut && rec.checkIn !== '—' && rec.checkOut !== '—') {
+      const inTs = parseTimeStringToTimestamp(rec.checkIn, rec.date, rec.createdAt);
+      const outTs = parseTimeStringToTimestamp(rec.checkOut, rec.date);
+      const breakSecs = getRecordBreakSeconds(rec);
+      if (inTs > 0 && outTs > inTs) {
+        const gross = Math.max(0, Math.floor((outTs - inTs) / 1000));
+        return Math.max(0, gross - breakSecs);
+      }
+    }
+    const fromPunches = secondsFromPunches(rec).work;
+    if (fromPunches > 0) return fromPunches;
+    return 0;
+  };
+
+  const getRecordWorkedHhMm = (rec: AttendanceRecord) => {
+    const secs = getRecordWorkedSeconds(rec);
+    return formatSecondsToHhMm(secs);
+  };
+
 
   // Modal: HR Regularization
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -1429,13 +1562,19 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
           const active = getLiveActiveSeconds(myRec);
           const brk = getLiveBreakSeconds(myRec);
           const activeStr =
-            active > 0
-              ? formatSecondsToHMS(active)
-              : sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
-                ? sessionWorkedHMS
-                : '00:00:00';
+            sessionWorkedHMS && sessionWorkedHMS !== '00:00:00'
+              ? sessionWorkedHMS
+              : totalWorkedHMS && totalWorkedHMS !== '00:00:00'
+                ? totalWorkedHMS
+                : active > 0
+                  ? formatSecondsToHMS(active)
+                  : '00:00:00';
+          const breakStr =
+            sessionBreakWords && sessionBreakWords !== '0s'
+              ? sessionBreakWords
+              : formatSecondsToWords(brk);
           setLiveWorkedHMS(activeStr);
-          setLiveBreakWords(formatSecondsToWords(brk));
+          setLiveBreakWords(breakStr);
         }
       } else if (sessionWorkStatus === 'completed') {
         setLiveWorkedHMS('00:00:00');
@@ -1710,15 +1849,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Quick Attendance Employee Search */}
-              {!isEmployeeView && planStatus.premium && planStatus.features.includes('face_clock') && (
-            <button
-              type="button"
-              onClick={() => { window.location.href = '/face-clock'; }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
-            >
-              <ScanFace className="w-3.5 h-3.5" />
-              Face clock
-            </button>
+            {!isEmployeeView && planStatus.premium && planStatus.features.includes('face_clock') && (
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/face-clock'; }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white text-xs font-semibold shadow-2xs"
+              >
+                <ScanFace className="w-3.5 h-3.5" />
+                Face clock
+              </button>
             )}
             {!isEmployeeView && (
               <div className="relative min-w-[210px]">
@@ -1901,40 +2040,42 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
             )}
 
             {/* Daily Attendance & Live Shift Log */}
-            <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-[0_10px_30px_-12px_rgba(15,23,42,0.08)]">
-              <div className="px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
+            <div className="bg-white border border-[#d6ece0] rounded-[20px] overflow-hidden shadow-sm">
+              <div className="px-5 py-4 border-b border-[#eef4f0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#E8F5EC] text-[#087A50] flex items-center justify-center shrink-0">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
                   <div className="flex items-center gap-2.5">
-                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+                    <h3 className="text-[15px] sm:text-base font-bold text-[#17251F] tracking-tight">
                       {isEmployeeView
                         ? 'Daily Attendance Records'
                         : "Today's log"}
                     </h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F5EC] text-[#087A50] border border-[#bde4cc]">
                       {isDataLoading ? (
                         <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#087A50] animate-ping" />
                           Loading...
                         </span>
                       ) : isEmployeeView ? (
-                        `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day' : 'Days'} Logged`
+                        `${employeeDailyRecords.length} ${employeeDailyRecords.length === 1 ? 'Day Logged' : 'Days Logged'}`
                       ) : (
                         `${visibleEmployees.length} Employees`
                       )}
                     </span>
                   </div>
-
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={exportCSV}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title={isEmployeeView ? 'Export My Attendance' : 'Export CSV'}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[#17251F] bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title={isEmployeeView ? 'Export Attendance' : 'Export CSV'}
                   >
                     <Download className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{isEmployeeView ? 'Export My Attendance' : 'Export CSV'}</span>
+                    <span>{isEmployeeView ? 'Export Attendance' : 'Export CSV'}</span>
                   </button>
 
                   <button
@@ -1944,10 +2085,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       await Promise.all([fetchWorkStatus(), loadWorkHistory()]);
                       onRefresh?.();
                     }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[#17251F] bg-white border border-slate-200 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     title="Refresh attendance records"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                     <span className="hidden sm:inline">Refresh</span>
                   </button>
                 </div>
@@ -1980,267 +2121,195 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         {employeeDailyRecords
                           .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
                           .map((rec, recIdx) => {
-                          const dateInfo = formatDailyDate(rec.date);
-                          const isToday = dateInfo.isToday;
-                          const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
-                          const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
-                          const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
-                          const liveSecs = getLiveActiveSeconds(rec);
-                          const breakSecs = getLiveBreakSeconds(rec);
-                          const rowKey = `${rec.id || rec.date}-m-${recIdx}`;
-                          const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
+                            const dateInfo = formatDailyDate(rec.date);
+                            const isToday = dateInfo.isToday;
+                            const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
+                            const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
+                            const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
+                            const liveSecs = getLiveActiveSeconds(rec);
+                            const breakSecs = getLiveBreakSeconds(rec);
+                            const rowKey = `${rec.id || rec.date}-m-${recIdx}`;
+                            const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
 
-                          return (
-                            <div key={rowKey} className="p-3.5 space-y-2.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-slate-900">{dateInfo.formatted}</span>
-                                    {isToday && (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
-                                        TODAY
+                            return (
+                              <div key={rowKey} className="p-3.5 space-y-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-bold text-slate-900">{dateInfo.formatted}</span>
+                                      {isToday && (
+                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
+                                          TODAY
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {!isEmployeeView && rec.employeeName ? `${rec.employeeName} • ` : ''}
+                                      {dateInfo.dayName}
+                                    </span>
+                                  </div>
+
+                                  <div>
+                                    {isWorking ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Working
+                                      </span>
+                                    ) : isOnBreak ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                        <Pause className="w-3 h-3 text-amber-600" />
+                                        On Break
+                                      </span>
+                                    ) : isDone ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                        <Check className="w-3 h-3 text-slate-600" />
+                                        Completed
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                                        {rec.status || 'Present'}
                                       </span>
                                     )}
                                   </div>
-                                  <span className="text-[10px] text-slate-400 font-medium">
-                                    {!isEmployeeView && rec.employeeName ? `${rec.employeeName} • ` : ''}
-                                    {dateInfo.dayName}
-                                  </span>
                                 </div>
 
-                                <div>
-                                  {isWorking ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                      Working
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-medium block">Punches (In → Out)</span>
+                                    <span className="font-semibold text-slate-800 text-[11px]">
+                                      {rec.checkIn || '—'} → {rec.checkOut || (isWorking ? 'Active' : '—')}
                                     </span>
-                                  ) : isOnBreak ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                      <Pause className="w-3 h-3 text-amber-600" />
-                                      On Break
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-medium block">Break Time</span>
+                                    <span className="font-mono font-medium text-slate-700 text-[11px]">
+                                      {getRecordBreakDisplay(rec)}
                                     </span>
-                                  ) : isDone ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                                      <Check className="w-3 h-3 text-slate-600" />
-                                      Completed
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                                    <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                      {getRecordActiveWorkedDisplay(rec)}
                                     </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
-                                      {rec.status || 'Present'}
-                                    </span>
-                                  )}
+                                  </div>
                                 </div>
+
+                                <div
+                                  onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
+                                  className="pt-2 border-t border-slate-100 flex items-center justify-between cursor-pointer group"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-700 transition">
+                                      {punchesList.length > 0
+                                        ? `${punchesList.length} Punch Logs Recorded`
+                                        : rec.checkIn && rec.checkIn !== '—'
+                                          ? 'View Activity Logs'
+                                          : 'View Record Details'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                                    <span>{expandedPunchId === rowKey ? 'Hide Logs' : 'View Logs'}</span>
+                                    <ChevronDown
+                                      className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''}`}
+                                    />
+                                  </div>
+                                </div>
+
+                                {expandedPunchId === rowKey && (
+                                  <div className="pt-2">
+                                    {renderPunchTimeline(
+                                      punchesList,
+                                      rec,
+                                      Boolean(isWorking),
+                                      Boolean(isOnBreak),
+                                      dateInfo.formatted
+                                    )}
+                                  </div>
+                                )}
                               </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                                <div>
-                                  <span className="text-[10px] text-slate-400 font-medium block">Punches (In → Out)</span>
-                                  <span className="font-semibold text-slate-800 text-[11px]">
-                                    {rec.checkIn || '—'} → {rec.checkOut || (isWorking ? 'Active' : '—')}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px] text-slate-400 font-medium block">Break Time</span>
-                                  <span className="font-mono font-medium text-slate-700 text-[11px]">
-                                    {getRecordBreakDisplay(rec)}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
-                                  <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                                    {getRecordActiveWorkedDisplay(rec)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div
-                                onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
-                                className="pt-2 border-t border-slate-100 flex items-center justify-between cursor-pointer group"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span className="text-xs font-semibold text-slate-700 group-hover:text-emerald-700 transition">
-                                    {punchesList.length > 0
-                                      ? `${punchesList.length} Punch Logs Recorded`
-                                      : rec.checkIn && rec.checkIn !== '—'
-                                        ? 'View Activity Logs'
-                                        : 'View Record Details'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                                  <span>{expandedPunchId === rowKey ? 'Hide Logs' : 'View Logs'}</span>
-                                  <ChevronDown
-                                    className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''}`}
-                                  />
-                                </div>
-                              </div>
-
-                              {expandedPunchId === rowKey && (
-                                <div className="pt-2">
-                                  {renderPunchTimeline(
-                                    punchesList,
-                                    rec,
-                                    Boolean(isWorking),
-                                    Boolean(isOnBreak),
-                                    dateInfo.formatted
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
 
                       {/* Desktop Table View (Visible on >= md) */}
                       <div className="hidden md:block overflow-x-auto w-full [scrollbar-width:thin]">
                         <table className="w-full text-left text-xs min-w-[760px]">
-                          <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 uppercase tracking-wider">
+                          <thead className="bg-[#fcfdfd] border-b border-[#eef4f0] text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                             <tr>
-                              {!isEmployeeView && <th className="py-2.5 px-4 font-medium">EMPLOYEE</th>}
-                              <th className="py-2.5 px-4 font-medium">DATE &amp; DAY</th>
-                              <th className="py-2.5 px-4 font-medium">STATUS</th>
-                              <th className="py-2.5 px-4 font-medium">CLOCK IN</th>
-                              <th className="py-2.5 px-4 font-medium">CLOCK OUT</th>
-                              <th className="py-2.5 px-4 font-medium">BREAK TIME</th>
-                              <th className="py-2.5 px-4 font-medium">ACTIVE WORKED</th>
-                              <th className="py-2.5 px-4 font-medium text-right">PUNCH LOGS</th>
+                              {!isEmployeeView && <th className="py-3 px-4 font-bold text-slate-500">EMPLOYEE</th>}
+                              <th className="py-3 px-4 font-bold text-slate-500">DATE &amp; DAY</th>
+                              <th className="py-3 px-4 font-bold text-slate-500">STATUS</th>
+                              <th className="py-3 px-4 font-bold text-slate-500">CLOCK IN</th>
+                              <th className="py-3 px-4 font-bold text-slate-500">CLOCK OUT</th>
+                              <th className="py-3 px-4 font-bold text-slate-500">BREAK TIME</th>
+                              <th className="py-3 px-4 font-bold text-slate-500">ACTIVE WORKED</th>
+                              <th className="py-3 px-4 font-bold text-slate-500 text-right">PUNCH LOGS</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {employeeDailyRecords
-                              .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
-                              .map((rec, recIdx) => {
+                          <tbody className="divide-y divide-[#f0f6f2]">
+                            {employeeDailyRecords.map((rec, recIdx) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
                               const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
                               const isOnBreak = isToday && !rec.isCompleted && Boolean(rec.isOnBreak);
-                              const isDone = isToday ? Boolean(rec.isCompleted || rec.checkOut) : Boolean(rec.checkOut);
                               const rowKey = `${rec.id || rec.date}-d-${recIdx}`;
-                              const punchesList = Array.isArray(rec.punches) ? rec.punches : [];
+                              const isSelected = (selectedRecordKey && selectedRecordKey === rowKey) || (!selectedRecordKey && recIdx === 0);
 
                               return (
-                                <React.Fragment key={rowKey}>
-                                  <tr
-                                    onClick={() => setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey)}
-                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${expandedPunchId === rowKey ? 'bg-emerald-50/20' : ''
-                                      }`}
-                                  >
-                                    {!isEmployeeView && (
-                                      <td className="py-3 px-4 font-semibold text-slate-900">
-                                        {rec.employeeName || rec.employeeId}
-                                      </td>
-                                    )}
-                                    <td className="py-3 px-4 font-medium text-slate-900">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-slate-900">{dateInfo.formatted}</span>
-                                        {isToday ? (
-                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 text-blue-800">
-                                            TODAY
-                                          </span>
-                                        ) : (
-                                          <span className="text-[10px] text-slate-400 font-mono">({dateInfo.dayName})</span>
-                                        )}
-                                      </div>
+                                <tr
+                                  key={rowKey}
+                                  onClick={() => setSelectedRecordKey(rowKey)}
+                                  className={`hover:bg-[#E8F5EC]/30 transition-colors cursor-pointer ${isSelected ? 'bg-[#E8F5EC]/20' : ''
+                                    }`}
+                                >
+                                  {!isEmployeeView && (
+                                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                                      {rec.employeeName || rec.employeeId}
                                     </td>
-
-                                    <td className="py-3 px-4">
-                                      {isWorking ? (
-                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                          Working
-                                        </span>
-                                      ) : isOnBreak ? (
-                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                                          <Pause className="w-3 h-3 text-amber-600" />
-                                          On Break
-                                        </span>
-                                      ) : isDone ? (
-                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
-                                          <Check className="w-3 h-3 text-slate-600" />
-                                          Completed
-                                        </span>
-                                      ) : (
-                                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 w-fit block">
-                                          {rec.status || 'Present'}
-                                        </span>
-                                      )}
-                                    </td>
-
-                                    <td className="py-3 px-4 font-mono text-slate-700">
-                                      {rec.checkIn && rec.checkIn !== '—' ? (
-                                        <span className="font-semibold text-slate-800">{rec.checkIn}</span>
-                                      ) : (
-                                        <span className="text-slate-400">—</span>
-                                      )}
-                                    </td>
-
-                                    <td className="py-3 px-4 font-mono text-slate-700">
-                                      {rec.checkOut && rec.checkOut !== '—' ? (
-                                        <span className="font-semibold text-slate-800">{rec.checkOut}</span>
-                                      ) : isWorking ? (
-                                        <span className="text-emerald-600 font-medium">Working...</span>
-                                      ) : (
-                                        <span className="text-slate-400">—</span>
-                                      )}
-                                    </td>
-
-                                    <td className="py-3 px-4 font-mono text-slate-600">
-                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                        {getRecordBreakDisplay(rec)}
-                                      </span>
-                                    </td>
-
-                                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
-                                      <span className={isWorking ? 'text-emerald-700 font-bold' : 'text-slate-800'}>
-                                        {getRecordActiveWorkedDisplay(rec)}
-                                      </span>
-                                    </td>
-
-                                    <td className="py-3 px-4 text-right">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedPunchId(expandedPunchId === rowKey ? null : rowKey);
-                                        }}
-                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs cursor-pointer border ${expandedPunchId === rowKey
-                                            ? 'bg-emerald-600 text-white border-emerald-600'
-                                            : punchesList.length > 0
-                                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                          }`}
-                                      >
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>
-                                          {punchesList.length > 0
-                                            ? `${punchesList.length} Logs`
-                                            : rec.checkIn && rec.checkIn !== '—'
-                                              ? 'Logs'
-                                              : 'Details'}
-                                        </span>
-                                        <ChevronDown
-                                          className={`w-3.5 h-3.5 transition-transform ${expandedPunchId === rowKey ? 'rotate-180' : ''
-                                            }`}
-                                        />
-                                      </button>
-                                    </td>
-                                  </tr>
-
-                                  {/* Expandable Punch Audit Trail row */}
-                                  {expandedPunchId === rowKey && (
-                                    <tr className="bg-slate-50/70 border-b border-slate-200">
-                                      <td colSpan={isEmployeeView ? 7 : 8} className="py-3 px-4 sm:px-6">
-                                        {renderPunchTimeline(
-                                          punchesList,
-                                          rec,
-                                          Boolean(isWorking),
-                                          Boolean(isOnBreak),
-                                          dateInfo.formatted
-                                        )}
-                                      </td>
-                                    </tr>
                                   )}
-                                </React.Fragment>
+                                  <td className="py-3.5 px-4 font-bold text-xs text-[#17251F]">
+                                    {dateInfo.formatted}, {dateInfo.dayName}
+                                  </td>
+
+                                  <td className="py-3.5 px-4">
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F5EC] text-[#087A50] border border-[#bde4cc] inline-flex items-center gap-1.5 w-fit">
+                                      <span className={`w-1.5 h-1.5 rounded-full ${isWorking ? 'bg-[#087A50] animate-pulse' : 'bg-[#087A50]'}`} />
+                                      {isWorking ? 'Present' : isOnBreak ? 'On Break' : rec.status || 'Present'}
+                                    </span>
+                                  </td>
+
+                                  <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#17251F]">
+                                    {rec.checkIn && rec.checkIn !== '—' ? rec.checkIn : '—'}
+                                  </td>
+
+                                  <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
+                                    {rec.checkOut && rec.checkOut !== '—' ? rec.checkOut : '-'}
+                                  </td>
+
+                                  <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
+                                    {getRecordBreakHhMm(rec)}
+                                  </td>
+
+                                  <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#087A50]">
+                                    {getRecordWorkedHhMm(rec)}
+                                  </td>
+
+                                  <td className="py-3.5 px-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedRecordKey(rowKey);
+                                      }}
+                                      className="px-3 py-1 rounded-xl bg-white border border-slate-200 hover:bg-[#E8F5EC] hover:border-[#bde4cc] text-xs font-semibold text-[#17251F] inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                                    >
+                                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>View Logs</span>
+                                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                                    </button>
+                                  </td>
+                                </tr>
                               );
                             })}
                           </tbody>
@@ -2309,112 +2378,112 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       visibleEmployees
                         .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
                         .map((emp) => {
-                        const rec = getEmpTodayRecord(emp);
-                        const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
-                        const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
-                        const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
+                          const rec = getEmpTodayRecord(emp);
+                          const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                          const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                          const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
-                        const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                        const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                        const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-                        const isExpanded = expandedAdminEmpId === emp.id;
+                          const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                          const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                          const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                          const isExpanded = expandedAdminEmpId === emp.id;
 
-                        return (
-                          <div
-                            key={emp.id}
-                            className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
-                              }`}
-                            onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
-                                  {emp.firstName?.[0] || 'E'}
+                          return (
+                            <div
+                              key={emp.id}
+                              className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : 'hover:bg-slate-50/70'
+                                }`}
+                              onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-8 h-8 rounded-full border font-bold text-xs flex items-center justify-center shrink-0 bg-slate-100 border-slate-200 text-slate-700">
+                                    {emp.firstName?.[0] || 'E'}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                                      <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                      {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                        <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                          You
+                                        </span>
+                                      )}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-mono">
+                                      {emp.employeeCode} • {emp.departmentName || 'General'}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
-                                    <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                                    {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
-                                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        You
-                                      </span>
-                                    )}
-                                  </p>
-                                  <p className="text-[10px] text-slate-400 font-mono">
-                                    {emp.employeeCode} • {emp.departmentName || 'General'}
-                                  </p>
+
+                                <div className="shrink-0 flex items-center gap-2">
+                                  {isWorking ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Working
+                                    </span>
+                                  ) : isOnBreak ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                      <Pause className="w-3 h-3 text-amber-600" />
+                                      On Break
+                                    </span>
+                                  ) : isDone ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                                      <Check className="w-3 h-3 text-slate-600" />
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
+                                      Not Punched
+                                    </span>
+                                  )}
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  />
                                 </div>
                               </div>
 
-                              <div className="shrink-0 flex items-center gap-2">
-                                {isWorking ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Working
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
+                                  <span className="font-semibold text-slate-800 text-[11px]">
+                                    {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
                                   </span>
-                                ) : isOnBreak ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                    <Pause className="w-3 h-3 text-amber-600" />
-                                    On Break
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
+                                  <span className="font-mono font-bold text-emerald-700 text-[11px]">
+                                    {rec ? getRecordActiveWorkedDisplay(rec) : '—'}
                                   </span>
-                                ) : isDone ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
-                                    <Check className="w-3 h-3 text-slate-600" />
-                                    Completed
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400 border border-slate-100">
-                                    Not Punched
-                                  </span>
-                                )}
-                                <ChevronDown
-                                  className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                />
+                                </div>
                               </div>
+
+                              {isExpanded && (
+                                <div className="pt-2 border-t border-slate-200 space-y-2.5">
+                                  {renderPunchTimeline(
+                                    Array.isArray(rec?.punches) ? rec.punches : [],
+                                    rec,
+                                    Boolean(isWorking),
+                                    Boolean(isOnBreak),
+                                    `${emp.firstName} ${emp.lastName}`
+                                  )}
+                                  <div className="flex justify-end pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDetailEmp(emp);
+                                      }}
+                                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <span>View Monthly Scorecard for {emp.firstName}</span>
+                                      <ArrowRight className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                              <div>
-                                <span className="text-[10px] text-slate-400 font-medium block">Punches</span>
-                                <span className="font-semibold text-slate-800 text-[11px]">
-                                  {rec?.checkIn || '—'} → {rec?.checkOut || (isWorking ? 'Active' : '—')}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] text-slate-400 font-medium block">Active Worked</span>
-                                <span className="font-mono font-bold text-emerald-700 text-[11px]">
-                                  {rec ? getRecordActiveWorkedDisplay(rec) : '—'}
-                                </span>
-                              </div>
-                            </div>
-
-                            {isExpanded && (
-                              <div className="pt-2 border-t border-slate-200 space-y-2.5">
-                                {renderPunchTimeline(
-                                  Array.isArray(rec?.punches) ? rec.punches : [],
-                                  rec,
-                                  Boolean(isWorking),
-                                  Boolean(isOnBreak),
-                                  `${emp.firstName} ${emp.lastName}`
-                                )}
-                                <div className="flex justify-end pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDetailEmp(emp);
-                                    }}
-                                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <span>View Monthly Scorecard for {emp.firstName}</span>
-                                    <ArrowRight className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }))}
+                          );
+                        }))}
                   </div>
 
                   <div className="hidden md:block max-h-[540px] overflow-y-auto overflow-x-auto w-full [scrollbar-width:thin]">
@@ -2493,172 +2562,447 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </tr>
                         ) : (
                           visibleEmployees
-                        .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
-                        .map((emp) => {
-                            const rec = getEmpTodayRecord(emp);
-                            const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
-                            const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
-                            const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
+                            .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                            .map((emp) => {
+                              const rec = getEmpTodayRecord(emp);
+                              const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
+                              const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
+                              const isWorking = rec && !isDone && !isOnBreak && Boolean(rec.checkIn && rec.checkIn !== '—');
 
-                            const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
-                            const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
-                            const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
-                            const isExpanded = expandedAdminEmpId === emp.id;
+                              const liveSecs = rec ? getLiveActiveSeconds(rec) : 0;
+                              const breakSecs = rec ? getLiveBreakSeconds(rec) : 0;
+                              const isWfhActive = Boolean(wfhMap[emp.id] || wfhMap[emp.id.toLowerCase()]);
+                              const isExpanded = expandedAdminEmpId === emp.id;
 
-                            return (
-                              <React.Fragment key={emp.id}>
-                                <tr
-                                  onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
-                                  className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
-                                    }`}
-                                >
-                                  <td className="py-4 px-5">
-                                    <div className="flex items-center gap-3">
-                                      {emp.avatarUrl ? (
-                                        <img
-                                          src={emp.avatarUrl}
-                                          alt={`${emp.firstName} ${emp.lastName}`}
-                                          className="w-9 h-9 rounded-full object-cover border border-slate-200/80 shrink-0"
-                                        />
-                                      ) : (
-                                        <div className="w-9 h-9 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-emerald-50 border-emerald-200/70 text-emerald-700">
-                                          {emp.firstName?.[0] || 'E'}
-                                        </div>
-                                      )}
-                                      <div className="min-w-0">
-                                        <p className="font-semibold text-[13.5px] text-slate-900 leading-tight flex items-center gap-1.5 truncate">
-                                          <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                                          {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
-                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                              You
-                                            </span>
-                                          )}
-                                        </p>
-                                        <p className="text-[11.5px] text-slate-500 mt-0.5 truncate">
-                                          {emp.departmentName || 'General'} · <span className="font-mono text-slate-400">{emp.employeeCode}</span>
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="py-4 px-4 text-[13px] font-medium text-slate-700 tabular-nums whitespace-nowrap">
-                                    {rec?.checkIn ? (
-                                      <span>
-                                        {rec.checkIn}
-                                        <span className="mx-1.5 text-slate-400">–</span>
-                                        {rec.checkOut ? (
-                                          <span>{rec.checkOut}</span>
-                                        ) : isWorking ? (
-                                          <span className="text-emerald-600 font-semibold">Working</span>
-                                        ) : (
-                                          <span className="text-slate-400">—</span>
-                                        )}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="py-4 px-4 text-[13px] font-semibold text-slate-800 tabular-nums whitespace-nowrap">
-                                    {rec ? (
-                                      <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
-                                        {getRecordActiveWorkedDisplay(rec)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="py-4 px-4 text-[13px] text-slate-600 tabular-nums whitespace-nowrap">
-                                    <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
-                                      {rec ? getRecordBreakDisplay(rec) : '0s'}
-                                    </span>
-                                  </td>
-                                  <td className="py-4 px-4 text-[13px] font-medium text-slate-700 whitespace-nowrap">
-                                    {isWfhActive ? (
-                                      <span className="text-purple-700">Remote</span>
-                                    ) : (
-                                      <span>Office</span>
-                                    )}
-                                  </td>
-                                  <td className="py-4 px-4 whitespace-nowrap">
-                                    {isWorking ? (
-                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        Working
-                                      </span>
-                                    ) : isOnBreak ? (
-                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-300">
-                                        <Pause className="w-3 h-3 text-amber-600" />
-                                        On Break
-                                      </span>
-                                    ) : isDone ? (
-                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50/70 text-emerald-700 border border-emerald-200">
-                                        <Check className="w-3 h-3 text-emerald-600" />
-                                        Completed
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[11.5px] font-medium bg-rose-50/60 text-rose-600 border border-rose-200">
-                                        Not Punched
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-4 px-5 text-right whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedAdminEmpId(isExpanded ? null : emp.id);
-                                      }}
-                                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer border ${
-                                        isExpanded
-                                          ? 'bg-emerald-700 text-white border-emerald-700'
-                                          : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                              return (
+                                <React.Fragment key={emp.id}>
+                                  <tr
+                                    onClick={() => setExpandedAdminEmpId(isExpanded ? null : emp.id)}
+                                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${isExpanded ? 'bg-emerald-50/20 border-l-4 border-l-emerald-600' : ''
                                       }`}
-                                    >
-                                      <span>Logs</span>
-                                      <ChevronDown
-                                        className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                      />
-                                    </button>
-                                  </td>
-                                </tr>
-
-                                {isExpanded && (
-                                  <tr className="bg-slate-50/70 border-b border-slate-200">
-                                    <td colSpan={7} className="py-3 px-4 sm:px-6">
-                                      <div className="space-y-3">
-                                        {renderPunchTimeline(
-                                          Array.isArray(rec?.punches) ? rec.punches : [],
-                                          rec,
-                                          Boolean(isWorking),
-                                          Boolean(isOnBreak),
-                                          `${emp.firstName} ${emp.lastName}`
+                                  >
+                                    <td className="py-4 px-5">
+                                      <div className="flex items-center gap-3">
+                                        {emp.avatarUrl ? (
+                                          <img
+                                            src={emp.avatarUrl}
+                                            alt={`${emp.firstName} ${emp.lastName}`}
+                                            className="w-9 h-9 rounded-full object-cover border border-slate-200/80 shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="w-9 h-9 rounded-full border font-semibold text-xs flex items-center justify-center shrink-0 bg-emerald-50 border-emerald-200/70 text-emerald-700">
+                                            {emp.firstName?.[0] || 'E'}
+                                          </div>
                                         )}
-                                        <div className="flex justify-end pt-1">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setDetailEmp(emp);
-                                            }}
-                                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
-                                          >
-                                            <span>View Full Monthly History &amp; Scorecard for {emp.firstName}</span>
-                                            <ArrowRight className="w-3.5 h-3.5" />
-                                          </button>
+                                        <div className="min-w-0">
+                                          <p className="font-semibold text-[13.5px] text-slate-900 leading-tight flex items-center gap-1.5 truncate">
+                                            <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                            {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                You
+                                              </span>
+                                            )}
+                                          </p>
+                                          <p className="text-[11.5px] text-slate-500 mt-0.5 truncate">
+                                            {emp.departmentName || 'General'} · <span className="font-mono text-slate-400">{emp.employeeCode}</span>
+                                          </p>
                                         </div>
                                       </div>
                                     </td>
+                                    <td className="py-4 px-4 text-[13px] font-medium text-slate-700 tabular-nums whitespace-nowrap">
+                                      {rec?.checkIn ? (
+                                        <span>
+                                          {rec.checkIn}
+                                          <span className="mx-1.5 text-slate-400">–</span>
+                                          {rec.checkOut ? (
+                                            <span>{rec.checkOut}</span>
+                                          ) : isWorking ? (
+                                            <span className="text-emerald-600 font-semibold">Working</span>
+                                          ) : (
+                                            <span className="text-slate-400">—</span>
+                                          )}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+                                    <td className="py-4 px-4 text-[13px] font-semibold text-slate-800 tabular-nums whitespace-nowrap">
+                                      {rec ? (
+                                        <span className={isWorking ? 'text-emerald-700' : 'text-slate-800'}>
+                                          {getRecordActiveWorkedDisplay(rec)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400">—</span>
+                                      )}
+                                    </td>
+                                    <td className="py-4 px-4 text-[13px] text-slate-600 tabular-nums whitespace-nowrap">
+                                      <span className={isOnBreak ? 'text-amber-700 font-semibold' : ''}>
+                                        {rec ? getRecordBreakDisplay(rec) : '0s'}
+                                      </span>
+                                    </td>
+                                    <td className="py-4 px-4 text-[13px] font-medium text-slate-700 whitespace-nowrap">
+                                      {isWfhActive ? (
+                                        <span className="text-purple-700">Remote</span>
+                                      ) : (
+                                        <span>Office</span>
+                                      )}
+                                    </td>
+                                    <td className="py-4 px-4 whitespace-nowrap">
+                                      {isWorking ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          Working
+                                        </span>
+                                      ) : isOnBreak ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-300">
+                                          <Pause className="w-3 h-3 text-amber-600" />
+                                          On Break
+                                        </span>
+                                      ) : isDone ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-emerald-50/70 text-emerald-700 border border-emerald-200">
+                                          <Check className="w-3 h-3 text-emerald-600" />
+                                          Completed
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[11.5px] font-medium bg-rose-50/60 text-rose-600 border border-rose-200">
+                                          Not Punched
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-4 px-5 text-right whitespace-nowrap">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedAdminEmpId(isExpanded ? null : emp.id);
+                                        }}
+                                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer border ${isExpanded
+                                            ? 'bg-emerald-700 text-white border-emerald-700'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                          }`}
+                                      >
+                                        <span>Logs</span>
+                                        <ChevronDown
+                                          className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                        />
+                                      </button>
+                                    </td>
                                   </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })
+
+                                  {isExpanded && (
+                                    <tr className="bg-slate-50/70 border-b border-slate-200">
+                                      <td colSpan={7} className="py-3 px-4 sm:px-6">
+                                        <div className="space-y-3">
+                                          {renderPunchTimeline(
+                                            Array.isArray(rec?.punches) ? rec.punches : [],
+                                            rec,
+                                            Boolean(isWorking),
+                                            Boolean(isOnBreak),
+                                            `${emp.firstName} ${emp.lastName}`
+                                          )}
+                                          <div className="flex justify-end pt-1">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setDetailEmp(emp);
+                                              }}
+                                              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                                            >
+                                              <span>View Full Monthly History &amp; Scorecard for {emp.firstName}</span>
+                                              <ArrowRight className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })
                         )}
                       </tbody>
                     </table>
                   </div>
                   {renderPaginationBar(visibleEmployees.length)}
                 </>
-              )}            </div>
+              )}
+            </div>
+
+            {/* VIEW 1 Bottom: Punch Logs & Attendance Summary (Employee Self-Service View) */}
+            {isEmployeeView && (() => {
+              const selectedRec = (selectedRecordKey
+                ? employeeDailyRecords.find((r, idx) => `${r.id || r.date}-d-${idx}` === selectedRecordKey || r.id === selectedRecordKey || r.date === selectedRecordKey)
+                : employeeDailyRecords[0]) || employeeDailyRecords[0] || null;
+
+              const isSelectedRecToday = selectedRec?.date === getTodayDateString();
+              const selectedDateInfo = selectedRec ? formatDailyDate(selectedRec.date) : null;
+              const selectedDateSubtitle = selectedDateInfo && selectedDateInfo.formatted !== '—'
+                ? `${selectedDateInfo.formatted} (${selectedDateInfo.dayName})`
+                : getTodayDateString();
+
+              const isRecWorking = Boolean(
+                selectedRec &&
+                isSelectedRecToday &&
+                !selectedRec.isCompleted &&
+                !selectedRec.isOnBreak &&
+                !selectedRec.checkOut &&
+                Boolean(selectedRec.checkIn && selectedRec.checkIn !== '—')
+              );
+
+              const selectedStatusText = isRecWorking
+                ? 'Present'
+                : selectedRec?.isOnBreak
+                  ? 'On Break'
+                  : selectedRec?.status || 'Present';
+
+              const selectedWorkSecs = selectedRec ? getRecordWorkedSeconds(selectedRec) : 0;
+              const selectedBreakSecs = selectedRec ? getRecordBreakSeconds(selectedRec) : 0;
+              const workDurationStr = formatSecondsToHhMm(selectedWorkSecs);
+              const breakDurationStr = formatSecondsToHhMm(selectedBreakSecs);
+              const totalDurationStr = formatSecondsToHhMm(selectedWorkSecs + selectedBreakSecs);
+
+              const punchesSrc: any[] = Array.isArray(selectedRec?.punches) && selectedRec.punches.length > 0
+                ? selectedRec.punches
+                : isSelectedRecToday && Array.isArray(sessionPunches) && sessionPunches.length > 0
+                  ? sessionPunches
+                  : [];
+
+              let punchListItems: any[] = [];
+              if (punchesSrc.length > 0) {
+                punchListItems = punchesSrc.map((p: any, idx: number) => {
+                  const t = String(p?.type || '').toUpperCase().replace(/[-\s]+/g, '_');
+                  const isClockIn = ['IN', 'CLOCK_IN', 'START', 'SHIFT_START'].includes(t);
+                  const isBreak = ['BREAK', 'BREAK_START', 'BREAK_IN', 'START_BREAK'].includes(t);
+                  const isResume = ['RESUME', 'BREAK_END', 'BREAK_OUT', 'END_BREAK', 'RESUME_WORK'].includes(t);
+                  const isClockOut = ['OUT', 'CLOCK_OUT', 'END', 'SHIFT_END'].includes(t);
+
+                  const typeLabel = isClockIn
+                    ? 'Clock In'
+                    : isBreak
+                      ? 'Break'
+                      : isResume
+                        ? 'Resume'
+                        : isClockOut
+                          ? 'Clock Out'
+                          : p.type || 'Punch';
+
+                  const typeColor = isClockIn || isResume
+                    ? 'text-emerald-700'
+                    : isBreak
+                      ? 'text-blue-600'
+                      : isClockOut
+                        ? 'text-rose-700'
+                        : 'text-slate-700';
+
+                  const icon = isClockIn || isResume ? (
+                    <Play className="w-3.5 h-3.5 fill-current text-emerald-600 shrink-0" />
+                  ) : isBreak ? (
+                    <Coffee className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  ) : isClockOut ? (
+                    <Square className="w-3.5 h-3.5 fill-current text-rose-600 shrink-0" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  );
+
+                  const rawTime = p.punchedAt || p.punchTime || p.time || p.timestamp || p.createdAt;
+                  const timeFormatted = formatIsoTo12HourTime(rawTime) || (p.time && !p.time.includes('T') ? p.time : '—');
+
+                  const defaultNote = isClockIn
+                    ? 'Shift Started'
+                    : isBreak
+                      ? 'Tea Break'
+                      : isResume
+                        ? 'Back to Work'
+                        : isClockOut
+                          ? 'Shift Completed'
+                          : 'Shift Log';
+
+                  return {
+                    id: p.id || `punch-${idx}`,
+                    timeFormatted,
+                    typeLabel,
+                    typeColor,
+                    icon,
+                    note: p.note || p.description || p.remarks || defaultNote,
+                  };
+                });
+              } else if (selectedRec) {
+                if (selectedRec.checkIn && selectedRec.checkIn !== '—') {
+                  punchListItems.push({
+                    id: 'syn-in',
+                    timeFormatted: selectedRec.checkIn,
+                    typeLabel: 'Clock In',
+                    typeColor: 'text-emerald-700',
+                    icon: <Play className="w-3.5 h-3.5 fill-current text-emerald-600 shrink-0" />,
+                    note: 'Shift Started',
+                  });
+                }
+                if (isSelectedRecToday && selectedRec.isOnBreak) {
+                  punchListItems.push({
+                    id: 'syn-break',
+                    timeFormatted: sessionBreakHMS ? 'Active Break' : '—',
+                    typeLabel: 'Break',
+                    typeColor: 'text-blue-600',
+                    icon: <Coffee className="w-3.5 h-3.5 text-blue-500 shrink-0" />,
+                    note: 'Tea Break',
+                  });
+                } else if ((Number(selectedRec.breakSeconds) || 0) > 0) {
+                  punchListItems.push({
+                    id: 'syn-break',
+                    timeFormatted: '—',
+                    typeLabel: 'Break',
+                    typeColor: 'text-blue-600',
+                    icon: <Coffee className="w-3.5 h-3.5 text-blue-500 shrink-0" />,
+                    note: 'Tea Break',
+                  });
+                  punchListItems.push({
+                    id: 'syn-resume',
+                    timeFormatted: '—',
+                    typeLabel: 'Resume',
+                    typeColor: 'text-emerald-700',
+                    icon: <Play className="w-3.5 h-3.5 fill-current text-emerald-600 shrink-0" />,
+                    note: 'Back to Work',
+                  });
+                }
+                if (selectedRec.checkOut && selectedRec.checkOut !== '—') {
+                  punchListItems.push({
+                    id: 'syn-out',
+                    timeFormatted: selectedRec.checkOut,
+                    typeLabel: 'Clock Out',
+                    typeColor: 'text-rose-700',
+                    icon: <Square className="w-3.5 h-3.5 fill-current text-rose-600 shrink-0" />,
+                    note: 'Shift Ended',
+                  });
+                }
+              }
+
+              const displayedPunchItems = isPunchLogsExpanded
+                ? punchListItems
+                : punchListItems.slice(0, 5);
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1">
+                  {/* Left Card: Punch Logs */}
+                  <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-[20px] border border-[#d6ece0] shadow-sm p-5 flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <List className="w-5 h-5 text-[#087A50]" />
+                        <h4 className="text-[15px] font-bold text-[#17251F]">Punch Logs</h4>
+                      </div>
+                      {punchListItems.length > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F5EC] text-[#087A50] border border-[#bde4cc]">
+                          {punchListItems.length} {punchListItems.length === 1 ? 'Log' : 'Logs'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="overflow-x-auto w-full [scrollbar-width:thin]">
+                      <table className="w-full text-left text-xs min-w-[420px]">
+                        <thead className="bg-[#f8faf9] text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="py-2.5 px-4 font-bold text-slate-500">#</th>
+                            <th className="py-2.5 px-4 font-bold text-slate-500">TIME</th>
+                            <th className="py-2.5 px-4 font-bold text-slate-500">TYPE</th>
+                            <th className="py-2.5 px-4 font-bold text-slate-500">NOTE</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f6f2]">
+                          {punchListItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="py-8 text-center text-slate-400">
+                                No punch logs recorded for this day.
+                              </td>
+                            </tr>
+                          ) : (
+                            displayedPunchItems.map((punch, idx) => (
+                              <tr key={punch.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="py-3 px-4 font-semibold text-slate-800">{idx + 1}</td>
+                                <td className="py-3 px-4 font-mono font-semibold text-slate-800">{punch.timeFormatted}</td>
+                                <td className="py-3 px-4">
+                                  <span className={`inline-flex items-center gap-1.5 font-semibold ${punch.typeColor}`}>
+                                    {punch.icon}
+                                    {punch.typeLabel}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-600">{punch.note || '—'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {punchListItems.length > 5 && (
+                      <div className="pt-3 border-t border-[#f0f6f2] flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setIsPunchLogsExpanded(!isPunchLogsExpanded)}
+                          className="px-4 py-1.5 rounded-xl text-xs font-semibold text-[#087A50] bg-[#E8F5EC] hover:bg-[#d6ece0] border border-[#bde4cc] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <span>
+                            {isPunchLogsExpanded
+                              ? 'Show Less'
+                              : `View More (${punchListItems.length - 5} More)`}
+                          </span>
+                          {isPunchLogsExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Card: Attendance Summary */}
+                  <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-[20px] border border-[#d6ece0] shadow-sm p-5 flex flex-col">
+                    <div className="flex items-center gap-2 mb-3">
+                      <BarChart2 className="w-5 h-5 text-[#087A50]" />
+                      <h4 className="text-[15px] font-bold text-[#17251F]">Attendance Summary</h4>
+                    </div>
+
+                    {/* Center Status Card */}
+                    <div className="rounded-2xl bg-[#f0f9f3] border border-[#ddf2e5] p-5 text-center flex flex-col items-center justify-center mb-4">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#10b981] to-[#34d399] text-white flex items-center justify-center shadow-[0_6px_20px_rgba(16,185,129,0.35)] mb-3">
+                        <Check className="w-7 h-7 sm:w-8 sm:h-8 stroke-[3]" />
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-extrabold text-[#17251F] leading-tight">
+                        {selectedStatusText}
+                      </h3>
+                      <p className="text-xs text-[#5c6b63] font-medium mt-1">
+                        {selectedDateSubtitle}
+                      </p>
+                    </div>
+
+                    {/* Metrics right below the status card */}
+                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-[#e2efe7] text-center">
+                      <div>
+                        <CalendarIcon className="w-4 h-4 text-[#5c6b63] mx-auto mb-1" />
+                        <span className="text-[11px] text-[#5c6b63] font-medium block">Work Hours</span>
+                        <span className="text-sm font-extrabold text-[#17251F] font-mono mt-0.5 block">
+                          {workDurationStr}
+                        </span>
+                      </div>
+                      <div>
+                        <Coffee className="w-4 h-4 text-[#5c6b63] mx-auto mb-1" />
+                        <span className="text-[11px] text-[#5c6b63] font-medium block">Break Time</span>
+                        <span className="text-sm font-extrabold text-[#17251F] font-mono mt-0.5 block">
+                          {breakDurationStr}
+                        </span>
+                      </div>
+                      <div>
+                        <Clock className="w-4 h-4 text-[#5c6b63] mx-auto mb-1" />
+                        <span className="text-[11px] text-[#5c6b63] font-medium block">Total Time</span>
+                        <span className="text-sm font-extrabold text-[#17251F] font-mono mt-0.5 block">
+                          {totalDurationStr}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -3022,156 +3366,156 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </tr>
                         ) : (
                           visibleEmployees
-                        .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
-                        .map((emp) => {
-                            const metrics = getEmployeeMonthlyMetrics(emp);
-                            const todayRec = getEmpTodayRecord(emp);
-                            const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
-                            const isDoneToday = todayRec && todayRec.isCompleted;
+                            .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                            .map((emp) => {
+                              const metrics = getEmployeeMonthlyMetrics(emp);
+                              const todayRec = getEmpTodayRecord(emp);
+                              const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
+                              const isDoneToday = todayRec && todayRec.isCompleted;
 
-                            return (
-                              <tr
-                                key={emp.id}
-                                className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                                onClick={() => setDetailEmp(emp)}
-                              >
-                                {/* 1. Employee Info */}
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                                      {emp.avatarUrl ? (
-                                        <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <span>
-                                          {emp.firstName?.[0] || 'E'}
-                                          {emp.lastName?.[0] || ''}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
-                                        <span>{emp.firstName} {emp.lastName}</span>
-                                        {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
-                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            You
+                              return (
+                                <tr
+                                  key={emp.id}
+                                  className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                                  onClick={() => setDetailEmp(emp)}
+                                >
+                                  {/* 1. Employee Info */}
+                                  <td className="py-3 px-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                                        {emp.avatarUrl ? (
+                                          <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <span>
+                                            {emp.firstName?.[0] || 'E'}
+                                            {emp.lastName?.[0] || ''}
                                           </span>
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                                        <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
-                                          {emp.employeeCode || emp.id}
-                                        </span>
-                                        <span>•</span>
-                                        <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                      <div>
+                                        <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+                                          <span>{emp.firstName} {emp.lastName}</span>
+                                          {(emp.id === user?.employeeId || emp.id === user?.id || (Boolean(emp.email) && emp.email === user?.email)) && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                              You
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                                          <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60">
+                                            {emp.employeeCode || emp.id}
+                                          </span>
+                                          <span>•</span>
+                                          <span className="truncate max-w-[120px]">{emp.departmentName || 'Engineering'}</span>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </td>
+                                  </td>
 
-                                {/* 2. Present Days */}
-                                <td className="py-3 px-3">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                    <span>{metrics.presentDays} Days</span>
-                                  </span>
-                                </td>
+                                  {/* 2. Present Days */}
+                                  <td className="py-3 px-3">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                      <span>{metrics.presentDays} Days</span>
+                                    </span>
+                                  </td>
 
-                                {/* 3. Half Days */}
-                                <td className="py-3 px-3">
-                                  {metrics.halfDays > 0 ? (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                      <Clock className="w-3.5 h-3.5" />
-                                      <span>{metrics.halfDays} Days</span>
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                      0 Days
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* 4. Leaves & Off */}
-                                <td className="py-3 px-3">
-                                  {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                                      <Plane className="w-3 h-3" />
-                                      <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
-                                      0 Leave
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* 5. Attendance Score */}
-                                <td className="py-3 px-4">
-                                  <div className="w-32">
-                                    <div className="flex items-center justify-between text-[11px] font-bold mb-1">
-                                      <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
-                                        {metrics.score}%
+                                  {/* 3. Half Days */}
+                                  <td className="py-3 px-3">
+                                    {metrics.halfDays > 0 ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>{metrics.halfDays} Days</span>
                                       </span>
-                                      <span className="text-[10px] text-slate-400 font-normal">
-                                        {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                    ) : (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                        0 Days
                                       </span>
+                                    )}
+                                  </td>
+
+                                  {/* 4. Leaves & Off */}
+                                  <td className="py-3 px-3">
+                                    {metrics.onLeaveDays > 0 || metrics.absentDays > 0 ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                        <Plane className="w-3 h-3" />
+                                        <span>{metrics.onLeaveDays + metrics.absentDays} Off</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400">
+                                        0 Leave
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* 5. Attendance Score */}
+                                  <td className="py-3 px-4">
+                                    <div className="w-32">
+                                      <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                                        <span className={metrics.score >= 90 ? 'text-emerald-700' : metrics.score >= 75 ? 'text-amber-700' : 'text-rose-700'}>
+                                          {metrics.score}%
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-normal">
+                                          {metrics.score >= 90 ? 'Excellent' : metrics.score >= 75 ? 'Good' : 'Needs Review'}
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all ${metrics.score >= 90
+                                            ? 'bg-emerald-500'
+                                            : metrics.score >= 75
+                                              ? 'bg-amber-500'
+                                              : 'bg-rose-500'
+                                            }`}
+                                          style={{ width: `${metrics.score}%` }}
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full transition-all ${metrics.score >= 90
-                                          ? 'bg-emerald-500'
-                                          : metrics.score >= 75
-                                            ? 'bg-amber-500'
-                                            : 'bg-rose-500'
-                                          }`}
-                                        style={{ width: `${metrics.score}%` }}
-                                      />
+                                  </td>
+
+                                  {/* 6. Hours Logged */}
+                                  <td className="py-3 px-3">
+                                    <div className="font-semibold text-slate-800">
+                                      {metrics.totalHours} hrs
                                     </div>
-                                  </div>
-                                </td>
+                                    <div className="text-[10px] text-slate-400">
+                                      ~{metrics.avgDailyHours} h/day
+                                    </div>
+                                  </td>
 
-                                {/* 6. Hours Logged */}
-                                <td className="py-3 px-3">
-                                  <div className="font-semibold text-slate-800">
-                                    {metrics.totalHours} hrs
-                                  </div>
-                                  <div className="text-[10px] text-slate-400">
-                                    ~{metrics.avgDailyHours} h/day
-                                  </div>
-                                </td>
+                                  {/* 7. Today's Live Status */}
+                                  <td className="py-3 px-3">
+                                    {isWorkingNow ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                        Working ({todayRec?.checkIn})
+                                      </span>
+                                    ) : isDoneToday ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                        <Check className="w-3 h-3" />
+                                        Punched Out
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                                        Not Punched
+                                      </span>
+                                    )}
+                                  </td>
 
-                                {/* 7. Today's Live Status */}
-                                <td className="py-3 px-3">
-                                  {isWorkingNow ? (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 animate-pulse">
-                                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                                      Working ({todayRec?.checkIn})
-                                    </span>
-                                  ) : isDoneToday ? (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                      <Check className="w-3 h-3" />
-                                      Punched Out
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
-                                      Not Punched
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* 8. Action Button */}
-                                <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDetailEmp(emp)}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>View Log</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          }))}
+                                  {/* 8. Action Button */}
+                                  <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setDetailEmp(emp)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>View Log</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            }))}
                       </tbody>
                     </table>
                   </div>
