@@ -77,6 +77,7 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
     unreadNoticesCount,
     markNoticeRead,
     markAllNoticesRead,
+    dismissNotice,
     clearNotices,
     fcmPermission,
     fcmConfigured,

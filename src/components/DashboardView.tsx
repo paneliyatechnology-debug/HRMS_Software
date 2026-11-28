@@ -1579,8 +1579,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                             <td className="font-semibold text-[#343a40]">
                           <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
-                              {emp.firstName?.[0] || 'E'}
+                            <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                              {(emp.avatarUrl || (emp as any).profileImage || (emp as any).avatar) ? (
+                                <img
+                                  src={emp.avatarUrl || (emp as any).profileImage || (emp as any).avatar}
+                                  alt={`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee'}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                emp.firstName?.[0] || 'E'
+                              )}
                             </div>
                             <span className="truncate">{emp.firstName} {emp.lastName}</span>
                           </div>

@@ -1010,15 +1010,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       onClick={(e) => {
         if (e.target === e.currentTarget) handleModalClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/15 backdrop-blur-xs animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 my-auto"
+        className={`bg-white rounded-2xl sm:rounded-3xl w-full p-5 sm:p-6 border border-slate-200/80 shadow-2xl relative cursor-default max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 my-auto transition-all ${
+          selfieMode !== 'idle' ? 'max-w-xl' : 'max-w-md'
+        }`}
       >
         <button
           onClick={handleModalClose}
-          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+          className="absolute top-4 sm:top-5 right-4 sm:right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer z-20"
         >
           <X className="w-5 h-5" />
         </button>
@@ -1027,19 +1029,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         {selfieMode !== 'idle' ? (
           <div className="space-y-4 pt-1 animate-in fade-in">
             <div className="text-center pb-1">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2 shadow-xs">
-                <Camera className="w-5 h-5" />
+              <div className="mx-auto flex items-center justify-center mb-2">
+                <Camera className="w-6 h-6 text-[#2d6a4f]" />
               </div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
                 {selfieMode === 'check_in' ? 'Clock-In Verification Selfie' : 'Clock-Out Verification Selfie'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Take a selfie to prove your presence at office premises
+                Position your face clearly inside the frame to verify your attendance
               </p>
             </div>
 
-            {/* Camera Viewport or Captured Preview */}
-            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex items-center justify-center">
+            {/* Camera Viewport or Captured Preview (Larger Screen) */}
+            <div className="relative w-full h-[340px] sm:h-[420px] rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex items-center justify-center">
               {capturedPhoto ? (
                 <div className="relative w-full h-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1081,7 +1083,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
 
                   {/* Face outline guide */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className={`w-44 h-52 rounded-full border-4 flex items-end justify-center pb-2 transition-colors ${faceState === 'match' ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.85)]' : faceState === 'mismatch' ? 'border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)]' : 'border-white/70 border-dashed animate-pulse'}`}>
+                    <div className={`w-52 h-64 sm:w-56 sm:h-72 rounded-full border-4 flex items-end justify-center pb-3 transition-colors ${faceState === 'match' ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.85)]' : faceState === 'mismatch' ? 'border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)]' : 'border-white/70 border-dashed animate-pulse'}`}>
                       <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${faceState === 'match' ? 'bg-emerald-500 text-white' : faceState === 'mismatch' ? 'bg-rose-600 text-white' : 'text-white/90 bg-black/50'}`}>
                         {faceState === 'match' ? 'Face matched' : faceState === 'mismatch' ? 'Face does not match' : faceState === 'checking' ? 'Checking face...' : 'Align Face Here'}
                       </span>
@@ -1107,7 +1109,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   {/* Camera loading state */}
                   {cameraStarting && !cameraReady && !cameraError && (
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white text-xs gap-2.5 z-10">
-                      <RefreshCw className="w-7 h-7 animate-spin text-indigo-400" />
+                      <RefreshCw className="w-7 h-7 animate-spin text-[#95d5b2]" />
                       <span className="font-bold text-sm">Starting Camera Stream...</span>
                       <span className="text-[11px] text-slate-400 max-w-[240px] text-center">
                         Initializing video feed. Please look at your screen.
@@ -1146,7 +1148,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                   type="button"
                   onClick={() => { void handleMatchAndPunch(); }}
                   disabled={!cameraReady || cameraStarting || Boolean(cameraError) || loading}
-                  className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] active:scale-98 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!cameraReady ? (
                     <>
@@ -1209,43 +1211,68 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         ) : (
           /* ---------------- VIEW B: MAIN PUNCH CLOCK SCREEN ---------------- */
           <>
-            <div className="text-center pt-1 pb-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-2.5">
-                <Clock className="w-5 h-5 text-indigo-600" />
+            <div className="text-center pt-1 pb-2">
+              <div className="mx-auto flex items-center justify-center mb-2">
+                <Clock className="w-6 h-6 text-[#2d6a4f]" />
               </div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">Attendance Punch Clock</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Shift timing &amp; attendance tracking
-              </p>
+              
             </div>
 
-            {/* Luxury Digital Clock & Timer Display */}
-            <div className="bg-gradient-to-br from-[#343a40] via-[#343a40] to-[#212529] rounded-2xl p-4 sm:p-5 text-center border border-[#343a40] shadow-md animate-clock-glow my-3 relative overflow-hidden">
-              <ModernDigitClock
-                time={punchState.status === 'not_started' ? time : undefined}
-                timeString={punchState.status === 'not_started' ? undefined : liveWorkedHMS}
-                size="sm"
-                variant={punchState.status === 'on_break' ? 'amber' : 'emerald'}
-                showSweepRing={punchState.status === 'working'}
-                label={
-                  punchState.status === 'working'
-                    ? 'Active Shift Chronometer'
+            {/* Clean Normal Digital Timer Display */}
+            <div className="bg-[#f8f9fa] rounded-2xl p-4 sm:p-5 text-center border border-[#dee2e6] my-3">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    punchState.status === 'working'
+                      ? 'bg-[#2d6a4f] animate-pulse'
+                      : punchState.status === 'on_break'
+                        ? 'bg-amber-500'
+                        : 'bg-slate-400'
+                  }`}
+                />
+                <span>
+                  {punchState.status === 'working'
+                    ? 'Active Shift Timer'
                     : punchState.status === 'on_break'
                       ? 'Timer Paused (On Break)'
                       : punchState.status === 'completed'
-                        ? 'Shift Completed (Timer Reset)'
-                        : 'Live GPS Shift Chronometer'
-                }
-                subText={
-                  punchState.status === 'on_break'
-                    ? `Break duration: ${liveBreakWords}`
-                    : punchState.status === 'completed'
-                      ? `Shift Finalized • Total: ${liveWorkedHMS}`
-                      : time
-                        ? time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                        : 'October 28, 2026'
-                }
-              />
+                        ? 'Shift Completed'
+                        : 'Current Time'}
+                </span>
+              </div>
+
+              <div
+                className={`text-3xl sm:text-4xl font-normal tracking-tight tabular-nums ${
+                  punchState.status === 'on_break' ? 'text-amber-700' : 'text-[#1b4332]'
+                }`}
+              >
+                {punchState.status === 'not_started'
+                  ? time
+                    ? time.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true,
+                      })
+                    : '--:--:--'
+                  : liveWorkedHMS}
+              </div>
+
+              <p className="text-xs font-medium text-slate-500 mt-1.5">
+                {punchState.status === 'on_break'
+                  ? `Break duration: ${liveBreakWords}`
+                  : punchState.status === 'completed'
+                    ? `Shift Finalized • Total: ${liveWorkedHMS}`
+                    : time
+                      ? time.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
+                      : ''}
+              </p>
             </div>
 
             {/* WFH Indicator (if enabled) */}
@@ -1384,14 +1411,14 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Work from office - morning shift"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white placeholder:text-slate-400 transition"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] text-slate-800 bg-white placeholder:text-slate-400 transition"
                     />
                   </div>
 
                   <button
                     onClick={handleInitiateCheckIn}
                     disabled={loading || Boolean(punchBlockMessage)}
-                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                    className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs bg-[#2d6a4f] hover:bg-[#1b4332] text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     <span>
