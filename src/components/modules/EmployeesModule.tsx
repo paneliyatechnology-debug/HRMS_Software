@@ -21,6 +21,7 @@ import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { api } from '../../lib/api';
+import { getSharpAvatarUrl } from '../../lib/imageUtils';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { canDeleteUser } from '../../lib/rolePermissions';
@@ -556,7 +557,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-full font-bold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200 overflow-hidden">
                         {emp.avatarUrl ? (
-                          <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                          <img src={getSharpAvatarUrl(emp.avatarUrl, 128)} alt={emp.firstName} className="w-full h-full object-cover" />
                         ) : (
                           <>
                             {emp.firstName[0]}
@@ -652,36 +653,39 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenChatWithEmployee(emp.id)}
-                          className="group inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 text-slate-600 hover:text-indigo-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
-                          title="Chat"
+                          aria-label="Chat"
+                          className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                          <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                          <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                             Chat
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                           </span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => handleOpenNoticeModal(emp)}
-                        className="group inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-amber-50 hover:border-amber-200 text-slate-600 hover:text-amber-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
-                        title="Send Notice"
+                        aria-label="Notice"
+                        className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                       >
-                        <Bell className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                        <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                           Notice
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                         </span>
                       </button>
                       {canDeleteUser(user) && !isCurrentUser && (
                         <button
                           type="button"
                           onClick={() => handleOpenRemoveModal(emp)}
-                          className="group inline-flex items-center justify-center p-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold transition-all duration-200 cursor-pointer"
-                          title="Remove Employee"
+                          aria-label="Remove"
+                          className="group relative inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                          <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                          <Trash2 className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                          <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                             Remove
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                           </span>
                         </button>
                       )}
@@ -777,7 +781,7 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full font-semibold text-xs border flex items-center justify-center shrink-0 bg-slate-100 text-slate-700 border-slate-200 overflow-hidden">
                           {emp.avatarUrl ? (
-                            <img src={emp.avatarUrl} alt={emp.firstName} className="w-full h-full object-cover" />
+                            <img src={getSharpAvatarUrl(emp.avatarUrl, 128)} alt={emp.firstName} className="w-full h-full object-cover" />
                           ) : (
                             <>
                               {emp.firstName[0]}
@@ -882,12 +886,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             type="button"
                             id={`btn-chat-${emp.id}`}
                             onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                            className="group inline-flex items-center justify-center p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
-                            title="Chat with employee"
+                            aria-label="Chat"
+                            className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                            <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                            <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                               Chat
+                              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                             </span>
                           </button>
 
@@ -895,12 +900,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             type="button"
                             id={`btn-notice-${emp.id}`}
                             onClick={() => handleOpenNoticeModal(emp)}
-                            className="group inline-flex items-center justify-center p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
-                            title="Send notice to employee"
+                            aria-label="Notice"
+                            className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                           >
-                            <Bell className="w-3.5 h-3.5 shrink-0" />
-                            <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                            <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                               Notice
+                              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                             </span>
                           </button>
 
@@ -909,12 +915,13 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                               type="button"
                               id={`btn-remove-${emp.id}`}
                               onClick={() => handleOpenRemoveModal(emp)}
-                              className="group inline-flex items-center justify-center p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition-all duration-200 cursor-pointer"
-                              title="Remove employee from staff"
+                              aria-label="Remove"
+                              className="group relative inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
                             >
-                              <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                              <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              <Trash2 className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
                                 Remove
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                               </span>
                             </button>
                           )}

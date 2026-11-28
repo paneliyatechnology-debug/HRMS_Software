@@ -42,6 +42,8 @@ import {
   Zap,
   Eye,
   EyeOff,
+  ListChecks,
+  Umbrella,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -265,10 +267,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     liveWorkedHMS,
     liveBreakHMS,
     liveBreakWords,
+    elapsedSeconds,
     breakSeconds,
+    totalWorkedSeconds,
+    totalBreakSeconds,
     activeSession,
     lastCompletedSession,
     todaySummary,
+    attendanceLogic,
+    punches: livePunches,
+    initialLoading: workSessionLoading,
     checkIn: handleCheckInAction,
     takeBreak: handleTakeBreakAction,
     resumeWork: handleResumeWorkAction,
@@ -277,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   } = useWorkSession();
 
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>(() => getAllAttendanceRecords());
-  const activeEmpId = currentEmp.id || currentEmpId;
+  const activeEmpId = (currentEmp.id && currentEmp.id !== 'emp-self' ? currentEmp.id : '') || user.employeeId || user.id || '';
 
   // Sync attendance records on system events
   useEffect(() => {
@@ -293,12 +301,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     };
   }, []);
 
-  // Real announcements, holidays, and admin-configured leave quota/balance states
-  const [announcements, setAnnouncements] = useState<any[]>(notices || []);
+  // Real backend-only states for announcements, holidays, tasks, payslips, company branding, and leave balances
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState<boolean>(portalMode !== 'admin');
+  const [announcementsError, setAnnouncementsError] = useState<string | null>(null);
   const [holidays, setHolidays] = useState<any[]>([]);
+  const [holidaysLoading, setHolidaysLoading] = useState<boolean>(portalMode !== 'admin');
+  const [holidaysError, setHolidaysError] = useState<string | null>(null);
   const [leaveTypesList, setLeaveTypesList] = useState<any[]>(leaveTypes || []);
   const [leaveQuotaData, setLeaveQuotaData] = useState<RawLeaveQuotaPayload | null>(null);
   const [leaveQuotaLoading, setLeaveQuotaLoading] = useState<boolean>(portalMode !== 'admin');
+  const [leaveQuotaError, setLeaveQuotaError] = useState<string | null>(null);
+  const [empTasks, setEmpTasks] = useState<any[]>([]);
+  const [empTasksLoading, setEmpTasksLoading] = useState<boolean>(portalMode !== 'admin');
+  const [empTasksError, setEmpTasksError] = useState<string | null>(null);
+  const [empPayslips, setEmpPayslips] = useState<any[]>([]);
+  const [empPayslipsLoading, setEmpPayslipsLoading] = useState<boolean>(portalMode !== 'admin');
+  const [empPayslipsError, setEmpPayslipsError] = useState<string | null>(null);
+  const [shiftTargetHours, setShiftTargetHours] = useState<number | null>(null);
+  const [companyNameApi, setCompanyNameApi] = useState<string>('');
 
   useEffect(() => {
     if (Array.isArray(leaveTypes) && leaveTypes.length > 0) {
@@ -309,35 +330,189 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   useEffect(() => {
     if (isSuperAdmin) {
       setLeaveQuotaLoading(false);
+      setAnnouncementsLoading(false);
+      setHolidaysLoading(false);
+      setEmpTasksLoading(false);
+      setEmpPayslipsLoading(false);
       return;
     }
     let isMounted = true;
     const fetchExtraData = async () => {
-      try {
-        const [holRes, ltRes] = await Promise.all([
-          api.getHolidays(),
-          api.listLeaveTypes(user?.companyId ? { companyId: user.companyId } : undefined).catch(() => []),
-        ]);
-        if (isMounted) {
-          if (Array.isArray(notices)) setAnnouncements(notices);
-          setHolidays(Array.isArray(holRes) ? holRes : []);
-          if (Array.isArray(ltRes) && ltRes.length > 0) {
-            setLeaveTypesList(ltRes);
-          }
-        }
-      } catch (err) {
-        console.warn('DashboardView fetch extra data notice:', err);
+      if (portalMode !== 'admin' && isMounted) {
+        setHolidaysLoading(true);
+        setAnnouncementsLoading(true);
+        setEmpTasksLoading(true);
+        setEmpPayslipsLoading(true);
+        setLeaveQuotaLoading(true);
+        setHolidaysError(null);
+        setAnnouncementsError(null);
+        setEmpTasksError(null);
+        setEmpPayslipsError(null);
+        setLeaveQuotaError(null);
       }
 
+      const holPromise = api.getHolidays()
+        .then((holRes: any) => {
+          if (!isMounted) return;
+          setHolidays(Array.isArray(holRes) ? holRes : Array.isArray(holRes?.data) ? holRes.data : []);
+        })
+        .catch((err: any) => {
+          if (isMounted) {
+            setHolidays([]);
+            setHolidaysError(err?.message || 'Unable to load holidays.');
+          }
+        })
+        .finally(() => {
+          if (isMounted) setHolidaysLoading(false);
+        });
+
+      const ltPromise = api.listLeaveTypes(user?.companyId ? { companyId: user.companyId } : undefined)
+        .then((ltRes: any) => {
+          if (!isMounted) return true;
+          if (Array.isArray(ltRes)) {
+            setLeaveTypesList(ltRes);
+          }
+          return true;
+        })
+        .catch(() => false);
+
+      const settingsPromise = api.getAttendanceSettings()
+        .then((settingsRes: any) => {
+          if (!isMounted || !settingsRes) return;
+          const payload = settingsRes?.data || settingsRes;
+          const explicitHours = Number(
+            payload?.workingHoursPerDay ??
+            payload?.dailyTargetHours ??
+            payload?.targetHours ??
+            payload?.expectedHours
+          );
+          if (Number.isFinite(explicitHours) && explicitHours > 0 && explicitHours <= 16) {
+            setShiftTargetHours(Math.round(explicitHours * 10) / 10);
+            return;
+          }
+          const startStr = String(payload?.shiftStart || '').trim();
+          const endStr = String(payload?.shiftEnd || '').trim();
+          if (startStr && endStr) {
+            const parseMins = (t: string) => {
+              const m = t.match(/(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i);
+              if (!m) return null;
+              let h = parseInt(m[1], 10);
+              const mins = parseInt(m[2], 10);
+              const ap = m[3]?.toUpperCase();
+              if (ap === 'PM' && h < 12) h += 12;
+              if (ap === 'AM' && h === 12) h = 0;
+              return h * 60 + mins;
+            };
+            const sM = parseMins(startStr);
+            const eM = parseMins(endStr);
+            if (sM !== null && eM !== null && eM > sM) {
+              const hrs = Math.round(((eM - sM) / 60) * 10) / 10;
+              if (hrs > 0 && hrs <= 16) setShiftTargetHours(hrs);
+            }
+          }
+        })
+        .catch(() => {
+          if (isMounted) setShiftTargetHours(null);
+        });
+
+      const companyPromise = api.getMyCompany()
+        .then((comp: any) => {
+          if (isMounted && comp?.name) {
+            setCompanyNameApi(String(comp.name).replace(/\s+Inc\.?$/i, '').trim());
+          }
+        })
+        .catch(() => undefined);
+
       if (portalMode !== 'admin') {
-        if (isMounted) setLeaveQuotaLoading(true);
-        try {
-          const payload = await fetchLeaveQuotaData(activeEmpId);
-          if (isMounted) setLeaveQuotaData(payload);
-        } catch (_) {
-        } finally {
-          if (isMounted) setLeaveQuotaLoading(false);
-        }
+        const tasksPromise = api.listTasks()
+          .then((res: any) => {
+            if (!isMounted) return;
+            const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+            setEmpTasks(list);
+          })
+          .catch((err: any) => {
+            if (isMounted) {
+              setEmpTasks([]);
+              setEmpTasksError(err?.message || 'Unable to load tasks.');
+            }
+          })
+          .finally(() => {
+            if (isMounted) setEmpTasksLoading(false);
+          });
+
+        const payslipPromise = api.listPayslips(true)
+          .then((res: any) => {
+            if (!isMounted) return;
+            const list = Array.isArray(res)
+              ? res
+              : Array.isArray(res?.data)
+                ? res.data
+                : Array.isArray(res?.payslips)
+                  ? res.payslips
+                  : [];
+            setEmpPayslips(list);
+          })
+          .catch((err: any) => {
+            if (isMounted) {
+              setEmpPayslips([]);
+              setEmpPayslipsError(err?.message || 'Unable to load payslips.');
+            }
+          })
+          .finally(() => {
+            if (isMounted) setEmpPayslipsLoading(false);
+          });
+
+        const annPromise = api.getAnnouncements()
+          .then((res: any) => {
+            if (!isMounted) return;
+            const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+            setAnnouncements(list);
+          })
+          .catch((err: any) => {
+            if (isMounted) {
+              setAnnouncements([]);
+              setAnnouncementsError(err?.message || 'Unable to load announcements.');
+            }
+          })
+          .finally(() => {
+            if (isMounted) setAnnouncementsLoading(false);
+          });
+
+        const leavePromise = Promise.all([
+          ltPromise,
+          fetchLeaveQuotaData(activeEmpId)
+            .then((payload) => ({ ok: true as const, payload }))
+            .catch((err: any) => ({ ok: false as const, err })),
+        ])
+          .then(([ltOk, quotaRes]) => {
+            if (!isMounted) return;
+            if (quotaRes.ok) {
+              setLeaveQuotaData(quotaRes.payload);
+              if (!ltOk && !quotaRes.payload?.settings && !quotaRes.payload?.balances) {
+                setLeaveQuotaError('Unable to load leave balances.');
+              }
+            } else {
+              setLeaveQuotaData(null);
+              if (!ltOk) {
+                setLeaveQuotaError(quotaRes.err?.message || 'Unable to load leave balances.');
+              }
+            }
+          })
+          .finally(() => {
+            if (isMounted) setLeaveQuotaLoading(false);
+          });
+
+        await Promise.all([
+          holPromise,
+          settingsPromise,
+          companyPromise,
+          tasksPromise,
+          payslipPromise,
+          annPromise,
+          leavePromise,
+        ]);
+      } else {
+        await Promise.all([holPromise, ltPromise, settingsPromise, companyPromise]);
       }
     };
     fetchExtraData();
@@ -367,7 +542,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       window.removeEventListener('hrms_leaves_updated', handleLeaveQuotaSync);
       window.removeEventListener('hrms_leave_types_updated', handleLeaveQuotaSync);
     };
-  }, [portalMode, activeEmpId, user?.companyId, isSuperAdmin]);
+  }, [portalMode, activeEmpId, user?.companyId, isSuperAdmin, liveTick]);
 
   // Set of all identifier keys for this employee to match attendance records accurately
   const myCandidateIds = useMemo(() => {
@@ -413,8 +588,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           punches: (Array.isArray(rec.punches) && rec.punches.length > 0)
             ? rec.punches
             : (Array.isArray(existing.punches) && existing.punches.length > 0)
-            ? existing.punches
-            : [],
+              ? existing.punches
+              : [],
         });
       } else {
         map.set(key, rec);
@@ -504,8 +679,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const upcomingHolidays = useMemo(() => {
     const todayStr = getTodayDateString();
     return holidays
-      .filter((h) => h.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter((h) => String(h.date || '').slice(0, 10) >= todayStr)
+      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
       .slice(0, 3);
   }, [holidays]);
 
@@ -755,43 +930,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     await handleCheckOutAction();
   };
 
-  const [leaveDaysLeft, setLeaveDaysLeft] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.getAnnouncements().then((list) => {
-      if (!cancelled) setAnnouncements(Array.isArray(list) ? list.slice(0, 3) : []);
-    }).catch(() => {
-      if (!cancelled) setAnnouncements([]);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.companyId, employees.length, liveTick]);
-
-  useEffect(() => {
-    if (portalMode === 'admin') return;
-    const employeeId = currentEmp.id;
-    if (!employeeId || employeeId === 'emp-self') {
-      setLeaveDaysLeft(null);
-      return;
-    }
-    let cancelled = false;
-    api.getLeaveBalances(employeeId).then((balance) => {
-      if (cancelled || !balance) return;
-      const remaining =
-        (balance.casualLeave?.remaining || 0) +
-        (balance.sickLeave?.remaining || 0) +
-        (balance.paidLeave?.remaining || 0);
-      setLeaveDaysLeft(remaining);
-    }).catch(() => {
-      if (!cancelled) setLeaveDaysLeft(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [portalMode, currentEmp.id, liveTick]);
-
   const todayDate = getTodayDateString();
   const teamIds = new Set(employees.map((emp) => emp.id));
   const isPresent = (record: AttendanceRecord) => {
@@ -859,17 +997,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* Employee Welcome */}
-      {portalMode !== 'admin' && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e9ecef]">
-          <div>
-            <h1 className="text-2xl sm:text-[28px] font-bold leading-tight tracking-[-0.025em] text-[#0f172a] flex items-baseline gap-1.5 flex-wrap">
-              <span>Hello,</span>
-              <span className="text-[#1b4332]">{user.firstName || 'Employee'}!</span>
-            </h1>
+      {/* Employee Welcome Hero Banner */}
+      {portalMode !== 'admin' && !isSuperAdmin && (() => {
+        const hr = new Date().getHours();
+        const greetWord = hr < 12 ? 'Good Morning' : hr < 17 ? 'Good Afternoon' : 'Good Evening';
+        const empFullName = formatDisplayName(user.firstName, user.lastName) || user.email || '';
+        const compName = companyNameApi || user.companyName || currentEmp.companyName || '';
+        return (
+          <div className="relative rounded-3xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(105deg, rgba(255,255,255,1) 42%, rgba(216,243,220,0.6) 75%, rgba(45,106,79,0.22) 100%)',
+              }}
+            />
+            <div
+              className="hidden sm:block absolute inset-y-0 right-0 w-[44%] max-w-[460px] pointer-events-none select-none overflow-hidden"
+              style={{
+                WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.92) 30%, transparent 98%)',
+                maskImage: 'linear-gradient(to left, rgba(0,0,0,0.92) 30%, transparent 98%)',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/directory-building.jpg"
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover object-center opacity-85"
+              />
+            </div>
+            <div className="relative px-5 py-5 sm:px-7 sm:py-6">
+              <h1 className="text-xl sm:text-[26px] font-extrabold tracking-tight text-slate-900 leading-tight">
+                {empFullName ? `${greetWord}, ${empFullName}!` : `${greetWord}!`} <span aria-hidden="true">👋</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                {compName ? (
+                  <>Here&apos;s what&apos;s happening at <span className="font-semibold text-[#1b4332]">{compName}</span> today.</>
+                ) : (
+                  <>Here&apos;s what&apos;s happening today.</>
+                )}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {isSuperAdmin ? (
         /* ============================================================== */
@@ -1005,11 +1177,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               <div
                                 title={`${m.label}: ₹${m.revenue.toLocaleString('en-IN')} (${m.orders} orders)`}
                                 style={{ height: `${heightPct}%` }}
-                                className={`w-full rounded-t-xl transition-all duration-500 ${
-                                  m.revenue > 0 || m.orders > 0
-                                    ? 'bg-gradient-to-t from-[#1b4332] to-[#40916c] group-hover:from-[#2d6a4f] group-hover:to-[#52b788] shadow-xs'
-                                    : 'bg-slate-100'
-                                }`}
+                                className={`w-full rounded-t-xl transition-all duration-500 ${m.revenue > 0 || m.orders > 0
+                                  ? 'bg-gradient-to-t from-[#1b4332] to-[#40916c] group-hover:from-[#2d6a4f] group-hover:to-[#52b788] shadow-xs'
+                                  : 'bg-slate-100'
+                                  }`}
                               />
                             </div>
                             <span className="text-[11px] font-bold text-slate-500">{m.label}</span>
@@ -1391,297 +1562,297 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="dashboard-grid">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 col-span-full">
               <section className="panel flex flex-col">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
-                </span>
-                <button
-                  onClick={() => onNavigateModule('announcements')}
-                  className="btn-ghost text-xs"
-                >
-                  View all
-                </button>
-              </h3>
-              {announcements.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  No company announcements published yet.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {announcements.slice(0, 3).map((item) => (
-                    <div key={item.id} className="item">
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-xs text-[#343a40] truncate">{item.title}</strong>
-                        <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
-                          {item.priority || 'Notice'}
-                        </span>
+                <h3>
+                  <span className="flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Announcements
+                  </span>
+                  <button
+                    onClick={() => onNavigateModule('announcements')}
+                    className="btn-ghost text-xs"
+                  >
+                    View all
+                  </button>
+                </h3>
+                {announcements.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    No company announcements published yet.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {announcements.slice(0, 3).map((item) => (
+                      <div key={item.id} className="item">
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-xs text-[#343a40] truncate">{item.title}</strong>
+                          <span className={`tag ${item.priority === 'High' || item.priority === 'Urgent' ? 'orange' : 'green'}`}>
+                            {item.priority || 'Notice'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#6c757d] mt-1 leading-relaxed line-clamp-2">
+                          {item.content}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[#6c757d] mt-1 leading-relaxed line-clamp-2">
-                        {item.content}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
               </section>
 
               {canApproveRejectLeave(user) && (
-              <section className="panel flex flex-col">
-              <h3>
-                <span className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
-                </span>
-                <button
-                  onClick={() => onNavigateModule('leaves')}
-                  className="btn-ghost text-xs"
-                >
-                  Review all
-                </button>
-              </h3>
+                <section className="panel flex flex-col">
+                  <h3>
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" /> Pending leave approvals ({pendingLeaves.length})
+                    </span>
+                    <button
+                      onClick={() => onNavigateModule('leaves')}
+                      className="btn-ghost text-xs"
+                    >
+                      Review all
+                    </button>
+                  </h3>
 
-              {pendingLeaves.length === 0 ? (
-                <div className="p-6 text-center text-[#6c757d] text-xs">
-                  No leave requests currently pending review.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
-                    const isProcessing = processingLeaveId === leave.id;
-                    return (
-                      <div
-                        key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
-                        className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                      >
-                        <div className="space-y-0.5 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <strong className="text-xs text-[#343a40]">
-                              {leave.employeeName}
-                            </strong>
-                            <span className="tag orange text-[11px]">
-                              {leave.leaveType}
-                            </span>
-                            <span className="text-[11px] text-[#6c757d]">
-                              {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
-                            </span>
-                            <span className="text-[11px] font-semibold text-amber-700">
-                              Pending
-                            </span>
+                  {pendingLeaves.length === 0 ? (
+                    <div className="p-6 text-center text-[#6c757d] text-xs">
+                      No leave requests currently pending review.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {pendingLeaves.slice(0, 3).map((leave, leaveIdx) => {
+                        const isProcessing = processingLeaveId === leave.id;
+                        return (
+                          <div
+                            key={leave.id ? `${leave.id}-${leaveIdx}` : leaveIdx}
+                            className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                          >
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <strong className="text-xs text-[#343a40]">
+                                  {leave.employeeName}
+                                </strong>
+                                <span className="tag orange text-[11px]">
+                                  {leave.leaveType}
+                                </span>
+                                <span className="text-[11px] text-[#6c757d]">
+                                  {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} ({leave.daysCount}d)
+                                </span>
+                                <span className="text-[11px] font-semibold text-amber-700">
+                                  Pending
+                                </span>
+                              </div>
+                              {leave.reason && (
+                                <p className="text-[11px] text-[#6c757d] truncate max-w-md">
+                                  Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                              {canApproveRejectLeave(user) && (
+                                <>
+                                  <button
+                                    onClick={() => handleDashboardOpenApproveModal(leave)}
+                                    disabled={isProcessing}
+                                    className="btn-primary !text-[11px] !py-1 !px-2.5 !rounded-lg"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
+                                    disabled={isProcessing}
+                                    className="btn-danger !text-[11px] !py-1 !px-2.5 !rounded-lg"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          {leave.reason && (
-                            <p className="text-[11px] text-[#6c757d] truncate max-w-md">
-                              Reason: <span className="text-[#343a40] font-medium">&ldquo;{leave.reason}&rdquo;</span>
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                          {canApproveRejectLeave(user) && (
-                            <>
-                              <button
-                                onClick={() => handleDashboardOpenApproveModal(leave)}
-                                disabled={isProcessing}
-                                className="btn-primary !text-[11px] !py-1 !px-2.5 !rounded-lg"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleDashboardRejectLeave(leave.id, leave.employeeName, leave.employeeId)}
-                                disabled={isProcessing}
-                                className="btn-danger !text-[11px] !py-1 !px-2.5 !rounded-lg"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               )}
             </div>
 
             {isModuleAllowedForUser('employees', user) && (
-            <div className="panel space-y-3 col-span-full">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
-              <div>
-                  <h3 className="text-sm font-bold text-[#343a40] m-0">
-                  Staff Directory &amp; Live Time Tracking
-                </h3>
-                </div>
+              <div className="panel space-y-3 col-span-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#f8f9fa]">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#343a40] m-0">
+                      Staff Directory &amp; Live Time Tracking
+                    </h3>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onNavigateModule('attendance')}
-                    className="btn-ghost text-xs"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
-                    <span>Timesheets</span>
-                  </button>
-                  {canCreateUser(user) && (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={onOpenAddEmployeeModal}
-                      className="btn-primary text-xs"
+                      onClick={() => onNavigateModule('attendance')}
+                      className="btn-ghost text-xs"
                     >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>Add Employee</span>
+                      <Clock className="w-3.5 h-3.5 text-[#6c757d]" />
+                      <span>Timesheets</span>
                     </button>
-                  )}
+                    {canCreateUser(user) && (
+                      <button
+                        onClick={onOpenAddEmployeeModal}
+                        className="btn-primary text-xs"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Add Employee</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="tablewrap">
+                  <table className="data">
+                    <thead>
+                      <tr>
+                        <th>EMPLOYEE</th>
+                        <th>ID</th>
+                        <th>DESIGNATION</th>
+                        <th>TODAY&apos;S SHIFT</th>
+                        <th>WORKED TIME</th>
+                        <th>BREAK</th>
+                        <th>STATUS</th>
+                        <th className="text-right">ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employees.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
+                            <div className="flex flex-col items-center justify-center gap-1.5">
+                              <Users className="w-8 h-8 text-emerald-500/50" />
+                              <p className="font-bold text-[#343a40]">No employees in this company yet</p>
+                              <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        employees.map((emp, index) => {
+                          const todayDate = getTodayDateString();
+                          const todayRec =
+                            mergedAttendance.find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
+                            (attendance || []).find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
+                            getTodayRecordForEmployee(emp.id, mergedAttendance);
+                          const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
+                          const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
+                          const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');
+
+                          const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
+                          const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
+
+                          return (
+                            <tr
+                              key={emp.id ? `${emp.id}-${index}` : index}
+                              onClick={() => onSelectEmployee(emp)}
+                              className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
+                            >
+                              <td className="font-semibold text-[#343a40]">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
+                                    {emp.firstName?.[0] || 'E'}
+                                  </div>
+                                  <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                                </div>
+                              </td>
+                              <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
+                              <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
+                              <td className="text-[#6c757d] font-mono text-xs">
+                                {todayRec?.checkIn ? (
+                                  <span>
+                                    {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
+                                  </span>
+                                ) : (
+                                  <span className="text-[#dee2e6]">—</span>
+                                )}
+                              </td>
+                              <td className="font-mono font-bold text-[#343a40] text-xs">
+                                {todayRec ? formatSecondsToWords(liveSecs) : '—'}
+                              </td>
+                              <td className="text-[#6c757d] font-mono text-xs">
+                                {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
+                              </td>
+                              <td>
+                                {isWorking ? (
+                                  <span className="tag green">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
+                                    Working
+                                  </span>
+                                ) : isOnBreak ? (
+                                  <span className="tag orange">
+                                    <Pause className="w-3 h-3 text-[#6c757d]" />
+                                    On Break
+                                  </span>
+                                ) : isDone ? (
+                                  <span className="tag">
+                                    <Check className="w-3 h-3" />
+                                    Completed
+                                  </span>
+                                ) : (
+                                  <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
+                                    Not Punched
+                                  </span>
+                                )}
+                              </td>
+                              <td className="text-right">
+                                <div
+                                  className="flex items-center justify-end gap-1.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    id={`btn-dash-chat-${emp.id}`}
+                                    onClick={() => onOpenChatWithEmployee?.(emp.id)}
+                                    aria-label="Chat"
+                                    className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                                    <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
+                                      Chat
+                                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    id={`btn-dash-notice-${emp.id}`}
+                                    onClick={() => handleOpenNoticeModalDashboard(emp)}
+                                    aria-label="Notice"
+                                    className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
+                                  >
+                                    <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                                    <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
+                                      Notice
+                                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                                    </span>
+                                  </button>
+
+                                  {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
+                                    <button
+                                      type="button"
+                                      id={`btn-dash-remove-${emp.id}`}
+                                      onClick={() => setRemovingEmpDashboard(emp)}
+                                      aria-label="Remove"
+                                      className="group relative inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                                      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
+                                        Remove
+                                        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-
-            <div className="tablewrap">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>EMPLOYEE</th>
-                    <th>ID</th>
-                    <th>DESIGNATION</th>
-                    <th>TODAY&apos;S SHIFT</th>
-                    <th>WORKED TIME</th>
-                    <th>BREAK</th>
-                    <th>STATUS</th>
-                    <th className="text-right">ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.length === 0 ? (
-                    <tr>
-                        <td colSpan={8} className="py-10 text-center text-xs text-[#6c757d]">
-                        <div className="flex flex-col items-center justify-center gap-1.5">
-                          <Users className="w-8 h-8 text-emerald-500/50" />
-                            <p className="font-bold text-[#343a40]">No employees in this company yet</p>
-                            <p className="text-[11px] text-[#6c757d]">Click &ldquo;+ Add Employee&rdquo; above to onboard your staff members.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    employees.map((emp, index) => {
-                    const todayDate = getTodayDateString();
-                    const todayRec =
-                      mergedAttendance.find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
-                      (attendance || []).find((r) => r && r.date === todayDate && isMatchEmployee(r, emp.id)) ||
-                      getTodayRecordForEmployee(emp.id, mergedAttendance);
-                        const isDone = todayRec && Boolean(todayRec.isCompleted || (todayRec.checkOut && todayRec.checkOut !== '—') || (todayRec as any).status === 'Completed');
-                        const isOnBreak = todayRec && !isDone && Boolean(todayRec.isOnBreak);
-                        const isWorking = todayRec && !isDone && !isOnBreak && Boolean(todayRec.checkIn && todayRec.checkIn !== '—');
-
-                    const liveSecs = todayRec ? getLiveActiveSeconds(todayRec) : 0;
-                    const breakSecs = todayRec ? getLiveBreakSeconds(todayRec) : 0;
-
-                    return (
-                      <tr
-                        key={emp.id ? `${emp.id}-${index}` : index}
-                        onClick={() => onSelectEmployee(emp)}
-                            className="hover:bg-[#f8f9fa] cursor-pointer transition-colors"
-                      >
-                            <td className="font-semibold text-[#343a40]">
-                          <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-full bg-[#d8f3dc] text-[#1b4332] font-bold text-xs flex items-center justify-center shrink-0">
-                              {emp.firstName?.[0] || 'E'}
-                            </div>
-                            <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                          </div>
-                        </td>
-                            <td className="text-[#6c757d] font-mono text-xs">{emp.employeeCode}</td>
-                            <td className="text-[#343a40] truncate">{emp.designationTitle || 'Staff'}</td>
-                            <td className="text-[#6c757d] font-mono text-xs">
-                          {todayRec?.checkIn ? (
-                            <span>
-                              {todayRec.checkIn} {todayRec.checkOut ? `– ${todayRec.checkOut}` : '– Active'}
-                            </span>
-                          ) : (
-                                <span className="text-[#dee2e6]">—</span>
-                          )}
-                        </td>
-                            <td className="font-mono font-bold text-[#343a40] text-xs">
-                          {todayRec ? formatSecondsToWords(liveSecs) : '—'}
-                        </td>
-                            <td className="text-[#6c757d] font-mono text-xs">
-                          {breakSecs > 0 ? formatSecondsToWords(breakSecs) : '0s'}
-                        </td>
-                        <td>
-                          {isWorking ? (
-                            <span className="tag green">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#52b788] animate-pulse" />
-                              Working
-                            </span>
-                          ) : isOnBreak ? (
-                            <span className="tag orange">
-                                  <Pause className="w-3 h-3 text-[#6c757d]" />
-                              On Break
-                            </span>
-                          ) : isDone ? (
-                            <span className="tag">
-                              <Check className="w-3 h-3" />
-                              Completed
-                            </span>
-                          ) : (
-                                <span className="tag" style={{ background: '#f8f9fa', color: '#6c757d' }}>
-                              Not Punched
-                            </span>
-                          )}
-                        </td>
-                        <td className="text-right">
-                          <div
-                            className="flex items-center justify-end gap-1.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              id={`btn-dash-chat-${emp.id}`}
-                              onClick={() => onOpenChatWithEmployee?.(emp.id)}
-                              aria-label="Chat"
-                              className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
-                                Chat
-                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              id={`btn-dash-notice-${emp.id}`}
-                              onClick={() => handleOpenNoticeModalDashboard(emp)}
-                              aria-label="Notice"
-                              className="group relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-slate-700 hover:text-emerald-800 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
-                            >
-                              <Bell className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
-                                Notice
-                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                              </span>
-                            </button>
-
-                            {canDeleteUser(user) && emp.email !== user.email && emp.id !== user.employeeId && emp.id !== user.id && (
-                              <button
-                                type="button"
-                                id={`btn-dash-remove-${emp.id}`}
-                                onClick={() => setRemovingEmpDashboard(emp)}
-                                aria-label="Remove"
-                                className="group relative inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 hover:border-rose-300 text-xs font-semibold text-rose-600 hover:text-rose-700 p-2 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm active:scale-95 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 translate-y-1.5 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-200 ease-out shadow-lg z-20">
-                                  Remove
-                                  <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
             )}
           </div>
         </div>
@@ -1709,20 +1880,122 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               myLeaves,
               leaveTypesList
             );
-            const empTakenDays = empLeaveSummary.total.taken;
-            const empTotalQuota = empLeaveSummary.total.quota;
-            const empLeftDays = empLeaveSummary.total.available;
+            const empLeaveResult = calculateEmployeeLeaveBalances(
+              leaveTypesList,
+              myLeaves,
+              leaveQuotaData?.settings ?? null,
+              leaveQuotaData?.balances ?? null
+            );
+            const hasLeaveBackendData = Boolean(
+              leaveQuotaData?.settings ||
+              leaveQuotaData?.balances ||
+              leaveTypesList.length > 0
+            );
+            const empLeftDays = empLeaveResult.hasConfiguredTypes
+              ? empLeaveResult.totalAvailable
+              : empLeaveSummary.total.available;
+
+            const todayStr = getTodayDateString();
+            const myTodayRec = myAllAttendance.find((r) => String(r.date || '').slice(0, 10) === todayStr) || null;
+            const formatClockTime = (raw?: string) => {
+              if (!raw || raw === '—' || raw === '--:--') return '';
+              const dt = new Date(raw);
+              if (!Number.isNaN(dt.getTime()) && raw.includes('T')) {
+                return dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              }
+              return raw;
+            };
+            const checkInLabel =
+              formatClockTime(activeSession?.startTime) ||
+              formatClockTime(lastCompletedSession?.startTime) ||
+              formatClockTime(myTodayRec?.checkIn) ||
+              '';
+
+            const effectiveWorkedSecs =
+              totalWorkedSeconds ||
+              elapsedSeconds ||
+              myTodayRec?.activeSeconds ||
+              (typeof myTodayRec?.workingHours === 'number' && myTodayRec.workingHours > 0
+                ? Math.round(myTodayRec.workingHours * 3600)
+                : 0);
+            const wHrs = Math.floor(effectiveWorkedSecs / 3600);
+            const wMins = Math.floor((effectiveWorkedSecs % 3600) / 60);
+            const hasAttendanceToday = Boolean(
+              currentStatus === 'working' ||
+              currentStatus === 'on_break' ||
+              currentStatus === 'completed' ||
+              myTodayRec?.checkIn ||
+              effectiveWorkedSecs > 0
+            );
+            const workHoursText = !hasAttendanceToday
+              ? '—'
+              : wHrs > 0
+                ? `${wHrs}h ${wMins}m`
+                : `${wMins}m`;
+
+            const attendanceHeadline =
+              currentStatus === 'working'
+                ? 'Present'
+                : currentStatus === 'on_break'
+                  ? 'On Break'
+                  : currentStatus === 'completed' || Boolean(myTodayRec?.checkIn)
+                    ? 'Present'
+                    : 'Not Clocked In';
+
+            const attendanceStatusPill =
+              currentStatus === 'working'
+                ? { label: 'Working', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                : currentStatus === 'on_break'
+                  ? { label: 'On Break', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                  : currentStatus === 'completed'
+                    ? { label: 'Completed', cls: 'bg-emerald-50 text-[#1b4332] border-emerald-200' }
+                    : myTodayRec?.status
+                      ? { label: myTodayRec.status, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                      : { label: 'Pending', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+
+            const pendingTasksCount = empTasks.filter((t: any) => {
+              const st = String(t?.status || '').toUpperCase();
+              return st !== 'COMPLETED' && st !== 'DONE';
+            }).length;
+
+            const sortedPayslips = [...empPayslips].sort((a: any, b: any) => {
+              const yA = Number(a?.year || 0);
+              const yB = Number(b?.year || 0);
+              if (yA !== yB) return yB - yA;
+              const mA = Number(a?.month || 0);
+              const mB = Number(b?.month || 0);
+              if (mA !== mB) return mB - mA;
+              return String(b?.createdAt || '').localeCompare(String(a?.createdAt || ''));
+            });
+            const latestPayslip = sortedPayslips[0] || null;
+            const latestPayslipAmount = latestPayslip
+              ? Number(
+                  latestPayslip.netSalary ??
+                  latestPayslip.netPay ??
+                  latestPayslip.net ??
+                  latestPayslip.amount ??
+                  0
+                )
+              : null;
+            const latestPayslipPeriod = (() => {
+              if (!latestPayslip) return '';
+              const m = Number(latestPayslip.month);
+              const y = latestPayslip.year;
+              if (m >= 1 && m <= 12 && y) {
+                return new Date(Number(y), m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+              }
+              return latestPayslip.monthName || latestPayslip.period || '';
+            })();
 
             if (loading) {
-            return (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 animate-pulse">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div key={idx} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 h-full flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-200/70 shrink-0" />
-                      <div className="space-y-2 flex-1 min-w-0">
-                        <div className="h-2.5 w-16 bg-slate-200/70 rounded" />
-                        <div className="h-4 w-24 bg-slate-200/80 rounded" />
-                        <div className="h-2.5 w-20 bg-slate-100 rounded" />
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 animate-pulse">
+                  {[0, 1, 2, 3, 4].map((idx) => (
+                    <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 p-4 h-24 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-200/70 shrink-0" />
+                      <div className="space-y-2 flex-1">
+                        <div className="h-2.5 w-20 bg-slate-200/70 rounded" />
+                        <div className="h-5 w-16 bg-slate-200 rounded" />
                       </div>
                     </div>
                   ))}
@@ -1731,69 +2004,149 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }
 
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                 {isModuleAllowedForUser('attendance', user) && (
-                  <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all h-full">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${currentStatus === 'working' ? 'bg-emerald-50 text-emerald-600' : currentStatus === 'on_break' ? 'bg-amber-50 text-amber-600' : currentStatus === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                        <Clock className="w-5 h-5" />
+                  <div
+                    onClick={() => onNavigateModule('attendance')}
+                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <CalendarCheck className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-medium text-slate-500 truncate">Today&apos;s Attendance</p>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Today&apos;s Status</p>
-                        <p className="text-sm font-semibold text-slate-800 truncate">{currentStatus === 'working' ? 'Working' : currentStatus === 'on_break' ? 'On Break' : currentStatus === 'completed' ? 'Shift Done' : 'Not Clocked In'}</p>
-                        <p className="text-[11px] text-slate-500">{currentStatus === 'working' ? liveWorkedHMS : currentStatus === 'completed' ? `${todaySummary?.totalDurationFormatted || liveWorkedHMS || 'Completed'}` : '09:30 AM start'}</p>
+                      {workSessionLoading ? (
+                        <div className="h-6 w-24 bg-slate-100 rounded animate-pulse mt-1" />
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-lg font-extrabold text-slate-900 leading-tight">{attendanceHeadline}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${attendanceStatusPill.cls}`}>
+                              {attendanceStatusPill.label}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                            {checkInLabel ? `Check In: ${checkInLabel}` : 'Not clocked in yet'}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {isModuleAllowedForUser('attendance', user) && (
+                  <div
+                    onClick={() => onNavigateModule('attendance')}
+                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-medium text-slate-500 truncate">Work Hours</p>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
                       </div>
+                      <p className="text-lg font-extrabold text-slate-900 leading-tight mt-0.5 tabular-nums">
+                        {workSessionLoading ? '...' : workHoursText}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {shiftTargetHours !== null ? `Target: ${shiftTargetHours}h` : 'Shift target not set'}
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {isModuleAllowedForUser('leaves', user) && (
-                  <div onClick={onOpenLeaveModal} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                        <Shield className="w-5 h-5" />
+                  <div
+                    onClick={() => onNavigateModule('leaves')}
+                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <Umbrella className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-medium text-slate-500 truncate">Leave Balance</p>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
                       </div>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Leave Balance</p>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {leaveQuotaLoading ? 'Loading...' : `${empLeftDays} Days Left`}
-                        </p>
-                        <p className="text-[11px] text-emerald-600 font-semibold">
-                          {leaveQuotaLoading
-                            ? 'Fetching quota...'
-                            : `${empTakenDays} Used • ${empTotalQuota} Total`}
-                        </p>
+                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${leaveQuotaError ? 'text-rose-600' : 'text-slate-900'}`}>
+                        {leaveQuotaLoading
+                          ? '...'
+                          : leaveQuotaError
+                            ? 'Error'
+                            : !hasLeaveBackendData
+                              ? '—'
+                              : `${empLeftDays} Days`}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {leaveQuotaError
+                          ? leaveQuotaError
+                          : !leaveQuotaLoading && !hasLeaveBackendData
+                            ? 'Quota not configured'
+                            : 'This Year'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isModuleAllowedForUser('tasks', user) && (
+                  <div
+                    onClick={() => onNavigateModule('tasks')}
+                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <ListChecks className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-medium text-slate-500 truncate">Pending Tasks</p>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
                       </div>
+                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${empTasksError ? 'text-rose-600' : 'text-slate-900'}`}>
+                        {empTasksLoading ? '...' : empTasksError ? 'Error' : pendingTasksCount}
+                      </p>
+                      <p className="text-[11px] text-[#1b4332] font-semibold mt-0.5 truncate">
+                        {empTasksError ? 'Unable to load' : 'View Tasks \u2192'}
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {isModuleAllowedForUser('payslips', user) && (
-                  <div onClick={() => onNavigateModule('payslips')} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer h-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                        <Receipt className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Salary &amp; Payslips</p>
-                        <p className="text-sm font-semibold text-slate-800">{currentEmp?.salary?.net ? `₹${currentEmp.salary.net.toLocaleString()}` : '—'}</p>
-                        <p className="text-[11px] text-emerald-700 font-semibold">View Payslips &rarr;</p>
-                      </div>
+                  <div
+                    onClick={() => onNavigateModule('payslips')}
+                    className="group bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-4 hover:border-emerald-300 hover:shadow-sm transition-all cursor-pointer flex items-center gap-3.5"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <FileText className="w-5 h-5" />
                     </div>
-                  </div>
-                )}
-
-                {isModuleAllowedForUser('chat', user) && (
-                  <div onClick={() => currentEmp?.reportingManagerId ? onOpenChatWithEmployee?.(currentEmp.reportingManagerId) : undefined} className="relative bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 overflow-hidden hover:border-amber-200 hover:shadow-md transition-all cursor-pointer h-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                        <Briefcase className="w-5 h-5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-medium text-slate-500 truncate">
+                          Payslip{latestPayslipPeriod ? ` (${latestPayslipPeriod})` : ''}
+                        </p>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1b4332] transition shrink-0" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Reports To</p>
-                        <p className="text-sm font-semibold text-slate-800 truncate">{currentEmp?.reportingManagerName || 'Not assigned'}</p>
-                        <p className="text-[11px] text-amber-700 font-semibold">Tap to Chat</p>
-                      </div>
+                      <p className={`text-lg font-extrabold leading-tight mt-0.5 tabular-nums ${empPayslipsError ? 'text-rose-600' : 'text-slate-900'}`}>
+                        {empPayslipsLoading
+                          ? '...'
+                          : empPayslipsError
+                            ? 'Error'
+                            : latestPayslipAmount !== null
+                              ? `₹${latestPayslipAmount.toLocaleString()}`
+                              : '—'}
+                      </p>
+                      <p className="text-[11px] text-[#1b4332] font-semibold mt-0.5 truncate">
+                        {empPayslipsError
+                          ? 'Unable to load'
+                          : !empPayslipsLoading && !latestPayslip
+                            ? 'No payslip generated'
+                            : 'View Payslip \u2192'}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1803,250 +2156,668 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* â•â•â• EMPLOYEE PANELS GRID â•â•â• */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            <div className="lg:col-span-6 flex flex-col">
-              <DailyShiftConsole clockSize="sm" showHeaderClock={false} className="h-full" />
-            </div>
+            {/* Row 1 Left: Attendance Today */}
+            {isModuleAllowedForUser('attendance', user) && (() => {
+              const todayRec = myAllAttendance.find(
+                (a) => String(a.date || '').slice(0, 10) === todayDate
+              );
+              const formatTimeVal = (val?: string | null) => {
+                if (!val || val === '--:--') return '';
+                if (val.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(val)) {
+                  const d = new Date(val);
+                  if (!isNaN(d.getTime())) {
+                    return d.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    });
+                  }
+                }
+                return val;
+              };
 
-            <div className="lg:col-span-6 flex flex-col">
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-full">
-                <div className="p-3 sm:p-3.5 flex flex-col flex-1 min-h-0">
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                        <CalendarCheck className="w-3.5 h-3.5" />
+              const punchesSrc =
+                Array.isArray(livePunches) && livePunches.length > 0
+                  ? livePunches
+                  : Array.isArray(todayRec?.punches)
+                    ? todayRec.punches
+                    : [];
+
+              const breakWindow = (() => {
+                const starts = punchesSrc.filter((p: any) =>
+                  ['BREAK_START', 'BREAK_IN', 'START_BREAK', 'TAKE_BREAK', 'BREAK'].includes(
+                    String(p?.type || '').trim().toUpperCase().replace(/[-\s]+/g, '_')
+                  )
+                );
+                const ends = punchesSrc.filter((p: any) =>
+                  ['BREAK_END', 'BREAK_OUT', 'END_BREAK', 'RESUME', 'RESUME_WORK'].includes(
+                    String(p?.type || '').trim().toUpperCase().replace(/[-\s]+/g, '_')
+                  )
+                );
+                if (starts.length === 0) return '';
+                const lastStart = starts[starts.length - 1];
+                const startStr = formatTimeVal(
+                  lastStart?.punchedAt || lastStart?.punchTime || lastStart?.time || lastStart?.timestamp || lastStart?.createdAt
+                );
+                const lastEnd = ends.length >= starts.length ? ends[ends.length - 1] : null;
+                const endStr = lastEnd
+                  ? formatTimeVal(lastEnd?.punchedAt || lastEnd?.punchTime || lastEnd?.time || lastEnd?.timestamp || lastEnd?.createdAt)
+                  : '';
+                if (startStr && endStr) return `${startStr} – ${endStr}`;
+                if (startStr && currentStatus === 'on_break') return `${startStr} – Active`;
+                return '';
+              })();
+
+              const checkInStr =
+                formatTimeVal(activeSession?.startTime) ||
+                formatTimeVal(lastCompletedSession?.startTime) ||
+                formatTimeVal(todayRec?.checkIn);
+
+              const checkOutStr =
+                currentStatus === 'completed'
+                  ? formatTimeVal(lastCompletedSession?.endTime) || formatTimeVal(todayRec?.checkOut) || 'Completed'
+                  : todayRec?.checkOut && todayRec.checkOut !== '--:--' && currentStatus !== 'working' && currentStatus !== 'on_break'
+                    ? formatTimeVal(todayRec.checkOut)
+                    : checkInStr
+                      ? 'Pending'
+                      : '—';
+
+              const rawBreakSecs = totalBreakSeconds || breakSeconds || 0;
+              const breakDurationStr =
+                rawBreakSecs > 0
+                  ? formatSecondsToWords(rawBreakSecs)
+                  : todayRec?.formattedTotalBreak ||
+                  (todayRec?.breakDurationMinutes ? `${todayRec.breakDurationMinutes}m` : '');
+              const breakDisplay =
+                currentStatus === 'on_break'
+                  ? breakWindow || `On Break (${liveBreakHMS})`
+                  : breakWindow || breakDurationStr || (checkInStr ? 'No break logged' : '—');
+
+              const workedSecs = Math.max(
+                0,
+                totalWorkedSeconds ||
+                elapsedSeconds ||
+                (todayRec?.workingHours ? Math.round(todayRec.workingHours * 3600) : 0)
+              );
+              const targetSecs = shiftTargetHours !== null && shiftTargetHours > 0 ? shiftTargetHours * 3600 : 0;
+              const progressPct = targetSecs > 0
+                ? Math.min(100, Math.round((workedSecs / targetSecs) * 100))
+                : checkInStr
+                  ? 100
+                  : 0;
+              const ringRadius = 42;
+              const ringCirc = 2 * Math.PI * ringRadius;
+              const ringOffset = ringCirc - (ringCirc * progressPct) / 100;
+
+              const statusHeading =
+                currentStatus === 'working'
+                  ? 'Present'
+                  : currentStatus === 'on_break'
+                    ? 'On Break'
+                    : currentStatus === 'completed'
+                      ? 'Completed'
+                      : todayRec?.status || (checkInStr ? 'Present' : 'Not Clocked In');
+
+              const statusSubtext =
+                currentStatus === 'on_break'
+                  ? `Break timer: ${liveBreakHMS}`
+                  : checkInStr
+                    ? currentStatus === 'completed' && checkOutStr !== 'Pending' && checkOutStr !== '—'
+                      ? `Out at ${checkOutStr}`
+                      : `Since ${checkInStr}`
+                    : 'Ready to start shift';
+
+              const isCheckedIn = Boolean(
+                currentStatus === 'working' ||
+                currentStatus === 'on_break' ||
+                currentStatus === 'completed' ||
+                checkInStr
+              );
+
+              return (
+                <div className="lg:col-span-6 flex flex-col">
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h4l3-7 4 14 3-7h4" />
+                          </svg>
+                        </span>
+                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                          Attendance Today
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onNavigateModule('attendance')}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                      >
+                        <span>View Details</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
                     </div>
-                    <div className="min-w-0">
-                        <h3 className="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight leading-tight truncate">
-                          My Recent Attendance
-                      </h3>
-                      
+
+                    <div className="py-5 grid grid-cols-1 sm:grid-cols-12 gap-5 items-center flex-1">
+                      {/* Left Circular Ring & Current Status */}
+                      <div className="sm:col-span-5 flex flex-col items-center justify-center text-center">
+                        <div className="relative w-28 h-28 flex items-center justify-center">
+                          <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r={ringRadius}
+                              fill="none"
+                              stroke="#e2e8f0"
+                              strokeWidth="7"
+                            />
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r={ringRadius}
+                              fill="none"
+                              stroke={
+                                currentStatus === 'on_break'
+                                  ? '#d97706'
+                                  : isCheckedIn
+                                    ? '#16a34a'
+                                    : '#cbd5e1'
+                              }
+                              strokeWidth="7"
+                              strokeLinecap="round"
+                              strokeDasharray={ringCirc}
+                              strokeDashoffset={isCheckedIn && progressPct === 0 ? ringCirc * 0.85 : ringOffset}
+                              className="transition-all duration-500"
+                            />
+                          </svg>
+                          <div
+                            className={`absolute w-12 h-12 rounded-full flex items-center justify-center shadow-2xs ${currentStatus === 'on_break'
+                              ? 'bg-amber-600 text-white'
+                              : isCheckedIn
+                                ? 'bg-[#15803d] text-white'
+                                : 'bg-slate-100 text-slate-400'
+                              }`}
+                          >
+                            {isCheckedIn ? (
+                              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <Clock className="w-5 h-5" />
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-[15px] font-bold text-slate-900 mt-2.5 leading-tight">
+                          {statusHeading}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">{statusSubtext}</p>
+                      </div>
+
+                      {/* Right Vertical Timeline */}
+                      <div className="sm:col-span-7 relative pl-7 space-y-5">
+                        <div
+                          className="absolute left-[11px] top-3 bottom-3 w-[1.5px] bg-slate-200"
+                          aria-hidden="true"
+                        />
+
+                        {/* Check In */}
+                        <div className="relative flex flex-col">
+                          <span
+                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${checkInStr ? 'bg-[#15803d] text-white' : 'bg-slate-200 text-slate-500'
+                              }`}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Check In</span>
+                          <span className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                            {checkInStr || 'Not clocked in yet'}
+                          </span>
+                        </div>
+
+                        {/* Break */}
+                        <div className="relative flex flex-col">
+                          <span
+                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'on_break'
+                              ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                              : 'bg-slate-200 text-slate-500'
+                              }`}
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Break</span>
+                          <span className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                            {breakDisplay}
+                          </span>
+                        </div>
+
+                        {/* Check Out */}
+                        <div className="relative flex flex-col">
+                          <span
+                            className={`absolute -left-7 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white ${currentStatus === 'completed'
+                              ? 'bg-[#15803d] text-white'
+                              : 'bg-slate-200 text-slate-400'
+                              }`}
+                          >
+                            <span className="w-2 h-2 rounded-full bg-current" />
+                          </span>
+                          <span className="text-[13px] font-bold text-slate-800 leading-tight">Check Out</span>
+                          <span
+                            className={`text-xs mt-0.5 tabular-nums ${checkOutStr === 'Pending' ? 'text-amber-600 font-medium' : 'text-slate-500'
+                              }`}
+                          >
+                            {checkOutStr}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Subtle quick punch footer when user has punch permission */}
+                    {canUserPunch(user) && currentStatus !== 'completed' && (() => {
+                      const isActiveShift = currentStatus === 'working' || currentStatus === 'on_break';
+                      return (
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                          <span className="text-slate-500">
+                            {isActiveShift
+                              ? `Live timer: ${liveWorkedHMS}`
+                              : 'Tap Clock In to start recording work hours.'}
+                          </span>
+                          {isActiveShift ? (
+                            <button
+                              type="button"
+                              onClick={() => setCheckOutModalOpen(true)}
+                              className="px-3 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold transition cursor-pointer shrink-0"
+                            >
+                              Clock Out
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onOpenClockModal}
+                              className="px-3 py-1 rounded-lg bg-[#1b4332] hover:bg-[#2d6a4f] text-white font-semibold transition cursor-pointer shrink-0"
+                            >
+                              Clock In
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Row 1 Right: Upcoming Calendar */}
+            <div className="lg:col-span-6 flex flex-col">
+              {(() => {
+                const todayObj = new Date();
+                const todayWeekday = todayObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const todayDayNum = todayObj.getDate();
+                const todayMonthShort = todayObj.toLocaleDateString('en-US', { month: 'short' });
+
+                const todayHoliday = upcomingHolidays.find(
+                  (h: any) => String(h.date || '').slice(0, 10) === todayDate
+                );
+
+                const eId = currentEmp?.id || user?.employeeId || user?.id || '';
+                const todayApprovedLeave = leaves.find((l) => {
+                  const statusOk = String(l.status || '').toLowerCase() === 'approved';
+                  if (!statusOk) return false;
+                  const mine =
+                    (eId && l.employeeId === eId) ||
+                    (user?.email && (l as any).employeeEmail?.toLowerCase() === user.email.toLowerCase());
+                  if (!mine) return false;
+                  const s = String(l.startDate || '').slice(0, 10);
+                  const e = String(l.endDate || l.startDate || '').slice(0, 10);
+                  return s <= todayDate && e >= todayDate;
+                });
+
+                const todayBannerTitle = todayHoliday
+                  ? todayHoliday.name
+                  : todayApprovedLeave
+                    ? `On Leave (${todayApprovedLeave.leaveType || 'Approved'})`
+                    : 'No Events Today';
+                const todayBannerSub = todayHoliday
+                  ? todayHoliday.type || 'Company Holiday'
+                  : todayApprovedLeave
+                    ? 'Enjoy your approved time off.'
+                    : 'Enjoy your day!';
+
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                          <Calendar className="w-4 h-4" />
+                        </span>
+                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                          Upcoming Calendar
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onNavigateModule('calendar')}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                      >
+                        <span>View Calendar</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 space-y-4 flex-1 flex flex-col justify-between">
+                      {/* Today highlight box */}
+                      <div className="relative rounded-xl bg-gradient-to-r from-slate-50 via-[#edf7f0]/80 to-[#d8f3dc]/60 border border-slate-200/70 p-3.5 flex items-center justify-between gap-3 overflow-hidden">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-14 h-16 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex flex-col items-center justify-center shrink-0">
+                            <span className="text-[10px] font-semibold text-slate-500 leading-none">
+                              {todayWeekday}
+                            </span>
+                            <span className="text-xl font-extrabold text-slate-900 leading-tight mt-0.5 tabular-nums">
+                              {todayDayNum}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500 leading-none">
+                              {todayMonthShort}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-900 truncate">{todayBannerTitle}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">{todayBannerSub}</p>
+                          </div>
+                        </div>
+
+                        <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-xl bg-white/80 border border-emerald-200/60 text-[#2d6a4f] shrink-0 shadow-2xs">
+                          <CalendarCheck className="w-6 h-6" />
+                        </div>
+                      </div>
+
+                      {/* Upcoming Holidays list */}
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 mb-2">Upcoming Holidays</p>
+                        {holidaysLoading ? (
+                          <div className="space-y-2 animate-pulse">
+                            {[0, 1].map((idx) => (
+                              <div key={idx} className="h-11 rounded-xl bg-slate-100" />
+                            ))}
+                          </div>
+                        ) : holidaysError ? (
+                          <div className="py-4 px-3 rounded-xl bg-rose-50/70 border border-rose-200 text-center text-xs text-rose-700">
+                            {holidaysError}
+                          </div>
+                        ) : upcomingHolidays.length === 0 ? (
+                          <div className="py-4 px-3 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                            No upcoming holidays scheduled.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {upcomingHolidays.slice(0, 3).map((h: any) => {
+                              const holDate = new Date(h.date);
+                              const dateLabel = isNaN(holDate.getTime())
+                                ? String(h.date || '')
+                                : holDate.toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                });
+                              const todayMidnight = new Date();
+                              todayMidnight.setHours(0, 0, 0, 0);
+                              const holMidnight = new Date(holDate);
+                              holMidnight.setHours(0, 0, 0, 0);
+                              const diffDays = isNaN(holMidnight.getTime())
+                                ? null
+                                : Math.max(
+                                  0,
+                                  Math.round((holMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24))
+                                );
+                              const daysPill =
+                                diffDays === null
+                                  ? ''
+                                  : diffDays === 0
+                                    ? 'Today'
+                                    : diffDays === 1
+                                      ? 'Tomorrow'
+                                      : `In ${diffDays} days`;
+
+                              return (
+                                <div
+                                  key={h.id || `${h.name}-${h.date}`}
+                                  className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="w-8 h-8 rounded-lg bg-emerald-50 text-[#1b4332] border border-emerald-100 flex items-center justify-center shrink-0">
+                                      <Calendar className="w-4 h-4" />
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-slate-900 truncate">{h.name}</p>
+                                      <p className="text-[11px] text-slate-500 truncate">{dateLabel}</p>
+                                    </div>
+                                  </div>
+                                  {daysPill && (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/80 text-[#1b4332] text-[10px] font-semibold shrink-0">
+                                      {daysPill}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                );
+              })()}
+            </div>
+
+            {/* Row 2 Left: Task Summary */}
+            {isModuleAllowedForUser('tasks', user) && (() => {
+              const highCount = empTasks.filter(
+                (t: any) => String(t?.priority || '').toUpperCase() === 'HIGH'
+              ).length;
+              const mediumCount = empTasks.filter(
+                (t: any) => String(t?.priority || '').toUpperCase() === 'MEDIUM'
+              ).length;
+              const lowCount = empTasks.filter(
+                (t: any) => String(t?.priority || '').toUpperCase() === 'LOW'
+              ).length;
+              const totalCount = empTasks.length;
+
+              return (
+                <div className="lg:col-span-6 flex flex-col">
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
+                    <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                          <ListChecks className="w-4 h-4" />
+                        </span>
+                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                          Task Summary
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onNavigateModule('tasks')}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
+                      >
+                        <span>View All Tasks</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 flex-1 flex flex-col justify-center">
+                      {empTasksLoading ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-pulse">
+                          {[0, 1, 2, 3].map((idx) => (
+                            <div key={idx} className="h-24 rounded-xl bg-slate-100" />
+                          ))}
+                        </div>
+                      ) : empTasksError ? (
+                        <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 text-center">
+                          {empTasksError}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => onNavigateModule('tasks')}
+                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-rose-200 hover:bg-rose-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <span className="w-7 h-7 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">High Priority</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{highCount}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onNavigateModule('tasks')}
+                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-amber-200 hover:bg-amber-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">Medium Priority</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{mediumCount}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onNavigateModule('tasks')}
+                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <span className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">Low Priority</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{lowCount}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onNavigateModule('tasks')}
+                            className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-center flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <span className="w-7 h-7 rounded-full bg-emerald-50 text-[#1b4332] border border-emerald-200/70 flex items-center justify-center mb-1.5">
+                              <ListChecks className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">Total Tasks</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-1 tabular-nums">{totalCount}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Row 2 Right: Announcements */}
+            <div className="lg:col-span-6 flex flex-col">
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 flex flex-col justify-between h-full">
+                <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-[#d8f3dc]/80 text-[#1b4332] flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
+                    </span>
+                    <h3 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">
+                      Announcements
+                    </h3>
+                  </div>
                   <button
-                    onClick={() => onNavigateModule('attendance')}
-                      className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5 shrink-0 cursor-pointer"
+                    type="button"
+                    onClick={() => onNavigateModule('announcements')}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-emerald-50 hover:border-emerald-200 hover:text-[#1b4332] text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer shrink-0"
                   >
-                    <span>Full Log</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span>View All</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
 
-                  <div className="mt-2.5 flex-1 overflow-auto max-h-[145px] [scrollbar-width:thin]">
-                    <table className="w-full text-left text-[11px] border-collapse">
-                      <thead className="sticky top-0 z-10 bg-white">
-                        <tr className="border-b border-slate-100 text-[9px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/80">
-                          <th className="py-1.5 px-2">DATE &amp; DAY</th>
-                          <th className="py-1.5 px-2">CLOCK IN</th>
-                          <th className="py-1.5 px-2">CLOCK OUT</th>
-                          <th className="py-1.5 px-2">BREAK</th>
-                          <th className="py-1.5 px-2">WORKED</th>
-                          <th className="py-1.5 px-2 text-right">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {myRecentAttendance.length === 0 ? (
-                        <tr>
-                            <td colSpan={6} className="py-4 text-center text-slate-400 text-[11px]">
-                              No attendance history recorded yet. Clock in to begin tracking your work hours!
-                          </td>
-                        </tr>
-                      ) : (
-                        myRecentAttendance.map((rec: any) => {
-                          const recDate = new Date(rec.date);
-                            const dayName = rec.date === getTodayDateString() ? 'Today' : recDate.toLocaleDateString('en-US', { weekday: 'short' });
-                            const formattedDate = recDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                            const workedStr = rec.totalHours || (rec.workingHours ? `${rec.workingHours} hrs` : (rec.date === getTodayDateString() && currentStatus === 'working' ? liveWorkedHMS : '—'));
-                            const bSecs = getLiveBreakSeconds(rec);
-                            const breakStr = rec.formattedTotalBreak || (bSecs > 0 ? formatSecondsToWords(bSecs) : rec.breakDurationMinutes ? `${rec.breakDurationMinutes}m` : '0m');
-
-                          return (
-                            <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
-                                <td className="py-1.5 px-2 font-semibold text-slate-900 whitespace-nowrap">
-                                  <span>{dayName}</span>
-                                  <span className="text-[10px] text-slate-400 font-normal ml-1">{formattedDate}</span>
-                                </td>
-                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkIn && rec.checkIn !== '--:--' ? rec.checkIn : '—'}</td>
-                                <td className="py-1.5 px-2 font-medium text-slate-700 whitespace-nowrap">{rec.checkOut && rec.checkOut !== '--:--' ? rec.checkOut : '—'}</td>
-                                <td className="py-1.5 px-2 text-slate-500 whitespace-nowrap">{breakStr}</td>
-                                <td className="py-1.5 px-2 font-mono font-semibold text-slate-900 whitespace-nowrap">{workedStr}</td>
-                                <td className="py-1.5 px-2 text-right whitespace-nowrap">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-semibold ${rec.status === 'Late' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                                }`}>
-                                  {rec.status || 'Present'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-6">
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
-                <div className="p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                    <h4 className="text-sm font-bold text-slate-900 m-0">Leave Quota &amp; Balances</h4>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => onNavigateModule('leaves')}
-                        className="text-xs font-semibold text-slate-500 hover:text-emerald-700 cursor-pointer"
-                      >
-                        View All
-                      </button>
-                    <button
-                      onClick={onOpenLeaveModal}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                    >
-                      + Apply Leave
-                    </button>
+                <div className="mt-4 flex-1 flex flex-col justify-center">
+                  {announcementsLoading ? (
+                    <div className="space-y-2.5 animate-pulse">
+                      {[0, 1].map((idx) => (
+                        <div key={idx} className="h-14 rounded-xl bg-slate-100" />
+                      ))}
                     </div>
-                  </div>
-
-                  {(() => {
-                    const empMyLeaves = leaves.filter((l) => {
-                      const eId = currentEmp?.id || user?.employeeId || user?.id || '';
-                      const eEmail = currentEmp?.email?.toLowerCase() || user?.email?.toLowerCase() || '';
-                      const eCode = ((currentEmp as any)?.employeeCode || (user as any)?.employeeCode || '').toLowerCase();
-                      const eName = `${currentEmp?.firstName || user?.firstName || ''} ${currentEmp?.lastName || user?.lastName || ''}`.trim().toLowerCase();
-                      if (eId && l.employeeId === eId) return true;
-                      if (eEmail && (l as any).employeeEmail?.toLowerCase() === eEmail) return true;
-                      if (eCode && (l as any).employeeCode?.toLowerCase() === eCode) return true;
-                      if (eName && l.employeeName?.toLowerCase() === eName) return true;
-                      return false;
-                    });
-                    const empLeaveResult = calculateEmployeeLeaveBalances(
-                      leaveTypesList,
-                      empMyLeaves,
-                      leaveQuotaData?.settings ?? null,
-                      leaveQuotaData?.balances ?? null
-                    );
-                    const empSummary = resolveLeaveQuotaSummary(
-                      leaveQuotaData?.settings ?? null,
-                      leaveQuotaData?.balances ?? null,
-                      empMyLeaves,
-                      leaveTypesList
-                    );
-
-                    if (leaveQuotaLoading) {
-                      return (
-                        <div className="grid grid-cols-3 gap-2.5 text-center text-xs animate-pulse">
-                          {[0, 1, 2].map((idx) => (
-                            <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
-                              <div className="h-3 w-12 mx-auto bg-slate-200 rounded" />
-                              <div className="h-5 w-14 mx-auto bg-slate-200 rounded" />
-                              <div className="h-2.5 w-16 mx-auto bg-slate-100 rounded" />
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    // Dynamically show the top 3 leave types configured for the employee
-                    const top3Cards = empLeaveResult.cards.slice(0, 3);
-                    const gridColsClass = top3Cards.length === 1 ? 'grid-cols-1' : top3Cards.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
-
-                    if (top3Cards.length > 0) {
-                      return (
-                        <div className={`grid ${gridColsClass} gap-2.5 text-center text-xs`}>
-                          {top3Cards.map((card) => (
-                            <div
-                              key={card.id}
-                              onClick={() => onNavigateModule('leaves')}
-                              className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all cursor-pointer flex flex-col justify-between"
-                            >
-                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block truncate" title={card.name}>
-                                {card.name}
-                              </span>
-                              <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
-                                {card.available} Left
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-                                of {card.quota} Total
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    return (
-                  <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
-                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Casual</span>
-                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
-                            {empSummary.casual.available} Left
-                      </span>
-                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-                            of {empSummary.casual.quota} Total
-                      </span>
+                  ) : announcementsError ? (
+                    <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-700 text-center">
+                      {announcementsError}
                     </div>
-                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sick</span>
-                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
-                            {empSummary.sick.available} Left
-                      </span>
-                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-                            of {empSummary.sick.quota} Total
-                      </span>
+                  ) : announcements.length === 0 ? (
+                    <div className="py-6 px-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                      No announcements posted yet.
                     </div>
-                        <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Annual</span>
-                          <span className="text-xl font-bold tracking-tight text-slate-900 block mt-1">
-                            {empSummary.paid.available} Left
-                      </span>
-                          <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-                            of {empSummary.paid.quota} Total
-                      </span>
-                    </div>
-                  </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {announcements.slice(0, 3).map((item: any, idx: number) => {
+                        const rawDate = item.createdAt || item.date || item.publishedAt || '';
+                        const dObj = rawDate ? new Date(rawDate) : null;
+                        const dateStr =
+                          dObj && !isNaN(dObj.getTime())
+                            ? dObj.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: '2-digit',
+                              year: 'numeric',
+                            })
+                            : '';
+                        const messageText = item.content || item.message || item.description || '';
 
-            <div className="lg:col-span-6">
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden h-full">
-                <div className="p-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                    <h4 className="text-sm font-bold text-slate-900 m-0">Upcoming Holidays</h4>
-                    <button
-                      onClick={() => onNavigateModule('calendar')}
-                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                    >
-                      View Calendar
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    {upcomingHolidays.length === 0 ? (
-                      <p className="text-center py-6 text-xs text-slate-400">No upcoming holidays scheduled.</p>
-                    ) : (
-                      upcomingHolidays.map((h: any) => {
-                        const holDate = new Date(h.date);
-                        const dateLabel = holDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', weekday: 'short' });
                         return (
-                          <div key={h.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                                <Calendar className="w-3.5 h-3.5" />
-                              </div>
-                              <div>
-                                <span className="font-bold text-slate-900 block truncate max-w-[140px]">{h.name}</span>
-                                <span className="text-[10px] text-slate-400">{h.type || 'Company Holiday'}</span>
+                          <button
+                            key={item.id || `${item.title}-${idx}`}
+                            type="button"
+                            onClick={() => onNavigateModule('announcements')}
+                            className={`w-full text-left flex items-start justify-between gap-3 p-3 rounded-xl border transition-all cursor-pointer ${idx === 0
+                              ? 'bg-[#edf7f0]/75 border-emerald-200/70 hover:border-emerald-300'
+                              : 'bg-slate-50/70 border-slate-100 hover:border-slate-200'
+                              }`}
+                          >
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              <span
+                                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${idx === 0
+                                  ? 'bg-[#d8f3dc] text-[#1b4332]'
+                                  : 'bg-white border border-slate-200 text-slate-500'
+                                  }`}
+                              >
+                                {idx === 0 ? (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                  </svg>
+                                ) : (
+                                  <FileText className="w-4 h-4" />
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-900 truncate">
+                                  {item.title || 'Company Announcement'}
+                                </p>
+                                {messageText && (
+                                  <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
+                                    {messageText}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <span className="font-semibold text-slate-700 text-[11px] shrink-0">{dateLabel}</span>
-                          </div>
+                            {dateStr && (
+                              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200/80 text-[10px] font-medium text-slate-600 shrink-0 whitespace-nowrap">
+                                {dateStr}
+                              </span>
+                            )}
+                          </button>
                         );
-                      })
-                    )}
-                  </div>
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2069,13 +2840,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
               <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Square className="w-5 h-5 fill-current" />
-              </div>
-              <div>
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Square className="w-5 h-5 fill-current" />
+                </div>
+                <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Clock Out for Today?</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Attendance shift finalization</p>
-              </div>
+                </div>
               </div>
               <button
                 onClick={() => setCheckOutModalOpen(false)}
@@ -2247,15 +3018,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1.5">
                   Rejection Reason (Shared with Employee) *
-              </label>
-              <textarea
-                id="reject-reason-input"
-                rows={3}
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Enter rejection reason..."
+                </label>
+                <textarea
+                  id="reject-reason-input"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-              />
+                />
               </div>
             </div>
 
@@ -2298,13 +3069,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
               <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Remove Employee?</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Staff roster modification</p>
-              </div>
+                </div>
               </div>
               <button
                 onClick={() => setRemovingEmpDashboard(null)}

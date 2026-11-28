@@ -11,6 +11,7 @@ export const APP_MODULES = [
   'chat',
   'calendar',
   'employees',
+  'team-directory',
   'organization',
   'tasks',
   'payroll',

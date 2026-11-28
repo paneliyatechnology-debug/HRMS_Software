@@ -49,6 +49,7 @@ import {
 } from '../../lib/chatService';
 import { clearChatUnread, subscribeChatUnread } from '../../lib/chatUnread';
 import { api } from '../../lib/api';
+import { getSharpAvatarUrl } from '../../lib/imageUtils';
 import {
   prepareChatAttachmentFromFile,
   getAttachmentPreviewText,
@@ -301,8 +302,27 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         if (!cancelled) showToast({ title: 'Chat', message: err?.message || 'Could not load chat.', type: 'error', module: 'chat' });
       });
     loadChats();
+    let lastChatSyncAt = 0;
+    const handleChatResume = (event?: Event) => {
+      if (event?.type === 'hrms_company_data') {
+        const scope = String((event as CustomEvent).detail?.scope || '');
+        if (scope !== 'all' && scope !== 'chat') return;
+      } else if (document.visibilityState && document.visibilityState !== 'visible') {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastChatSyncAt < 1000) return;
+      lastChatSyncAt = now;
+      void loadChats();
+    };
+    document.addEventListener('visibilitychange', handleChatResume);
+    window.addEventListener('focus', handleChatResume);
+    window.addEventListener('hrms_company_data', handleChatResume);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', handleChatResume);
+      window.removeEventListener('focus', handleChatResume);
+      window.removeEventListener('hrms_company_data', handleChatResume);
     };
   }, [myStaffId]);
 
@@ -430,8 +450,27 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
           .catch(() => undefined);
       };
       load();
+      let lastThreadSyncAt = 0;
+      const handleThreadResume = (event?: Event) => {
+        if (event?.type === 'hrms_company_data') {
+          const scope = String((event as CustomEvent).detail?.scope || '');
+          if (scope !== 'all' && scope !== 'chat') return;
+        } else if (document.visibilityState && document.visibilityState !== 'visible') {
+          return;
+        }
+        const now = Date.now();
+        if (now - lastThreadSyncAt < 1000) return;
+        lastThreadSyncAt = now;
+        load();
+      };
+      document.addEventListener('visibilitychange', handleThreadResume);
+      window.addEventListener('focus', handleThreadResume);
+      window.addEventListener('hrms_company_data', handleThreadResume);
       return () => {
         cancelled = true;
+        document.removeEventListener('visibilitychange', handleThreadResume);
+        window.removeEventListener('focus', handleThreadResume);
+        window.removeEventListener('hrms_company_data', handleThreadResume);
       };
     }
     const msgs = getMessagesForConversation(activeConversationId);
@@ -1071,8 +1110,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({
         {canShowPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={info.avatarUrl}
+            src={getSharpAvatarUrl(info.avatarUrl, 128)}
             alt={info.name}
+            loading="lazy"
+            decoding="async"
             onError={() =>
               setBrokenAvatarUrls((prev) => ({ ...prev, [info.avatarUrl!]: true }))
             }

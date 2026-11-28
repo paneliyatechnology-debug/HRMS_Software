@@ -14,6 +14,7 @@ export type HrmsModuleId =
   | 'attendance'
   | 'leaves'
   | 'employees'
+  | 'team-directory'
   | 'organization'
   | 'tasks'
   | 'payroll'
@@ -71,7 +72,6 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
-    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -87,7 +87,6 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'attendance',
     'leaves',
     'employees',
-    'tasks',
     'payroll',
     'recruitment',
     'resignations',
@@ -134,6 +133,7 @@ export const ROLE_MODULE_PERMISSIONS: Record<string, HrmsModuleId[]> = {
     'tasks',
     'payslips',
     'resignations',
+    'team-directory',
     'announcements',
     'documents',
     'chat',
@@ -165,6 +165,7 @@ const SHARED_MODULES = new Set([
   'profile',
   'announcements',
   'documents',
+  'team-directory',
   'chat',
   'calendar',
   'notifications',
